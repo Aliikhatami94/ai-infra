@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "aiinfra"
+name = "ai-infra"
 version = "0.1.0"
 description = "Reusable LLM infra helpers"
 authors = ["Ali Khatami <aliikhatami94@gmail.com>"]
