@@ -4,7 +4,7 @@ from .llm.base import BaseLLM
 from .llm.context import LLMContext
 from .llm.settings import LLMSettings, get_llm_settings
 
-load_dotenv()
+load_dotenv(find_dotenv(usecwd=True), override=False)
 
 __all__ = [
     "BaseLLM",
@@ -13,4 +13,4 @@ __all__ = [
     "get_llm_settings",
 ]
 
-__version__ = "0.0.1"
+__version__ = "0.1.1"
