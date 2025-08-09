@@ -1,17 +1,19 @@
-[project]
-name = "aiinfa"
+# pyproject.toml
+[tool.poetry]
+name = "aiinfra"                 # distribution name on pip/Git
 version = "0.1.0"
-description = ""
-authors = [
-    {name = "Ali Khatami",email = "aliikhatami94@gmail.com"}
-]
+description = "Reusable LLM infra helpers"
+authors = ["Ali Khatami <aliikhatami94@gmail.com>"]
 readme = "README.md"
-requires-python = ">=3.11"
-dependencies = [
-    "langgraph (>=0.6.4,<0.7.0)"
-]
+packages = [{ include = "aiinfra", from = "src" }]
+# ^ tells Poetry to package src/aiinfra/**
 
+[tool.poetry.dependencies]
+python = ">=3.11,<4.0"
+pydantic = "^2.11"
+langgraph = ">=0.6.4,<0.7.0"
+# keep core deps tiny; provider SDKs can be optional/extras later
 
 [build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
+requires = ["poetry-core>=1.9.0"]
 build-backend = "poetry.core.masonry.api"
