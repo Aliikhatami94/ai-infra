@@ -1,1 +1,1 @@
-# aiinfra
+# ai-infra

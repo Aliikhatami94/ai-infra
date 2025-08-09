@@ -5,8 +5,8 @@ from langchain.chat_models import init_chat_model
 from langgraph.prebuilt import create_react_agent
 from langgraph.runtime import Runtime
 
-from src.infrastructure.llm.context import LLMContext
-from src.infrastructure.llm.settings import get_llm_settings
+from ai_infra.llm.context import LLMContext
+from ai_infra.llm.settings import get_llm_settings
 
 load_dotenv()
 

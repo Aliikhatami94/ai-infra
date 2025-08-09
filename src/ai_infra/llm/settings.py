@@ -2,7 +2,8 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Dict, Optional
 from pydantic import BaseModel, Field, model_validator
-from .models import OpenAIModels, AnthropicModels, GoogleGenAIModels, XAIModels
+
+from ai_infra.llm.models import OpenAIModels, AnthropicModels, GoogleGenAIModels, XAIModels
 
 class ProviderConfig(BaseModel):
     temperature: float = 1.0
