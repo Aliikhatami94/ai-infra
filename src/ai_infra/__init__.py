@@ -12,5 +12,3 @@ __all__ = [
     "LLMSettings",
     "get_llm_settings",
 ]
-
-__version__ = "0.2.0"
