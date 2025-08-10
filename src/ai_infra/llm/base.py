@@ -70,13 +70,3 @@ class BaseLLM:
         agent = self.create_agent(tools)
         response = agent.invoke({"messages": messages}, context=ctx)
         return response
-
-if __name__ == '__main__':
-    llm = BaseLLM()
-    settings = get_llm_settings()
-    response = llm.run_agent(
-        messages=[{"role": "user", "content": "Hello, how are you?"}],
-        provider="openai",
-        model_name="gpt-5-mini",
-    )
-    print(response)
