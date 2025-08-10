@@ -3,18 +3,17 @@ from functools import lru_cache
 from typing import Dict, Optional
 from pydantic import BaseModel, Field, model_validator
 
-from ai_infra.llm.models import OpenAIModels, AnthropicModels, GoogleGenAIModels, XAIModels
+from ai_infra.llm.models import Models
 
 class ProviderConfig(BaseModel):
     temperature: float = 1.0
-    models: BaseModel
 
 def _default_providers() -> Dict[str, ProviderConfig]:
     return {
-        "openai": ProviderConfig(models=OpenAIModels()),
-        "anthropic": ProviderConfig(models=AnthropicModels()),
-        "google_genai": ProviderConfig(models=GoogleGenAIModels()),
-        "xai": ProviderConfig(models=XAIModels()),
+        Providers.openai: ProviderConfig(),
+        Providers.anthropic: ProviderConfig(),
+        Providers.google_genai: ProviderConfig(),
+        Providers.xai: ProviderConfig(),
     }
 
 class LLMSettings(BaseModel):  # <- BaseModel, not BaseSettings

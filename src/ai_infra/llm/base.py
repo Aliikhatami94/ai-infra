@@ -7,6 +7,8 @@ from langgraph.runtime import Runtime
 
 from ai_infra.llm.context import LLMContext
 from ai_infra.llm.settings import get_llm_settings
+from ai_infra.llm.providers import Providers
+from ai_infra.llm.models import Models
 
 load_dotenv()
 
@@ -22,6 +24,14 @@ class BaseLLM:
         self.tools.append(tool_obj)
 
     def register_model(self, provider: str, model_name: str, **kwargs):
+        # Accept provider as Providers.<provider> (e.g., Providers.openai)
+        # Accept model_name as Models.<provider>.<model>.value (e.g., Models.openai.gpt_4o.value)
+        if provider not in [Providers.openai, Providers.anthropic, Providers.google_genai, Providers.xai]:
+            raise ValueError(f"Unknown provider: {provider}")
+        # Validate model_name is a valid model for the provider
+        valid_models = getattr(Models, provider)
+        if model_name not in [m.value for m in valid_models]:
+            raise ValueError(f"Invalid model_name '{model_name}' for provider '{provider}'.")
         key = f"{provider}:{model_name}"
         if key not in self.models:
             self.models[key] = init_chat_model(key, api_key=os.environ.get(f"{provider.upper()}_API_KEY"), **kwargs)
@@ -55,10 +65,13 @@ class BaseLLM:
         extra: Optional[Dict[str, Any]] = None,
         model_kwargs: Optional[Dict[str, Any]] = None
     ) -> Any:
-        """
-        Run the agent with the specified provider, model, tools, and extra model kwargs.
-        Returns the agent's response.
-        """
+        # Enforce usage of Providers and Models for provider/model_name
+        if provider not in [Providers.openai, Providers.anthropic, Providers.google_genai, Providers.xai]:
+            raise ValueError(f"Unknown provider: {provider}")
+        valid_models = getattr(Models, provider)
+        if model_name not in [m.value for m in valid_models]:
+            raise ValueError(f"Invalid model_name '{model_name}' for provider '{provider}'.")
+        # ...existing code...
         model_kwargs = model_kwargs or {}
         self.register_model(provider, model_name, **model_kwargs)
         ctx = LLMContext(
