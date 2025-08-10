@@ -6,6 +6,8 @@ from .llm.settings import LLMSettings, get_llm_settings
 from .llm.providers import Providers
 from .llm.models import Models
 
+load_dotenv(find_dotenv(usecwd=True))
+
 __all__ = [
     "BaseLLM",
     "LLMContext",
