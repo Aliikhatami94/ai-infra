@@ -26,9 +26,9 @@ class BaseLLM:
     def register_model(self, provider: str, model_name: str, **kwargs):
         # Accept provider as Providers.<provider> (e.g., Providers.openai)
         # Accept model_name as Models.<provider>.<model>.value (e.g., Models.openai.gpt_4o.value)
-        if provider not in [Providers.openai, Providers.anthropic, Providers.google_genai, Providers.xai]:
+        provider_names = [v for k, v in Providers.__dict__.items() if not k.startswith('__') and not callable(v)]
+        if provider not in provider_names:
             raise ValueError(f"Unknown provider: {provider}")
-        # Validate model_name is a valid model for the provider
         valid_models = getattr(Models, provider)
         if model_name not in [m.value for m in valid_models]:
             raise ValueError(f"Invalid model_name '{model_name}' for provider '{provider}'.")
@@ -65,13 +65,12 @@ class BaseLLM:
         extra: Optional[Dict[str, Any]] = None,
         model_kwargs: Optional[Dict[str, Any]] = None
     ) -> Any:
-        # Enforce usage of Providers and Models for provider/model_name
-        if provider not in [Providers.openai, Providers.anthropic, Providers.google_genai, Providers.xai]:
+        provider_names = [v for k, v in Providers.__dict__.items() if not k.startswith('__') and not callable(v)]
+        if provider not in provider_names:
             raise ValueError(f"Unknown provider: {provider}")
         valid_models = getattr(Models, provider)
         if model_name not in [m.value for m in valid_models]:
             raise ValueError(f"Invalid model_name '{model_name}' for provider '{provider}'.")
-        # ...existing code...
         model_kwargs = model_kwargs or {}
         self.register_model(provider, model_name, **model_kwargs)
         ctx = LLMContext(
