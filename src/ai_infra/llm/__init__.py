@@ -10,7 +10,6 @@ load_dotenv(find_dotenv(usecwd=True))
 __all__ = [
     "CoreLLM",
     "ModelSettings",
-    "get_llm_settings",
     "Models",
     "Providers",
 ]
