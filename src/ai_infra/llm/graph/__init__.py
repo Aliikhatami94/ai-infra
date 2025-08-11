@@ -99,35 +99,38 @@ class CoreGraph:
         self.conditional_edges = config.conditional_edges
         self.graph = self.build_graph().compile(checkpointer=config.memory_store)
 
+    def _build_graph_with_nodes(self, node_items=None):
+        """
+        Internal helper to build a StateGraph from the current config, optionally with a custom node mapping.
+        """
+        wf = StateGraph(self.state_type)
+        node_items = node_items or self.node_definitions
+        for name, fn in node_items:
+            wf.add_node(name, fn)
+        if self.conditional_edges:
+            for from_node, router_fn, path_map in self.conditional_edges:
+                wf.add_conditional_edges(from_node, router_fn, path_map)
+        for start, end in self.edges:
+            wf.add_edge(start, end)
+        return wf
+
     def run(self, initial_state, *, config=None, on_enter=None, on_exit=None):
         """
         Run the compiled graph with optional tracing hooks.
         on_enter(node_name, state) and on_exit(node_name, state) are called before/after each node.
         """
-        def trace_wrapper(node_name, fn):
-            def wrapped(state):
-                if on_enter:
-                    on_enter(node_name, state)
-                result = fn(state)
-                if on_exit:
-                    on_exit(node_name, result)
-                return result
-            return wrapped
-
-        # Patch nodes with tracing if hooks are provided
         if on_enter or on_exit:
-            patched_nodes = {}
-            for name, fn in self.node_definitions:
-                patched_nodes[name] = trace_wrapper(name, fn)
-            # Rebuild graph with patched nodes
-            wf = StateGraph(self.state_type)
-            for name, fn in patched_nodes.items():
-                wf.add_node(name, fn)
-            if self.conditional_edges:
-                for from_node, router_fn, path_map in self.conditional_edges:
-                    wf.add_conditional_edges(from_node, router_fn, path_map)
-            for start, end in self.edges:
-                wf.add_edge(start, end)
+            def trace_wrapper(node_name, fn):
+                def wrapped(state):
+                    if on_enter:
+                        on_enter(node_name, state)
+                    result = fn(state)
+                    if on_exit:
+                        on_exit(node_name, result)
+                    return result
+                return wrapped
+            patched_nodes = [(name, trace_wrapper(name, fn)) for name, fn in self.node_definitions]
+            wf = self._build_graph_with_nodes(patched_nodes)
             compiled = wf.compile(checkpointer=self._config.memory_store)
         else:
             compiled = self.graph
@@ -135,22 +138,7 @@ class CoreGraph:
 
     def build_graph(self) -> StateGraph:
         """Constructs and returns a StateGraph based on the current configuration."""
-        wf = StateGraph(self.state_type)
-
-        # Add all nodes
-        for name, fn in self.node_definitions:
-            wf.add_node(name, fn)
-
-        # Add conditional edges if defined
-        if self.conditional_edges:
-            for from_node, router_fn, path_map in self.conditional_edges:
-                wf.add_conditional_edges(from_node, router_fn, path_map)
-
-        # Add linear edges
-        for start, end in self.edges:
-            wf.add_edge(start, end)
-
-        return wf
+        return self._build_graph_with_nodes()
 
     def analyze(self) -> GraphStructure:
         """Return a structured analysis of the graph using Pydantic models."""
