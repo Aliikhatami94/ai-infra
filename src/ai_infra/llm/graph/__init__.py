@@ -1,7 +1,13 @@
-from typing import Type, TypedDict, Callable, Optional, Dict, List, Any
+from typing import Type, TypedDict, Callable, Optional, Dict, List, Any, Protocol, runtime_checkable, TypeVar, Mapping, Union
 from langgraph.constants import START, END
 from langgraph.graph import StateGraph
-from pydantic import BaseModel, ValidationError, Field
+from pydantic import BaseModel, ValidationError, Field, ConfigDict
+
+S = TypeVar("S", bound=Mapping)
+
+@runtime_checkable
+class NodeFn(Protocol[S]):
+    def __call__(self, state: S) -> S: ...
 
 
 class GraphStructure(BaseModel):
@@ -20,9 +26,10 @@ class GraphStructure(BaseModel):
 
 
 class CoreGraphConfig(BaseModel):
-    node_definitions: list[Callable]
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    node_definitions: list[Any]
     edges: list[tuple[str, str]]
-    conditional_edges: Optional[list[tuple[str, Callable, dict]]] = None
+    conditional_edges: Optional[list[tuple[str, Any, dict]]] = None
     memory_store: Optional[object] = None
 
 
@@ -31,14 +38,30 @@ class CoreGraph:
         self,
         *,
         state_type: type,
-        node_definitions: list[Callable],
+        node_definitions: list[NodeFn],
         edges: list[tuple[str, str]],
-        conditional_edges: Optional[list[tuple[str, Callable, dict]]] = None,
+        conditional_edges: Optional[list[tuple[str, NodeFn, dict]]] = None,
         memory_store=None
     ):
-        if not hasattr(state_type, '__annotations__'):
-            raise ValueError("state_type must be a TypedDict class")
+        # Accept TypedDict or dict as state_type
+        if not (isinstance(state_type, type) and (issubclass(state_type, dict) or hasattr(state_type, '__annotations__'))):
+            raise ValueError("state_type must be a TypedDict or dict subclass")
         self.state_type = state_type
+        node_names = [fn.__name__ for fn in node_definitions]
+        if len(set(node_names)) != len(node_names):
+            raise ValueError("Node names must be unique")
+        all_nodes = set(node_names)
+        # Validate edge endpoints
+        for start, end in edges:
+            for endpoint in (start, end):
+                if endpoint not in all_nodes and endpoint not in (START, END):
+                    raise ValueError(f"Edge endpoint '{endpoint}' is not a known node or START/END")
+        # Validate conditional path maps
+        if conditional_edges:
+            for from_node, _, path_map in conditional_edges:
+                for target in path_map.keys():
+                    if target not in all_nodes and target not in (START, END):
+                        raise ValueError(f"Conditional path target '{target}' is not a known node or START/END")
         config = CoreGraphConfig(
             node_definitions=node_definitions,
             edges=edges,
@@ -141,3 +164,7 @@ if __name__ == "__main__":
 
     graph_dict = graph.analyze()
     print(graph_dict)
+
+    compiled_graph = graph.build_graph().compile()
+    res = compiled_graph.invoke({"value": 1})
+    print(res)
