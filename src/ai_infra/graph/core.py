@@ -40,7 +40,19 @@ class CoreGraph:
             if isinstance(edge, Edge):
                 regular_edges.append((edge.start, edge.end))
             elif isinstance(edge, ConditionalEdge):
-                conditional_edges.append((edge.from_node, edge.router_fn, edge.path_map))
+                # Validate targets are known nodes
+                for target in edge.targets:
+                    if target not in all_nodes and target not in (START, END):
+                        raise ValueError(f"ConditionalEdge target '{target}' is not a known node or START/END")
+                # Wrap router_fn to enforce it returns a valid target
+                def make_router_wrapper(fn, valid_targets):
+                    async def wrapper(state):
+                        result = await fn(state) if inspect.iscoroutinefunction(fn) else fn(state)
+                        if result not in valid_targets:
+                            raise ValueError(f"Router function returned '{result}', which is not in targets {valid_targets}")
+                        return result
+                    return wrapper
+                conditional_edges.append((edge.from_node, make_router_wrapper(edge.router_fn, edge.targets), {t: t for t in edge.targets}))
             else:
                 raise ValueError(f"Unknown edge type: {edge}")
 

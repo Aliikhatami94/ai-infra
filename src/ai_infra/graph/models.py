@@ -30,6 +30,6 @@ class Edge(BaseModel):
 class ConditionalEdge(BaseModel):
     from_node: str
     router_fn: Callable
-    path_map: dict
+    targets: list[str]
 
 EdgeType = Union[Edge, ConditionalEdge]

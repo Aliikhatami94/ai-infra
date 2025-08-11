@@ -27,19 +27,23 @@ def times2(state: State) -> State:
 def over10(state: State) -> str:
     # choose next node based on value
     if state["value"] < 0:
-        return "under0"
+        return "inc"
     if state["value"] < 10:
-        return "under10"
+        return "times2"
     else:
-        return "done"
+        return END
 
-doc_graph = CoreGraph(
+math_graph = CoreGraph(
     state_type=State,
     node_definitions=[inc, times2],
     edges=[
         Edge(start="inc", end="times2"),
-        ConditionalEdge(from_node="times2", router_fn=over10, path_map={"under10": "times2", "under0": "inc"}),
+        ConditionalEdge(
+            from_node="times2",
+            router_fn=over10,
+            targets=["inc", "times2", END],
+        ),
     ]
 )
 
-print(core.graph.get_graph().draw_mermaid())
+print(math_graph.graph.get_graph().draw_mermaid())
