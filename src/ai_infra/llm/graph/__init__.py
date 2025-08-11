@@ -1,5 +1,7 @@
 import pprint
-from typing import Type, TypedDict, Callable, Optional, Dict, List, Any, Protocol, runtime_checkable, TypeVar, Mapping, Union
+import inspect
+import asyncio
+from typing import Type, TypedDict, Callable, Optional, Dict, List, Any, Protocol, runtime_checkable, TypeVar, Mapping, Union, Sequence
 from langgraph.constants import START, END
 from langgraph.graph import StateGraph
 from pydantic import BaseModel, ValidationError, Field, ConfigDict
@@ -9,6 +11,10 @@ S = TypeVar("S", bound=Mapping)
 @runtime_checkable
 class NodeFn(Protocol[S]):
     def __call__(self, state: S) -> S: ...
+
+@runtime_checkable
+class RouterFn(Protocol[S]):
+    def __call__(self, state: S) -> str: ...
 
 
 class GraphStructure(BaseModel):
@@ -29,9 +35,9 @@ class GraphStructure(BaseModel):
 
 class CoreGraphConfig(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    node_definitions: list[Any]
-    edges: list[tuple[str, str]]
-    conditional_edges: Optional[list[tuple[str, Any, dict]]] = None
+    node_definitions: Sequence[Any]
+    edges: Sequence[tuple[str, str]]
+    conditional_edges: Optional[Sequence[tuple[str, Any, dict]]] = None
     memory_store: Optional[object] = None
 
 
@@ -40,9 +46,9 @@ class CoreGraph:
         self,
         *,
         state_type: type,
-        node_definitions: Union[list[NodeFn], dict[str, NodeFn]],
-        edges: Union[list[tuple[str, str]], str],
-        conditional_edges: Optional[list[tuple[str, NodeFn, dict]]] = None,
+        node_definitions: Union[Sequence[NodeFn], dict[str, NodeFn]],
+        edges: Union[Sequence[tuple[str, str]], str],
+        conditional_edges: Optional[Sequence[tuple[str, RouterFn, dict]]] = None,
         memory_store=None
     ):
         # Accept TypedDict or dict as state_type
@@ -50,13 +56,13 @@ class CoreGraph:
             raise ValueError("state_type must be a TypedDict or dict subclass")
         self.state_type = state_type
 
-        # Accept node_definitions as list[fn] or dict[name, fn]
+        # Accept node_definitions as Sequence[fn] or dict[name, fn]
         if isinstance(node_definitions, dict):
             node_map = node_definitions.copy()
-        elif isinstance(node_definitions, list):
+        elif isinstance(node_definitions, Sequence):
             node_map = {fn.__name__: fn for fn in node_definitions}
         else:
-            raise ValueError("node_definitions must be a list of functions or a dict of name: function")
+            raise ValueError("node_definitions must be a sequence of functions or a dict of name: function")
         node_names = list(node_map.keys())
         if len(set(node_names)) != len(node_names):
             raise ValueError("Node names must be unique")
@@ -67,24 +73,24 @@ class CoreGraph:
             if len(node_names) < 2:
                 raise ValueError("At least two nodes required for linear wiring")
             edges = [(node_names[i], node_names[i+1]) for i in range(len(node_names)-1)]
-        elif not (isinstance(edges, list) and all(isinstance(e, tuple) and len(e) == 2 for e in edges)):
-            raise ValueError("edges must be a list of (start, end) tuples or 'linear'")
+        elif not (isinstance(edges, Sequence) and all(isinstance(e, tuple) and len(e) == 2 for e in edges)):
+            raise ValueError("edges must be a sequence of (start, end) tuples or 'linear'")
 
         # Inference of START/END
         if edges and edges[0][0] != START:
-            edges = [(START, edges[0][0])] + edges
+            edges = [(START, edges[0][0])] + list(edges)
         if edges and edges[-1][1] != END:
-            edges = edges + [(edges[-1][1], END)]
+            edges = list(edges) + [(edges[-1][1], END)]
 
         # Validate edge endpoints
         for start, end in edges:
             for endpoint in (start, end):
                 if endpoint not in all_nodes and endpoint not in (START, END):
                     raise ValueError(f"Edge endpoint '{endpoint}' is not a known node or START/END")
-        # Validate conditional path maps
+        # Validate conditional path maps (validate values, not keys)
         if conditional_edges:
-            for from_node, _, path_map in conditional_edges:
-                for target in path_map.keys():
+            for from_node, router_fn, path_map in conditional_edges:
+                for target in path_map.values():
                     if target not in all_nodes and target not in (START, END):
                         raise ValueError(f"Conditional path target '{target}' is not a known node or START/END")
         config = CoreGraphConfig(
@@ -99,42 +105,58 @@ class CoreGraph:
         self.conditional_edges = config.conditional_edges
         self.graph = self.build_graph().compile(checkpointer=config.memory_store)
 
-    def _build_graph_with_nodes(self, node_items=None):
-        """
-        Internal helper to build a StateGraph from the current config, optionally with a custom node mapping.
-        """
+    def _wrap_async(self, fn):
+        if inspect.iscoroutinefunction(fn):
+            return fn
+        async def async_wrapper(*args, **kwargs):
+            return fn(*args, **kwargs)
+        return async_wrapper
+
+    def _build_graph_with_nodes(self, node_items=None, *, async_mode=False):
         wf = StateGraph(self.state_type)
         node_items = node_items or self.node_definitions
         for name, fn in node_items:
-            wf.add_node(name, fn)
+            wf.add_node(name, self._wrap_async(fn) if async_mode else fn)
         if self.conditional_edges:
             for from_node, router_fn, path_map in self.conditional_edges:
-                wf.add_conditional_edges(from_node, router_fn, path_map)
+                wf.add_conditional_edges(from_node, self._wrap_async(router_fn) if async_mode else router_fn, path_map)
         for start, end in self.edges:
             wf.add_edge(start, end)
         return wf
 
-    def run(self, initial_state, *, config=None, on_enter=None, on_exit=None):
+    async def run(self, initial_state, *, config=None, on_enter=None, on_exit=None):
         """
-        Run the compiled graph with optional tracing hooks.
-        on_enter(node_name, state) and on_exit(node_name, state) are called before/after each node.
+        Async run: supports both sync and async nodes and tracing hooks.
+        on_enter(node_name, state) and on_exit(node_name, state) can be sync or async.
         """
+        def make_tracer(hook):
+            if not hook:
+                return None
+            if inspect.iscoroutinefunction(hook):
+                return hook
+            async def async_hook(*args, **kwargs):
+                return hook(*args, **kwargs)
+            return async_hook
+        on_enter_async = make_tracer(on_enter)
+        on_exit_async = make_tracer(on_exit)
+
+        def trace_wrapper(node_name, fn):
+            async def wrapped(state):
+                if on_enter_async:
+                    await on_enter_async(node_name, state)
+                result = await fn(state)
+                if on_exit_async:
+                    await on_exit_async(node_name, result)
+                return result
+            return wrapped
         if on_enter or on_exit:
-            def trace_wrapper(node_name, fn):
-                def wrapped(state):
-                    if on_enter:
-                        on_enter(node_name, state)
-                    result = fn(state)
-                    if on_exit:
-                        on_exit(node_name, result)
-                    return result
-                return wrapped
-            patched_nodes = [(name, trace_wrapper(name, fn)) for name, fn in self.node_definitions]
-            wf = self._build_graph_with_nodes(patched_nodes)
+            patched_nodes = [(name, trace_wrapper(name, self._wrap_async(fn))) for name, fn in self.node_definitions]
+            wf = self._build_graph_with_nodes(patched_nodes, async_mode=True)
             compiled = wf.compile(checkpointer=self._config.memory_store)
         else:
-            compiled = self.graph
-        return compiled.invoke(initial_state, config=config) if config is not None else compiled.invoke(initial_state)
+            wf = self._build_graph_with_nodes(async_mode=True)
+            compiled = wf.compile(checkpointer=self._config.memory_store)
+        return await compiled.invoke(initial_state, config=config) if config is not None else await compiled.invoke(initial_state)
 
     def build_graph(self) -> StateGraph:
         """Constructs and returns a StateGraph based on the current configuration."""
@@ -242,3 +264,4 @@ if __name__ == "__main__":
         print(f"Exiting {node}: {state}")
 
     result = graph.run({"value": 1}, on_enter=trace_enter, on_exit=trace_exit)
+
