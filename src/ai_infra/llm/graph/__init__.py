@@ -1,12 +1,12 @@
 import pprint
 import inspect
 import asyncio
-from typing import Any, Protocol, runtime_checkable, TypeVar, Mapping, Union, Sequence, Awaitable, Dict, List, Optional
+from typing import Any, Protocol, runtime_checkable, TypeVar, Mapping, MutableMapping, Union, Sequence, Awaitable, Dict, List, Optional
 from langgraph.constants import START, END
 from langgraph.graph import StateGraph
 from pydantic import BaseModel, ConfigDict
 
-S = TypeVar("S", bound=Mapping)
+S = TypeVar("S", bound=Mapping[str, Any])
 
 @runtime_checkable
 class NodeFn(Protocol[S]):
@@ -68,12 +68,12 @@ class CoreGraph:
             raise ValueError("Node names must be unique")
         all_nodes = set(node_names)
 
-        # Auto-wire linear graphs
+        # Normalize edges to a list for consistent handling
         if edges == "linear":
-            if len(node_names) < 2:
-                raise ValueError("At least two nodes required for linear wiring")
             edges = [(node_names[i], node_names[i+1]) for i in range(len(node_names)-1)]
-        elif not (isinstance(edges, Sequence) and all(isinstance(e, tuple) and len(e) == 2 for e in edges)):
+        else:
+            edges = list(edges)
+        if not (isinstance(edges, Sequence) and all(isinstance(e, tuple) and len(e) == 2 for e in edges)):
             raise ValueError("edges must be a sequence of (start, end) tuples or 'linear'")
 
         # Inference of START/END
@@ -165,14 +165,23 @@ class CoreGraph:
             for start, end in self.edges:
                 wf.add_edge(start, end)
             compiled = wf.compile(checkpointer=self._config.memory_store)
-            return await compiled.invoke(initial_state, config=config) if config is not None else await compiled.invoke(initial_state)
+            # Use ainvoke for async
+            if config is not None:
+                return await compiled.ainvoke(initial_state, config=config)
+            else:
+                return await compiled.ainvoke(initial_state)
         else:
-            return await self.graph.invoke(initial_state, config=config) if config is not None else await self.graph.invoke(initial_state)
+            # Use ainvoke for async
+            if config is not None:
+                return await self.graph.ainvoke(initial_state, config=config)
+            else:
+                return await self.graph.ainvoke(initial_state)
 
     def run(self, initial_state, *, config=None, on_enter=None, on_exit=None):
         """
         Synchronous wrapper for async run. Use this for sync code.
         """
+        # Use asyncio.run to call run_async, which uses ainvoke under the hood
         return asyncio.run(self.run_async(initial_state, config=config, on_enter=on_enter, on_exit=on_exit))
 
     def build_graph(self) -> StateGraph:
@@ -183,7 +192,7 @@ class CoreGraph:
         """Return a structured analysis of the graph using Pydantic models."""
         nodes = [name for name, _ in self.node_definitions]
         # Compute entry and exit points using START/END constants only
-        entry_points = [end for start, end in self.edges if start == START]
+        entry_points = [end for start, end in self.edges if start == START] or node_names[:1]
         exit_points = [start for start, end in self.edges if end == END]
         conditional_edges_data = None
         if self.conditional_edges:
@@ -248,7 +257,7 @@ if __name__ == "__main__":
         state["value"] += 1
         return state
 
-    def node_b(state: MyState) -> MyState:
+    async def node_b(state: MyState) -> MyState:
         """Multiply value by 2."""
         state = state.copy()
         state["value"] *= 2
@@ -280,5 +289,6 @@ if __name__ == "__main__":
     def trace_exit(node, state):
         print(f"Exiting {node}: {state}")
 
-    result = graph.run_async({"value": 1}, on_enter=trace_enter, on_exit=trace_exit)
+    # Use the sync wrapper for demonstration
+    result = graph.run({"value": 1}, on_enter=trace_enter, on_exit=trace_exit)
     print(result)
