@@ -28,33 +28,28 @@ class CoreGraphConfig(BaseModel):
 
 class CoreGraph:
     def __init__(
-            self,
-            *,
-            state_type: type,
-            node_definitions: list[Callable],
-            edges: list[tuple[str, str]],
-            conditional_edges: Optional[list[tuple[str, Callable, dict]]] = None,
-            memory_store=None
+        self,
+        *,
+        state_type: type,
+        node_definitions: list[Callable],
+        edges: list[tuple[str, str]],
+        conditional_edges: Optional[list[tuple[str, Callable, dict]]] = None,
+        memory_store=None
     ):
-        # Manual validation for state_type
-        if not isinstance(state_type, type) or not hasattr(state_type, '__annotations__'):
+        if not hasattr(state_type, '__annotations__'):
             raise ValueError("state_type must be a TypedDict class")
         self.state_type = state_type
-        # Validate other config with Pydantic
-        try:
-            self.config = CoreGraphConfig(
-                node_definitions=node_definitions,
-                edges=edges,
-                conditional_edges=conditional_edges,
-                memory_store=memory_store
-            )
-        except ValidationError as e:
-            raise ValueError(f"Invalid CoreGraph configuration: {e}")
-        self.node_definitions = [(fn.__name__, fn) for fn in self.config.node_definitions]
-        self.edges = self.config.edges
-        self.conditional_edges = self.config.conditional_edges
-
-        self.graph = self.build_graph().compile(checkpointer=self.config.memory_store)
+        config = CoreGraphConfig(
+            node_definitions=node_definitions,
+            edges=edges,
+            conditional_edges=conditional_edges,
+            memory_store=memory_store
+        )
+        self._config = config
+        self.node_definitions = [(fn.__name__, fn) for fn in config.node_definitions]
+        self.edges = config.edges
+        self.conditional_edges = config.conditional_edges
+        self.graph = self.build_graph().compile(checkpointer=config.memory_store)
 
     def build_graph(self) -> StateGraph:
         """Constructs and returns a StateGraph based on the current configuration."""
@@ -78,12 +73,8 @@ class CoreGraph:
     def analyze(self) -> GraphStructure:
         """Return a structured analysis of the graph using Pydantic models."""
         nodes = [name for name, _ in self.node_definitions]
-
-        # Analyze entry and exit points
         start_nodes = [edge[1] for edge in self.edges if edge[0] in ['__start__', START]]
         end_nodes = [edge[0] for edge in self.edges if edge[1] in ['__end__', END]]
-
-        # Process conditional edges
         conditional_edges_data = None
         if self.conditional_edges:
             conditional_edges_data = [
@@ -94,15 +85,12 @@ class CoreGraph:
                 }
                 for from_node, router_fn, path_map in self.conditional_edges
             ]
-
-        # Get state schema as string representations
         state_schema = {}
         if hasattr(self.state_type, '__annotations__'):
             state_schema = {
                 key: getattr(value, '__name__', str(value))
                 for key, value in self.state_type.__annotations__.items()
             }
-
         return GraphStructure(
             state_type_name=self.state_type.__name__,
             state_schema=state_schema,
@@ -114,7 +102,7 @@ class CoreGraph:
             conditional_edges=conditional_edges_data,
             entry_points=start_nodes,
             exit_points=end_nodes,
-            has_memory=bool(self.config.memory_store)
+            has_memory=bool(self._config.memory_store)
         )
 
     def describe(self) -> Dict:
