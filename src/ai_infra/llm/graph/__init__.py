@@ -1,20 +1,20 @@
 import pprint
 import inspect
 import asyncio
-from typing import Type, TypedDict, Callable, Optional, Dict, List, Any, Protocol, runtime_checkable, TypeVar, Mapping, Union, Sequence
+from typing import Any, Protocol, runtime_checkable, TypeVar, Mapping, Union, Sequence, Awaitable, Dict, List, Optional
 from langgraph.constants import START, END
 from langgraph.graph import StateGraph
-from pydantic import BaseModel, ValidationError, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict
 
 S = TypeVar("S", bound=Mapping)
 
 @runtime_checkable
 class NodeFn(Protocol[S]):
-    def __call__(self, state: S) -> S: ...
+    def __call__(self, state: S) -> S | Awaitable[S]: ...
 
 @runtime_checkable
 class RouterFn(Protocol[S]):
-    def __call__(self, state: S) -> str: ...
+    def __call__(self, state: S) -> str | Awaitable[str]: ...
 
 
 class GraphStructure(BaseModel):
@@ -77,9 +77,11 @@ class CoreGraph:
             raise ValueError("edges must be a sequence of (start, end) tuples or 'linear'")
 
         # Inference of START/END
-        if edges and edges[0][0] != START:
+        has_start = any(start == START for start, _ in edges)
+        has_end = any(end == END for _, end in edges)
+        if edges and not has_start:
             edges = [(START, edges[0][0])] + list(edges)
-        if edges and edges[-1][1] != END:
+        if edges and not has_end:
             edges = list(edges) + [(edges[-1][1], END)]
 
         # Validate edge endpoints
@@ -87,9 +89,11 @@ class CoreGraph:
             for endpoint in (start, end):
                 if endpoint not in all_nodes and endpoint not in (START, END):
                     raise ValueError(f"Edge endpoint '{endpoint}' is not a known node or START/END")
-        # Validate conditional path maps (validate values, not keys)
+        # Validate conditional path maps (validate from_node and values)
         if conditional_edges:
             for from_node, router_fn, path_map in conditional_edges:
+                if from_node not in all_nodes and from_node not in (START, END):
+                    raise ValueError(f"Conditional edge from_node '{from_node}' is not a known node or START/END")
                 for target in path_map.values():
                     if target not in all_nodes and target not in (START, END):
                         raise ValueError(f"Conditional path target '{target}' is not a known node or START/END")
@@ -103,7 +107,8 @@ class CoreGraph:
         self.node_definitions = list(node_map.items())
         self.edges = config.edges
         self.conditional_edges = config.conditional_edges
-        self.graph = self.build_graph().compile(checkpointer=config.memory_store)
+        # Always build the graph with async-wrapped nodes/routers
+        self.graph = self._build_graph_with_nodes().compile(checkpointer=config.memory_store)
 
     def _wrap_async(self, fn):
         if inspect.iscoroutinefunction(fn):
@@ -112,19 +117,19 @@ class CoreGraph:
             return fn(*args, **kwargs)
         return async_wrapper
 
-    def _build_graph_with_nodes(self, node_items=None, *, async_mode=False):
+    def _build_graph_with_nodes(self, node_items=None):
         wf = StateGraph(self.state_type)
         node_items = node_items or self.node_definitions
         for name, fn in node_items:
-            wf.add_node(name, self._wrap_async(fn) if async_mode else fn)
+            wf.add_node(name, self._wrap_async(fn))
         if self.conditional_edges:
             for from_node, router_fn, path_map in self.conditional_edges:
-                wf.add_conditional_edges(from_node, self._wrap_async(router_fn) if async_mode else router_fn, path_map)
+                wf.add_conditional_edges(from_node, self._wrap_async(router_fn), path_map)
         for start, end in self.edges:
             wf.add_edge(start, end)
         return wf
 
-    async def run(self, initial_state, *, config=None, on_enter=None, on_exit=None):
+    async def run_async(self, initial_state, *, config=None, on_enter=None, on_exit=None):
         """
         Async run: supports both sync and async nodes and tracing hooks.
         on_enter(node_name, state) and on_exit(node_name, state) can be sync or async.
@@ -151,12 +156,24 @@ class CoreGraph:
             return wrapped
         if on_enter or on_exit:
             patched_nodes = [(name, trace_wrapper(name, self._wrap_async(fn))) for name, fn in self.node_definitions]
-            wf = self._build_graph_with_nodes(patched_nodes, async_mode=True)
+            wf = StateGraph(self.state_type)
+            for name, fn in patched_nodes:
+                wf.add_node(name, fn)
+            if self.conditional_edges:
+                for from_node, router_fn, path_map in self.conditional_edges:
+                    wf.add_conditional_edges(from_node, self._wrap_async(router_fn), path_map)
+            for start, end in self.edges:
+                wf.add_edge(start, end)
             compiled = wf.compile(checkpointer=self._config.memory_store)
+            return await compiled.invoke(initial_state, config=config) if config is not None else await compiled.invoke(initial_state)
         else:
-            wf = self._build_graph_with_nodes(async_mode=True)
-            compiled = wf.compile(checkpointer=self._config.memory_store)
-        return await compiled.invoke(initial_state, config=config) if config is not None else await compiled.invoke(initial_state)
+            return await self.graph.invoke(initial_state, config=config) if config is not None else await self.graph.invoke(initial_state)
+
+    def run(self, initial_state, *, config=None, on_enter=None, on_exit=None):
+        """
+        Synchronous wrapper for async run. Use this for sync code.
+        """
+        return asyncio.run(self.run_async(initial_state, config=config, on_enter=on_enter, on_exit=on_exit))
 
     def build_graph(self) -> StateGraph:
         """Constructs and returns a StateGraph based on the current configuration."""
@@ -263,5 +280,5 @@ if __name__ == "__main__":
     def trace_exit(node, state):
         print(f"Exiting {node}: {state}")
 
-    result = graph.run({"value": 1}, on_enter=trace_enter, on_exit=trace_exit)
-
+    result = graph.run_async({"value": 1}, on_enter=trace_enter, on_exit=trace_exit)
+    print(result)
