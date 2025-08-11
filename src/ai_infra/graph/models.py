@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 from pydantic import BaseModel, ConfigDict
 
 class GraphStructure(BaseModel):
@@ -23,3 +23,13 @@ class CoreGraphConfig(BaseModel):
     conditional_edges: Optional[Sequence[Tuple[str, Any, dict]]] = None
     memory_store: Optional[object] = None
 
+class Edge(BaseModel):
+    start: str
+    end: str
+
+class ConditionalEdge(BaseModel):
+    from_node: str
+    router_fn: Callable
+    path_map: dict
+
+EdgeType = Union[Edge, ConditionalEdge]

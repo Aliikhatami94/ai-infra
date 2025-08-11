@@ -3,7 +3,8 @@ import asyncio
 from typing import Any, Sequence, Union, Optional, Mapping, Awaitable, Dict
 from langgraph.constants import START, END
 from langgraph.graph import StateGraph
-from .models import GraphStructure, CoreGraphConfig
+
+from .models import GraphStructure, Edge, ConditionalEdge, EdgeType
 from .protocols import NodeFn, RouterFn
 
 class CoreGraph:
@@ -12,8 +13,7 @@ class CoreGraph:
         *,
         state_type: type,
         node_definitions: Union[Sequence[NodeFn], dict[str, NodeFn]],
-        edges: Union[Sequence[tuple[str, str]], str],
-        conditional_edges: Optional[Sequence[tuple[str, RouterFn, dict]]] = None,
+        edges: Sequence[EdgeType],
         memory_store=None
     ):
         # Accept TypedDict or dict as state_type
@@ -33,47 +33,42 @@ class CoreGraph:
             raise ValueError("Node names must be unique")
         all_nodes = set(node_names)
 
-        # Normalize edges to a list for consistent handling
-        if edges == "linear":
-            edges = [(node_names[i], node_names[i+1]) for i in range(len(node_names)-1)]
-        else:
-            edges = list(edges)
-        if not (isinstance(edges, Sequence) and all(isinstance(e, tuple) and len(e) == 2 for e in edges)):
-            raise ValueError("edges must be a sequence of (start, end) tuples or 'linear'")
+        # Separate regular and conditional edges
+        regular_edges = []
+        conditional_edges = []
+        for edge in edges:
+            if isinstance(edge, Edge):
+                regular_edges.append((edge.start, edge.end))
+            elif isinstance(edge, ConditionalEdge):
+                conditional_edges.append((edge.from_node, edge.router_fn, edge.path_map))
+            else:
+                raise ValueError(f"Unknown edge type: {edge}")
 
-        # Inference of START/END
-        has_start = any(start == START for start, _ in edges)
-        has_end = any(end == END for _, end in edges)
-        if edges and not has_start:
-            edges = [(START, edges[0][0])] + list(edges)
-        if edges and not has_end:
-            edges = list(edges) + [(edges[-1][1], END)]
+        # Inference of START/END for regular edges
+        has_start = any(start == START for start, _ in regular_edges)
+        has_end = any(end == END for _, end in regular_edges)
+        if regular_edges and not has_start:
+            regular_edges = [(START, regular_edges[0][0])] + list(regular_edges)
+        if regular_edges and not has_end:
+            regular_edges = list(regular_edges) + [(regular_edges[-1][1], END)]
 
         # Validate edge endpoints
-        for start, end in edges:
+        for start, end in regular_edges:
             for endpoint in (start, end):
                 if endpoint not in all_nodes and endpoint not in (START, END):
                     raise ValueError(f"Edge endpoint '{endpoint}' is not a known node or START/END")
         # Validate conditional path maps (validate from_node and values)
-        if conditional_edges:
-            for from_node, router_fn, path_map in conditional_edges:
-                if from_node not in all_nodes and from_node not in (START, END):
-                    raise ValueError(f"Conditional edge from_node '{from_node}' is not a known node or START/END")
-                for target in path_map.values():
-                    if target not in all_nodes and target not in (START, END):
-                        raise ValueError(f"Conditional path target '{target}' is not a known node or START/END")
-        config = CoreGraphConfig(
-            node_definitions=list(node_map.values()),
-            edges=edges,
-            conditional_edges=conditional_edges,
-            memory_store=memory_store
-        )
-        self._config = config
+        for from_node, router_fn, path_map in conditional_edges:
+            if from_node not in all_nodes and from_node not in (START, END):
+                raise ValueError(f"Conditional edge from_node '{from_node}' is not a known node or START/END")
+            for target in path_map.values():
+                if target not in all_nodes and target not in (START, END):
+                    raise ValueError(f"Conditional path target '{target}' is not a known node or START/END")
         self.node_definitions = list(node_map.items())
-        self.edges = config.edges
-        self.conditional_edges = config.conditional_edges
-        # Always build the graph with async-wrapped nodes/routers
-        self.graph = self._build_graph_with_nodes().compile(checkpointer=config.memory_store)
+        self.edges = regular_edges
+        self.conditional_edges = conditional_edges
+        self._config = None  # No longer using CoreGraphConfig
+        self.graph = self._build_graph_with_nodes().compile(checkpointer=memory_store)
 
     def _wrap_async(self, fn):
         if inspect.iscoroutinefunction(fn):
