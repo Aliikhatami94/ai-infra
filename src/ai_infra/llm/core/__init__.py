@@ -19,10 +19,7 @@ class CoreLLM:
         self.models: Dict[str, Any] = {}  # Use Any for models
         self.tools: List[Any] = []  # Use Any for tools
 
-    def register_tool(self, tool_obj: Any):
-        self.tools.append(tool_obj)
-
-    def register_model(self, provider: str, model_name: str, **kwargs):
+    def set_model(self, provider: str, model_name: str, **kwargs):
         # Accept provider as Providers.<provider> (e.g., Providers.openai)
         # Accept model_name as Models.<provider>.<model>.value (e.g., Models.openai.gpt_4o.value)
         provider_names = [v for k, v in Providers.__dict__.items() if not k.startswith('__') and not callable(v)]
@@ -40,14 +37,14 @@ class CoreLLM:
             )
         return self.models[key]
 
-    def select_model(self, _state: Any, runtime: Runtime[ModelSettings]) -> Any:
+    def _select_model(self, _state: Any, runtime: Runtime[ModelSettings]) -> Any:
         """
         Select and return a model bound with tools, based on the runtime context.
         """
         ctx = runtime.context
         key = f"{ctx.provider}:{ctx.model_name}"
         if key not in self.models:
-            self.register_model(ctx.provider, ctx.model_name)
+            self.set_model(ctx.provider, ctx.model_name)
         model = self.models[key]
         tools = ctx.tools if ctx.tools is not None else self.tools
         return model.bind_tools(tools)
@@ -57,7 +54,7 @@ class CoreLLM:
         Create a react agent with the given or default tools.
         """
         agent_tools = tools if tools is not None else self.tools
-        return create_react_agent(model=self.select_model, tools=agent_tools)
+        return create_react_agent(model=self._select_model, tools=agent_tools)
 
     def run_agent(
             self,
@@ -75,7 +72,7 @@ class CoreLLM:
         if model_name not in [m.value for m in valid_models]:
             raise ValueError(f"Invalid model_name '{model_name}' for provider '{provider}'.")
         model_kwargs = model_kwargs or {}
-        self.register_model(provider, model_name, **model_kwargs)
+        self.set_model(provider, model_name, **model_kwargs)
         ctx = ModelSettings(
             provider=provider,
             model_name=model_name,
