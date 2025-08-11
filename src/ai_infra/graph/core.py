@@ -121,14 +121,7 @@ class CoreGraph:
             return wrapped
         if on_enter or on_exit:
             patched_nodes = [(name, trace_wrapper(name, self._wrap_async(fn))) for name, fn in self.node_definitions]
-            wf = StateGraph(self.state_type)
-            for name, fn in patched_nodes:
-                wf.add_node(name, fn)
-            if self.conditional_edges:
-                for from_node, router_fn, path_map in self.conditional_edges:
-                    wf.add_conditional_edges(from_node, self._wrap_async(router_fn), path_map)
-            for start, end in self.edges:
-                wf.add_edge(start, end)
+            wf = self._build_graph_with_nodes(node_items=patched_nodes)
             compiled = wf.compile(checkpointer=self._config.memory_store)
             # Use ainvoke for async
             if config is not None:
@@ -208,4 +201,3 @@ class CoreGraph:
     def describe(self) -> Dict:
         """Return the graph structure as a dictionary for programmatic use."""
         return self.analyze().model_dump()
-
