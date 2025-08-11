@@ -17,7 +17,6 @@ class GraphStructure(BaseModel):
     entry_points: List[str]
     exit_points: List[str]
     has_memory: bool
-    is_compiled: bool
 
 
 class CoreGraphConfig(BaseModel):
@@ -115,8 +114,7 @@ class CoreGraph:
             conditional_edges=conditional_edges_data,
             entry_points=start_nodes,
             exit_points=end_nodes,
-            has_memory=bool(self.config.memory_store),
-            is_compiled=hasattr(self, 'graph')
+            has_memory=bool(self.config.memory_store)
         )
 
     def describe(self) -> Dict:
