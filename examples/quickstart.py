@@ -1,6 +1,6 @@
-from ai_infra.llm.base import BaseLLM
-from ai_infra.llm.providers import Providers
-from ai_infra.llm.models import Models
+from ai_infra.llm.core import BaseLLM
+from ai_infra.llm.core.providers import Providers
+from ai_infra.llm.core.models import Models
 
 if __name__ == "__main__":
     llm = BaseLLM()
