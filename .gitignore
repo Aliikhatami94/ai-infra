@@ -2,3 +2,4 @@
 aiinfa.iml
 *.iml
 *.env
+__pycache__/
