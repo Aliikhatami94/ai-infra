@@ -5,13 +5,13 @@ from langchain.chat_models import init_chat_model
 from langgraph.prebuilt import create_react_agent
 from langgraph.runtime import Runtime
 
-from ai_infra.llm.core.context import LLMContext
+from ai_infra.llm.core.settings import ModelSettings
 from ai_infra.llm.core.providers import Providers
 from ai_infra.llm.core.models import Models
 
 load_dotenv()
 
-class BaseLLM:
+class CoreLLM:
     """
     Dynamic LLM setup and agent runner supporting multiple providers, models, and tools.
     """
@@ -33,10 +33,14 @@ class BaseLLM:
             raise ValueError(f"Invalid model_name '{model_name}' for provider '{provider}'.")
         key = f"{provider}:{model_name}"
         if key not in self.models:
-            self.models[key] = init_chat_model(key, api_key=os.environ.get(f"{provider.upper()}_API_KEY"), **kwargs)
+            self.models[key] = init_chat_model(
+                key,
+                api_key=os.environ.get(f"{provider.upper()}_API_KEY"),
+                **kwargs
+            )
         return self.models[key]
 
-    def select_model(self, _state: Any, runtime: Runtime[LLMContext]) -> Any:
+    def select_model(self, _state: Any, runtime: Runtime[ModelSettings]) -> Any:
         """
         Select and return a model bound with tools, based on the runtime context.
         """
@@ -53,7 +57,7 @@ class BaseLLM:
         Create a react agent with the given or default tools.
         """
         agent_tools = tools if tools is not None else self.tools
-        return create_react_agent(self.select_model, tools=agent_tools)
+        return create_react_agent(model=self.select_model, tools=agent_tools)
 
     def run_agent(
             self,
@@ -72,7 +76,7 @@ class BaseLLM:
             raise ValueError(f"Invalid model_name '{model_name}' for provider '{provider}'.")
         model_kwargs = model_kwargs or {}
         self.register_model(provider, model_name, **model_kwargs)
-        ctx = LLMContext(
+        ctx = ModelSettings(
             provider=provider,
             model_name=model_name,
             tools=tools,
