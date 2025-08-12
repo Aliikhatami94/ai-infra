@@ -1,5 +1,5 @@
-from .ai_providers import Providers
-from .ai_models import Models
+from .providers import Providers
+from .models import Models
 
 from dataclasses import dataclass
 from typing import List, Optional, Dict, Any, Union

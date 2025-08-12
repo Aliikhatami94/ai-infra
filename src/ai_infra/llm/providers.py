@@ -1,4 +1,4 @@
-from .ai_models import XAIModels, GoogleGenAIModels, OpenAIModels, AnthropicModels
+from .models import XAIModels, GoogleGenAIModels, OpenAIModels, AnthropicModels
 
 class Providers:
     xai = "xai"
