@@ -74,83 +74,126 @@ class CoreGraph:
             return fn(*args, **kwargs)
         return async_wrapper
 
-    def _build_graph_with_nodes(self, node_items=None):
+    def _wrap_sync(self, fn):
+        if not inspect.iscoroutinefunction(fn):
+            return fn
+        def sync_wrapper(*args, **kwargs):
+            return asyncio.run(fn(*args, **kwargs))
+        return sync_wrapper
+
+    def _build_graph_with_nodes(self, node_items=None, sync_mode=False):
         wf = StateGraph(self.state_type)
         node_items = node_items or self.node_definitions
+        wrap = self._wrap_sync if sync_mode else self._wrap_async
         for name, fn in node_items:
-            wf.add_node(name, self._wrap_async(fn))
+            wf.add_node(name, wrap(fn))
         if self.conditional_edges:
             for start, router_fn, path_map in self.conditional_edges:
-                wf.add_conditional_edges(start, self._wrap_async(router_fn), path_map)
+                wf.add_conditional_edges(start, wrap(router_fn), path_map)
         for start, end in self.edges:
             wf.add_edge(start, end)
         return wf
 
-    async def run_async(self, initial_state=None, *, config=None, on_enter=None, on_exit=None, trace=None, **kwargs):
+    def _prepare_run(self, initial_state=None, *, config=None, on_enter=None, on_exit=None, trace=None, sync_mode=False, **kwargs):
         """
-        Async run: supports both sync and async nodes and tracing hooks.
-        Accepts either a state dict or keyword arguments for state.
-        on_enter(node_name, state) and on_exit(node_name, state) can be sync or async.
-        trace(node_name, state, event) is called on every entry/exit if provided.
+        Prepares the compiled graph and initial state, handling hooks and node patching.
+        Returns (compiled_graph, initial_state, config)
         """
         initial_state = self._normalize_initial_state(initial_state, kwargs)
+        # Prepare hooks and patch nodes if needed
         def make_tracer(hook, event=None):
             if not hook:
                 return None
             if inspect.iscoroutinefunction(hook):
-                return lambda node, state: hook(node, state) if event is None else hook(node, state, event)
+                if sync_mode:
+                    def sync_hook(node, state):
+                        if event is None:
+                            return asyncio.run(hook(node, state))
+                        else:
+                            return asyncio.run(hook(node, state, event))
+                    return sync_hook
+                else:
+                    return lambda node, state: hook(node, state) if event is None else hook(node, state, event)
             async def async_hook(node, state):
                 if event is None:
                     return hook(node, state)
                 else:
                     return hook(node, state, event)
             return async_hook
-        on_enter_async = make_tracer(on_enter)
-        on_exit_async = make_tracer(on_exit)
-        trace_async = None
+        on_enter_fn = make_tracer(on_enter)
+        on_exit_fn = make_tracer(on_exit)
+        trace_fn = None
         if trace:
-            async def trace_async_fn(node, state, event):
-                if inspect.iscoroutinefunction(trace):
-                    await trace(node, state, event)
-                else:
-                    trace(node, state, event)
-            trace_async = trace_async_fn
+            if sync_mode:
+                def trace_sync_fn(node, state, event):
+                    if inspect.iscoroutinefunction(trace):
+                        return asyncio.run(trace(node, state, event))
+                    else:
+                        return trace(node, state, event)
+                trace_fn = trace_sync_fn
+            else:
+                async def trace_async_fn(node, state, event):
+                    if inspect.iscoroutinefunction(trace):
+                        await trace(node, state, event)
+                    else:
+                        trace(node, state, event)
+                trace_fn = trace_async_fn
 
         def trace_wrapper(node_name, fn):
-            async def wrapped(state):
-                if on_enter_async:
-                    await on_enter_async(node_name, state)
-                if trace_async:
-                    await trace_async(node_name, state, "enter")
-                result = await fn(state)
-                if on_exit_async:
-                    await on_exit_async(node_name, result)
-                if trace_async:
-                    await trace_async(node_name, result, "exit")
-                return result
-            return wrapped
+            if sync_mode:
+                def wrapped(state):
+                    if on_enter_fn:
+                        on_enter_fn(node_name, state)
+                    if trace_fn:
+                        trace_fn(node_name, state, "enter")
+                    result = fn(state)
+                    if on_exit_fn:
+                        on_exit_fn(node_name, result)
+                    if trace_fn:
+                        trace_fn(node_name, result, "exit")
+                    return result
+                return wrapped
+            else:
+                async def wrapped(state):
+                    if on_enter_fn:
+                        await on_enter_fn(node_name, state)
+                    if trace_fn:
+                        await trace_fn(node_name, state, "enter")
+                    result = await fn(state)
+                    if on_exit_fn:
+                        await on_exit_fn(node_name, result)
+                    if trace_fn:
+                        await trace_fn(node_name, result, "exit")
+                    return result
+                return wrapped
+
         if on_enter or on_exit or trace:
-            patched_nodes = [(name, trace_wrapper(name, self._wrap_async(fn))) for name, fn in self.node_definitions]
-            wf = self._build_graph_with_nodes(node_items=patched_nodes)
+            patched_nodes = [(name, trace_wrapper(name, (self._wrap_sync(fn) if sync_mode else self._wrap_async(fn)))) for name, fn in self.node_definitions]
+            wf = self._build_graph_with_nodes(node_items=patched_nodes, sync_mode=sync_mode)
             compiled = wf.compile(checkpointer=self._memory_store)
-            # Use ainvoke for async
-            if config is not None:
-                return await compiled.ainvoke(initial_state, config=config)
-            else:
-                return await compiled.ainvoke(initial_state)
         else:
-            # Use ainvoke for async
-            if config is not None:
-                return await self.graph.ainvoke(initial_state, config=config)
-            else:
-                return await self.graph.ainvoke(initial_state)
+            compiled = self._build_graph_with_nodes(sync_mode=sync_mode).compile(checkpointer=self._memory_store) if sync_mode else self.graph
+        return compiled, initial_state, config
+
+    async def run_async(self, initial_state=None, *, config=None, on_enter=None, on_exit=None, trace=None, **kwargs):
+        """
+        Async version of run. Uses ainvoke on the compiled graph.
+        """
+        compiled, initial_state, config = self._prepare_run(initial_state, config=config, on_enter=on_enter, on_exit=on_exit, trace=trace, sync_mode=False, **kwargs)
+        if config is not None:
+            return await compiled.ainvoke(initial_state, config=config)
+        else:
+            return await compiled.ainvoke(initial_state)
 
     def run(self, initial_state=None, *, config=None, on_enter=None, on_exit=None, trace=None, **kwargs):
         """
-        Synchronous wrapper for async run. Accepts either a state dict or keyword arguments for state.
+        Synchronous version of run_async. Uses invoke on the compiled graph.
         """
-        initial_state = self._normalize_initial_state(initial_state, kwargs)
-        return asyncio.run(self.run_async(initial_state, config=config, on_enter=on_enter, on_exit=on_exit, trace=trace))
+        compiled, initial_state, config = self._prepare_run(initial_state, config=config, on_enter=on_enter, on_exit=on_exit, trace=trace, sync_mode=True, **kwargs)
+        if config is not None:
+            return compiled.invoke(initial_state, config=config)
+        else:
+            return compiled.invoke(initial_state)
 
     def build_graph(self) -> StateGraph:
         """Constructs and returns a StateGraph based on the current configuration."""
