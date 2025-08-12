@@ -1,9 +1,9 @@
 from .core import CoreMCP
-from .models import MCPConfig, MCPServerConfig, MCPAgentMetadata
+from .models import McpConfig, Server, ServerConfig
 
 __all__ = [
     "CoreMCP",
-    "MCPConfig",
-    "MCPServerConfig",
-    "MCPAgentMetadata",
+    "McpConfig",
+    "ServerConfig",
+    "Server",
 ]
