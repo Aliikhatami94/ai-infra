@@ -4,12 +4,11 @@ core = CoreLLM()
 
 def test_agent():
     res = core.run_agent(
-        messages=[{"role": "user", "content": "Hello there"}],
-        provider=Providers.openai,
-        model_name=Models.openai.gpt_4o.value,
+        messages=[{"role": "user", "content": "What is your namea?"}],
+        provider=Providers.google_genai,
+        model_name=Models.google_genai.gemini_2_5_flash.value,
         model_kwargs={
             "temperature": 0.7,
-            "max_tokens": 100,
         }
     )
     print(res)
@@ -34,4 +33,4 @@ def test_sys_msg():
     print(res)
 
 if __name__ == "__main__":
-    test_sys_msg()
+    test_agent()

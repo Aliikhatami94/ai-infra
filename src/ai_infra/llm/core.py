@@ -8,6 +8,7 @@ from langgraph.runtime import Runtime
 from ai_infra.llm.settings import ModelSettings
 from ai_infra.llm.providers import Providers
 from ai_infra.llm.models import Models
+from ai_infra.llm.utils import validate_provider_and_model, build_model_key, initialize_model
 
 load_dotenv()
 
@@ -20,21 +21,10 @@ class CoreLLM:
         self.tools: List[Any] = []  # Use Any for tools
 
     def set_model(self, provider: str, model_name: str, **kwargs):
-        # Accept provider as Providers.<provider> (e.g., Providers.openai)
-        # Accept model_name as Models.<provider>.<model>.value (e.g., Models.openai.gpt_4o.value)
-        provider_names = [v for k, v in Providers.__dict__.items() if not k.startswith('__') and not callable(v)]
-        if provider not in provider_names:
-            raise ValueError(f"Unknown provider: {provider}")
-        valid_models = getattr(Models, provider)
-        if model_name not in [m.value for m in valid_models]:
-            raise ValueError(f"Invalid model_name '{model_name}' for provider '{provider}'.")
-        key = f"{provider}:{model_name}"
+        validate_provider_and_model(provider, model_name)
+        key = build_model_key(provider, model_name)
         if key not in self.models:
-            self.models[key] = init_chat_model(
-                key,
-                api_key=os.environ.get(f"{provider.upper()}_API_KEY"),
-                **kwargs
-            )
+            self.models[key] = initialize_model(key, provider, **kwargs)
         return self.models[key]
 
     def _select_model(self, _state: Any, runtime: Runtime[ModelSettings]) -> Any:
@@ -65,12 +55,7 @@ class CoreLLM:
             extra: Optional[Dict[str, Any]] = None,
             model_kwargs: Optional[Dict[str, Any]] = None
     ) -> Any:
-        provider_names = [v for k, v in Providers.__dict__.items() if not k.startswith('__') and not callable(v)]
-        if provider not in provider_names:
-            raise ValueError(f"Unknown provider: {provider}")
-        valid_models = getattr(Models, provider)
-        if model_name not in [m.value for m in valid_models]:
-            raise ValueError(f"Invalid model_name '{model_name}' for provider '{provider}'.")
+        # No need to validate again, set_model already validates
         model_kwargs = model_kwargs or {}
         self.set_model(provider, model_name, **model_kwargs)
         ctx = ModelSettings(

@@ -17,6 +17,7 @@ langchain-xai = "^0.2.5"
 langchain-anthropic = "^0.3.18"
 langchain-google-genai = "^2.1.9"
 langchain-mcp-adapters = "^0.1.9"
+langsmith = "^0.4.13"
 
 [build-system]
 requires = ["poetry-core>=1.9.0"]
