@@ -6,7 +6,12 @@ example_config = McpConfig(
     name="ExampleMCP",
     host="http://localhost:8000",
     prompts={
-        "greeting": ["Hello!", "How can I help you?"]
+        "introduction": ["You are a helpful assistant.", "Please answer the user's questions to the best of your ability."],
+        "instructions": "If you don't know the answer, just say so.",
+        "additional_context": [
+            "Remember to be concise.",
+            "Use examples when appropriate."
+        ]
     },
     servers={
         "server1": Server(
