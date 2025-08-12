@@ -34,5 +34,5 @@ graph = CoreGraph(
 )
 
 if __name__ == '__main__':
-    res = graph.run(value=1, trace=my_trace)
+    res = graph.get_state()
     print(res)

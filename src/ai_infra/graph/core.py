@@ -10,7 +10,7 @@ from ai_infra.graph.utils import (
 )
 
 class CoreGraph:
-    def __init__(self, *, state_type: type, node_definitions: Union[Sequence, dict], edges: Sequence[EdgeType], memory_store=None):
+    def __init__(self, *, state_type: type, node_definitions: Union[Sequence, dict], edges: Sequence[EdgeType], checkpointer=None, store=None):
         if not (isinstance(state_type, type) and (issubclass(state_type, dict) or hasattr(state_type, '__annotations__'))):
             raise ValueError("state_type must be a TypedDict or dict subclass")
         self.state_type = state_type
@@ -36,8 +36,12 @@ class CoreGraph:
         self.node_definitions = list(node_definitions.items())
         self.edges = regular_edges
         self.conditional_edges = conditional_edges
-        self._memory_store = memory_store
-        self.graph = self._build_graph().compile(checkpointer=self._memory_store)
+        self._checkpointer = checkpointer
+        self._store = store
+        self.graph = self._build_graph().compile(
+            checkpointer=self._checkpointer,
+            store=self._store
+        )
 
     def _wrap(self, fn, sync):
         if sync:
@@ -120,9 +124,15 @@ class CoreGraph:
             conditional_edges=conditional_edges_data,
             entry_points=entry_points,
             exit_points=exit_points,
-            has_memory=False,
+            has_memory=self._checkpointer is not None,
             unreachable=unreachable
         )
 
     def describe(self) -> Dict:
         return self.analyze().model_dump()
+
+    def get_state(self, config):
+        return self.graph.get_state(config)
+
+    def get_state_history(self, config):
+        return list(self.graph.get_state_history(config))
