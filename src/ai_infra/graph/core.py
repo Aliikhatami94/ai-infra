@@ -22,16 +22,8 @@ class CoreGraph:
         self.state_type = state_type
 
         # Accept node_definitions as Sequence[fn] or dict[name, fn]
-        if isinstance(node_definitions, dict):
-            node_map = node_definitions.copy()
-        elif isinstance(node_definitions, Sequence):
-            node_map = {fn.__name__: fn for fn in node_definitions}
-        else:
-            raise ValueError("node_definitions must be a sequence of functions or a dict of name: function")
-        node_names = list(node_map.keys())
-        if len(set(node_names)) != len(node_names):
-            raise ValueError("Node names must be unique")
-        all_nodes = set(node_names)
+        node_definitions = self._normalize_node_definitions(node_definitions)
+        node_names, all_nodes = self._validate_node_names(node_definitions)
 
         # Separate regular and conditional edges
         regular_edges = []
@@ -65,22 +57,15 @@ class CoreGraph:
             regular_edges = list(regular_edges) + [(regular_edges[-1][1], END)]
 
         # Validate edge endpoints
-        for start, end in regular_edges:
-            for endpoint in (start, end):
-                if endpoint not in all_nodes and endpoint not in (START, END):
-                    raise ValueError(f"Edge endpoint '{endpoint}' is not a known node or START/END")
+        self._validate_edges(regular_edges, all_nodes)
         # Validate conditional path maps (validate start and values)
-        for start, router_fn, path_map in conditional_edges:
-            if start not in all_nodes and start not in (START, END):
-                raise ValueError(f"Conditional edge start '{start}' is not a known node or START/END")
-            for target in path_map.values():
-                if target not in all_nodes and target not in (START, END):
-                    raise ValueError(f"Conditional path target '{target}' is not a known node or START/END")
-        self.node_definitions = list(node_map.items())
+        self._validate_conditional_edges(conditional_edges, all_nodes)
+        self.node_definitions = list(node_definitions.items())
         self.edges = regular_edges
         self.conditional_edges = conditional_edges
         self._config = None  # No longer using CoreGraphConfig
-        self.graph = self._build_graph_with_nodes().compile(checkpointer=memory_store)
+        self._memory_store = memory_store
+        self.graph = self._build_graph_with_nodes().compile(checkpointer=self._memory_store)
 
     def _wrap_async(self, fn):
         if inspect.iscoroutinefunction(fn):
@@ -101,40 +86,53 @@ class CoreGraph:
             wf.add_edge(start, end)
         return wf
 
-    async def run_async(self, initial_state=None, *, config=None, on_enter=None, on_exit=None, **kwargs):
+    async def run_async(self, initial_state=None, *, config=None, on_enter=None, on_exit=None, trace=None, **kwargs):
         """
         Async run: supports both sync and async nodes and tracing hooks.
         Accepts either a state dict or keyword arguments for state.
         on_enter(node_name, state) and on_exit(node_name, state) can be sync or async.
+        trace(node_name, state, event) is called on every entry/exit if provided.
         """
-        if initial_state is None:
-            initial_state = kwargs
-        elif kwargs:
-            raise ValueError("Provide either initial_state or keyword arguments, not both.")
-        def make_tracer(hook):
+        initial_state = self._normalize_initial_state(initial_state, kwargs)
+        def make_tracer(hook, event=None):
             if not hook:
                 return None
             if inspect.iscoroutinefunction(hook):
-                return hook
-            async def async_hook(*args, **kwargs):
-                return hook(*args, **kwargs)
+                return lambda node, state: hook(node, state) if event is None else hook(node, state, event)
+            async def async_hook(node, state):
+                if event is None:
+                    return hook(node, state)
+                else:
+                    return hook(node, state, event)
             return async_hook
         on_enter_async = make_tracer(on_enter)
         on_exit_async = make_tracer(on_exit)
+        trace_async = None
+        if trace:
+            async def trace_async_fn(node, state, event):
+                if inspect.iscoroutinefunction(trace):
+                    await trace(node, state, event)
+                else:
+                    trace(node, state, event)
+            trace_async = trace_async_fn
 
         def trace_wrapper(node_name, fn):
             async def wrapped(state):
                 if on_enter_async:
                     await on_enter_async(node_name, state)
+                if trace_async:
+                    await trace_async(node_name, state, "enter")
                 result = await fn(state)
                 if on_exit_async:
                     await on_exit_async(node_name, result)
+                if trace_async:
+                    await trace_async(node_name, result, "exit")
                 return result
             return wrapped
-        if on_enter or on_exit:
+        if on_enter or on_exit or trace:
             patched_nodes = [(name, trace_wrapper(name, self._wrap_async(fn))) for name, fn in self.node_definitions]
             wf = self._build_graph_with_nodes(node_items=patched_nodes)
-            compiled = wf.compile(checkpointer=self._config.memory_store)
+            compiled = wf.compile(checkpointer=self._memory_store)
             # Use ainvoke for async
             if config is not None:
                 return await compiled.ainvoke(initial_state, config=config)
@@ -147,15 +145,12 @@ class CoreGraph:
             else:
                 return await self.graph.ainvoke(initial_state)
 
-    def run(self, initial_state=None, *, config=None, on_enter=None, on_exit=None, **kwargs):
+    def run(self, initial_state=None, *, config=None, on_enter=None, on_exit=None, trace=None, **kwargs):
         """
         Synchronous wrapper for async run. Accepts either a state dict or keyword arguments for state.
         """
-        if initial_state is None:
-            initial_state = kwargs
-        elif kwargs:
-            raise ValueError("Provide either initial_state or keyword arguments, not both.")
-        return asyncio.run(self.run_async(initial_state, config=config, on_enter=on_enter, on_exit=on_exit))
+        initial_state = self._normalize_initial_state(initial_state, kwargs)
+        return asyncio.run(self.run_async(initial_state, config=config, on_enter=on_enter, on_exit=on_exit, trace=trace))
 
     def build_graph(self) -> StateGraph:
         """Constructs and returns a StateGraph based on the current configuration."""
@@ -215,3 +210,41 @@ class CoreGraph:
     def describe(self) -> Dict:
         """Return the graph structure as a dictionary for programmatic use."""
         return self.analyze().model_dump()
+
+    def _normalize_node_definitions(self, node_definitions):
+        """
+        Always return a dict of node_name: fn, inferring names from function __name__ if needed.
+        """
+        if isinstance(node_definitions, dict):
+            return node_definitions.copy()
+        elif isinstance(node_definitions, Sequence):
+            return {fn.__name__: fn for fn in node_definitions}
+        else:
+            raise ValueError("node_definitions must be a sequence of functions or a dict of name: function")
+
+    def _normalize_initial_state(self, initial_state, kwargs):
+        if initial_state is None:
+            return kwargs
+        elif kwargs:
+            raise ValueError("Provide either initial_state or keyword arguments, not both.")
+        return initial_state
+
+    def _validate_node_names(self, node_map):
+        node_names = list(node_map.keys())
+        if len(set(node_names)) != len(node_names):
+            raise ValueError("Node names must be unique")
+        return node_names, set(node_names)
+
+    def _validate_edges(self, edges, all_nodes):
+        for start, end in edges:
+            for endpoint in (start, end):
+                if endpoint not in all_nodes and endpoint not in (START, END):
+                    raise ValueError(f"Edge endpoint '{endpoint}' is not a known node or START/END")
+
+    def _validate_conditional_edges(self, conditional_edges, all_nodes):
+        for start, router_fn, path_map in conditional_edges:
+            if start not in all_nodes and start not in (START, END):
+                raise ValueError(f"Conditional edge start '{start}' is not a known node or START/END")
+            for target in path_map.values():
+                if target not in all_nodes and target not in (START, END):
+                    raise ValueError(f"Conditional path target '{target}' is not a known node or START/END")

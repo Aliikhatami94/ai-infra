@@ -28,9 +28,9 @@ if __name__ == '__main__':
 
     def over10(state: State) -> str:
         # choose next node based on value
-        if state["value"] < 0:
+        if state["value"] < 10:
             return "inc"
-        if state["value"] < 8:
+        if state["value"] < 20:
             return "times2"
         else:
             return END
@@ -48,4 +48,8 @@ if __name__ == '__main__':
         ]
     )
 
-    print(math_graph.describe())
+    def my_trace(node, state, event):
+        print(f"{event.upper()} {node}: {state}")
+
+    res = math_graph.run(value=1, messages=[], trace=my_trace)
+    print(res)
