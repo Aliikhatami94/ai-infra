@@ -15,7 +15,7 @@ class CoreMCP:
         # Validate and store config as McpConfig
         self.config = McpConfig(**config)
 
-    async def get_metadata(self, config: Optional[dict] = None):
+    async def get_metadata(self):
         # Use self.config if config is not provided
         if config is None:
             config = self.config.dict()
@@ -33,14 +33,25 @@ class CoreMCP:
 
         return config
 
-    async def get_server_prompt(self, additional_context: list[str]):
-        metadata = await self.get_agent_metadata()
-        prompts = metadata.get('prompts', {})
+    async def get_server_prompt(self, additional_context: list[str]) -> list:
+        """
+        Constructs a list of SystemMessage prompts for the server, combining base prompts from the configuration
+        with any additional context provided.
 
-        base_prompts = [
-            SystemMessage(content="\n\n".join(prompts.get(key)))
-            for key, _ in prompts.items()
-        ]
+        Args:
+            additional_context (list[str]): Additional context strings to be included as prompt messages.
+
+        Returns:
+            list: A list of SystemMessage objects representing the full prompt sequence.
+        """
+        prompts = self.config.prompts or {}
+        base_prompts = []
+        for key, value in prompts.items():
+            if isinstance(value, list):
+                base_prompts.append(SystemMessage(content="\n\n".join(value)))
+            elif isinstance(value, str):
+                base_prompts.append(SystemMessage(content=value))
+
         additional_prompts = [
             SystemMessage(content=prompt)
             for prompt in additional_context if prompt
@@ -48,7 +59,7 @@ class CoreMCP:
 
         return base_prompts + additional_prompts
 
-    def resolve_arg_path(self, filename: str) -> str:
+    def _resolve_arg_path(self, filename: str) -> str:
         search_root = self.config_path.parent
         path = next(search_root.rglob(filename), None)
         if not path:
@@ -65,7 +76,7 @@ class CoreMCP:
         for name, server in servers.items():
             config = server.get('config', {})
             resolved_args = [
-                self.resolve_arg_path(arg)
+                self._resolve_arg_path(arg)
                 for arg in config.get("args", [])
             ]
             server_config[name] = {}

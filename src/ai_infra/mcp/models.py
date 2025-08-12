@@ -1,9 +1,12 @@
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from pydantic import BaseModel
 
 
 class ServerConfig(BaseModel):
-    url: str
+    command: Optional[str]
+    args: Optional[Any]
+    url: Optional[str]
+    headers: Optional[Dict[str, str]]
     transport: str
 
 
