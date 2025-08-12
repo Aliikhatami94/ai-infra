@@ -3,10 +3,10 @@ from pydantic import BaseModel
 
 
 class ServerConfig(BaseModel):
-    command: Optional[str]
-    args: Optional[Any]
-    url: Optional[str]
-    headers: Optional[Dict[str, str]]
+    command: Optional[str] = None
+    args: Optional[Any] = None
+    url: Optional[str] = None
+    headers: Optional[Dict[str, str]] = None
     transport: str
 
 

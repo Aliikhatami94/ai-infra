@@ -16,6 +16,16 @@ example_config = {
                 "url": "/test-server/mcp",
                 "transport": "streamable_http"
             }
+        },
+        "server2": {
+            "id": "server2",
+            "name": "Another Server",
+            "description": "Another test server for MCP.",
+            "config": {
+                "command": "python",
+                "args": ["./graph.py"],
+                "transport": "stdio",
+            }
         }
     }
 }
@@ -27,8 +37,9 @@ core_mcp = CoreMCP(config=example_config)
 import asyncio
 
 async def main():
-    metadata = await core_mcp.get()
-    print("Agent Metadata:", metadata)
+    metadata = await core_mcp.get_server_setup()
+    print("MCP Server configuration metadata:")
+    print(metadata)
 
 # Run the example
 if __name__ == "__main__":
