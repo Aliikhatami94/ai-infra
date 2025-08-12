@@ -28,10 +28,11 @@ class CoreGraph:
                 conditional_edges.append((edge.start, make_router_wrapper(edge.router_fn, edge.targets), {t: t for t in edge.targets}))
             else:
                 raise ValueError(f"Unknown edge type: {edge}")
-        if regular_edges and not any(start == START for start, _ in regular_edges):
-            regular_edges = [(START, regular_edges[0][0])] + list(regular_edges)
-        if regular_edges and not any(end == END for _, end in regular_edges):
-            regular_edges = list(regular_edges) + [(regular_edges[-1][1], END)]
+        # Guard against duplicate START/END auto-edges
+        if regular_edges and not any(s == START for s, _ in regular_edges):
+            regular_edges = [(START, regular_edges[0][0]), *regular_edges]
+        if regular_edges and not any(e == END for _, e in regular_edges):
+            regular_edges = [*regular_edges, (regular_edges[-1][1], END)]
         validate_edges(regular_edges, all_nodes)
         validate_conditional_edges(conditional_edges, all_nodes)
         self.node_definitions = list(node_definitions.items())
@@ -121,6 +122,14 @@ class CoreGraph:
         compiled, initial_state, config = self._prepare_run(initial_state, config=config, sync=True)
         for mode, chunk in compiled.stream(initial_state, config=config, stream_mode=stream_mode):
             yield mode, chunk
+
+    async def astream_values(self, initial_state=None, *, config=None):
+        async for _, chunk in self.astream(initial_state, config=config, stream_mode="values"):
+            yield chunk
+
+    def stream_values(self, initial_state=None, *, config=None):
+        for _, chunk in self.stream(initial_state, config=config, stream_mode="values"):
+            yield chunk
 
     def analyze(self) -> GraphStructure:
         nodes = [name for name, _ in self.node_definitions]

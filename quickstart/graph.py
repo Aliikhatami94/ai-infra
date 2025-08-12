@@ -33,6 +33,21 @@ graph = CoreGraph(
     ],
 )
 
-if __name__ == '__main__':
-    for r in graph.stream({"value": 1}):
+initial_state = {"value": 1}
+
+def run_graph():
+    """Run the graph with the initial state."""
+    result = graph.run(initial_state)
+    print(result)
+
+def stream_updates():
+    for r in graph.stream(initial_state):
         print(r)
+
+def stream_values():
+    """Stream values from the graph."""
+    for r in graph.stream_values(initial_state):
+        print(r)
+
+if __name__ == '__main__':
+    stream_updates()
