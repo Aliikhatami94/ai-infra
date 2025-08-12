@@ -1,6 +1,6 @@
 class MCP:
-    def __init__(self, config_file: Path):
-        self.config_path = config_file
+    def __init__(self, config):
+        self.config = None
 
     async def get_agent_metadata(self, config: Optional[dict] = None):
         servers = config.get("servers", {})
@@ -18,7 +18,7 @@ class MCP:
         config["available_models"] = BaseMcp.get_available_models()
         return config
 
-    async def get_system_prompts(self, additional_context: list[str]):
+    async def get_server_prompt(self, additional_context: list[str]):
         metadata = await self.get_agent_metadata()
         prompts = metadata.get('prompts', {})
 
@@ -40,9 +40,7 @@ class MCP:
             raise FileNotFoundError(f"Could not find file: {filename}")
         return str(path.resolve())
 
-    async def get_mcp_config(self):
-        server_config_raw = await self.get_config_file()
-
+    async def get_mcp_config(self, config: Optional[dict] = None) -> dict:
         server_config = {}
         servers = server_config_raw.get("servers", {})
 
