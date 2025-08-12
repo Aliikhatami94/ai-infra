@@ -43,11 +43,25 @@ class CoreGraph:
             store=self._store
         )
 
+    def _normalize_stream_mode(self, stream_mode):
+        if stream_mode is None:
+            return ["updates"]
+        if isinstance(stream_mode, str):
+            return [stream_mode]
+        return list(stream_mode)
+
     def _wrap(self, fn, sync):
         if sync:
             if not inspect.iscoroutinefunction(fn):
                 return fn
             def sync_wrapper(*args, **kwargs):
+                try:
+                    loop = asyncio.get_running_loop()
+                except RuntimeError:
+                    loop = None
+                if loop and loop.is_running():
+                    # In async context, fallback to creating a task (warn: prefer async in ASGI/Jupyter)
+                    return loop.create_task(fn(*args, **kwargs))
                 return asyncio.run(fn(*args, **kwargs))
             return sync_wrapper
         else:
@@ -79,9 +93,9 @@ class CoreGraph:
                 for name, fn in self.node_definitions
             ]
             wf = self._build_graph(node_items=patched_nodes, sync=sync)
-            compiled = wf.compile(checkpointer=self._memory_store)
+            compiled = wf.compile(checkpointer=self._checkpointer, store=self._store)
         else:
-            compiled = self._build_graph(sync=sync).compile(checkpointer=self._memory_store) if sync else self.graph
+            compiled = self._build_graph(sync=sync).compile(checkpointer=self._checkpointer, store=self._store) if sync else self.graph
         return compiled, initial_state, config
 
     async def arun(self, initial_state=None, *, config=None, on_enter=None, on_exit=None, trace=None, **kwargs):
@@ -91,6 +105,18 @@ class CoreGraph:
     def run(self, initial_state=None, *, config=None, on_enter=None, on_exit=None, trace=None, **kwargs):
         compiled, initial_state, config = self._prepare_run(initial_state, config=config, on_enter=on_enter, on_exit=on_exit, trace=trace, sync=True, **kwargs)
         return compiled.invoke(initial_state, config=config) if config is not None else compiled.invoke(initial_state)
+
+    async def astream(self, initial_state=None, *, config=None, stream_mode=("updates", "custom")):
+        stream_mode = self._normalize_stream_mode(stream_mode)
+        compiled, initial_state, config = self._prepare_run(initial_state, config=config, sync=False)
+        async for mode, chunk in compiled.astream(initial_state, config=config, stream_mode=stream_mode):
+            yield mode, chunk
+
+    def stream(self, initial_state=None, *, config=None, stream_mode=("updates", "custom")):
+        stream_mode = self._normalize_stream_mode(stream_mode)
+        compiled, initial_state, config = self._prepare_run(initial_state, config=config, sync=True)
+        for mode, chunk in compiled.stream(initial_state, config=config, stream_mode=stream_mode):
+            yield mode, chunk
 
     def analyze(self) -> GraphStructure:
         nodes = [name for name, _ in self.node_definitions]

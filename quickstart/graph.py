@@ -34,5 +34,5 @@ graph = CoreGraph(
 )
 
 if __name__ == '__main__':
-    res = graph.get_state()
-    print(res)
+    for r in graph.stream({"value": 1}):
+        print(r)
