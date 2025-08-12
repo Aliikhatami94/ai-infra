@@ -41,7 +41,7 @@ if __name__ == '__main__':
         edges=[
             Edge(start="inc", end="times2"),
             ConditionalEdge(
-                from_node="times2",
+                start="times2",
                 router_fn=over10,
                 targets=["inc", "times2", END],
             ),

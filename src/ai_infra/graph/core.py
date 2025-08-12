@@ -4,8 +4,8 @@ from typing import Any, Sequence, Union, Optional, Mapping, Awaitable, Dict
 from langgraph.constants import START, END
 from langgraph.graph import StateGraph
 
-from .models import GraphStructure, Edge, ConditionalEdge, EdgeType
-from .protocols import NodeFn, RouterFn
+from ai_infra.graph.models import GraphStructure, Edge, ConditionalEdge, EdgeType
+from ai_infra.graph.protocols import NodeFn, RouterFn
 
 class CoreGraph:
     def __init__(
@@ -52,7 +52,7 @@ class CoreGraph:
                             raise ValueError(f"Router function returned '{result}', which is not in targets {valid_targets}")
                         return result
                     return wrapper
-                conditional_edges.append((edge.from_node, make_router_wrapper(edge.router_fn, edge.targets), {t: t for t in edge.targets}))
+                conditional_edges.append((edge.start, make_router_wrapper(edge.router_fn, edge.targets), {t: t for t in edge.targets}))
             else:
                 raise ValueError(f"Unknown edge type: {edge}")
 
@@ -69,10 +69,10 @@ class CoreGraph:
             for endpoint in (start, end):
                 if endpoint not in all_nodes and endpoint not in (START, END):
                     raise ValueError(f"Edge endpoint '{endpoint}' is not a known node or START/END")
-        # Validate conditional path maps (validate from_node and values)
-        for from_node, router_fn, path_map in conditional_edges:
-            if from_node not in all_nodes and from_node not in (START, END):
-                raise ValueError(f"Conditional edge from_node '{from_node}' is not a known node or START/END")
+        # Validate conditional path maps (validate start and values)
+        for start, router_fn, path_map in conditional_edges:
+            if start not in all_nodes and start not in (START, END):
+                raise ValueError(f"Conditional edge start '{start}' is not a known node or START/END")
             for target in path_map.values():
                 if target not in all_nodes and target not in (START, END):
                     raise ValueError(f"Conditional path target '{target}' is not a known node or START/END")
@@ -95,8 +95,8 @@ class CoreGraph:
         for name, fn in node_items:
             wf.add_node(name, self._wrap_async(fn))
         if self.conditional_edges:
-            for from_node, router_fn, path_map in self.conditional_edges:
-                wf.add_conditional_edges(from_node, self._wrap_async(router_fn), path_map)
+            for start, router_fn, path_map in self.conditional_edges:
+                wf.add_conditional_edges(start, self._wrap_async(router_fn), path_map)
         for start, end in self.edges:
             wf.add_edge(start, end)
         return wf
@@ -163,11 +163,11 @@ class CoreGraph:
         if self.conditional_edges:
             conditional_edges_data = [
                 {
-                    "from_node": from_node,
+                    "start": start,
                     "router_function": getattr(router_fn, '__name__', str(router_fn)),
                     "path_options": list(path_map.keys())
                 }
-                for from_node, router_fn, path_map in self.conditional_edges
+                for start, router_fn, path_map in self.conditional_edges
             ]
         state_schema = {}
         if hasattr(self.state_type, '__annotations__'):

@@ -28,7 +28,7 @@ class Edge(BaseModel):
     end: str
 
 class ConditionalEdge(BaseModel):
-    from_node: str
+    start: str
     router_fn: Callable
     targets: list[str]
 
