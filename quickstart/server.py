@@ -1,34 +1,34 @@
 from src.ai_infra.mcp import CoreMCP
+from src.ai_infra.mcp.models import McpConfig, Server, ServerConfig
 
 # Example config following the models in src/ai_infra/mcp/models.py
-example_config = {
-    "name": "ExampleMCP",
-    "host": "http://localhost:8000",
-    "prompts": {
+example_config = McpConfig(
+    name="ExampleMCP",
+    host="http://localhost:8000",
+    prompts={
         "greeting": ["Hello!", "How can I help you?"]
     },
-    "servers": {
-        "server1": {
-            "id": "server1",
-            "name": "Test Server",
-            "description": "A test server for MCP.",
-            "config": {
-                "url": "/test-server/mcp",
-                "transport": "streamable_http"
-            }
-        },
-        "server2": {
-            "id": "server2",
-            "name": "Another Server",
-            "description": "Another test server for MCP.",
-            "config": {
-                "command": "python",
-                "args": ["./graph.py"],
-                "transport": "stdio",
-            }
-        }
-    }
-}
+    servers={
+        "server1": Server(
+            id="server1",
+            name="Test Server",
+            description="A test server for MCP.",
+            config=ServerConfig(
+                url="/test-server/mcp",
+                transport="streamable_http"
+            )
+        ),
+        "server2": Server(
+            id="server2",
+            name="Another Server",
+            description="Another test server for MCP.",
+            config=ServerConfig(
+                command="python",
+                args=["./graph.py"],
+                transport="stdio"
+            )
+        )}
+)
 
 # Instantiate CoreMCP with the config
 core_mcp = CoreMCP(config=example_config)

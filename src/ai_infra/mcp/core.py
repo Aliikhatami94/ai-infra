@@ -13,7 +13,7 @@ class CoreMCP:
         config (dict): Configuration dictionary following the McpConfig model.
         base_url (Optional[str]): Optional base URL for the MCP server. If provided, relative server URLs in the config will be resolved against this base URL.
     """
-    def __init__(self, config: dict):
+    def __init__(self, config: dict | McpConfig):
         # Validate and store config as McpConfig
         if isinstance(config, McpConfig):
             self.config = config
@@ -89,7 +89,7 @@ class CoreMCP:
         """
         host = getattr(self.config, "host", None)
         servers = self.config.servers
-        server_config = {}
+        server_setup = {}
         for name, server in servers.items():
             cfg = server.config
             config_dict = cfg.dict(exclude_unset=True, exclude_none=True)
@@ -102,9 +102,9 @@ class CoreMCP:
                 config_dict["url"] = host.rstrip("/") + "/" + url.lstrip("/")
             # Remove fields not needed by MultiServerMCPClient (if any)
             config_dict = {k: v for k, v in config_dict.items() if v is not None}
-            server_config[name] = config_dict
-        return server_config
+            server_setup[name] = config_dict
+        return server_setup
 
     async def get_server(self):
-        server_config = await self.get_server_setup()
-        return MultiServerMCPClient(server_config)
+        server_setup = await self.get_server_setup()
+        return MultiServerMCPClient(server_setup)
