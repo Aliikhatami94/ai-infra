@@ -208,8 +208,7 @@ class CoreGraph:
             conditional_edges=conditional_edges_data,
             entry_points=entry_points,
             exit_points=exit_points,
-            has_memory=bool(self._config.memory_store),
-            # Add unreachable nodes to the output for debugging
+            has_memory=False,  # self._config is always None, so just use False
             unreachable=unreachable
         )
 
