@@ -94,81 +94,87 @@ class CoreGraph:
             wf.add_edge(start, end)
         return wf
 
+    def _make_tracer(self, hook, event=None, sync_mode=False):
+        if not hook:
+            return None
+        if inspect.iscoroutinefunction(hook):
+            if sync_mode:
+                def sync_hook(node, state):
+                    if event is None:
+                        return asyncio.run(hook(node, state))
+                    else:
+                        return asyncio.run(hook(node, state, event))
+                return sync_hook
+            else:
+                return lambda node, state: hook(node, state) if event is None else hook(node, state, event)
+        async def async_hook(node, state):
+            if event is None:
+                return hook(node, state)
+            else:
+                return hook(node, state, event)
+        return async_hook
+
+    def _make_trace_fn(self, trace, sync_mode=False):
+        if not trace:
+            return None
+        if sync_mode:
+            def trace_sync_fn(node, state, event):
+                if inspect.iscoroutinefunction(trace):
+                    return asyncio.run(trace(node, state, event))
+                else:
+                    return trace(node, state, event)
+            return trace_sync_fn
+        else:
+            async def trace_async_fn(node, state, event):
+                if inspect.iscoroutinefunction(trace):
+                    await trace(node, state, event)
+                else:
+                    trace(node, state, event)
+            return trace_async_fn
+
+    def _make_trace_wrapper(self, node_name, fn, on_enter_fn, on_exit_fn, trace_fn, sync_mode=False):
+        if sync_mode:
+            def wrapped(state):
+                if on_enter_fn:
+                    on_enter_fn(node_name, state)
+                if trace_fn:
+                    trace_fn(node_name, state, "enter")
+                result = fn(state)
+                if on_exit_fn:
+                    on_exit_fn(node_name, result)
+                if trace_fn:
+                    trace_fn(node_name, result, "exit")
+                return result
+            return wrapped
+        else:
+            async def wrapped(state):
+                if on_enter_fn:
+                    await on_enter_fn(node_name, state)
+                if trace_fn:
+                    await trace_fn(node_name, state, "enter")
+                result = await fn(state)
+                if on_exit_fn:
+                    await on_exit_fn(node_name, result)
+                if trace_fn:
+                    await trace_fn(node_name, result, "exit")
+                return result
+            return wrapped
+
     def _prepare_run(self, initial_state=None, *, config=None, on_enter=None, on_exit=None, trace=None, sync_mode=False, **kwargs):
         """
         Prepares the compiled graph and initial state, handling hooks and node patching.
         Returns (compiled_graph, initial_state, config)
         """
         initial_state = self._normalize_initial_state(initial_state, kwargs)
-        # Prepare hooks and patch nodes if needed
-        def make_tracer(hook, event=None):
-            if not hook:
-                return None
-            if inspect.iscoroutinefunction(hook):
-                if sync_mode:
-                    def sync_hook(node, state):
-                        if event is None:
-                            return asyncio.run(hook(node, state))
-                        else:
-                            return asyncio.run(hook(node, state, event))
-                    return sync_hook
-                else:
-                    return lambda node, state: hook(node, state) if event is None else hook(node, state, event)
-            async def async_hook(node, state):
-                if event is None:
-                    return hook(node, state)
-                else:
-                    return hook(node, state, event)
-            return async_hook
-        on_enter_fn = make_tracer(on_enter)
-        on_exit_fn = make_tracer(on_exit)
-        trace_fn = None
-        if trace:
-            if sync_mode:
-                def trace_sync_fn(node, state, event):
-                    if inspect.iscoroutinefunction(trace):
-                        return asyncio.run(trace(node, state, event))
-                    else:
-                        return trace(node, state, event)
-                trace_fn = trace_sync_fn
-            else:
-                async def trace_async_fn(node, state, event):
-                    if inspect.iscoroutinefunction(trace):
-                        await trace(node, state, event)
-                    else:
-                        trace(node, state, event)
-                trace_fn = trace_async_fn
-
-        def trace_wrapper(node_name, fn):
-            if sync_mode:
-                def wrapped(state):
-                    if on_enter_fn:
-                        on_enter_fn(node_name, state)
-                    if trace_fn:
-                        trace_fn(node_name, state, "enter")
-                    result = fn(state)
-                    if on_exit_fn:
-                        on_exit_fn(node_name, result)
-                    if trace_fn:
-                        trace_fn(node_name, result, "exit")
-                    return result
-                return wrapped
-            else:
-                async def wrapped(state):
-                    if on_enter_fn:
-                        await on_enter_fn(node_name, state)
-                    if trace_fn:
-                        await trace_fn(node_name, state, "enter")
-                    result = await fn(state)
-                    if on_exit_fn:
-                        await on_exit_fn(node_name, result)
-                    if trace_fn:
-                        await trace_fn(node_name, result, "exit")
-                    return result
-                return wrapped
-
+        on_enter_fn = self._make_tracer(on_enter, sync_mode=sync_mode)
+        on_exit_fn = self._make_tracer(on_exit, sync_mode=sync_mode)
+        trace_fn = self._make_trace_fn(trace, sync_mode=sync_mode)
+        wrap = self._wrap_sync if sync_mode else self._wrap_async
         if on_enter or on_exit or trace:
-            patched_nodes = [(name, trace_wrapper(name, (self._wrap_sync(fn) if sync_mode else self._wrap_async(fn)))) for name, fn in self.node_definitions]
+            patched_nodes = [
+                (name, self._make_trace_wrapper(name, wrap(fn), on_enter_fn, on_exit_fn, trace_fn, sync_mode=sync_mode))
+                for name, fn in self.node_definitions
+            ]
             wf = self._build_graph_with_nodes(node_items=patched_nodes, sync_mode=sync_mode)
             compiled = wf.compile(checkpointer=self._memory_store)
         else:
