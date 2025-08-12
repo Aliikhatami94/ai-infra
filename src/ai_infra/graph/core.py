@@ -3,6 +3,7 @@ import asyncio
 from typing import Any, Sequence, Union, Dict
 from langgraph.constants import START, END
 from langgraph.graph import StateGraph
+
 from ai_infra.graph.models import GraphStructure, Edge, ConditionalEdge, EdgeType
 from ai_infra.graph.utils import (
     normalize_node_definitions, normalize_initial_state, validate_edges, validate_conditional_edges,
@@ -57,11 +58,14 @@ class CoreGraph:
             def sync_wrapper(*args, **kwargs):
                 try:
                     loop = asyncio.get_running_loop()
+                    if loop.is_running():
+                        raise RuntimeError(
+                            "CoreGraph.run/stream cannot execute async nodes inside a running event loop. "
+                            "Use arun/astream instead."
+                        )
                 except RuntimeError:
-                    loop = None
-                if loop and loop.is_running():
-                    # In async context, fallback to creating a task (warn: prefer async in ASGI/Jupyter)
-                    return loop.create_task(fn(*args, **kwargs))
+                    # no running loop; safe to asyncio.run
+                    pass
                 return asyncio.run(fn(*args, **kwargs))
             return sync_wrapper
         else:
