@@ -6,8 +6,6 @@ from langgraph.prebuilt import create_react_agent
 from langgraph.runtime import Runtime
 
 from ai_infra.llm.settings import ModelSettings
-from ai_infra.llm.providers import Providers
-from ai_infra.llm.models import Models
 from ai_infra.llm.utils import validate_provider_and_model, build_model_key, initialize_model
 
 load_dotenv()
@@ -20,7 +18,9 @@ class CoreLLM:
         self.models: Dict[str, Any] = {}  # Use Any for models
         self.tools: List[Any] = []  # Use Any for tools
 
+    # Model Management Methods
     def set_model(self, provider: str, model_name: str, **kwargs):
+        """Set up and cache a model for the given provider and model name."""
         validate_provider_and_model(provider, model_name)
         key = build_model_key(provider, model_name)
         if key not in self.models:
@@ -28,24 +28,22 @@ class CoreLLM:
         return self.models[key]
 
     def _select_model(self, _state: Any, runtime: Runtime[ModelSettings]) -> Any:
-        """
-        Select and return a model bound with tools, based on the runtime context.
-        """
+        """Select and return a model bound with tools, based on the runtime context."""
         ctx = runtime.context
-        key = f"{ctx.provider}:{ctx.model_name}"
+        key = build_model_key(ctx.provider, ctx.model_name)
         if key not in self.models:
             self.set_model(ctx.provider, ctx.model_name)
         model = self.models[key]
         tools = ctx.tools if ctx.tools is not None else self.tools
         return model.bind_tools(tools)
 
+    # Agent Management Methods
     def create_agent(self, tools: Optional[List[Any]] = None) -> Any:
-        """
-        Create a react agent with the given or default tools.
-        """
+        """Create a react agent with the given or default tools."""
         agent_tools = tools if tools is not None else self.tools
         return create_react_agent(model=self._select_model, tools=agent_tools)
 
+    # Orchestration Methods
     def run_agent(
             self,
             messages: List[Dict[str, Any]],
@@ -55,7 +53,7 @@ class CoreLLM:
             extra: Optional[Dict[str, Any]] = None,
             model_kwargs: Optional[Dict[str, Any]] = None
     ) -> Any:
-        # No need to validate again, set_model already validates
+        """Run an agent with specified parameters."""
         model_kwargs = model_kwargs or {}
         self.set_model(provider, model_name, **model_kwargs)
         ctx = ModelSettings(
