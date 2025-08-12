@@ -175,3 +175,9 @@ class CoreGraph:
 
     def get_state_history(self, config):
         return list(self.graph.get_state_history(config))
+
+    def get_arch_diagram(self) -> str:
+        """
+        Returns a mermaid diagram of the architecture of the graph.
+        """
+        return self.graph.get_graph().draw_mermaid()
