@@ -41,8 +41,8 @@ def run_graph():
     print(result)
 
 def stream_updates():
-    for r in graph.stream(initial_state):
-        print(r)
+    for mode, chunk in graph.stream({"value": 1}):
+        print(mode, chunk)
 
 def stream_values():
     """Stream values from the graph."""
@@ -50,4 +50,4 @@ def stream_values():
         print(r)
 
 if __name__ == '__main__':
-    run_graph()
+    stream_updates()

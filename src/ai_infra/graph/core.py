@@ -111,13 +111,13 @@ class CoreGraph:
         compiled, initial_state, config = self._prepare_run(initial_state, config=config, on_enter=on_enter, on_exit=on_exit, trace=trace, sync=True, **kwargs)
         return compiled.invoke(initial_state, config=config) if config is not None else compiled.invoke(initial_state)
 
-    async def astream(self, initial_state=None, *, config=None, stream_mode=("updates", "custom")):
+    async def astream(self, initial_state=None, *, config=None, stream_mode=("updates", "values")):
         stream_mode = self._normalize_stream_mode(stream_mode)
         compiled, initial_state, config = self._prepare_run(initial_state, config=config, sync=False)
         async for mode, chunk in compiled.astream(initial_state, config=config, stream_mode=stream_mode):
             yield mode, chunk
 
-    def stream(self, initial_state=None, *, config=None, stream_mode=("updates", "custom")):
+    def stream(self, initial_state=None, *, config=None, stream_mode=("updates", "values")):
         stream_mode = self._normalize_stream_mode(stream_mode)
         compiled, initial_state, config = self._prepare_run(initial_state, config=config, sync=True)
         for mode, chunk in compiled.stream(initial_state, config=config, stream_mode=stream_mode):
