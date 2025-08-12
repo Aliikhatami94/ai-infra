@@ -48,5 +48,5 @@ if __name__ == '__main__':
         ]
     )
 
-    res = math_graph.run({"value": 1, "messages": []})
+    res = math_graph.run(value=1, messages=[])
     print(res)

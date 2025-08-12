@@ -101,11 +101,16 @@ class CoreGraph:
             wf.add_edge(start, end)
         return wf
 
-    async def run_async(self, initial_state, *, config=None, on_enter=None, on_exit=None):
+    async def run_async(self, initial_state=None, *, config=None, on_enter=None, on_exit=None, **kwargs):
         """
         Async run: supports both sync and async nodes and tracing hooks.
+        Accepts either a state dict or keyword arguments for state.
         on_enter(node_name, state) and on_exit(node_name, state) can be sync or async.
         """
+        if initial_state is None:
+            initial_state = kwargs
+        elif kwargs:
+            raise ValueError("Provide either initial_state or keyword arguments, not both.")
         def make_tracer(hook):
             if not hook:
                 return None
@@ -142,11 +147,14 @@ class CoreGraph:
             else:
                 return await self.graph.ainvoke(initial_state)
 
-    def run(self, initial_state, *, config=None, on_enter=None, on_exit=None):
+    def run(self, initial_state=None, *, config=None, on_enter=None, on_exit=None, **kwargs):
         """
-        Synchronous wrapper for async run. Use this for sync code.
+        Synchronous wrapper for async run. Accepts either a state dict or keyword arguments for state.
         """
-        # Use asyncio.run to call run_async, which uses ainvoke under the hood
+        if initial_state is None:
+            initial_state = kwargs
+        elif kwargs:
+            raise ValueError("Provide either initial_state or keyword arguments, not both.")
         return asyncio.run(self.run_async(initial_state, config=config, on_enter=on_enter, on_exit=on_exit))
 
     def build_graph(self) -> StateGraph:
