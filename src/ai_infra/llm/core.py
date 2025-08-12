@@ -1,4 +1,5 @@
 import os
+import asyncio
 from typing import List, Optional, Dict, Any
 from dotenv import load_dotenv
 from langchain.chat_models import init_chat_model
@@ -43,25 +44,47 @@ class CoreLLM:
         agent_tools = tools if tools is not None else self.tools
         return create_react_agent(model=self._select_model, tools=agent_tools)
 
-    # Orchestration Methods
-    def run_agent(
-            self,
-            messages: List[Dict[str, Any]],
-            provider: str,
-            model_name: str,
-            tools: Optional[List[Any]] = None,
-            extra: Optional[Dict[str, Any]] = None,
-            model_kwargs: Optional[Dict[str, Any]] = None
-    ) -> Any:
-        """Run an agent with specified parameters."""
+    def _prepare_agent(self, provider, model_name, tools=None, extra=None, model_kwargs=None):
+        """
+        Internal helper to set up model, context, and agent instance.
+        """
         model_kwargs = model_kwargs or {}
         self.set_model(provider, model_name, **model_kwargs)
-        ctx = ModelSettings(
+        context = ModelSettings(
             provider=provider,
             model_name=model_name,
             tools=tools,
             extra=extra
         )
         agent = self.create_agent(tools)
-        response = agent.invoke({"messages": messages}, context=ctx)
-        return response
+        return agent, context
+
+    async def arun_agent(
+        self,
+        messages: List[Dict[str, Any]],
+        provider: str,
+        model_name: str,
+        tools: Optional[List[Any]] = None,
+        extra: Optional[Dict[str, Any]] = None,
+        model_kwargs: Optional[Dict[str, Any]] = None
+    ) -> Any:
+        """
+        Async version of run_agent. Runs an agent with the specified configuration using ainvoke.
+        """
+        agent, context = self._prepare_agent(provider, model_name, tools, extra, model_kwargs)
+        return await agent.ainvoke({"messages": messages}, context=context)
+
+    def run_agent(
+        self,
+        messages: List[Dict[str, Any]],
+        provider: str,
+        model_name: str,
+        tools: Optional[List[Any]] = None,
+        extra: Optional[Dict[str, Any]] = None,
+        model_kwargs: Optional[Dict[str, Any]] = None
+    ) -> Any:
+        """
+        Synchronous version of run_agent_async. Runs an agent with the specified configuration using invoke.
+        """
+        agent, context = self._prepare_agent(provider, model_name, tools, extra, model_kwargs)
+        return agent.invoke({"messages": messages}, context=context)
