@@ -1,7 +1,8 @@
 from ai_infra.llm import CoreLLM, Providers, Models
 
+core = CoreLLM()
+
 def test_agent():
-    core = CoreLLM()
     res = core.run_agent(
         messages=[{"role": "user", "content": "Hello there"}],
         provider=Providers.openai,
@@ -14,7 +15,6 @@ def test_agent():
     print(res)
 
 def test_llm():
-    core = CoreLLM()
     llm = core.set_model(
         provider=Providers.openai,
         model_name=Models.openai.gpt_4o.value,
@@ -22,5 +22,16 @@ def test_llm():
     res = llm.invoke("Hello, how are you?")
     print(res)
 
+def test_sys_msg():
+    model = core.set_model(
+        provider=Providers.openai,
+        model_name=Models.openai.gpt_4o.value,
+    )
+    res = model.invoke([
+        {"role": "system", "content": "Your name is Alex"},
+        {"role": "user", "content": "Hey what is your name?"}
+    ])
+    print(res)
+
 if __name__ == "__main__":
-    test_llm()
+    test_sys_msg()
