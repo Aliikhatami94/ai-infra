@@ -37,7 +37,7 @@ initial_state = {"value": 1}
 
 def run_graph():
     """Run the graph with the initial state."""
-    result = graph.run(initial_state)
+    result = graph.run(initial_state, trace=my_trace)
     print(result)
 
 def stream_updates():
@@ -50,4 +50,4 @@ def stream_values():
         print(r)
 
 if __name__ == '__main__':
-    arch = graph.get_arch_diagram()
+    run_graph()

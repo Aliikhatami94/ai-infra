@@ -46,7 +46,7 @@ def make_hook(hook, event=None, sync=False):
             def sync_hook(node, state):
                 return asyncio.run(hook(node, state) if event is None else hook(node, state, event))
             return sync_hook
-        return (lambda node, state: hook(node, state) if event is None else hook(node, state, event))
+        return lambda node, state: hook(node, state) if event is None else hook(node, state, event)
     async def async_hook(node, state):
         return hook(node, state) if event is None else hook(node, state, event)
     return async_hook
