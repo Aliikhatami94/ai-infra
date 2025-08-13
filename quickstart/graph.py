@@ -50,4 +50,4 @@ def stream_values():
         print(r)
 
 if __name__ == '__main__':
-    stream_updates()
+    arch = graph.get_arch_diagram()
