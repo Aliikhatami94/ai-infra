@@ -7,6 +7,7 @@ from langchain_core.messages import SystemMessage
 from pydantic import BaseModel as PydanticModel  # for structured output
 from dataclasses import is_dataclass, asdict
 
+from ai_infra.llm.providers import Providers
 from ai_infra.llm.settings import ModelSettings
 from ai_infra.llm.utils import validate_provider_and_model, build_model_key, initialize_model
 
@@ -16,6 +17,7 @@ load_dotenv()
 class ToolCallControls:
     tool_choice: Optional[Dict[str, Any]] = None     # e.g. {"type":"tool","name":"search"}
     parallel_tool_calls: bool = True                 # False = serialize tool calls
+    force_once: bool = False                          # If True, only call tool once per run, even if not used
 
 class CoreLLM:
     """
@@ -42,30 +44,48 @@ class CoreLLM:
             raise
 
     def _normalize_tool_controls(self, provider: str, controls: Any):
-        tool_choice, parallel_tool_calls = None, True
+        # defaults
+        tool_choice, parallel_tool_calls, force_once = None, True, False
+
         if controls is None:
-            return tool_choice, parallel_tool_calls, False
+            return tool_choice, parallel_tool_calls, force_once
 
         if is_dataclass(controls):
             controls = asdict(controls)
+
         if isinstance(controls, dict):
             tool_choice = controls.get("tool_choice")
             parallel_tool_calls = controls.get("parallel_tool_calls", True)
             force_once = bool(controls.get("force_once", False))
-        else:
-            force_once = False
 
-        # OpenAI ‘function’ shape normalization
-        if provider == "openai" and isinstance(tool_choice, dict):
-            name = tool_choice.get("name") or (tool_choice.get("function") or {}).get("name")
-            if name:
-                tool_choice = {"type": "function", "function": {"name": name}}
+        # Allow simple strings everywhere ("none", "auto", "any")
+        if isinstance(tool_choice, str):
+            # passthrough; providers understand these tags
+            return tool_choice, parallel_tool_calls, force_once
 
-        # Anthropic normalization (optional)
-        if provider == "anthropic" and isinstance(tool_choice, dict):
-            fn = (tool_choice.get("function") or {}).get("name")
-            if fn:
-                tool_choice = {"type": "tool", "name": fn}
+        # If caller passed {"name": "..."} normalize per provider
+        if isinstance(tool_choice, dict):
+            name = (
+                    tool_choice.get("name")
+                    or (tool_choice.get("function") or {}).get("name")
+            )
+
+            if provider == Providers.openai:
+                # OpenAI expects {"type":"function","function":{"name": "<name>"}}
+                if name:
+                    tool_choice = {"type": "function", "function": {"name": name}}
+                # also allow "none"/"auto" strings above
+
+            elif provider == Providers.anthropic:
+                # Anthropic expects {"type":"tool","name":"<name>"} or "none"/"auto"/"any"
+                if name:
+                    tool_choice = {"type": "tool", "name": name}
+                # Convert any OpenAI-style input just in case
+                if tool_choice.get("type") == "function" and "function" in tool_choice:
+                    fn = (tool_choice["function"] or {}).get("name")
+                    tool_choice = {"type": "tool", "name": fn} if fn else {"type": "any"}
+
+            # Other providers: pass-through
 
         return tool_choice, parallel_tool_calls, force_once
 

@@ -71,18 +71,20 @@ def controlled_tool_agent():
         return f"Weather in {query}: It is always rainy and 60 degrees."
 
     extra = {
-        "tool_controls": {
-            "tool_choice": {"name": "dummy_weather_tool2"},
-            "parallel_tool_calls": False,
-            "force_once": True,
-        },
+        "tool_call_controls": ToolCallControls(
+            # can be {"name": "dummy_weather_tool1"}; normalizer will map to {"type":"tool","name":...}
+            tool_choice={"name": "dummy_weather_tool1"},
+            parallel_tool_calls=False,
+            force_once=True,
+        ),
         "recursion_limit": 8,
     }
+
     msgs = [{"role": "user", "content": "How is the weather in New York?"}]
     res = core.run_agent(
         msgs,
-        Providers.openai,
-        Models.openai.gpt_4_1_mini.value,
+        Providers.anthropic,
+        Models.anthropic.claude_3_5_haiku_latest.value,
         tools=[dummy_weather_tool1, dummy_weather_tool2],
         extra=extra
     )
