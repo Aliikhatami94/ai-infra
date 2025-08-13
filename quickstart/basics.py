@@ -1,4 +1,4 @@
-from langchain.tools import tool
+from langchain_core.tools import tool
 
 from ai_infra.llm import CoreLLM, Providers, Models
 from ai_infra.llm.tool_controls import ToolCallControls, force_tool
@@ -87,5 +87,40 @@ def controlled_tool_agent():
     )
     print(res)
 
-if __name__ == "__main__":
-    controlled_tool_agent()
+
+def human_in_the_loop():
+    @tool
+    def get_weather(city: str) -> str:
+        """Return a short weather string for a city."""
+        return f"Weather in {city}: sunny, 85°F"
+
+    @tool
+    def get_news(topic: str) -> str:
+        """Return a headline for a topic."""
+        return f"Top headline about {topic}: ..."
+
+    def reviewer(name, args):
+        print(f"\nAgent wants to call tool: {name} with args: {args}")
+        ans = input("Approve? (y/n/m=modify): ").strip().lower()
+        if ans == "y":
+            return {"action": "pass"}
+        if ans == "m":
+            # quick edit flow
+            new_args = dict(args or {})
+            for k in list(new_args.keys()):
+                nv = input(f"New value for {k} (blank=keep): ").strip()
+                if nv:
+                    new_args[k] = nv
+            return {"action": "modify", "args": new_args}
+        return {"action": "block", "replacement": "[blocked by reviewer]"}
+
+    core.set_hitl(on_tool_call=reviewer)
+
+    messages = [{"role": "user", "content": "What's the weather in New York?"}]
+    resp = core.run_agent(
+        messages=messages,
+        provider="openai",
+        model_name="gpt-4.1-mini",
+        tools=[get_weather, get_news],   # <- our wrapper will gate these
+    )
+    print("\nFINAL:", getattr(resp, "content", resp))
