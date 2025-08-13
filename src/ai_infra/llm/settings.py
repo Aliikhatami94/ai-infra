@@ -1,8 +1,5 @@
-from .providers import Providers
-from .models import Models
-
 from dataclasses import dataclass
-from typing import List, Optional, Dict, Any, Union
+from typing import List, Optional, Dict, Any
 
 @dataclass
 class ModelSettings:
