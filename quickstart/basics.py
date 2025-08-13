@@ -7,7 +7,7 @@ core = CoreLLM()
 
 def test_agent():
     res = core.run_agent(
-        messages=[{"role": "user", "content": "What is your namea?"}],
+        messages=[{"role": "user", "content": "What is your name?"}],
         provider=Providers.google_genai,
         model_name=Models.google_genai.gemini_2_5_flash.value,
         model_kwargs={
