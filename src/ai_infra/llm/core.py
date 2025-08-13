@@ -4,8 +4,8 @@ from dotenv import load_dotenv
 from langgraph.prebuilt import create_react_agent
 from langgraph.runtime import Runtime
 from langchain_core.messages import SystemMessage
-from pydantic import BaseModel as PydanticModel
-from langchain_core.tools import tool as lc_tool, StructuredTool
+from pydantic import BaseModel
+from langchain_core.tools import BaseTool, tool as lc_tool, StructuredTool
 
 from .settings import ModelSettings
 from .utils import validate_provider_and_model, build_model_key, initialize_model
@@ -59,38 +59,38 @@ class CoreLLM:
         on_tool = self._hitl.get("on_tool_call")
         if not on_tool:
             return tool_obj
-
-        # Normalize to a BaseTool so we have name/description/args_schema
-        if isinstance(tool_obj, PydanticModel):
+    
+        # Normalize to a BaseTool
+        if isinstance(tool_obj, BaseTool):
             base = tool_obj
         elif callable(tool_obj):
             base = lc_tool(tool_obj)  # convert plain function into a BaseTool
         else:
             return tool_obj
-
+    
         name = getattr(base, "name", getattr(tool_obj, "__name__", "tool"))
         description = getattr(base, "description", getattr(tool_obj, "__doc__", "")) or ""
         args_schema = getattr(base, "args_schema", None)
-
+    
         def _impl(**kwargs):
             try:
                 decision = on_tool(name, dict(kwargs) if kwargs else {})
             except Exception:
                 decision = {"action": "pass"}
-
+    
             action = (decision or {}).get("action", "pass")
             if action == "block":
                 return (decision or {}).get("replacement", "[blocked by reviewer]")
             if action == "modify":
                 kwargs = (decision or {}).get("args", kwargs)
-
+    
             return base.invoke(kwargs)
-
+    
         try:
             _impl.__name__ = name
         except Exception:
             pass
-
+    
         return StructuredTool.from_function(
             func=_impl,
             name=name,
@@ -323,7 +323,7 @@ class CoreLLM:
             self,
             provider: str,
             model_name: str,
-            schema: Union[type[PydanticModel], Dict[str, Any]],
+            schema: Union[type[BaseModel], Dict[str, Any]],
             **model_kwargs,
     ):
         model = self._get_or_create(provider, model_name, **model_kwargs)
