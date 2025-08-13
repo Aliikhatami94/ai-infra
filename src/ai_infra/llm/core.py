@@ -1,33 +1,40 @@
+from __future__ import annotations
 from typing import List, Optional, Dict, Any, Tuple, Union
 from dataclasses import dataclass
 from dotenv import load_dotenv
 from langgraph.prebuilt import create_react_agent
 from langgraph.runtime import Runtime
 from langchain_core.messages import SystemMessage
-from pydantic import BaseModel as PydanticModel  # for structured output
-from dataclasses import is_dataclass, asdict
+from pydantic import BaseModel as PydanticModel
 
-from ai_infra.llm.providers import Providers
-from ai_infra.llm.settings import ModelSettings
-from ai_infra.llm.utils import validate_provider_and_model, build_model_key, initialize_model
+from .settings import ModelSettings
+from .utils import validate_provider_and_model, build_model_key, initialize_model
+from .tool_controls import normalize_tool_controls
 
 load_dotenv()
 
 @dataclass
 class ToolCallControls:
-    tool_choice: Optional[Dict[str, Any]] = None     # e.g. {"type":"tool","name":"search"}
-    parallel_tool_calls: bool = True                 # False = serialize tool calls
-    force_once: bool = False                          # If True, only call tool once per run, even if not used
+    tool_choice: Optional[Dict[str, Any]] = None     # e.g. {"name":"my_tool"} | "none" | "auto" | "any"
+    parallel_tool_calls: bool = True
+    force_once: bool = False                         # Only enforce tool_choice for the first call in a run
+
 
 class CoreLLM:
     """
-    Dynamic LLM + agent setup across providers with tool controls, streaming, structured output, and fallbacks.
+    Minimal, batteries-included LLM facade:
+    - Model cache across providers
+    - Agents from LangGraph prebuilt ReAct
+    - Provider-normalized tool controls
+    - Streaming (graph 'updates/values' and token 'messages')
+    - Optional structured output
     """
-    def __init__(self):
-        self.models: Dict[str, Any] = {}   # cached chat models
-        self.tools: List[Any] = []         # default tools
 
-    # ---------- Model management ----------
+    def __init__(self):
+        self.models: Dict[str, Any] = {}
+        self.tools: List[Any] = []
+
+    # ---------- Models ----------
     def set_model(self, provider: str, model_name: str, **kwargs):
         validate_provider_and_model(provider, model_name)
         key = build_model_key(provider, model_name)
@@ -36,104 +43,20 @@ class CoreLLM:
         return self.models[key]
 
     def _get_or_create(self, provider: str, model_name: str, **kwargs):
-        """Internal, used by fallbacks."""
-        try:
-            return self.set_model(provider, model_name, **kwargs)
-        except Exception:
-            # let caller handle fallback decision
-            raise
+        return self.set_model(provider, model_name, **kwargs)
 
-    def _normalize_tool_controls(self, provider: str, controls: Any):
-        # defaults
-        tool_choice, parallel_tool_calls, force_once = None, True, False
-
-        if not controls:
-            return tool_choice, parallel_tool_calls, force_once
-
-        from dataclasses import is_dataclass, asdict
-        if is_dataclass(controls):
-            controls = asdict(controls)
-
-        if isinstance(controls, dict):
-            tool_choice = controls.get("tool_choice")
-            parallel_tool_calls = controls.get("parallel_tool_calls", True)
-            force_once = bool(controls.get("force_once", False))
-
-        # Pass-through common string tags if present. (Each provider knows "auto"/"none"/"any".)
-        if isinstance(tool_choice, str):
-            # For Google we'll map strings below; others can take strings directly.
-            if provider != Providers.google_genai:
-                return tool_choice, parallel_tool_calls, force_once
-
-        # Normalize dict {"name": "..."} (or {"function":{"name":...}}) into provider-specific wire shapes.
-        name = None
-        if isinstance(tool_choice, dict):
-            name = tool_choice.get("name") or (tool_choice.get("function") or {}).get("name")
-
-        if provider in (Providers.openai, Providers.xai):
-            # OpenAI/XAI expect OpenAI-style function choice
-            if isinstance(tool_choice, str):
-                # "auto" | "none" are fine
-                return tool_choice, parallel_tool_calls, force_once
-            if name:
-                tool_choice = {"type": "function", "function": {"name": name}}
-            # else None is fine
-
-        elif provider == Providers.anthropic:
-            # Anthropic expects {"type":"tool","name":...} or "auto"/"none"/"any"
-            if isinstance(tool_choice, str):
-                return tool_choice, parallel_tool_calls, force_once
-            if name:
-                tool_choice = {"type": "tool", "name": name}
-
-        elif provider == Providers.google_genai:
-            # Gemini expects FunctionCallingConfig / ToolConfig
-            # Map simple forms to:
-            #   "none" -> {"function_calling_config":{"mode":"NONE"}}
-            #   "auto" -> {"function_calling_config":{"mode":"AUTO"}}
-            #   "any"  -> {"function_calling_config":{"mode":"ANY"}}
-            #   {"name": "..."} -> {"function_calling_config":{"mode":"ANY","allowed_function_names":["..."]}}
-            def _gg(mode: str, names: list[str] | None = None):
-                cfg = {"function_calling_config": {"mode": mode}}
-                if names:
-                    cfg["function_calling_config"]["allowed_function_names"] = names
-                return cfg
-
-            if isinstance(tool_choice, str):
-                s = tool_choice.lower()
-                if s == "none":
-                    tool_choice = _gg("NONE")
-                elif s == "auto":
-                    tool_choice = _gg("AUTO")
-                elif s == "any":
-                    tool_choice = _gg("ANY")
-                else:
-                    # Unknown string -> fall back to AUTO
-                    tool_choice = _gg("AUTO")
-            elif name:
-                tool_choice = _gg("ANY", [name])
-            else:
-                # No name, no string -> leave None (Gemini AUTO)
-                tool_choice = None
-
-        # (Other providers: leave as-is)
-        return tool_choice, parallel_tool_calls, force_once
-
-    def _tool_used_already(self, state: Any) -> bool:
-        """Heuristic: check if any AIMessage includes tool_calls OR any ToolMessage exists."""
-        msgs = state.get("messages", []) if isinstance(state, dict) else getattr(state, "get", lambda *_: [])("messages", [])
+    # ---------- Tool controls ----------
+    @staticmethod
+    def _tool_used(state: Any) -> bool:
+        """Heuristic: did any AIMessage emit a tool call (or ToolMessage added)?"""
+        msgs = state.get("messages", []) if isinstance(state, dict) else []
         for m in reversed(msgs):
-            # LangChain message objects
-            if hasattr(m, "tool_calls") and m.tool_calls:
+            if getattr(m, "tool_calls", None):
                 return True
-            if getattr(m, "type", None) == "tool":
+            if getattr(m, "type", None) == "tool":  # ToolMessage
                 return True
-            # dict-like form (defensive)
-            if isinstance(m, dict):
-                if m.get("tool_calls"):
-                    return True
-                if m.get("type") == "tool":
-                    return True
+            if isinstance(m, dict) and (m.get("tool_calls") or m.get("type") == "tool"):
+                return True
         return False
 
     def _select_model(self, state: Any, runtime: Runtime[ModelSettings]) -> Any:
@@ -146,10 +69,10 @@ class CoreLLM:
         tools = ctx.tools if ctx.tools is not None else self.tools
         extra = ctx.extra or {}
 
-        tool_choice, parallel_tool_calls, force_once = self._normalize_tool_controls(ctx.provider, extra.get("tool_controls"))
-
-        # If forcing only once and we already used a tool, stop forcing
-        if force_once and self._tool_used_already(state):
+        tool_choice, parallel_tool_calls, force_once = normalize_tool_controls(
+            ctx.provider, extra.get("tool_controls")
+        )
+        if force_once and self._tool_used(state):
             tool_choice = None
 
         return model.bind_tools(
@@ -158,13 +81,15 @@ class CoreLLM:
             parallel_tool_calls=parallel_tool_calls,
         )
 
-    # ---------- Agent builders ----------
-    def create_agent(self, tools: Optional[List[Any]] = None) -> Any:
-        agent_tools = tools if tools is not None else self.tools
-        return create_react_agent(model=self._select_model, tools=agent_tools)
-
-    def _prepare_agent(self, provider, model_name, tools=None, extra=None, model_kwargs=None):
-        # ensure model exists and stash kwargs for _select_model
+    # ---------- Agent ----------
+    def _make_agent_with_context(
+            self,
+            provider: str,
+            model_name: str,
+            tools: Optional[List[Any]] = None,
+            extra: Optional[Dict[str, Any]] = None,
+            model_kwargs: Optional[Dict[str, Any]] = None,
+    ) -> Tuple[Any, ModelSettings]:
         model_kwargs = model_kwargs or {}
         self.set_model(provider, model_name, **model_kwargs)
         context = ModelSettings(
@@ -173,10 +98,10 @@ class CoreLLM:
             tools=tools,
             extra={"model_kwargs": model_kwargs, **(extra or {})},
         )
-        agent = self.create_agent(tools)
+        agent = create_react_agent(model=self._select_model, tools=tools or self.tools)
         return agent, context
 
-    # ---------- Invocation ----------
+    # ---------- Public: Agent run ----------
     async def arun_agent(
             self,
             messages: List[Dict[str, Any]],
@@ -184,9 +109,9 @@ class CoreLLM:
             model_name: str,
             tools: Optional[List[Any]] = None,
             extra: Optional[Dict[str, Any]] = None,
-            model_kwargs: Optional[Dict[str, Any]] = None
+            model_kwargs: Optional[Dict[str, Any]] = None,
     ) -> Any:
-        agent, context = self._prepare_agent(provider, model_name, tools, extra, model_kwargs)
+        agent, context = self._make_agent_with_context(provider, model_name, tools, extra, model_kwargs)
         return await agent.ainvoke({"messages": messages}, context=context)
 
     def run_agent(
@@ -196,12 +121,12 @@ class CoreLLM:
             model_name: str,
             tools: Optional[List[Any]] = None,
             extra: Optional[Dict[str, Any]] = None,
-            model_kwargs: Optional[Dict[str, Any]] = None
+            model_kwargs: Optional[Dict[str, Any]] = None,
     ) -> Any:
-        agent, context = self._prepare_agent(provider, model_name, tools, extra, model_kwargs)
+        agent, context = self._make_agent_with_context(provider, model_name, tools, extra, model_kwargs)
         return agent.invoke({"messages": messages}, context=context)
 
-    # ---------- Streaming ----------
+    # ---------- Public: Agent streaming ----------
     async def arun_agent_stream(
             self,
             messages: List[Dict[str, Any]],
@@ -212,38 +137,34 @@ class CoreLLM:
             model_kwargs: Optional[Dict[str, Any]] = None,
             stream_mode: Union[str, List[str]] = ("updates", "values"),
     ):
-        agent, context = self._prepare_agent(provider, model_name, tools, extra, model_kwargs)
-        # normalize
+        agent, context = self._make_agent_with_context(provider, model_name, tools, extra, model_kwargs)
         modes = [stream_mode] if isinstance(stream_mode, str) else list(stream_mode)
 
-        # If caller wants LLM token streaming, pass-through (token, metadata) as per docs.
-        # Otherwise, yield (mode, chunk) like your graph streaming.
-        if modes == ["messages"] or (len(modes) == 1 and modes[0] == "messages"):
-            async for token, metadata in agent.astream({"messages": messages}, context=context, stream_mode="messages"):
-                yield token, metadata
+        if modes == ["messages"]:
+            async for token, meta in agent.astream({"messages": messages}, context=context, stream_mode="messages"):
+                yield token, meta
             return
 
         async for mode, chunk in agent.astream({"messages": messages}, context=context, stream_mode=modes):
             yield mode, chunk
 
-    # ---------- Structured output ----------
-    def with_structured_output(self, provider: str, model_name: str, schema: Union[type[PydanticModel], Dict[str, Any]], **model_kwargs):
-        """
-        Return a *model instance* configured to emit structured JSON per schema.
-        Use this to call .invoke directly (outside the prebuilt agent), or to plug into a custom node.
-        """
+    # ---------- Direct model helpers (no agent) ----------
+    def with_structured_output(
+            self,
+            provider: str,
+            model_name: str,
+            schema: Union[type[PydanticModel], Dict[str, Any]],
+            **model_kwargs,
+    ):
         model = self._get_or_create(provider, model_name, **model_kwargs)
         try:
-            # pydantic model or JSON schema dict
             return model.with_structured_output(schema)
         except Exception:
-            # If provider/model doesn’t support it, return the base model (caller can validate post-hoc)
             return model
 
-    # ---------- Helpers ----------
+    # ---------- UX sugar ----------
     @staticmethod
     def make_messages(user: str, system: Optional[str] = None, extras: Optional[List[Dict[str, Any]]] = None):
-        """Quick helper to build message arrays with optional system prelude."""
         msgs: List[Dict[str, Any]] = []
         if system:
             msgs.append(SystemMessage(content=system).dict())
@@ -255,10 +176,10 @@ class CoreLLM:
     def run_with_fallbacks(
             self,
             messages: List[Dict[str, Any]],
-            candidates: List[Tuple[str, str]],   # [(provider, model_name), ...] in priority order
+            candidates: List[Tuple[str, str]],
             tools: Optional[List[Any]] = None,
             extra: Optional[Dict[str, Any]] = None,
-            model_kwargs: Optional[Dict[str, Any]] = None
+            model_kwargs: Optional[Dict[str, Any]] = None,
     ):
         last_err = None
         for provider, model_name in candidates:
@@ -266,5 +187,56 @@ class CoreLLM:
                 return self.run_agent(messages, provider, model_name, tools, extra, model_kwargs)
             except Exception as e:
                 last_err = e
-                continue
         raise last_err or RuntimeError("All fallbacks failed")
+
+    # === Convenience APIs ===
+
+    def chat(
+            self,
+            user_msg: str,
+            provider: str,
+            model_name: str,
+            system: Optional[str] = None,
+            **model_kwargs,
+    ):
+        """One-liner chat without tools/agent graph."""
+        model = self.set_model(provider, model_name, **model_kwargs)
+        messages = self.make_messages(user_msg, system)
+        return model.invoke(messages)
+
+    async def achat(
+            self,
+            user_msg: str,
+            provider: str,
+            model_name: str,
+            system: Optional[str] = None,
+            **model_kwargs,
+    ):
+        model = self.set_model(provider, model_name, **model_kwargs)
+        messages = self.make_messages(user_msg, system)
+        return await model.ainvoke(messages)
+
+    async def stream_tokens(
+            self,
+            user_msg: str,
+            provider: str,
+            model_name: str,
+            system: Optional[str] = None,
+            **model_kwargs,
+    ):
+        """Token stream (LLM raw streaming), no agent graph."""
+        model = self.set_model(provider, model_name, **model_kwargs)
+        messages = self.make_messages(user_msg, system)
+        async for token, meta in model.astream(messages):
+            yield token, meta
+
+    def agent(
+            self,
+            provider: str,
+            model_name: str,
+            tools: Optional[List[Any]] = None,
+            extra: Optional[Dict[str, Any]] = None,
+            model_kwargs: Optional[Dict[str, Any]] = None,
+    ):
+        """Return (agent, context) for custom wiring."""
+        return self._make_agent_with_context(provider, model_name, tools, extra, model_kwargs)
