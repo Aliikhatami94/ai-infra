@@ -1,7 +1,7 @@
 from langchain_core.tools import tool
 
 from ai_infra.llm import CoreLLM, Providers, Models
-from ai_infra.llm.tool_controls import ToolCallControls, force_tool
+from ai_infra.llm.tool_controls import ToolCallControls
 
 core = CoreLLM()
 
@@ -87,7 +87,6 @@ def controlled_tool_agent():
     )
     print(res)
 
-
 def human_in_the_loop():
     @tool
     def get_weather(city: str) -> str:
@@ -125,28 +124,15 @@ def human_in_the_loop():
     )
     print("\nFINAL:", getattr(resp, "content", resp))
 
-
-import asyncio
-
-async def token_stream_example():
-    async for token, meta in core.stream_tokens(
-            user_msg="Write 2 short fun facts about dolphins.",
-            provider=Providers.openai,
-            model_name=Models.openai.gpt_4_1_mini.value,
-    ):
-        print(token, end="", flush=True)
-    print()
-
-async def agent_stream_updates_values():
-    # Agent graph streaming: ("updates"|"values") chunks
-    async for mode, chunk in core.arun_agent_stream(
-            messages=[{"role": "user", "content": "Plan a 3-step morning routine."}],
-            provider=Providers.google_genai,
-            model_name=Models.google_genai.gemini_2_5_flash.value,
-            stream_mode=("updates", "values"),
-            extra=CoreLLM.no_tools(),  # example: no tools
-    ):
-        print(mode, chunk)
-
-asyncio.run(token_stream_example())
-asyncio.run(agent_stream_updates_values())
+async def ask_with_retry():
+    extra = {
+        **CoreLLM.no_tools(),
+        "retry": {"max_tries": 3, "base": 0.5, "jitter": 0.2},  # exponential backoff
+    }
+    res = await core.arun_agent(
+        messages=[{"role": "user", "content": "Give me one productivity tip."}],
+        provider=Providers.openai,
+        model_name=Models.openai.gpt_4_1_mini.value,
+        extra=extra,
+    )
+    print(res)
