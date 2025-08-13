@@ -47,9 +47,10 @@ class CoreLLM:
         # defaults
         tool_choice, parallel_tool_calls, force_once = None, True, False
 
-        if controls is None:
+        if not controls:
             return tool_choice, parallel_tool_calls, force_once
 
+        from dataclasses import is_dataclass, asdict
         if is_dataclass(controls):
             controls = asdict(controls)
 
@@ -58,35 +59,64 @@ class CoreLLM:
             parallel_tool_calls = controls.get("parallel_tool_calls", True)
             force_once = bool(controls.get("force_once", False))
 
-        # Allow simple strings everywhere ("none", "auto", "any")
+        # Pass-through common string tags if present. (Each provider knows "auto"/"none"/"any".)
         if isinstance(tool_choice, str):
-            # passthrough; providers understand these tags
-            return tool_choice, parallel_tool_calls, force_once
+            # For Google we'll map strings below; others can take strings directly.
+            if provider != Providers.google_genai:
+                return tool_choice, parallel_tool_calls, force_once
 
-        # If caller passed {"name": "..."} normalize per provider
+        # Normalize dict {"name": "..."} (or {"function":{"name":...}}) into provider-specific wire shapes.
+        name = None
         if isinstance(tool_choice, dict):
-            name = (
-                    tool_choice.get("name")
-                    or (tool_choice.get("function") or {}).get("name")
-            )
+            name = tool_choice.get("name") or (tool_choice.get("function") or {}).get("name")
 
-            if provider in (Providers.openai, Providers.xai):
-                # OpenAI expects {"type":"function","function":{"name": "<name>"}}
-                if name:
-                    tool_choice = {"type": "function", "function": {"name": name}}
-                # also allow "none"/"auto" strings above
+        if provider in (Providers.openai, Providers.xai):
+            # OpenAI/XAI expect OpenAI-style function choice
+            if isinstance(tool_choice, str):
+                # "auto" | "none" are fine
+                return tool_choice, parallel_tool_calls, force_once
+            if name:
+                tool_choice = {"type": "function", "function": {"name": name}}
+            # else None is fine
 
-            elif provider == Providers.anthropic:
-                # Anthropic expects {"type":"tool","name":"<name>"} or "none"/"auto"/"any"
-                if name:
-                    tool_choice = {"type": "tool", "name": name}
-                # Convert any OpenAI-style input just in case
-                if tool_choice.get("type") == "function" and "function" in tool_choice:
-                    fn = (tool_choice["function"] or {}).get("name")
-                    tool_choice = {"type": "tool", "name": fn} if fn else {"type": "any"}
+        elif provider == Providers.anthropic:
+            # Anthropic expects {"type":"tool","name":...} or "auto"/"none"/"any"
+            if isinstance(tool_choice, str):
+                return tool_choice, parallel_tool_calls, force_once
+            if name:
+                tool_choice = {"type": "tool", "name": name}
 
-            # Other providers: pass-through
+        elif provider == Providers.google_genai:
+            # Gemini expects FunctionCallingConfig / ToolConfig
+            # Map simple forms to:
+            #   "none" -> {"function_calling_config":{"mode":"NONE"}}
+            #   "auto" -> {"function_calling_config":{"mode":"AUTO"}}
+            #   "any"  -> {"function_calling_config":{"mode":"ANY"}}
+            #   {"name": "..."} -> {"function_calling_config":{"mode":"ANY","allowed_function_names":["..."]}}
+            def _gg(mode: str, names: list[str] | None = None):
+                cfg = {"function_calling_config": {"mode": mode}}
+                if names:
+                    cfg["function_calling_config"]["allowed_function_names"] = names
+                return cfg
 
+            if isinstance(tool_choice, str):
+                s = tool_choice.lower()
+                if s == "none":
+                    tool_choice = _gg("NONE")
+                elif s == "auto":
+                    tool_choice = _gg("AUTO")
+                elif s == "any":
+                    tool_choice = _gg("ANY")
+                else:
+                    # Unknown string -> fall back to AUTO
+                    tool_choice = _gg("AUTO")
+            elif name:
+                tool_choice = _gg("ANY", [name])
+            else:
+                # No name, no string -> leave None (Gemini AUTO)
+                tool_choice = None
+
+        # (Other providers: leave as-is)
         return tool_choice, parallel_tool_calls, force_once
 
     def _tool_used_already(self, state: Any) -> bool:

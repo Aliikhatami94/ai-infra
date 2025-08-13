@@ -73,7 +73,7 @@ def controlled_tool_agent():
     extra = {
         "tool_controls": ToolCallControls(
             # can be {"name": "dummy_weather_tool1"}; normalizer will map to {"type":"tool","name":...}
-            tool_choice={"name": "dummy_weather_tool1"},
+            tool_choice={"name": "dummy_weather_tool2"},
             parallel_tool_calls=False,
             force_once=True,
         ),
@@ -83,8 +83,8 @@ def controlled_tool_agent():
     msgs = [{"role": "user", "content": "How is the weather in New York?"}]
     res = core.run_agent(
         msgs,
-        Providers.xai,
-        Models.xai.grok_3_mini.value,
+        Providers.google_genai,
+        Models.google_genai.gemini_2_5_flash.value,
         tools=[dummy_weather_tool1, dummy_weather_tool2],
         extra=extra
     )
