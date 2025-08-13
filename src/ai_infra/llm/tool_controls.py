@@ -1,8 +1,16 @@
 from __future__ import annotations
 from dataclasses import is_dataclass, asdict
 from typing import Any, Dict, Optional, Tuple, List
+from dataclasses import dataclass
 
 from .providers import Providers
+
+
+@dataclass
+class ToolCallControls:
+    tool_choice: Optional[Dict[str, Any]] = None     # e.g. {"name":"my_tool"} | "none" | "auto" | "any"
+    parallel_tool_calls: bool = True
+    force_once: bool = False                         # Only enforce tool_choice for the first call in a run
 
 
 def _ensure_dict(obj: Any) -> Dict[str, Any] | None:
@@ -95,3 +103,9 @@ def normalize_tool_controls(
 
     # Others pass-through
     return tool_choice, parallel_tool_calls, force_once
+
+def no_tools() -> Dict[str, Any]:
+    return {"tool_choice": "none"}
+
+def force_tool(name: str, *, once: bool = False) -> Dict[str, Any]:
+    return {"tool_choice": {"name": name}, "parallel_tool_calls": False, "force_once": once}

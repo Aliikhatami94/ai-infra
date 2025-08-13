@@ -1,6 +1,5 @@
 from __future__ import annotations
 from typing import List, Optional, Dict, Any, Tuple, Union
-from dataclasses import dataclass
 from dotenv import load_dotenv
 from langgraph.prebuilt import create_react_agent
 from langgraph.runtime import Runtime
@@ -9,16 +8,9 @@ from pydantic import BaseModel as PydanticModel
 
 from .settings import ModelSettings
 from .utils import validate_provider_and_model, build_model_key, initialize_model
-from .tool_controls import normalize_tool_controls
+from .tool_controls import normalize_tool_controls, ToolCallControls
 
 load_dotenv()
-
-@dataclass
-class ToolCallControls:
-    tool_choice: Optional[Dict[str, Any]] = None     # e.g. {"name":"my_tool"} | "none" | "auto" | "any"
-    parallel_tool_calls: bool = True
-    force_once: bool = False                         # Only enforce tool_choice for the first call in a run
-
 
 class CoreLLM:
     """
@@ -89,9 +81,18 @@ class CoreLLM:
             tools: Optional[List[Any]] = None,
             extra: Optional[Dict[str, Any]] = None,
             model_kwargs: Optional[Dict[str, Any]] = None,
+            tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,  # NEW
     ) -> Tuple[Any, ModelSettings]:
         model_kwargs = model_kwargs or {}
         self.set_model(provider, model_name, **model_kwargs)
+
+        # merge tool_controls into extra for runtime.context
+        if tool_controls is not None:
+            from dataclasses import is_dataclass, asdict
+            if is_dataclass(tool_controls):
+                tool_controls = asdict(tool_controls)
+            extra = {**(extra or {}), "tool_controls": tool_controls}
+
         context = ModelSettings(
             provider=provider,
             model_name=model_name,
@@ -110,9 +111,11 @@ class CoreLLM:
             tools: Optional[List[Any]] = None,
             extra: Optional[Dict[str, Any]] = None,
             model_kwargs: Optional[Dict[str, Any]] = None,
+            tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,
+            config: Optional[Dict[str, Any]] = None
     ) -> Any:
-        agent, context = self._make_agent_with_context(provider, model_name, tools, extra, model_kwargs)
-        return await agent.ainvoke({"messages": messages}, context=context)
+        agent, context = self._make_agent_with_context(provider, model_name, tools, extra, model_kwargs, tool_controls)
+        return await agent.ainvoke({"messages": messages}, context=context, config=config)
 
     def run_agent(
             self,
@@ -122,9 +125,12 @@ class CoreLLM:
             tools: Optional[List[Any]] = None,
             extra: Optional[Dict[str, Any]] = None,
             model_kwargs: Optional[Dict[str, Any]] = None,
+            tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,
+            config: Optional[Dict[str, Any]] = None
     ) -> Any:
-        agent, context = self._make_agent_with_context(provider, model_name, tools, extra, model_kwargs)
-        return agent.invoke({"messages": messages}, context=context)
+        agent, context = self._make_agent_with_context(provider, model_name, tools, extra, model_kwargs, tool_controls)
+        return agent.invoke({"messages": messages}, context=context, config=config)
+
 
     # ---------- Public: Agent streaming ----------
     async def arun_agent_stream(
@@ -136,16 +142,18 @@ class CoreLLM:
             extra: Optional[Dict[str, Any]] = None,
             model_kwargs: Optional[Dict[str, Any]] = None,
             stream_mode: Union[str, List[str]] = ("updates", "values"),
+            tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,
+            config: Optional[Dict[str, Any]] = None
     ):
-        agent, context = self._make_agent_with_context(provider, model_name, tools, extra, model_kwargs)
+        agent, context = self._make_agent_with_context(provider, model_name, tools, extra, model_kwargs, tool_controls)
         modes = [stream_mode] if isinstance(stream_mode, str) else list(stream_mode)
 
         if modes == ["messages"]:
-            async for token, meta in agent.astream({"messages": messages}, context=context, stream_mode="messages"):
+            async for token, meta in agent.astream({"messages": messages}, context=context, config=config, stream_mode="messages"):
                 yield token, meta
             return
 
-        async for mode, chunk in agent.astream({"messages": messages}, context=context, stream_mode=modes):
+        async for mode, chunk in agent.astream({"messages": messages}, context=context, config=config, stream_mode=modes):
             yield mode, chunk
 
     # ---------- Direct model helpers (no agent) ----------
@@ -167,7 +175,7 @@ class CoreLLM:
     def make_messages(user: str, system: Optional[str] = None, extras: Optional[List[Dict[str, Any]]] = None):
         msgs: List[Dict[str, Any]] = []
         if system:
-            msgs.append(SystemMessage(content=system).dict())
+            msgs.append(SystemMessage(content=system).model_dump())
         msgs.append({"role": "user", "content": user})
         if extras:
             msgs.extend(extras)

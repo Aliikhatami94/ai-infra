@@ -1,6 +1,7 @@
-from ai_infra.llm import CoreLLM, Providers, Models
-from ai_infra.llm.core import ToolCallControls
 from langchain.tools import tool
+
+from ai_infra.llm import CoreLLM, Providers, Models
+from ai_infra.llm.tool_controls import ToolCallControls, force_tool
 
 core = CoreLLM()
 
@@ -70,23 +71,19 @@ def controlled_tool_agent():
         """Another dummy weather tool that simulates a weather search."""
         return f"Weather in {query}: It is always rainy and 60 degrees."
 
-    extra = {
-        "tool_controls": ToolCallControls(
-            # can be {"name": "dummy_weather_tool1"}; normalizer will map to {"type":"tool","name":...}
-            tool_choice={"name": "dummy_weather_tool2"},
-            parallel_tool_calls=False,
-            force_once=True,
-        ),
-        "recursion_limit": 8,
-    }
-
     msgs = [{"role": "user", "content": "How is the weather in New York?"}]
     res = core.run_agent(
         msgs,
         Providers.google_genai,
         Models.google_genai.gemini_2_5_flash.value,
         tools=[dummy_weather_tool1, dummy_weather_tool2],
-        extra=extra
+        tool_controls=ToolCallControls(
+            # can be {"name": "dummy_weather_tool1"}; normalizer will map to {"type":"tool","name":...}
+            tool_choice={"name": "dummy_weather_tool1"},
+            parallel_tool_calls=False,
+            force_once=True,
+        ),
+        extra={"recursion_limit": 8},
     )
     print(res)
 
