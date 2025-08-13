@@ -1,5 +1,6 @@
 from ai_infra.llm import CoreLLM, Providers, Models
-import asyncio
+from ai_infra.llm.core import ToolCallControls
+from langchain.tools import tool
 
 core = CoreLLM()
 
@@ -58,5 +59,34 @@ async def test_agent_stream():
     ):
         print(token.content, end="", flush=True)
 
+def controlled_tool_agent():
+    @tool()
+    def dummy_weather_tool1(query: str):
+        """A dummy weather tool that simulates a weather search."""
+        return f"Search results for '{query}': It is always sunny and 85 degrees."
+
+    @tool()
+    def dummy_weather_tool2(query: str):
+        """Another dummy weather tool that simulates a weather search."""
+        return f"Weather in {query}: It is always rainy and 60 degrees."
+
+    extra = {
+        "tool_controls": {
+            "tool_choice": {"name": "dummy_weather_tool2"},
+            "parallel_tool_calls": False,
+            "force_once": True,
+        },
+        "recursion_limit": 8,
+    }
+    msgs = [{"role": "user", "content": "How is the weather in New York?"}]
+    res = core.run_agent(
+        msgs,
+        Providers.openai,
+        Models.openai.gpt_4_1_mini.value,
+        tools=[dummy_weather_tool1, dummy_weather_tool2],
+        extra=extra
+    )
+    print(res)
+
 if __name__ == "__main__":
-    asyncio.run(test_agent_stream())
+    controlled_tool_agent()

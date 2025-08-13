@@ -5,6 +5,7 @@ from langgraph.prebuilt import create_react_agent
 from langgraph.runtime import Runtime
 from langchain_core.messages import SystemMessage
 from pydantic import BaseModel as PydanticModel  # for structured output
+from dataclasses import is_dataclass, asdict
 
 from ai_infra.llm.settings import ModelSettings
 from ai_infra.llm.utils import validate_provider_and_model, build_model_key, initialize_model
@@ -40,8 +41,52 @@ class CoreLLM:
             # let caller handle fallback decision
             raise
 
-    def _select_model(self, _state: Any, runtime: Runtime[ModelSettings]) -> Any:
-        """Return a model bound with tools, using runtime.context (provider, model_name, tools, extra)."""
+    def _normalize_tool_controls(self, provider: str, controls: Any):
+        tool_choice, parallel_tool_calls = None, True
+        if controls is None:
+            return tool_choice, parallel_tool_calls, False
+
+        if is_dataclass(controls):
+            controls = asdict(controls)
+        if isinstance(controls, dict):
+            tool_choice = controls.get("tool_choice")
+            parallel_tool_calls = controls.get("parallel_tool_calls", True)
+            force_once = bool(controls.get("force_once", False))
+        else:
+            force_once = False
+
+        # OpenAI ‘function’ shape normalization
+        if provider == "openai" and isinstance(tool_choice, dict):
+            name = tool_choice.get("name") or (tool_choice.get("function") or {}).get("name")
+            if name:
+                tool_choice = {"type": "function", "function": {"name": name}}
+
+        # Anthropic normalization (optional)
+        if provider == "anthropic" and isinstance(tool_choice, dict):
+            fn = (tool_choice.get("function") or {}).get("name")
+            if fn:
+                tool_choice = {"type": "tool", "name": fn}
+
+        return tool_choice, parallel_tool_calls, force_once
+
+    def _tool_used_already(self, state: Any) -> bool:
+        """Heuristic: check if any AIMessage includes tool_calls OR any ToolMessage exists."""
+        msgs = state.get("messages", []) if isinstance(state, dict) else getattr(state, "get", lambda *_: [])("messages", [])
+        for m in reversed(msgs):
+            # LangChain message objects
+            if hasattr(m, "tool_calls") and m.tool_calls:
+                return True
+            if getattr(m, "type", None) == "tool":
+                return True
+            # dict-like form (defensive)
+            if isinstance(m, dict):
+                if m.get("tool_calls"):
+                    return True
+                if m.get("type") == "tool":
+                    return True
+        return False
+
+    def _select_model(self, state: Any, runtime: Runtime[ModelSettings]) -> Any:
         ctx = runtime.context
         key = build_model_key(ctx.provider, ctx.model_name)
         if key not in self.models:
@@ -50,12 +95,17 @@ class CoreLLM:
         model = self.models[key]
         tools = ctx.tools if ctx.tools is not None else self.tools
         extra = ctx.extra or {}
-        # If model doesn’t support tool calling, LangChain will no-op bind; that’s fine.  [oai_citation:6‡llms-full.md](file-service://file-Jbp6maycthGfk3mMHk2rQy)
-        controls: ToolCallControls = extra.get("tool_controls") or ToolCallControls()
+
+        tool_choice, parallel_tool_calls, force_once = self._normalize_tool_controls(ctx.provider, extra.get("tool_controls"))
+
+        # If forcing only once and we already used a tool, stop forcing
+        if force_once and self._tool_used_already(state):
+            tool_choice = None
+
         return model.bind_tools(
             tools,
-            tool_choice=controls.tool_choice,
-            parallel_tool_calls=controls.parallel_tool_calls,
+            tool_choice=tool_choice,
+            parallel_tool_calls=parallel_tool_calls,
         )
 
     # ---------- Agent builders ----------
