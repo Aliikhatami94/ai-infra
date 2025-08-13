@@ -103,9 +103,3 @@ def normalize_tool_controls(
 
     # Others pass-through
     return tool_choice, parallel_tool_calls, force_once
-
-def no_tools() -> Dict[str, Any]:
-    return {"tool_choice": "none"}
-
-def force_tool(name: str, *, once: bool = False) -> Dict[str, Any]:
-    return {"tool_choice": {"name": name}, "parallel_tool_calls": False, "force_once": once}

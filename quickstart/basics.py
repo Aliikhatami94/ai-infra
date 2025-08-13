@@ -124,3 +124,29 @@ def human_in_the_loop():
         tools=[get_weather, get_news],   # <- our wrapper will gate these
     )
     print("\nFINAL:", getattr(resp, "content", resp))
+
+
+import asyncio
+
+async def token_stream_example():
+    async for token, meta in core.stream_tokens(
+            user_msg="Write 2 short fun facts about dolphins.",
+            provider=Providers.openai,
+            model_name=Models.openai.gpt_4_1_mini.value,
+    ):
+        print(token, end="", flush=True)
+    print()
+
+async def agent_stream_updates_values():
+    # Agent graph streaming: ("updates"|"values") chunks
+    async for mode, chunk in core.arun_agent_stream(
+            messages=[{"role": "user", "content": "Plan a 3-step morning routine."}],
+            provider=Providers.google_genai,
+            model_name=Models.google_genai.gemini_2_5_flash.value,
+            stream_mode=("updates", "values"),
+            extra=CoreLLM.no_tools(),  # example: no tools
+    ):
+        print(mode, chunk)
+
+asyncio.run(token_stream_example())
+asyncio.run(agent_stream_updates_values())

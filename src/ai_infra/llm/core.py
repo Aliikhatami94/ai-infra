@@ -56,33 +56,22 @@ class CoreLLM:
         return ai_msg
 
     def _wrap_tool_for_hitl(self, tool_obj):
-        """
-        Wrap a tool with a human-approval gate, returning a proper LangChain Tool.
-        - If `tool_obj` is a plain function, convert it to a tool first (so we get schema).
-        - If it's already a BaseTool, preserve its metadata & schema.
-        - Returns a StructuredTool accepted by create_react_agent.
-        """
         on_tool = self._hitl.get("on_tool_call")
         if not on_tool:
-            return tool_obj  # No HITL gating requested
+            return tool_obj
 
-        # 1) Normalize to a BaseTool so we have .name/.description/.args_schema
-        #    a) If it's already a BaseTool, keep it
-        #    b) If it's a plain callable, convert it using @tool
+        # Normalize to a BaseTool so we have name/description/args_schema
         if isinstance(tool_obj, PydanticModel):
             base = tool_obj
         elif callable(tool_obj):
-            base = lc_tool(tool_obj)  # makes a BaseTool (with inferred schema from signature)
+            base = lc_tool(tool_obj)  # convert plain function into a BaseTool
         else:
-            # Unknown shape -> return as-is (safer than breaking)
             return tool_obj
 
         name = getattr(base, "name", getattr(tool_obj, "__name__", "tool"))
         description = getattr(base, "description", getattr(tool_obj, "__doc__", "")) or ""
         args_schema = getattr(base, "args_schema", None)
 
-        # 2) Build an approval-gated function we’ll wrap into a StructuredTool
-        #    Keep the function name so LangChain’s converter is happy.
         def _impl(**kwargs):
             try:
                 decision = on_tool(name, dict(kwargs) if kwargs else {})
@@ -95,22 +84,19 @@ class CoreLLM:
             if action == "modify":
                 kwargs = (decision or {}).get("args", kwargs)
 
-            # Delegate to the original tool’s .invoke()
             return base.invoke(kwargs)
 
-        # ensure it looks like a normal function for LC internals
         try:
-            _impl.__name__ = name  # gives convert.tool something it recognizes
+            _impl.__name__ = name
         except Exception:
             pass
 
-        # 3) Return a proper StructuredTool so prebuilt agent accepts it
         return StructuredTool.from_function(
             func=_impl,
             name=name,
             description=description,
-            args_schema=args_schema,          # preserve exact schema if it exists
-            infer_schema=not bool(args_schema)  # infer if none was provided
+            args_schema=args_schema,
+            infer_schema=not bool(args_schema),
         )
 
     def set_metrics(self, on_metrics):
@@ -165,6 +151,11 @@ class CoreLLM:
         tool_choice, parallel_tool_calls, force_once = normalize_tool_controls(
             ctx.provider, extra.get("tool_controls")
         )
+
+        # ✅ Gemini refuses tool_choice if there are no tools
+        if ctx.provider == "google_genai" and not tools:
+            tool_choice = None
+
         if force_once and self._tool_used(state):
             tool_choice = None
 
@@ -434,16 +425,28 @@ class CoreLLM:
             system: Optional[str] = None,
             **model_kwargs,
     ):
-        """Token stream (LLM raw streaming), no agent graph. Emits bare metrics at the end."""
+        """Token stream (LLM raw streaming), no agent graph. Emits bare metrics at the end.
+        Normalizes different provider/event shapes to (text, meta)."""
         import time
         model = self.set_model(provider, model_name, **model_kwargs)
         messages = self.make_messages(user_msg, system)
         started = time.time() * 1000
 
-        async for token, meta in model.astream(messages):
-            yield token, meta
+        # New: astream yields one object per tick (e.g., AIMessageChunk), not (token, meta)
+        async for event in model.astream(messages):
+            # Try to extract just the text delta; fall back to str(event)
+            text = getattr(event, "content", None)
+            if text is None:
+                # Some providers chunk via .additional_kwargs or .delta etc.
+                text = getattr(event, "delta", None) or getattr(event, "text", None)
+            if text is None:
+                text = str(event)
 
-        # We don't have a final AIMessage here; just emit latency.
+            # Minimal metadata for callers that still want a "meta"
+            meta = {"raw": event}
+            yield text, meta
+
+        # We don't have a final AIMessage here; just emit latency
         self._emit_metrics(provider, model_name, ai_msg=None, started_at_ms=started)
 
     def agent(
