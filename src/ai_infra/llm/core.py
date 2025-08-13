@@ -70,7 +70,7 @@ class CoreLLM:
                     or (tool_choice.get("function") or {}).get("name")
             )
 
-            if provider == Providers.openai:
+            if provider in (Providers.openai, Providers.xai):
                 # OpenAI expects {"type":"function","function":{"name": "<name>"}}
                 if name:
                     tool_choice = {"type": "function", "function": {"name": name}}
