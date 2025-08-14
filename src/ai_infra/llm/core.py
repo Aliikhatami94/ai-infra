@@ -207,7 +207,6 @@ class CoreLLM:
             config: Optional[Dict[str, Any]] = None
     ) -> Any:
         agent, context = self._make_agent_with_context(provider, model_name, tools, extra, model_kwargs, tool_controls)
-        started = __import__("time").time() * 1000
         async def _call():
             return await agent.ainvoke({"messages": messages}, context=context, config=config)
         retry_cfg = (extra or {}).get("retry") if extra else None
