@@ -514,9 +514,9 @@ class CoreLLM:
             max_tokens: Optional[int] = None,
             **model_kwargs,
     ):
-        # Remove agent/graph-specific keys if present
-        for k in ["tools", "tool_choice", "tool_controls", "extra", "recursion_limit"]:
-            model_kwargs.pop(k, None)
+        # drop keys that belong to agent/tooling, not base LLMs
+        for bad in ("tools", "tool_choice", "parallel_tool_calls", "force_once"):
+            model_kwargs.pop(bad, None)
         # Only add explicitly listed kwargs if not None
         if temperature is not None:
             model_kwargs["temperature"] = temperature
