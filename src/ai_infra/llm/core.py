@@ -417,10 +417,22 @@ class CoreLLM:
             provider: str,
             model_name: str,
             system: Optional[str] = None,
+            *,
+            temperature: Optional[float] = None,
+            top_p: Optional[float] = None,
+            max_tokens: Optional[int] = None,
             **model_kwargs,
     ):
-        # Remove tools if present to avoid passing to set_model/init_chat_model
-        model_kwargs.pop("tools", None)
+        # Remove agent/graph-specific keys if present
+        for k in ["tools", "tool_choice", "tool_controls", "extra", "recursion_limit"]:
+            model_kwargs.pop(k, None)
+        # Only add explicitly listed kwargs if not None
+        if temperature is not None:
+            model_kwargs["temperature"] = temperature
+        if top_p is not None:
+            model_kwargs["top_p"] = top_p
+        if max_tokens is not None:
+            model_kwargs["max_tokens"] = max_tokens
         model = self.set_model(provider, model_name, **model_kwargs)
         messages = self.make_messages(user_msg, system)
 

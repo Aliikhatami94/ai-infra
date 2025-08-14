@@ -196,3 +196,13 @@ async def hitl_stream():
         print(token, end="", flush=True)
 
     print()  # newline at the end
+
+async def chat_stream():
+    res = core.stream_tokens(
+        user_msg="What is your name?",
+        system="Your name is Alex and you are a helpful assistant.",
+        provider=Providers.openai,
+        model_name=Models.openai.gpt_4o.value,
+    )
+    async for token, meta in res:
+        print(token, end="", flush=True)
