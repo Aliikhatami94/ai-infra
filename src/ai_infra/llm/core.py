@@ -7,7 +7,8 @@ from pydantic import BaseModel
 from .settings import ModelSettings
 from .runtime_bind import ModelRegistry, make_agent_with_context as rb_make_agent_with_context
 from .tool_controls import ToolCallControls  # keep only type
-from .tools import apply_output_gate, wrap_tool_for_hitl
+from .tools import apply_output_gate, wrap_tool_for_hitl, HITLConfig
+from .utils import sanitize_model_kwargs, with_retry as _with_retry_util, run_with_fallbacks as _run_fallbacks_util
 
 
 class CoreLLM:
@@ -25,8 +26,8 @@ class CoreLLM:
         self.registry = ModelRegistry()  # replaces prior self.models cache
         # self.models removed
         self.tools: List[Any] = []
-        # Optional hooks
-        self._hitl: Dict[str, Any] = {"on_model_output": None}
+        # HITL callback container
+        self._hitl = HITLConfig()
         self.require_explicit_tools: bool = False
 
     # ---------- Tool policy ----------
@@ -74,8 +75,7 @@ class CoreLLM:
             - For streaming token modes (messages-only streaming), on_model_output
               modifications cannot be applied retroactively.
         """
-        self._hitl["on_model_output"] = on_model_output
-        self._hitl["on_tool_call"] = on_tool_call
+        self._hitl.set(on_model_output=on_model_output, on_tool_call=on_tool_call)
 
     @staticmethod
     def no_tools() -> Dict[str, Any]:
@@ -96,18 +96,7 @@ class CoreLLM:
         return self.registry.get_or_create(provider, model_name, **kwargs)
 
     # ---------- Tool controls ----------
-    @staticmethod
-    def _tool_used(state: Any) -> bool:
-        """Heuristic: did any AIMessage emit a tool call (or ToolMessage added)?"""
-        msgs = state.get("messages", []) if isinstance(state, dict) else []
-        for m in reversed(msgs):
-            if getattr(m, "tool_calls", None):
-                return True
-            if getattr(m, "type", None) == "tool":  # ToolMessage
-                return True
-            if isinstance(m, dict) and (m.get("tool_calls") or m.get("type") == "tool"):
-                return True
-        return False
+    # Removed unused _tool_used heuristic (moved / deprecated)
 
     # ---------- Agent ----------
     def _make_agent_with_context(
@@ -130,7 +119,7 @@ class CoreLLM:
             tool_controls=tool_controls,
             require_explicit_tools=self.require_explicit_tools,
             global_tools=self.tools,
-            hitl_tool_wrapper=(lambda t: wrap_tool_for_hitl(t, self._hitl) if self._hitl.get("on_tool_call") else None),
+            hitl_tool_wrapper=(lambda t: wrap_tool_for_hitl(t, self._hitl) if self._hitl.on_tool_call else None),
             logger=self._logger,
         )
 
@@ -151,7 +140,7 @@ class CoreLLM:
             return await agent.ainvoke({"messages": messages}, context=context, config=config)
         retry_cfg = (extra or {}).get("retry") if extra else None
         if retry_cfg:
-            res = await self._with_retry(_call, **retry_cfg)
+            res = await _with_retry_util(_call, **retry_cfg)
         else:
             res = await _call()
         ai_msg = apply_output_gate(res, self._hitl)  # replaced _apply_hitl
@@ -170,7 +159,7 @@ class CoreLLM:
     ) -> Any:
         agent, context = self._make_agent_with_context(provider, model_name, tools, extra, model_kwargs, tool_controls)
         res = agent.invoke({"messages": messages}, context=context, config=config)
-        ai_msg = apply_output_gate(res, self._hitl)  # replaced _apply_hitl
+        ai_msg = apply_output_gate(res, self._hitl)
         return ai_msg
 
     # ---------- Public: Agent streaming ----------
@@ -267,13 +256,10 @@ class CoreLLM:
             extra: Optional[Dict[str, Any]] = None,
             model_kwargs: Optional[Dict[str, Any]] = None,
     ):
-        last_err = None
-        for provider, model_name in candidates:
-            try:
-                return self.run_agent(messages, provider, model_name, tools, extra, model_kwargs)
-            except Exception as e:
-                last_err = e
-        raise last_err or RuntimeError("All fallbacks failed")
+        # Delegate to util; preserve signature
+        def _single(provider: str, model_name: str):
+            return self.run_agent(messages, provider, model_name, tools, extra, model_kwargs)
+        return _run_fallbacks_util(messages, candidates, _single)
 
     # === Convenience APIs ===
     def chat(
@@ -294,8 +280,7 @@ class CoreLLM:
               Use `await achat(...)` for reliable retry behavior in async contexts.
         """
         # Drop stray agent/tool kwargs that shouldn't reach raw model init
-        for bad in ("tools", "tool_choice", "parallel_tool_calls", "force_once"):
-            model_kwargs.pop(bad, None)
+        sanitize_model_kwargs(model_kwargs)
         model = self.set_model(provider, model_name, **model_kwargs)
         messages = self.make_messages(user_msg, system)
 
@@ -318,11 +303,11 @@ class CoreLLM:
             else:
                 async def _acall():
                     return _call()
-                res = asyncio.run(self._with_retry(_acall, **retry_cfg))
+                res = asyncio.run(_with_retry_util(_acall, **retry_cfg))
         else:
             res = _call()
 
-        ai_msg = apply_output_gate(res, self._hitl)  # replaced _apply_hitl
+        ai_msg = apply_output_gate(res, self._hitl)
         return ai_msg
 
     async def achat(
@@ -336,8 +321,7 @@ class CoreLLM:
     ):
         """Async one-liner chat (HITL and retry)."""
         # Drop stray agent/tool kwargs that shouldn't reach raw model init
-        for bad in ("tools", "tool_choice", "parallel_tool_calls", "force_once"):
-            model_kwargs.pop(bad, None)
+        sanitize_model_kwargs(model_kwargs)
         model = self.set_model(provider, model_name, **model_kwargs)
         messages = self.make_messages(user_msg, system)
 
@@ -345,9 +329,9 @@ class CoreLLM:
             return await model.ainvoke(messages)
 
         retry_cfg = (extra or {}).get("retry") if extra else None
-        res = await (self._with_retry(_call, **retry_cfg) if retry_cfg else _call())
+        res = await (_with_retry_util(_call, **retry_cfg) if retry_cfg else _call())
 
-        ai_msg = apply_output_gate(res, self._hitl)  # replaced _apply_hitl
+        ai_msg = apply_output_gate(res, self._hitl)
         return ai_msg
 
     async def stream_tokens(
@@ -362,10 +346,7 @@ class CoreLLM:
             max_tokens: Optional[int] = None,
             **model_kwargs,
     ):
-        # drop keys that belong to agent/tooling, not base LLMs
-        for bad in ("tools", "tool_choice", "parallel_tool_calls", "force_once"):
-            model_kwargs.pop(bad, None)
-        # Only add explicitly listed kwargs if not None
+        sanitize_model_kwargs(model_kwargs)
         if temperature is not None:
             model_kwargs["temperature"] = temperature
         if top_p is not None:
@@ -375,17 +356,12 @@ class CoreLLM:
         model = self.set_model(provider, model_name, **model_kwargs)
         messages = self.make_messages(user_msg, system)
 
-        # New: astream yields one object per tick (e.g., AIMessageChunk), not (token, meta)
         async for event in model.astream(messages):
-            # Try to extract just the text delta; fall back to str(event)
             text = getattr(event, "content", None)
             if text is None:
-                # Some providers chunk via .additional_kwargs or .delta etc.
                 text = getattr(event, "delta", None) or getattr(event, "text", None)
             if text is None:
                 text = str(event)
-
-            # Minimal metadata for callers that still want a "meta"
             meta = {"raw": event}
             yield text, meta
 
@@ -433,15 +409,3 @@ class CoreLLM:
     ):
         """Return (agent, context) for custom wiring."""
         return self._make_agent_with_context(provider, model_name, tools, extra, model_kwargs)
-
-    async def _with_retry(self, afn, *, max_tries=3, base=0.5, jitter=0.2):
-        """Exponential backoff retry for transient errors around an awaited call."""
-        import asyncio, random
-        last = None
-        for i in range(max_tries):
-            try:
-                return await afn()
-            except Exception as e:
-                last = e
-                await asyncio.sleep(base * (2 ** i) + random.random() * jitter)
-        raise last
