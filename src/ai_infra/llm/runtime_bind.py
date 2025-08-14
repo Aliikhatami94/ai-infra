@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import logging
 from langgraph.prebuilt import create_react_agent
 from langgraph.runtime import Runtime
+from langchain_core.tools import BaseTool, tool as lc_tool  # added
 
 from .settings import ModelSettings
 from .tool_controls import normalize_tool_controls, ToolCallControls
@@ -115,6 +116,7 @@ def make_agent_with_context(
 
     # Effective tools resolution
     effective_tools = global_tools or []
+
     if tools is not None:
         effective_tools = tools
     else:
@@ -134,6 +136,9 @@ def make_agent_with_context(
     if hitl_tool_wrapper:
         effective_tools = [hitl_tool_wrapper(t) for t in effective_tools]
 
+    # Normalize all tools (wrap bare callables, drop Nones/unsupported)
+    effective_tools = [nt for nt in (_normalize_tool(t) for t in effective_tools) if nt is not None]
+
     context = ModelSettings(
         provider=provider,
         model_name=model_name,
@@ -148,3 +153,16 @@ def make_agent_with_context(
     agent = create_react_agent(model=_selector, tools=effective_tools)
     return agent, context
 
+
+def _normalize_tool(t):
+    if t is None:
+        return None
+    if isinstance(t, BaseTool):
+        return t
+    if callable(t):
+        return lc_tool(t)
+    if isinstance(t, dict):  # leave dict (ignored by ToolNode) but log
+        _logger.warning("Dict-shaped tool provided and will be ignored by ToolNode: keys=%s", list(t.keys()))
+        return None
+    _logger.warning("Unsupported tool type ignored: %r", type(t))
+    return None

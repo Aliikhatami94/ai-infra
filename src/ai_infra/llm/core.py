@@ -311,4 +311,3 @@ class CoreAgent(BaseLLMCore):
     ):
         def _single(provider: str, model_name: str):
             return self.run_agent(messages, provider, model_name, tools, extra, model_kwargs)
-        return _run_fallbacks_util(messages, candidates, _single)
