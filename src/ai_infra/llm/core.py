@@ -2,15 +2,12 @@ from __future__ import annotations
 from typing import List, Optional, Dict, Any, Tuple, Union, Sequence
 import logging
 
-from langgraph.prebuilt import create_react_agent
-from langgraph.runtime import Runtime
 from pydantic import BaseModel
-from langchain_core.tools import BaseTool, tool as lc_tool, StructuredTool
 
 from .settings import ModelSettings
-from .utils import validate_provider_and_model, build_model_key, initialize_model
-from .tool_controls import normalize_tool_controls, ToolCallControls
 from .runtime_bind import ModelRegistry, make_agent_with_context as rb_make_agent_with_context
+from .tool_controls import ToolCallControls  # keep only type
+from .tools import apply_output_gate, wrap_tool_for_hitl
 
 
 class CoreLLM:
@@ -81,102 +78,6 @@ class CoreLLM:
         self._hitl["on_tool_call"] = on_tool_call
 
     @staticmethod
-    def _maybe_await(result):
-        """Resolve an awaitable in a sync context.
-        - If result is a coroutine: run it with asyncio.run when no loop running.
-        - If result is another awaitable (e.g. Future), wrap it in a coroutine first.
-        - If an event loop is already running, we cannot synchronously wait safely; return None.
-        """
-        import inspect, asyncio, logging
-        if not inspect.isawaitable(result):
-            return result
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = None
-        # If a loop is running, avoid blocking; caller should supply sync callback instead.
-        if loop and loop.is_running():
-            logging.getLogger(__name__).warning(
-                "_maybe_await: async HITL callback ignored (event loop active in sync pathway). Use async APIs for async callbacks."
-            )
-            return None
-        # Ensure we have a coroutine object for asyncio.run
-        if not asyncio.iscoroutine(result):
-            async def _wrap(awaitable):
-                return await awaitable
-            result = _wrap(result)
-        return asyncio.run(result)
-
-    def _apply_hitl(self, ai_msg: Any) -> Any:
-        on_out = self._hitl.get("on_model_output")
-        if not on_out:
-            return ai_msg
-        try:
-            decision = self._maybe_await(on_out(ai_msg))
-            if isinstance(decision, dict) and decision.get("action") in ("modify", "block"):
-                replacement = decision.get("replacement", "")
-                # If ai_msg is a dict with a 'messages' list, update the last message's content
-                if isinstance(ai_msg, dict) and isinstance(ai_msg.get("messages"), list) and ai_msg["messages"]:
-                    last_msg = ai_msg["messages"][-1]
-                    # Update content in-place if dict has content; otherwise ensure proper message dict
-                    if isinstance(last_msg, dict) and "content" in last_msg:
-                        last_msg["content"] = replacement
-                    else:
-                        ai_msg["messages"][-1] = {"role": "ai", "content": replacement}
-                elif hasattr(ai_msg, "content"):
-                    ai_msg.content = replacement
-                else:
-                    ai_msg = {"role": "ai", "content": replacement} if not isinstance(ai_msg, dict) else ai_msg
-        except Exception:
-            pass
-        return ai_msg
-
-    def _wrap_tool_for_hitl(self, tool_obj):
-        on_tool = self._hitl.get("on_tool_call")
-        if not on_tool:
-            return tool_obj
-    
-        # Normalize to a BaseTool
-        if isinstance(tool_obj, BaseTool):
-            base = tool_obj
-        elif callable(tool_obj):
-            base = lc_tool(tool_obj)  # convert plain function into a BaseTool
-        else:
-            return tool_obj
-    
-        name = getattr(base, "name", getattr(tool_obj, "__name__", "tool"))
-        description = getattr(base, "description", getattr(tool_obj, "__doc__", "")) or ""
-        args_schema = getattr(base, "args_schema", None)
-    
-        def _impl(**kwargs):
-            try:
-                decision = self._maybe_await(on_tool(name, dict(kwargs) if kwargs else {}))
-            except Exception:
-                decision = {"action": "pass"}
-
-            action = (decision or {}).get("action", "pass")
-            if action == "block":
-                # Return replacement verbatim; do not attempt schema/JSON coercion.
-                return (decision or {}).get("replacement", "[blocked by reviewer]")
-            if action == "modify":
-                kwargs = (decision or {}).get("args", kwargs)
-    
-            return base.invoke(kwargs)
-    
-        try:
-            _impl.__name__ = name
-        except Exception:
-            pass
-    
-        return StructuredTool.from_function(
-            func=_impl,
-            name=name,
-            description=description,
-            args_schema=args_schema,
-            infer_schema=not bool(args_schema),
-        )
-
-    @staticmethod
     def no_tools() -> Dict[str, Any]:
         """Convenience: disable tool calling for a run."""
         return {"tool_controls": {"tool_choice": "none"}}
@@ -229,7 +130,7 @@ class CoreLLM:
             tool_controls=tool_controls,
             require_explicit_tools=self.require_explicit_tools,
             global_tools=self.tools,
-            hitl_tool_wrapper=(self._wrap_tool_for_hitl if self._hitl.get("on_tool_call") else None),
+            hitl_tool_wrapper=(lambda t: wrap_tool_for_hitl(t, self._hitl) if self._hitl.get("on_tool_call") else None),
             logger=self._logger,
         )
 
@@ -253,8 +154,7 @@ class CoreLLM:
             res = await self._with_retry(_call, **retry_cfg)
         else:
             res = await _call()
-        # HITL final output gate
-        ai_msg = self._apply_hitl(res)
+        ai_msg = apply_output_gate(res, self._hitl)  # replaced _apply_hitl
         return ai_msg
 
     def run_agent(
@@ -270,7 +170,7 @@ class CoreLLM:
     ) -> Any:
         agent, context = self._make_agent_with_context(provider, model_name, tools, extra, model_kwargs, tool_controls)
         res = agent.invoke({"messages": messages}, context=context, config=config)
-        ai_msg = self._apply_hitl(res)
+        ai_msg = apply_output_gate(res, self._hitl)  # replaced _apply_hitl
         return ai_msg
 
     # ---------- Public: Agent streaming ----------
@@ -313,30 +213,15 @@ class CoreLLM:
                 stream_mode=modes
         ):
             if mode == "values":
-                last_values = chunk  # buffer
-                continue             # don't yield yet; we'll gate it first
+                last_values = chunk
+                continue
             else:
                 # Stream updates immediately (tool calls, intermediate agent steps, etc.)
                 yield mode, chunk
 
         # --- NEW gating logic (preserve full values shape) ---
         if last_values is not None:
-            decision = self._maybe_await(self._hitl.get("on_model_output")(last_values)) if self._hitl.get("on_model_output") else None
-            gated_values = last_values
-            if isinstance(decision, dict) and decision.get("action") in ("modify", "block"):
-                replacement = decision.get("replacement", "")
-                if isinstance(gated_values, dict):
-                    msgs = gated_values.get("messages")
-                    if isinstance(msgs, list) and msgs:
-                        last = msgs[-1]
-                        if hasattr(last, "content"):
-                            last.content = replacement
-                        elif isinstance(last, dict):
-                            last["content"] = replacement
-                        else:
-                            msgs.append({"role": "ai", "content": replacement})
-                    else:
-                        gated_values["messages"] = [{"role": "ai", "content": replacement}]
+            gated_values = apply_output_gate(last_values, self._hitl)  # replaced manual gating
             yield "values", gated_values
 
     # ---------- Direct model helpers (no agent) ----------
@@ -437,7 +322,7 @@ class CoreLLM:
         else:
             res = _call()
 
-        ai_msg = self._apply_hitl(res)
+        ai_msg = apply_output_gate(res, self._hitl)  # replaced _apply_hitl
         return ai_msg
 
     async def achat(
@@ -462,7 +347,7 @@ class CoreLLM:
         retry_cfg = (extra or {}).get("retry") if extra else None
         res = await (self._with_retry(_call, **retry_cfg) if retry_cfg else _call())
 
-        ai_msg = self._apply_hitl(res)
+        ai_msg = apply_output_gate(res, self._hitl)  # replaced _apply_hitl
         return ai_msg
 
     async def stream_tokens(
