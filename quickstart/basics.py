@@ -1,3 +1,4 @@
+import asyncio
 from langchain_core.tools import tool
 
 from ai_infra.llm import CoreLLM, Providers, Models
@@ -137,3 +138,55 @@ async def ask_with_retry():
         extra=extra,
     )
     print(res)
+
+async def hitl_stream():
+    def make_tool_gate():
+        """
+        Always asks the human before executing a tool.
+        If input() is unavailable (headless/CI), defaults to 'block'.
+        """
+        import json
+
+        def _gate(tool_name: str, args: dict):
+            print(f"\n[HITL] Tool request: {tool_name}({args})", flush=True)
+
+            try:
+                ans = input("Approve tool call? [y]es / [m]odify args / [b]lock: ").strip().lower()
+            except EOFError:
+                print("[HITL] Input unavailable; blocking tool call by default.\n", flush=True)
+                return {"action": "block", "replacement": "[blocked by reviewer]"}
+
+            if ans.startswith("b"):
+                return {"action": "block", "replacement": "[blocked by reviewer]"}
+            if ans.startswith("m"):
+                raw = input("Enter JSON for modified args (empty to keep original): ").strip()
+                try:
+                    mod_args = json.loads(raw) if raw else args
+                except Exception:
+                    print("[HITL] Invalid JSON; keeping original args.", flush=True)
+                    mod_args = args
+                return {"action": "modify", "args": mod_args}
+
+            return {"action": "pass"}  # default approve
+
+        return _gate
+
+    @tool
+    def get_weather(location: str) -> str:
+        """Return a fake weather string for a location."""
+        return f"It's sunny today in {location}."
+
+    core.set_hitl(on_tool_call=make_tool_gate())
+
+    print(">>> Streaming with ('updates','values') and interactive HITL on final chunk\n")
+    async for mode, chunk in core.arun_agent_stream(
+            messages=[{"role": "user", "content": "Check Boston weather with a tool, then summarize in one line."}],
+            provider=Providers.openai,
+            model_name=Models.openai.gpt_4_1_mini.value,
+            tools=[get_weather],
+            stream_mode=("updates", "values"),
+    ):
+        if mode == "updates":
+            print("UPDATES >", chunk)
+        elif mode == "values":
+            print("\nVALUES (POST-HITL) >", chunk)

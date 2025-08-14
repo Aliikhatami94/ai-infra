@@ -281,37 +281,41 @@ class CoreLLM:
     ):
         agent, context = self._make_agent_with_context(provider, model_name, tools, extra, model_kwargs, tool_controls)
         modes = [stream_mode] if isinstance(stream_mode, str) else list(stream_mode)
-        import time
-        started = time.time() * 1000
-        last_value = None
 
+        # NOTE: In "messages" token mode, chunks are emitted incrementally and can't be
+        # post-edited after the fact. We pass them through; HITL applies only to the
+        # *final* assembled message in other modes.
         if modes == ["messages"]:
-            async for token, meta in agent.astream({"messages": messages}, context=context, config=config, stream_mode="messages"):
+            async for token, meta in agent.astream(
+                    {"messages": messages},
+                    context=context,
+                    config=config,
+                    stream_mode="messages"
+            ):
                 yield token, meta
-            # token mode has no final AIMessage; emit bare metrics
             return
 
-        async for mode, chunk in agent.astream({"messages": messages}, context=context, config=config, stream_mode=modes):
-            # track last value for optional HITL
+        # For ("updates","values") or either alone: stream updates ASAP,
+        # but buffer the last "values" snapshot, then apply HITL before yielding it.
+        last_values = None
+
+        async for mode, chunk in agent.astream(
+                {"messages": messages},
+                context=context,
+                config=config,
+                stream_mode=modes
+        ):
             if mode == "values":
-                last_value = chunk
-            yield mode, chunk
+                last_values = chunk  # buffer
+                continue             # don't yield yet; we'll gate it first
+            else:
+                # Stream updates immediately (tool calls, intermediate agent steps, etc.)
+                yield mode, chunk
 
-        # post-stream hooks
-        if last_value is not None:
-            on_out = self._hitl.get("on_model_output")
-            if on_out:
-                try:
-                    decision = on_out(last_value)
-                    if isinstance(decision, dict) and decision.get("action") in ("modify", "block"):
-                        replacement = decision.get("replacement", "")
-                        if hasattr(last_value, "content"):
-                            last_value.content = replacement
-                        else:
-                            last_value = replacement
-                except Exception:
-                    pass
-
+        # After stream ends, apply HITL to the final values snapshot (if any) and emit it
+        if last_values is not None:
+            gated = self._apply_hitl(last_values)
+            yield "values", gated
 
     # ---------- Direct model helpers (no agent) ----------
     def with_structured_output(
