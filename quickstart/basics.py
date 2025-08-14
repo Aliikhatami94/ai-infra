@@ -163,13 +163,11 @@ async def hitl_stream():
 
         return _gate
 
-
     # --- A tiny tool so the agent actually uses tools ---
     @tool
     def get_weather(location: str) -> str:
         """Return a fake weather string for a location."""
         return f"It's sunny today in {location}."
-
 
     # enable tool HITL (calls your gate before executing any tool)
     agent.set_hitl(on_tool_call=make_tool_gate())
@@ -189,7 +187,7 @@ async def hitl_stream():
 
 async def chat_stream():
     res = llm.stream_tokens(
-        user_msg="What is your name?",
+        user_msg="What is your name? tell me all about yourself.",
         system="Your name is Alex and you are a helpful assistant.",
         provider=Providers.openai,
         model_name=Models.openai.gpt_4o.value,
@@ -205,4 +203,5 @@ if __name__ == '__main__':
     # controlled_tool_agent()
     # human_in_the_loop()
     # asyncio.run(ask_with_retry())
-    asyncio.run(hitl_stream())
+    # asyncio.run(hitl_stream())
+    asyncio.run(chat_stream())
