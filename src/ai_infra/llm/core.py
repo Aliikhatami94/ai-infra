@@ -206,7 +206,10 @@ class CoreLLM:
             extra={"model_kwargs": model_kwargs, **(extra or {})},
         )
 
-        effective_tools = tools or self.tools
+        effective_tools = tools if tools is not None else self.tools
+        if tools is None and self.tools:
+            import warnings
+            warnings.warn("[CoreLLM] Using global self.tools as agent tools. Pass tools=[] to avoid this.")
         if self._hitl.get("on_tool_call"):
             effective_tools = [self._wrap_tool_for_hitl(t) for t in effective_tools]
 
