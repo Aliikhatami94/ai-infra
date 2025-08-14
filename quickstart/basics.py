@@ -1,13 +1,15 @@
 import asyncio
 from langchain_core.tools import tool
 
-from ai_infra.llm import CoreLLM, Providers, Models
+from ai_infra.llm import CoreLLM, Providers, Models, CoreAgent, BaseLLMCore
 from ai_infra.llm.tool_controls import ToolCallControls
 
-core = CoreLLM()
+base = BaseLLMCore()
+llm = CoreLLM()
+agent = CoreAgent()
 
 def test_agent():
-    res = core.run_agent(
+    res = agent.run_agent(
         messages=[{"role": "user", "content": "What is your name?"}],
         provider=Providers.google_genai,
         model_name=Models.google_genai.gemini_2_5_flash.value,
@@ -18,23 +20,12 @@ def test_agent():
     print(res)
 
 def test_llm():
-    res = core.chat(
+    res = llm.chat(
         user_msg="What is your name?",
         system="Your name is Alex and you are a helpful assistant.",
         provider=Providers.openai,
         model_name=Models.openai.gpt_4o.value,
     )
-    print(res)
-
-def test_sys_msg():
-    model = core.set_model(
-        provider=Providers.openai,
-        model_name=Models.openai.gpt_4o.value,
-    )
-    res = model.invoke([
-        {"role": "system", "content": "Your name is Alex"},
-        {"role": "user", "content": "Hey what is your name?"}
-    ])
     print(res)
 
 def test_structured_output():
@@ -44,16 +35,16 @@ def test_structured_output():
         age: int = Field(..., description="The user's age in years")
         email: str = Field(..., description="The user's email address")
 
-    llm = core.with_structured_output(
+    structured = llm.with_structured_output(
         provider=Providers.openai,
         model_name=Models.openai.gpt_4o.value,
         schema=UserInfo
     )
-    res = llm.invoke("My name is John Doe, I am 30 years old and my email is johndoe@gmail.com")
+    res = structured.invoke([{"role": "user", "content": "My name is John Doe, I am 30 years old, and my email is johndoe@gmail.com"}])
     print(res)
 
 async def test_agent_stream():
-    async for token, meta in core.arun_agent_stream(
+    async for token, meta in agent.arun_agent_stream(
             messages=[{"role":"user","content":"Write me 3 paragraphs about AI."}],
             provider=Providers.openai,
             model_name=Models.openai.gpt_4_1_mini.value,
@@ -74,7 +65,7 @@ def controlled_tool_agent():
         return f"Weather in {query}: It is always rainy and 60 degrees."
 
     msgs = [{"role": "user", "content": "How is the weather in New York?"}]
-    res = core.run_agent(
+    res = agent.run_agent(
         msgs,
         Providers.google_genai,
         Models.google_genai.gemini_2_5_flash.value,
@@ -115,10 +106,10 @@ def human_in_the_loop():
             return {"action": "modify", "args": new_args}
         return {"action": "block", "replacement": "[blocked by reviewer]"}
 
-    core.set_hitl(on_tool_call=reviewer)
+    base.set_hitl(on_tool_call=reviewer)
 
     messages = [{"role": "user", "content": "What's the weather in New York?"}]
-    resp = core.run_agent(
+    resp = agent.run_agent(
         messages=messages,
         provider="openai",
         model_name="gpt-5-mini",
@@ -131,7 +122,7 @@ async def ask_with_retry():
         **CoreLLM.no_tools(),
         "retry": {"max_tries": 3, "base": 0.5, "jitter": 0.2},  # exponential backoff
     }
-    res = await core.arun_agent(
+    res = await agent.arun_agent(
         messages=[{"role": "user", "content": "Give me one productivity tip."}],
         provider=Providers.openai,
         model_name=Models.openai.gpt_4_1_mini.value,
@@ -182,11 +173,11 @@ async def hitl_stream():
 
 
     # enable tool HITL (calls your gate before executing any tool)
-    core.set_hitl(on_tool_call=make_tool_gate())
+    base.set_hitl(on_tool_call=make_tool_gate())
 
     print(">>> Streaming agent token deltas only (no updates/values)\n")
     # NOTE: astream_agent_tokens is the helper that streams only LLM token deltas
-    async for token, meta in core.astream_agent_tokens(
+    async for token, meta in agent.astream_agent_tokens(
             messages=[{"role": "user", "content": "Check Boston weather with a tool, then summarize in one line."}],
             provider=Providers.openai,
             model_name=Models.openai.gpt_4_1_mini.value,
@@ -198,7 +189,7 @@ async def hitl_stream():
     print()  # newline at the end
 
 async def chat_stream():
-    res = core.stream_tokens(
+    res = llm.stream_tokens(
         user_msg="What is your name?",
         system="Your name is Alex and you are a helpful assistant.",
         provider=Providers.openai,
@@ -206,3 +197,10 @@ async def chat_stream():
     )
     async for token, meta in res:
         print(token, end="", flush=True)
+
+if __name__ == '__main__':
+    # test_agent()
+    # test_llm()
+    # test_structured_output()
+    # asyncio.run(test_agent_stream())
+    controlled_tool_agent()

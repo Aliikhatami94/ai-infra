@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any, Dict, List, Optional, Union, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 import logging
 from langgraph.prebuilt import create_react_agent
 from langgraph.runtime import Runtime
