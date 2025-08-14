@@ -11,8 +11,6 @@ from .settings import ModelSettings
 from .utils import validate_provider_and_model, build_model_key, initialize_model
 from .tool_controls import normalize_tool_controls, ToolCallControls
 
-# Removed local load_dotenv(); centralized in ai_infra.__init__
-# from dotenv import load_dotenv
 
 class CoreLLM:
     """
