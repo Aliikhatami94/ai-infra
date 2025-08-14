@@ -83,26 +83,30 @@ class CoreLLM:
 
     @staticmethod
     def _maybe_await(result):
-        """Best-effort sync bridge for optional awaitables returned by HITL callbacks.
-        If called inside an active running loop, falls back to loop.run_until_complete
-        (may raise in some environments; errors are swallowed to avoid breaking flows).
+        """Resolve an awaitable in a sync context.
+        - If result is a coroutine: run it with asyncio.run when no loop running.
+        - If result is another awaitable (e.g. Future), wrap it in a coroutine first.
+        - If an event loop is already running, we cannot synchronously wait safely; return None.
         """
-        import inspect, asyncio
+        import inspect, asyncio, logging
+        if not inspect.isawaitable(result):
+            return result
         try:
-            if inspect.isawaitable(result):
-                try:
-                    loop = asyncio.get_running_loop()
-                except RuntimeError:
-                    loop = None
-                if not loop or not loop.is_running():
-                    return asyncio.run(result)
-                try:
-                    return loop.run_until_complete(result)  # best-effort
-                except Exception:
-                    return None
-            return result
-        except Exception:
-            return result
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        # If a loop is running, avoid blocking; caller should supply sync callback instead.
+        if loop and loop.is_running():
+            logging.getLogger(__name__).warning(
+                "_maybe_await: async HITL callback ignored (event loop active in sync pathway). Use async APIs for async callbacks."
+            )
+            return None
+        # Ensure we have a coroutine object for asyncio.run
+        if not asyncio.iscoroutine(result):
+            async def _wrap(awaitable):
+                return await awaitable
+            result = _wrap(result)
+        return asyncio.run(result)
 
     def _apply_hitl(self, ai_msg: Any) -> Any:
         on_out = self._hitl.get("on_model_output")
@@ -147,7 +151,7 @@ class CoreLLM:
     
         def _impl(**kwargs):
             try:
-                decision = on_tool(name, dict(kwargs) if kwargs else {})
+                decision = self._maybe_await(on_tool(name, dict(kwargs) if kwargs else {}))
             except Exception:
                 decision = {"action": "pass"}
 
