@@ -28,7 +28,6 @@ class CoreLLM:
         self.tools: List[Any] = []
         # Optional hooks
         self._hitl: Dict[str, Any] = {"on_model_output": None}
-        self._metrics_cb: Optional[Any] = None
 
     # ---------- Hooks & helpers ----------
     def set_hitl(self, *, on_model_output=None, on_tool_call=None):
@@ -98,10 +97,6 @@ class CoreLLM:
             args_schema=args_schema,
             infer_schema=not bool(args_schema),
         )
-
-    def set_metrics(self, on_metrics):
-        """Register a callback receiving usage/cost/latency info per run."""
-        self._metrics_cb = on_metrics
 
     @staticmethod
     def no_tools() -> Dict[str, Any]:
@@ -342,7 +337,7 @@ class CoreLLM:
             extra: Optional[Dict[str, Any]] = None,
             **model_kwargs,
     ):
-        """One-liner chat without tools/agent graph (now with HITL, metrics, retry)."""
+        """One-liner chat without tools/agent graph (now with HITL and retry)."""
         model = self.set_model(provider, model_name, **model_kwargs)
         messages = self.make_messages(user_msg, system)
 
@@ -371,7 +366,7 @@ class CoreLLM:
             extra: Optional[Dict[str, Any]] = None,
             **model_kwargs,
     ):
-        """Async one-liner chat (HITL, metrics, retry)."""
+        """Async one-liner chat (HITL and retry)."""
         model = self.set_model(provider, model_name, **model_kwargs)
         messages = self.make_messages(user_msg, system)
 
@@ -392,7 +387,7 @@ class CoreLLM:
             system: Optional[str] = None,
             **model_kwargs,
     ):
-        """Token stream (LLM raw streaming), no agent graph. Emits bare metrics at the end.
+        """Token stream (LLM raw streaming), no agent graph. Emits bare event meta at the end.
         Normalizes different provider/event shapes to (text, meta)."""
         model = self.set_model(provider, model_name, **model_kwargs)
         messages = self.make_messages(user_msg, system)
