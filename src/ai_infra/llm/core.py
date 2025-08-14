@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, Optional, Dict, Any, Tuple, Union
+from typing import List, Optional, Dict, Any, Tuple, Union, Sequence
 import logging
 
 from langgraph.prebuilt import create_react_agent
@@ -319,7 +319,7 @@ class CoreLLM:
             tools: Optional[List[Any]] = None,
             extra: Optional[Dict[str, Any]] = None,
             model_kwargs: Optional[Dict[str, Any]] = None,
-            stream_mode: Union[str, List[str], Tuple[str, ...]] = ("updates", "values"),
+            stream_mode: Union[str, Sequence[str]] = ("updates", "values"),
             tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,
             config: Optional[Dict[str, Any]] = None
     ):
