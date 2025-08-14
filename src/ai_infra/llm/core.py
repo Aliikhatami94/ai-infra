@@ -259,20 +259,17 @@ class CoreLLM:
                 tool_controls = asdict(tool_controls)
             extra = {**(extra or {}), "tool_controls": tool_controls}
 
-        # Determine effective tools (apply global / explicit + HITL wrapping BEFORE context)
-        effective_tools = tools
-        if tools is None:
-            if self.require_explicit_tools and self.tools:
-                raise ValueError(
-                    "Implicit global tools use forbidden (require_tools_explicit=True). "
-                    "Pass tools=[] to run without tools or tools=[...] to specify explicitly."
-                )
-            if self.tools:
-                self._logger.info(
-                    "[CoreLLM] Using global self.tools (%d). Pass tools=[] to suppress or set require_tools_explicit(True) to forbid implicit use.",
-                    len(self.tools)
-                )
-            effective_tools = self.tools
+        # Simplified effective tools selection
+        effective_tools = self.tools if tools is None else tools
+        if tools is None and self.require_explicit_tools and self.tools:
+            raise ValueError(
+                "Implicit global tools use forbidden (require_tools_explicit=True). Pass tools=[] to run without tools or tools=[...] to specify explicitly."
+            )
+        if tools is None and self.tools:
+            self._logger.info(
+                "[CoreLLM] Using global self.tools (%d). Pass tools=[] to suppress or set require_tools_explicit(True) to forbid implicit use.",
+                len(self.tools)
+            )
 
         if self._hitl.get("on_tool_call"):
             effective_tools = [self._wrap_tool_for_hitl(t) for t in effective_tools]
@@ -379,19 +376,17 @@ class CoreLLM:
             gated_values = last_values
             if isinstance(decision, dict) and decision.get("action") in ("modify", "block"):
                 replacement = decision.get("replacement", "")
-                msgs = list(gated_values.get("messages", [])) if isinstance(gated_values, dict) else []
-                if msgs:
-                    last = msgs[-1]
-                    if hasattr(last, "content"):
-                        last.content = replacement
-                    elif isinstance(last, dict):
-                        last["content"] = replacement
+                if isinstance(gated_values, dict):
+                    msgs = gated_values.get("messages")
+                    if isinstance(msgs, list) and msgs:
+                        last = msgs[-1]
+                        if hasattr(last, "content"):
+                            last.content = replacement
+                        elif isinstance(last, dict):
+                            last["content"] = replacement
+                        else:
+                            msgs.append({"role": "ai", "content": replacement})
                     else:
-                        msgs.append({"role": "ai", "content": replacement})
-                        if isinstance(gated_values, dict):
-                            gated_values["messages"] = msgs
-                else:
-                    if isinstance(gated_values, dict):
                         gated_values["messages"] = [{"role": "ai", "content": replacement}]
             yield "values", gated_values
 
