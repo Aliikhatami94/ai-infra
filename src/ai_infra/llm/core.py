@@ -130,18 +130,8 @@ class CoreLLM:
 
             action = (decision or {}).get("action", "pass")
             if action == "block":
-                replacement = (decision or {}).get("replacement", "[blocked by reviewer]")
-                # If tool expects structured output, try to coerce replacement
-                if args_schema is not None:
-                    import json
-                    try:
-                        # If replacement is a string, try to parse as JSON
-                        if isinstance(replacement, str):
-                            return json.loads(replacement)
-                        return replacement
-                    except Exception:
-                        return replacement
-                return replacement
+                # Return replacement verbatim; do not attempt schema/JSON coercion.
+                return (decision or {}).get("replacement", "[blocked by reviewer]")
             if action == "modify":
                 kwargs = (decision or {}).get("args", kwargs)
     
