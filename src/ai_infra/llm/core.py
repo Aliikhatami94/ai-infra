@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import List, Optional, Dict, Any, Tuple, Union
 import logging
-from dotenv import load_dotenv
+
 from langgraph.prebuilt import create_react_agent
 from langgraph.runtime import Runtime
 from pydantic import BaseModel
@@ -11,7 +11,8 @@ from .settings import ModelSettings
 from .utils import validate_provider_and_model, build_model_key, initialize_model
 from .tool_controls import normalize_tool_controls, ToolCallControls
 
-load_dotenv()
+# Removed local load_dotenv(); centralized in ai_infra.__init__
+# from dotenv import load_dotenv
 
 class CoreLLM:
     """
