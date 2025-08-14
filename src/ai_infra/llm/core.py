@@ -419,8 +419,8 @@ class CoreLLM:
             system: Optional[str] = None,
             **model_kwargs,
     ):
-        """Token stream (LLM raw streaming), no agent graph. Emits bare event meta at the end.
-        Normalizes different provider/event shapes to (text, meta)."""
+        # Remove tools if present to avoid passing to set_model/init_chat_model
+        model_kwargs.pop("tools", None)
         model = self.set_model(provider, model_name, **model_kwargs)
         messages = self.make_messages(user_msg, system)
 
