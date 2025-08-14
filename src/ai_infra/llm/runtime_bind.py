@@ -116,11 +116,9 @@ def make_agent_with_context(
 
     # Effective tools resolution
     effective_tools = global_tools or []
-
     if tools is not None:
         effective_tools = tools
     else:
-        # Using global tools implicitly
         if (global_tools and len(global_tools) > 0) and require_explicit_tools:
             raise ValueError(
                 "Implicit global tools use forbidden (require_tools_explicit=True). "
@@ -132,21 +130,32 @@ def make_agent_with_context(
                 len(global_tools)
             )
 
-    # HITL wrapping
-    if hitl_tool_wrapper:
-        effective_tools = [hitl_tool_wrapper(t) for t in effective_tools]
-
-    # Normalize all tools (wrap bare callables, drop Nones/unsupported)
+    # Normalize first (wrap bare callables, drop None/unsupported)
     effective_tools = [nt for nt in (_normalize_tool(t) for t in effective_tools) if nt is not None]
+
+    # HITL wrapping (never drop original tool if wrapper returns None)
+    if hitl_tool_wrapper is not None:
+        wrapped: List[Any] = []
+        for t in effective_tools:
+            try:
+                w = hitl_tool_wrapper(t)
+            except Exception:
+                if logger:
+                    logger.warning("HITL wrapping failed for tool %r; keeping original", getattr(t, 'name', t))
+                w = None
+            wrapped.append(w if w is not None else t)
+        effective_tools = wrapped
+
+    if not effective_tools and logger:
+        logger.warning("[CoreLLM] No tools bound; agent will not perform tool calls.")
 
     context = ModelSettings(
         provider=provider,
         model_name=model_name,
         tools=effective_tools,
-        extra={"model_kwargs": model_kwargs, **(extra or {})},
+        extra={"model_kwargs": model_kwargs or {}, **(extra or {})},
     )
 
-    # Provide a partially applied selector to LangGraph that re-binds as needed
     def _selector(state, rt: Runtime[ModelSettings]):
         return bind_model_with_tools(state, rt, registry, global_tools=context.tools)
 

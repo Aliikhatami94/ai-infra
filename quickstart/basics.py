@@ -72,7 +72,7 @@ def controlled_tool_agent():
         tools=[dummy_weather_tool1, dummy_weather_tool2],
         tool_controls=ToolCallControls(
             # can be {"name": "dummy_weather_tool1"}; normalizer will map to {"type":"tool","name":...}
-            tool_choice={"name": "dummy_weather_tool1"},
+            tool_choice={"name": "dummy_weather_tool2"},
             parallel_tool_calls=False,
             force_once=True,
         ),

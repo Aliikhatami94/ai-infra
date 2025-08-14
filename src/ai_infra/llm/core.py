@@ -188,7 +188,8 @@ class CoreAgent(BaseLLMCore):
             tool_controls=tool_controls,
             require_explicit_tools=self.require_explicit_tools,
             global_tools=self.tools,
-            hitl_tool_wrapper=(lambda t: wrap_tool_for_hitl(t, self._hitl) if self._hitl.on_tool_call else None),
+            # Only provide a wrapper if HITL tool callback is active
+            hitl_tool_wrapper=(lambda t: wrap_tool_for_hitl(t, self._hitl)) if self._hitl.on_tool_call else None,
             logger=self._logger,
         )
 
