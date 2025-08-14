@@ -46,7 +46,15 @@ class CoreLLM:
             decision = on_out(ai_msg)
             if isinstance(decision, dict) and decision.get("action") in ("modify", "block"):
                 replacement = decision.get("replacement", "")
-                if hasattr(ai_msg, "content"):
+                # If ai_msg is a dict with a 'messages' list, update the last message's content
+                if isinstance(ai_msg, dict) and isinstance(ai_msg.get("messages"), list) and ai_msg["messages"]:
+                    last_msg = ai_msg["messages"][-1]
+                    # Try to update 'content' if present, else replace the last message
+                    if isinstance(last_msg, dict) and "content" in last_msg:
+                        last_msg["content"] = replacement
+                    else:
+                        ai_msg["messages"][-1] = replacement
+                elif hasattr(ai_msg, "content"):
                     ai_msg.content = replacement
                 else:
                     ai_msg = replacement
