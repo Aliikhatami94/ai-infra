@@ -4,7 +4,6 @@ from langchain_core.tools import tool
 from ai_infra.llm import CoreLLM, Providers, Models, CoreAgent, BaseLLMCore
 from ai_infra.llm.tool_controls import ToolCallControls
 
-base = BaseLLMCore()
 llm = CoreLLM()
 agent = CoreAgent()
 
@@ -106,7 +105,7 @@ def human_in_the_loop():
             return {"action": "modify", "args": new_args}
         return {"action": "block", "replacement": "[blocked by reviewer]"}
 
-    base.set_hitl(on_tool_call=reviewer)
+    agent.set_hitl(on_tool_call=reviewer)
 
     messages = [{"role": "user", "content": "What's the weather in New York?"}]
     resp = agent.run_agent(
@@ -123,7 +122,7 @@ async def ask_with_retry():
         "retry": {"max_tries": 3, "base": 0.5, "jitter": 0.2},  # exponential backoff
     }
     res = await agent.arun_agent(
-        messages=[{"role": "user", "content": "Give me one productivity tip."}],
+        messages=[{"role": "user", "content": "What tools do you have access to?"}],
         provider=Providers.openai,
         model_name=Models.openai.gpt_4_1_mini.value,
         extra=extra,
@@ -173,7 +172,7 @@ async def hitl_stream():
 
 
     # enable tool HITL (calls your gate before executing any tool)
-    base.set_hitl(on_tool_call=make_tool_gate())
+    agent.set_hitl(on_tool_call=make_tool_gate())
 
     print(">>> Streaming agent token deltas only (no updates/values)\n")
     # NOTE: astream_agent_tokens is the helper that streams only LLM token deltas
@@ -203,5 +202,7 @@ if __name__ == '__main__':
     # test_llm()
     # test_structured_output()
     # asyncio.run(test_agent_stream())
-    controlled_tool_agent()
+    # controlled_tool_agent()
     # human_in_the_loop()
+    # asyncio.run(ask_with_retry())
+    asyncio.run(hitl_stream())

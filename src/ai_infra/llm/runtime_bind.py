@@ -128,10 +128,8 @@ def make_agent_with_context(
                 len(global_tools)
             )
 
-    # ✅ 1) Normalize ALL tools to BaseTool (wrap bare callables; drop unsupported)
     effective_tools = [nt for nt in (_normalize_tool(t) for t in effective_tools) if nt is not None]
 
-    # ✅ 2) Only wrap if HITL is active; and never drop a tool if the wrapper returns None
     if hitl_tool_wrapper is not None:
         wrapped_tools: List[Any] = []
         for t in effective_tools:
