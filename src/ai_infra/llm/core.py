@@ -4,7 +4,6 @@ import logging
 from dotenv import load_dotenv
 from langgraph.prebuilt import create_react_agent
 from langgraph.runtime import Runtime
-from langchain_core.messages import SystemMessage
 from pydantic import BaseModel
 from langchain_core.tools import BaseTool, tool as lc_tool, StructuredTool
 
@@ -377,7 +376,8 @@ class CoreLLM:
     def make_messages(user: str, system: Optional[str] = None, extras: Optional[List[Dict[str, Any]]] = None):
         msgs: List[Dict[str, Any]] = []
         if system:
-            msgs.append(SystemMessage(content=system).model_dump())
+            # Use plain dict for system message to be consistent with other messages
+            msgs.append({"role": "system", "content": system})
         msgs.append({"role": "user", "content": user})
         if extras:
             msgs.extend(extras)
