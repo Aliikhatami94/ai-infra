@@ -262,7 +262,7 @@ class CoreLLM:
             tools: Optional[List[Any]] = None,
             extra: Optional[Dict[str, Any]] = None,
             model_kwargs: Optional[Dict[str, Any]] = None,
-            stream_mode: Union[str, List[str]] = ("updates", "values"),
+            stream_mode: Union[str, List[str], Tuple[str, ...]] = ("updates", "values"),
             tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,
             config: Optional[Dict[str, Any]] = None
     ):
