@@ -242,14 +242,7 @@ class CoreLLM:
                 tool_controls = asdict(tool_controls)
             extra = {**(extra or {}), "tool_controls": tool_controls}
 
-        context = ModelSettings(
-            provider=provider,
-            model_name=model_name,
-            tools=tools,
-            extra={"model_kwargs": model_kwargs, **(extra or {})},
-        )
-
-        effective_tools = tools if tools is not None else self.tools
+        # Determine effective tools (apply global / explicit + HITL wrapping BEFORE context)
         if tools is None:
             if self.tools:
                 if self.require_explicit_tools:
@@ -264,8 +257,16 @@ class CoreLLM:
             effective_tools = self.tools
         else:
             effective_tools = tools
+
         if self._hitl.get("on_tool_call"):
             effective_tools = [self._wrap_tool_for_hitl(t) for t in effective_tools]
+
+        context = ModelSettings(
+            provider=provider,
+            model_name=model_name,
+            tools=effective_tools,  # wrapped/global tools (HITL-safe)
+            extra={"model_kwargs": model_kwargs, **(extra or {})},
+        )
 
         agent = create_react_agent(model=self._select_model, tools=effective_tools)
         return agent, context
