@@ -81,12 +81,35 @@ class CoreLLM:
         self._hitl["on_model_output"] = on_model_output
         self._hitl["on_tool_call"] = on_tool_call
 
+    @staticmethod
+    def _maybe_await(result):
+        """Best-effort sync bridge for optional awaitables returned by HITL callbacks.
+        If called inside an active running loop, falls back to loop.run_until_complete
+        (may raise in some environments; errors are swallowed to avoid breaking flows).
+        """
+        import inspect, asyncio
+        try:
+            if inspect.isawaitable(result):
+                try:
+                    loop = asyncio.get_running_loop()
+                except RuntimeError:
+                    loop = None
+                if not loop or not loop.is_running():
+                    return asyncio.run(result)
+                try:
+                    return loop.run_until_complete(result)  # best-effort
+                except Exception:
+                    return None
+            return result
+        except Exception:
+            return result
+
     def _apply_hitl(self, ai_msg: Any) -> Any:
         on_out = self._hitl.get("on_model_output")
         if not on_out:
             return ai_msg
         try:
-            decision = on_out(ai_msg)
+            decision = self._maybe_await(on_out(ai_msg))
             if isinstance(decision, dict) and decision.get("action") in ("modify", "block"):
                 replacement = decision.get("replacement", "")
                 # If ai_msg is a dict with a 'messages' list, update the last message's content
@@ -348,7 +371,7 @@ class CoreLLM:
 
         # --- NEW gating logic (preserve full values shape) ---
         if last_values is not None:
-            decision = self._hitl.get("on_model_output")(last_values) if self._hitl.get("on_model_output") else None
+            decision = self._maybe_await(self._hitl.get("on_model_output")(last_values)) if self._hitl.get("on_model_output") else None
             gated_values = last_values
             if isinstance(decision, dict) and decision.get("action") in ("modify", "block"):
                 replacement = decision.get("replacement", "")
