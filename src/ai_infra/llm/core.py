@@ -290,8 +290,22 @@ class CoreLLM:
 
         # After stream ends, apply HITL to the final values snapshot (if any) and emit it
         if last_values is not None:
-            gated = self._apply_hitl(last_values)
-            yield "values", gated
+            # Only apply HITL to the last message in 'messages', not the whole dict
+            on_out = self._hitl.get("on_model_output")
+            if (
+                on_out and isinstance(last_values, dict)
+                and isinstance(last_values.get("messages"), list)
+                and last_values["messages"]
+            ):
+                last_msg = last_values["messages"][-1]
+                decision = on_out(last_msg)
+                if isinstance(decision, dict) and decision.get("action") in ("modify", "block"):
+                    replacement = decision.get("replacement", "")
+                    if isinstance(last_msg, dict) and "content" in last_msg:
+                        last_msg["content"] = replacement
+                    else:
+                        last_values["messages"][-1] = replacement
+            yield "values", last_values
 
     # ---------- Direct model helpers (no agent) ----------
     def with_structured_output(
