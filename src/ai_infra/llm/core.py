@@ -353,10 +353,23 @@ class CoreLLM:
             schema: Union[type[BaseModel], Dict[str, Any]],
             **model_kwargs,
     ):
+        """Return model bound for structured output if supported; otherwise fallback with warning.
+
+        Logs a warning when the underlying provider/model does not support structured
+        output (or raises) so silent fallback is avoided.
+        """
         model = self._get_or_create(provider, model_name, **model_kwargs)
         try:
             return model.with_structured_output(schema)
-        except Exception:
+        except Exception as e:  # pragma: no cover - defensive
+            self._logger.warning(
+                "[CoreLLM] Structured output unavailable; falling back to raw model. provider=%s model=%s schema=%s error=%s",
+                provider,
+                model_name,
+                getattr(schema, "__name__", type(schema)),
+                e,
+                exc_info=True,
+            )
             return model
 
     # ---------- UX sugar ----------
