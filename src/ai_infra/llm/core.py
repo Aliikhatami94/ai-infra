@@ -221,21 +221,8 @@ class CoreLLM:
         else:
             res = await _call()
         # HITL final output gate
-        on_out = self._hitl.get("on_model_output")
-        if on_out:
-            try:
-                decision = on_out(res)
-                if isinstance(decision, dict) and decision.get("action") in ("modify", "block"):
-                    replacement = decision.get("replacement", "")
-                    # Try to replace content on a copy-like object
-                    if hasattr(res, "content"):
-                        res.content = replacement
-                    else:
-                        res = replacement
-            except Exception:
-                pass
-        # metrics
-        return res
+        ai_msg = self._apply_hitl(res)
+        return ai_msg
 
     def run_agent(
             self,
@@ -249,22 +236,9 @@ class CoreLLM:
             config: Optional[Dict[str, Any]] = None
     ) -> Any:
         agent, context = self._make_agent_with_context(provider, model_name, tools, extra, model_kwargs, tool_controls)
-        import time
-        started = time.time() * 1000
         res = agent.invoke({"messages": messages}, context=context, config=config)
-        on_out = self._hitl.get("on_model_output")
-        if on_out:
-            try:
-                decision = on_out(res)
-                if isinstance(decision, dict) and decision.get("action") in ("modify", "block"):
-                    replacement = decision.get("replacement", "")
-                    if hasattr(res, "content"):
-                        res.content = replacement
-                    else:
-                        res = replacement
-            except Exception:
-                pass
-        return res
+        ai_msg = self._apply_hitl(res)
+        return ai_msg
 
     # ---------- Public: Agent streaming ----------
     async def arun_agent_stream(
