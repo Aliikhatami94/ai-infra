@@ -356,24 +356,27 @@ class CoreLLM:
                 # Stream updates immediately (tool calls, intermediate agent steps, etc.)
                 yield mode, chunk
 
-        # After stream ends, apply HITL to the final values snapshot (if any) and emit it
+        # --- NEW gating logic (preserve full values shape) ---
         if last_values is not None:
-            # Only apply HITL to the last message in 'messages', not the whole dict
-            on_out = self._hitl.get("on_model_output")
-            if (
-                on_out and isinstance(last_values, dict)
-                and isinstance(last_values.get("messages"), list)
-                and last_values["messages"]
-            ):
-                last_msg = last_values["messages"][-1]
-                decision = on_out(last_msg)
-                if isinstance(decision, dict) and decision.get("action") in ("modify", "block"):
-                    replacement = decision.get("replacement", "")
-                    if isinstance(last_msg, dict) and "content" in last_msg:
-                        last_msg["content"] = replacement
+            decision = self._hitl.get("on_model_output")(last_values) if self._hitl.get("on_model_output") else None
+            gated_values = last_values
+            if isinstance(decision, dict) and decision.get("action") in ("modify", "block"):
+                replacement = decision.get("replacement", "")
+                msgs = list(gated_values.get("messages", [])) if isinstance(gated_values, dict) else []
+                if msgs:
+                    last = msgs[-1]
+                    if hasattr(last, "content"):
+                        last.content = replacement
+                    elif isinstance(last, dict):
+                        last["content"] = replacement
                     else:
-                        last_values["messages"][-1] = replacement
-            yield "values", last_values
+                        msgs.append({"role": "ai", "content": replacement})
+                        if isinstance(gated_values, dict):
+                            gated_values["messages"] = msgs
+                else:
+                    if isinstance(gated_values, dict):
+                        gated_values["messages"] = [{"role": "ai", "content": replacement}]
+            yield "values", gated_values
 
     # ---------- Direct model helpers (no agent) ----------
     def with_structured_output(
