@@ -441,6 +441,9 @@ class CoreLLM:
               config is ignored (a warning is logged) to avoid nested loop errors.
               Use `await achat(...)` for reliable retry behavior in async contexts.
         """
+        # Drop stray agent/tool kwargs that shouldn't reach raw model init
+        for bad in ("tools", "tool_choice", "parallel_tool_calls", "force_once"):
+            model_kwargs.pop(bad, None)
         model = self.set_model(provider, model_name, **model_kwargs)
         messages = self.make_messages(user_msg, system)
 
@@ -480,6 +483,9 @@ class CoreLLM:
             **model_kwargs,
     ):
         """Async one-liner chat (HITL and retry)."""
+        # Drop stray agent/tool kwargs that shouldn't reach raw model init
+        for bad in ("tools", "tool_choice", "parallel_tool_calls", "force_once"):
+            model_kwargs.pop(bad, None)
         model = self.set_model(provider, model_name, **model_kwargs)
         messages = self.make_messages(user_msg, system)
 
