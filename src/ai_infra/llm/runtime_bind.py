@@ -106,8 +106,6 @@ def make_agent_with_context(
     """
     model_kwargs = model_kwargs or {}
     registry.get_or_create(provider, model_name, **model_kwargs)
-
-    # Merge tool_controls into extra so downstream logic can pick it up
     if tool_controls is not None:
         from dataclasses import is_dataclass, asdict
         if is_dataclass(tool_controls):
@@ -130,24 +128,22 @@ def make_agent_with_context(
                 len(global_tools)
             )
 
-    # Normalize first (wrap bare callables, drop None/unsupported)
+    # ✅ 1) Normalize ALL tools to BaseTool (wrap bare callables; drop unsupported)
     effective_tools = [nt for nt in (_normalize_tool(t) for t in effective_tools) if nt is not None]
 
-    # HITL wrapping (never drop original tool if wrapper returns None)
+    # ✅ 2) Only wrap if HITL is active; and never drop a tool if the wrapper returns None
     if hitl_tool_wrapper is not None:
-        wrapped: List[Any] = []
+        wrapped_tools: List[Any] = []
         for t in effective_tools:
             try:
                 w = hitl_tool_wrapper(t)
+                wrapped_tools.append(w if w is not None else t)  # fallback to original tool
             except Exception:
-                if logger:
-                    logger.warning("HITL wrapping failed for tool %r; keeping original", getattr(t, 'name', t))
-                w = None
-            wrapped.append(w if w is not None else t)
-        effective_tools = wrapped
+                wrapped_tools.append(t)  # defensive fallback
+        effective_tools = wrapped_tools
 
     if not effective_tools and logger:
-        logger.warning("[CoreLLM] No tools bound; agent will not perform tool calls.")
+        logger.warning("No tools bound; agent will not call tools.")
 
     context = ModelSettings(
         provider=provider,
@@ -155,10 +151,8 @@ def make_agent_with_context(
         tools=effective_tools,
         extra={"model_kwargs": model_kwargs or {}, **(extra or {})},
     )
-
     def _selector(state, rt: Runtime[ModelSettings]):
         return bind_model_with_tools(state, rt, registry, global_tools=context.tools)
-
     agent = create_react_agent(model=_selector, tools=effective_tools)
     return agent, context
 
