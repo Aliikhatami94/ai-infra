@@ -235,7 +235,6 @@ class CoreLLM:
             except Exception:
                 pass
         # metrics
-        self._emit_metrics(provider, model_name, res, started_at_ms=started)
         return res
 
     def run_agent(
@@ -265,9 +264,7 @@ class CoreLLM:
                         res = replacement
             except Exception:
                 pass
-        self._emit_metrics(provider, model_name, res, started_at_ms=started)
         return res
-
 
     # ---------- Public: Agent streaming ----------
     async def arun_agent_stream(
@@ -292,7 +289,6 @@ class CoreLLM:
             async for token, meta in agent.astream({"messages": messages}, context=context, config=config, stream_mode="messages"):
                 yield token, meta
             # token mode has no final AIMessage; emit bare metrics
-            self._emit_metrics(provider, model_name, ai_msg=None, started_at_ms=started)
             return
 
         async for mode, chunk in agent.astream({"messages": messages}, context=context, config=config, stream_mode=modes):
@@ -315,7 +311,6 @@ class CoreLLM:
                             last_value = replacement
                 except Exception:
                     pass
-            self._emit_metrics(provider, model_name, last_value, started_at_ms=started)
 
 
     # ---------- Direct model helpers (no agent) ----------
@@ -370,10 +365,8 @@ class CoreLLM:
             **model_kwargs,
     ):
         """One-liner chat without tools/agent graph (now with HITL, metrics, retry)."""
-        import time
         model = self.set_model(provider, model_name, **model_kwargs)
         messages = self.make_messages(user_msg, system)
-        started = time.time() * 1000
 
         def _call():
             return model.invoke(messages)
@@ -388,9 +381,8 @@ class CoreLLM:
         else:
             res = _call()
 
-        res = self._apply_hitl(res)
-        self._emit_metrics(provider, model_name, res, started_at_ms=started)
-        return res
+        ai_msg = self._apply_hitl(res)
+        return ai_msg
 
     async def achat(
             self,
@@ -402,10 +394,8 @@ class CoreLLM:
             **model_kwargs,
     ):
         """Async one-liner chat (HITL, metrics, retry)."""
-        import time
         model = self.set_model(provider, model_name, **model_kwargs)
         messages = self.make_messages(user_msg, system)
-        started = time.time() * 1000
 
         async def _call():
             return await model.ainvoke(messages)
@@ -413,9 +403,8 @@ class CoreLLM:
         retry_cfg = (extra or {}).get("retry") if extra else None
         res = await (self._with_retry(_call, **retry_cfg) if retry_cfg else _call())
 
-        res = self._apply_hitl(res)
-        self._emit_metrics(provider, model_name, res, started_at_ms=started)
-        return res
+        ai_msg = self._apply_hitl(res)
+        return ai_msg
 
     async def stream_tokens(
             self,
@@ -427,10 +416,8 @@ class CoreLLM:
     ):
         """Token stream (LLM raw streaming), no agent graph. Emits bare metrics at the end.
         Normalizes different provider/event shapes to (text, meta)."""
-        import time
         model = self.set_model(provider, model_name, **model_kwargs)
         messages = self.make_messages(user_msg, system)
-        started = time.time() * 1000
 
         # New: astream yields one object per tick (e.g., AIMessageChunk), not (token, meta)
         async for event in model.astream(messages):
@@ -446,9 +433,6 @@ class CoreLLM:
             meta = {"raw": event}
             yield text, meta
 
-        # We don't have a final AIMessage here; just emit latency
-        self._emit_metrics(provider, model_name, ai_msg=None, started_at_ms=started)
-
     def agent(
             self,
             provider: str,
@@ -462,7 +446,7 @@ class CoreLLM:
 
     async def _with_retry(self, afn, *, max_tries=3, base=0.5, jitter=0.2):
         """Exponential backoff retry for transient errors around an awaited call."""
-        import asyncio, random, time
+        import asyncio, random
         last = None
         for i in range(max_tries):
             try:
@@ -471,23 +455,3 @@ class CoreLLM:
                 last = e
                 await asyncio.sleep(base * (2 ** i) + random.random() * jitter)
         raise last
-
-    def _emit_metrics(self, provider: str, model_name: str, ai_msg: Any, started_at_ms: Optional[float] = None):
-        """Call user metrics hook with tokens/cost/latency if available."""
-        if not self._metrics_cb:
-            return
-        usage = getattr(ai_msg, "usage_metadata", None) or getattr(ai_msg, "response_metadata", {}).get("token_usage", None)
-        latency_ms = None
-        if started_at_ms is not None:
-            import time
-            latency_ms = int((time.time() * 1000) - started_at_ms)
-        payload = {
-            "provider": provider,
-            "model": model_name,
-            "usage": usage,
-            "latency_ms": latency_ms,
-        }
-        try:
-            self._metrics_cb(payload)
-        except Exception:
-            pass

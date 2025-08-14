@@ -17,11 +17,12 @@ def test_agent():
     print(res)
 
 def test_llm():
-    llm = core.set_model(
+    res = core.chat(
+        user_msg="What is your name?",
+        system="Your name is Alex and you are a helpful assistant.",
         provider=Providers.openai,
         model_name=Models.openai.gpt_4o.value,
     )
-    res = llm.invoke("Hello, how are you?")
     print(res)
 
 def test_sys_msg():
