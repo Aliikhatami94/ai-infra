@@ -439,20 +439,37 @@ class CoreLLM:
             extra: Optional[Dict[str, Any]] = None,
             **model_kwargs,
     ):
-        """One-liner chat without tools/agent graph (now with HITL and retry)."""
+        """One-liner chat without tools/agent graph (HITL + optional retry).
+
+        Notes:
+            - Retry logic is only applied if no event loop is currently running.
+              If a loop is active (e.g. inside Jupyter/async context), the retry
+              config is ignored (a warning is logged) to avoid nested loop errors.
+              Use `await achat(...)` for reliable retry behavior in async contexts.
+        """
         model = self.set_model(provider, model_name, **model_kwargs)
         messages = self.make_messages(user_msg, system)
 
         def _call():
             return model.invoke(messages)
 
-        # optional sync retry config: extra={"retry":{"max_tries":3,"base":0.5,"jitter":0.2}}
         retry_cfg = (extra or {}).get("retry") if extra else None
         if retry_cfg:
-            # reuse async retry in a sync wrapper
             import asyncio
-            async def _acall(): return _call()
-            res = asyncio.run(self._with_retry(_acall, **retry_cfg))
+            try:
+                running_loop = asyncio.get_running_loop()
+            except RuntimeError:
+                running_loop = None
+            if running_loop and running_loop.is_running():
+                # Cannot safely call asyncio.run(); fall back to single attempt.
+                self._logger.warning(
+                    "[CoreLLM] chat() retry config ignored because an event loop is already running; use achat() for retries."
+                )
+                res = _call()
+            else:
+                async def _acall():
+                    return _call()
+                res = asyncio.run(self._with_retry(_acall, **retry_cfg))
         else:
             res = _call()
 
