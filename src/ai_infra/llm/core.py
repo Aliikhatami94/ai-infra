@@ -243,20 +243,19 @@ class CoreLLM:
             extra = {**(extra or {}), "tool_controls": tool_controls}
 
         # Determine effective tools (apply global / explicit + HITL wrapping BEFORE context)
+        effective_tools = tools
         if tools is None:
+            if self.require_explicit_tools and self.tools:
+                raise ValueError(
+                    "Implicit global tools use forbidden (require_tools_explicit=True). "
+                    "Pass tools=[] to run without tools or tools=[...] to specify explicitly."
+                )
             if self.tools:
-                if self.require_explicit_tools:
-                    raise ValueError(
-                        "Implicit global tools use forbidden (require_tools_explicit=True). "
-                        "Pass tools=[] to run without tools or tools=[...] to specify explicitly."
-                    )
                 self._logger.info(
                     "[CoreLLM] Using global self.tools (%d). Pass tools=[] to suppress or set require_tools_explicit(True) to forbid implicit use.",
                     len(self.tools)
                 )
             effective_tools = self.tools
-        else:
-            effective_tools = tools
 
         if self._hitl.get("on_tool_call"):
             effective_tools = [self._wrap_tool_for_hitl(t) for t in effective_tools]

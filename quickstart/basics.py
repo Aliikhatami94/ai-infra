@@ -121,7 +121,7 @@ def human_in_the_loop():
     resp = core.run_agent(
         messages=messages,
         provider="openai",
-        model_name="gpt-4.1-mini",
+        model_name="gpt-5-mini",
         tools=[get_weather, get_news],   # <- our wrapper will gate these
     )
     print("\nFINAL:", getattr(resp, "content", resp))
