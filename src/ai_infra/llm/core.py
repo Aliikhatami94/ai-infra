@@ -10,6 +10,7 @@ from langchain_core.tools import BaseTool, tool as lc_tool, StructuredTool
 from .settings import ModelSettings
 from .utils import validate_provider_and_model, build_model_key, initialize_model
 from .tool_controls import normalize_tool_controls, ToolCallControls
+from .runtime_bind import ModelRegistry, make_agent_with_context as rb_make_agent_with_context
 
 
 class CoreLLM:
@@ -24,11 +25,11 @@ class CoreLLM:
     _logger = logging.getLogger(__name__)
 
     def __init__(self):
-        self.models: Dict[str, Any] = {}
+        self.registry = ModelRegistry()  # replaces prior self.models cache
+        # self.models removed
         self.tools: List[Any] = []
         # Optional hooks
         self._hitl: Dict[str, Any] = {"on_model_output": None}
-        # Policy: when True, implicit fallback to self.tools is forbidden
         self.require_explicit_tools: bool = False
 
     # ---------- Tool policy ----------
@@ -187,14 +188,11 @@ class CoreLLM:
 
     # ---------- Models ----------
     def set_model(self, provider: str, model_name: str, **kwargs):
-        validate_provider_and_model(provider, model_name)
-        key = build_model_key(provider, model_name)
-        if key not in self.models:
-            self.models[key] = initialize_model(key, provider, **(kwargs or {}))
-        return self.models[key]
+        # Delegate to registry (idempotent get/create)
+        return self.registry.get_or_create(provider, model_name, **(kwargs or {}))
 
-    def _get_or_create(self, provider: str, model_name: str, **kwargs):
-        return self.set_model(provider, model_name, **kwargs)
+    def _get_or_create(self, provider: str, model_name: str, **kwargs):  # retained for backward compat
+        return self.registry.get_or_create(provider, model_name, **kwargs)
 
     # ---------- Tool controls ----------
     @staticmethod
@@ -210,33 +208,6 @@ class CoreLLM:
                 return True
         return False
 
-    def _select_model(self, state: Any, runtime: Runtime[ModelSettings]) -> Any:
-        ctx = runtime.context
-        key = build_model_key(ctx.provider, ctx.model_name)
-        if key not in self.models:
-            self.set_model(ctx.provider, ctx.model_name, **(ctx.extra.get("model_kwargs", {}) if ctx.extra else {}))
-
-        model = self.models[key]
-        tools = ctx.tools if ctx.tools is not None else self.tools
-        extra = ctx.extra or {}
-
-        tool_choice, parallel_tool_calls, force_once = normalize_tool_controls(
-            ctx.provider, extra.get("tool_controls")
-        )
-
-        # ✅ Gemini refuses tool_choice if there are no tools
-        if ctx.provider == "google_genai" and not tools:
-            tool_choice = None
-
-        if force_once and self._tool_used(state):
-            tool_choice = None
-
-        return model.bind_tools(
-            tools,
-            tool_choice=tool_choice,
-            parallel_tool_calls=parallel_tool_calls,
-        )
-
     # ---------- Agent ----------
     def _make_agent_with_context(
             self,
@@ -245,42 +216,22 @@ class CoreLLM:
             tools: Optional[List[Any]] = None,
             extra: Optional[Dict[str, Any]] = None,
             model_kwargs: Optional[Dict[str, Any]] = None,
-            tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,  # NEW
+            tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,
     ) -> Tuple[Any, ModelSettings]:
-        model_kwargs = model_kwargs or {}
-        self.set_model(provider, model_name, **model_kwargs)
-
-        # merge tool_controls into extra for runtime.context
-        if tool_controls is not None:
-            from dataclasses import is_dataclass, asdict
-            if is_dataclass(tool_controls):
-                tool_controls = asdict(tool_controls)
-            extra = {**(extra or {}), "tool_controls": tool_controls}
-
-        # Simplified effective tools selection
-        effective_tools = self.tools if tools is None else tools
-        if tools is None and self.require_explicit_tools and self.tools:
-            raise ValueError(
-                "Implicit global tools use forbidden (require_tools_explicit=True). Pass tools=[] to run without tools or tools=[...] to specify explicitly."
-            )
-        if tools is None and self.tools:
-            self._logger.info(
-                "[CoreLLM] Using global self.tools (%d). Pass tools=[] to suppress or set require_tools_explicit(True) to forbid implicit use.",
-                len(self.tools)
-            )
-
-        if self._hitl.get("on_tool_call"):
-            effective_tools = [self._wrap_tool_for_hitl(t) for t in effective_tools]
-
-        context = ModelSettings(
+        """Delegate agent/context construction to runtime_bind.make_agent_with_context."""
+        return rb_make_agent_with_context(
+            self.registry,
             provider=provider,
             model_name=model_name,
-            tools=effective_tools,  # wrapped/global tools (HITL-safe)
-            extra={"model_kwargs": model_kwargs, **(extra or {})},
+            tools=tools,
+            extra=extra,
+            model_kwargs=model_kwargs,
+            tool_controls=tool_controls,
+            require_explicit_tools=self.require_explicit_tools,
+            global_tools=self.tools,
+            hitl_tool_wrapper=(self._wrap_tool_for_hitl if self._hitl.get("on_tool_call") else None),
+            logger=self._logger,
         )
-
-        agent = create_react_agent(model=self._select_model, tools=effective_tools)
-        return agent, context
 
     # ---------- Public: Agent run ----------
     async def arun_agent(
@@ -396,12 +347,8 @@ class CoreLLM:
             schema: Union[type[BaseModel], Dict[str, Any]],
             **model_kwargs,
     ):
-        """Return model bound for structured output if supported; otherwise fallback with warning.
-
-        Logs a warning when the underlying provider/model does not support structured
-        output (or raises) so silent fallback is avoided.
-        """
-        model = self._get_or_create(provider, model_name, **model_kwargs)
+        """Return model bound for structured output if supported; otherwise fallback with warning."""
+        model = self.registry.get_or_create(provider, model_name, **model_kwargs)
         try:
             return model.with_structured_output(schema)
         except Exception as e:  # pragma: no cover - defensive
