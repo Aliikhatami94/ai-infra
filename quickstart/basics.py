@@ -140,6 +140,9 @@ async def ask_with_retry():
     print(res)
 
 async def hitl_stream():
+    from langchain_core.tools import tool
+
+    # --- HITL tool gate ---
     def make_tool_gate():
         """
         Always asks the human before executing a tool.
@@ -149,7 +152,6 @@ async def hitl_stream():
 
         def _gate(tool_name: str, args: dict):
             print(f"\n[HITL] Tool request: {tool_name}({args})", flush=True)
-
             try:
                 ans = input("Approve tool call? [y]es / [m]odify args / [b]lock: ").strip().lower()
             except EOFError:
@@ -171,22 +173,26 @@ async def hitl_stream():
 
         return _gate
 
+
+    # --- A tiny tool so the agent actually uses tools ---
     @tool
     def get_weather(location: str) -> str:
         """Return a fake weather string for a location."""
         return f"It's sunny today in {location}."
 
+
+    # enable tool HITL (calls your gate before executing any tool)
     core.set_hitl(on_tool_call=make_tool_gate())
 
-    print(">>> Streaming with ('updates','values') and interactive HITL on final chunk\n")
-    async for mode, chunk in core.arun_agent_stream(
+    print(">>> Streaming agent token deltas only (no updates/values)\n")
+    # NOTE: astream_agent_tokens is the helper that streams only LLM token deltas
+    async for token, meta in core.astream_agent_tokens(
             messages=[{"role": "user", "content": "Check Boston weather with a tool, then summarize in one line."}],
             provider=Providers.openai,
             model_name=Models.openai.gpt_4_1_mini.value,
             tools=[get_weather],
-            stream_mode=("updates", "values"),
     ):
-        if mode == "updates":
-            print("UPDATES >", chunk)
-        elif mode == "values":
-            print("\nVALUES (POST-HITL) >", chunk)
+        # print tokens as they arrive
+        print(token, end="", flush=True)
+
+    print()  # newline at the end

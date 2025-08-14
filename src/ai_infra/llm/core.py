@@ -437,6 +437,40 @@ class CoreLLM:
             meta = {"raw": event}
             yield text, meta
 
+    # inside class CoreLLM
+
+    async def astream_agent_tokens(
+            self,
+            messages: List[Dict[str, Any]],
+            provider: str,
+            model_name: str,
+            tools: Optional[List[Any]] = None,
+            extra: Optional[Dict[str, Any]] = None,
+            model_kwargs: Optional[Dict[str, Any]] = None,
+            tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,
+            config: Optional[Dict[str, Any]] = None,
+    ):
+        """
+        Stream ONLY the agent's token deltas (no 'updates' / no 'values').
+
+        Notes:
+        - Tool HITL is enforced because _make_agent_with_context() wraps tools
+          via _wrap_tool_for_hitl when on_tool_call is set.
+        - Final-output HITL (on_model_output) is NOT applied here, since token
+          chunks are emitted incrementally and can't be post-edited.
+        """
+        agent, context = self._make_agent_with_context(
+            provider, model_name, tools, extra, model_kwargs, tool_controls
+        )
+
+        async for token, meta in agent.astream(
+                {"messages": messages},
+                context=context,
+                config=config,
+                stream_mode="messages",   # only LLM token deltas
+        ):
+            yield token, meta
+
     def agent(
             self,
             provider: str,
