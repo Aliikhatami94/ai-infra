@@ -12,14 +12,6 @@ from .utils import sanitize_model_kwargs, with_retry as _with_retry_util, run_wi
 
 
 class CoreLLM:
-    """
-    Minimal, batteries-included LLM facade:
-    - Model cache across providers
-    - Agents from LangGraph prebuilt ReAct
-    - Provider-normalized tool controls
-    - Streaming (graph 'updates/values' and token 'messages')
-    - Optional structured output
-    """
     _logger = logging.getLogger(__name__)
 
     def __init__(self):
