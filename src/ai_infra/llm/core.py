@@ -43,9 +43,39 @@ class CoreLLM:
 
     # ---------- Hooks & helpers ----------
     def set_hitl(self, *, on_model_output=None, on_tool_call=None):
-        """Register HITL callbacks.
-        on_model_output(ai_msg) -> {"action": "pass"|"modify"|"block", "replacement": str}
-        on_tool_call(name:str, args:dict) -> {"action": "pass"|"modify"|"block", "args": dict, "replacement": str}
+        """Register Human-In-The-Loop (HITL) callbacks for model outputs and tool calls.
+
+        Parameters:
+            on_model_output: Callable taking the final AI message (object or dict) and
+                returning one of:
+                  {"action": "pass"}
+                  {"action": "modify", "replacement": str}
+                  {"action": "block",  "replacement": str}
+                - pass: leave message unchanged.
+                - modify: replace final message content with replacement.
+                - block: same as modify but semantically indicates rejection.
+                Replacement is applied to ai_msg.content when present, or last
+                messages[-1].content when the value is a state dict.
+
+            on_tool_call: Callable invoked before an underlying tool executes.
+                Signature: fn(tool_name: str, args: dict) -> decision dict
+                Returns one of:
+                  {"action": "pass"}
+                  {"action": "modify", "args": {..new args..}}
+                  {"action": "block",  "replacement": str}
+                Semantics:
+                  - pass: run tool with original args.
+                  - modify: run tool with updated args ("args" key). If omitted,
+                    original args are retained.
+                  - block: tool is NOT executed; wrapper returns the replacement
+                    string (or object). If the tool expected structured output and
+                    replacement is JSON-parseable, we attempt json.loads(replacement).
+
+        Notes:
+            - Any exception inside callbacks defaults to action "pass".
+            - Missing or unrecognized action defaults to "pass".
+            - For streaming token modes (messages-only streaming), on_model_output
+              modifications cannot be applied retroactively.
         """
         self._hitl["on_model_output"] = on_model_output
         self._hitl["on_tool_call"] = on_tool_call
