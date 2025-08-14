@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import List, Optional, Dict, Any, Tuple, Union
+import logging
 from dotenv import load_dotenv
 from langgraph.prebuilt import create_react_agent
 from langgraph.runtime import Runtime
@@ -22,12 +23,24 @@ class CoreLLM:
     - Streaming (graph 'updates/values' and token 'messages')
     - Optional structured output
     """
+    _logger = logging.getLogger(__name__)
 
     def __init__(self):
         self.models: Dict[str, Any] = {}
         self.tools: List[Any] = []
         # Optional hooks
         self._hitl: Dict[str, Any] = {"on_model_output": None}
+        # Policy: when True, implicit fallback to self.tools is forbidden
+        self.require_explicit_tools: bool = False
+
+    # ---------- Tool policy ----------
+    def set_global_tools(self, tools: List[Any]):
+        """Set global tools used when per-call tools not provided (unless explicit required)."""
+        self.tools = tools or []
+
+    def require_tools_explicit(self, required: bool = True):
+        """If enabled, callers must pass tools each run (tools=[] to disable)."""
+        self.require_explicit_tools = required
 
     # ---------- Hooks & helpers ----------
     def set_hitl(self, *, on_model_output=None, on_tool_call=None):
@@ -207,9 +220,20 @@ class CoreLLM:
         )
 
         effective_tools = tools if tools is not None else self.tools
-        if tools is None and self.tools:
-            import warnings
-            warnings.warn("[CoreLLM] Using global self.tools as agent tools. Pass tools=[] to avoid this.")
+        if tools is None:
+            if self.tools:
+                if self.require_explicit_tools:
+                    raise ValueError(
+                        "Implicit global tools use forbidden (require_tools_explicit=True). "
+                        "Pass tools=[] to run without tools or tools=[...] to specify explicitly."
+                    )
+                self._logger.info(
+                    "[CoreLLM] Using global self.tools (%d). Pass tools=[] to suppress or set require_tools_explicit(True) to forbid implicit use.",
+                    len(self.tools)
+                )
+            effective_tools = self.tools
+        else:
+            effective_tools = tools
         if self._hitl.get("on_tool_call"):
             effective_tools = [self._wrap_tool_for_hitl(t) for t in effective_tools]
 
