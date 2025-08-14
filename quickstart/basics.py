@@ -1,7 +1,7 @@
 import asyncio
 from langchain_core.tools import tool
 
-from ai_infra.llm import CoreLLM, Providers, Models, CoreAgent, BaseLLMCore
+from ai_infra.llm import CoreLLM, Providers, Models, CoreAgent
 from ai_infra.llm.tool_controls import ToolCallControls
 
 llm = CoreLLM()
@@ -195,7 +195,7 @@ async def chat_stream():
     async for token, meta in res:
         print(token, end="", flush=True)
 
-if __name__ == '__main__':
+# if __name__ == '__main__':
     # test_agent()
     # test_llm()
     # test_structured_output()
@@ -204,4 +204,4 @@ if __name__ == '__main__':
     # human_in_the_loop()
     # asyncio.run(ask_with_retry())
     # asyncio.run(hitl_stream())
-    asyncio.run(chat_stream())
+    # asyncio.run(chat_stream())
