@@ -70,9 +70,9 @@ class CoreMCP:
         host = getattr(self.config, "host", None)
         servers = self.config.servers
         server_setup = {}
-        for name, server in servers:
+        for server in servers:
             cfg = server.config
-            server_setup[name] = self._process_config_dict(cfg, host, self._resolve_arg_path)
+            server_setup[server.name] = self._process_config_dict(cfg, host, self._resolve_arg_path)
         return server_setup
 
     async def get_client(self):
