@@ -1,4 +1,4 @@
-from src.ai_infra.mcp import CoreMCP
+from src.ai_infra.mcp.core import CoreMCP
 from src.ai_infra.mcp.models import McpConfig, Server, ServerConfig
 
 # Example config following the models in src/ai_infra/mcp/models.py

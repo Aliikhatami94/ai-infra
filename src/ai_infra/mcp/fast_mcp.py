@@ -15,18 +15,17 @@ class FastMcpConfig(BaseModel):
     @model_validator(mode="after")
     def _validate_module(self):
         mod = self.module
-        if mod is not None:
-            # IMPORTANT: check on the CLASS, not the instance, so we don't invoke properties
-            cls = mod.__class__
-            missing = []
-            if not hasattr(cls, "session_manager"):
-                missing.append("session_manager")
-            if not hasattr(cls, "streamable_http_app"):
-                missing.append("streamable_http_app()")
-            if missing:
-                raise ValueError(
-                    f"FastMCP at path='{self.path}' missing: {', '.join(missing)}"
-                )
+        if mod is None:
+            return self
+        missing = []
+        # Check attributes on the CLASS to avoid triggering lazy properties
+        cls = type(mod)
+        if not (hasattr(cls, "session_manager") or "session_manager" in dir(cls)):
+            missing.append("session_manager")
+        if not hasattr(mod, "streamable_http_app"):
+            missing.append("streamable_http_app()")
+        if missing:
+            raise ValueError(f"FastMCP at path='{self.path}' missing: {', '.join(missing)}")
         return self
 
 class FastMcpList(BaseModel):
