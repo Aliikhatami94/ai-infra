@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from pydantic import BaseModel
 
 
@@ -21,4 +21,4 @@ class McpConfig(BaseModel):
     name: str
     host: str
     prompts: Dict[str, Any]
-    servers: Dict[str, Server]
+    servers: List[Server]
