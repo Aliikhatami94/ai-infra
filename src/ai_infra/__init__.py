@@ -9,7 +9,7 @@ if not os.environ.get("AI_INFRA_ENV_LOADED"):
 from .llm.core import CoreLLM  # noqa: E402
 from .llm.settings import ModelSettings  # noqa: E402
 from .llm.providers import Providers  # noqa: E402
-from .llm.models import Models  # noqa: E402
+from ai_infra.llm.providers.models import Models  # noqa: E402
 
 __all__ = [
     "CoreLLM",

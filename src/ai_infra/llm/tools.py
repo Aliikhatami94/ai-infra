@@ -12,7 +12,7 @@ This module consolidates logic that previously lived ad‑hoc in CoreLLM / runti
 None of these functions mutate global state; they are pure / side‑effect free
 (except logging) and can be composed by higher‑level orchestration code.
 """
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence
+from typing import Any, Callable, Dict, List, Optional, Sequence
 import logging
 import inspect
 

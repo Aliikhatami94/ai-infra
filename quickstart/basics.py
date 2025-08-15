@@ -1,4 +1,3 @@
-import asyncio
 from langchain_core.tools import tool
 
 from ai_infra.llm import CoreLLM, Providers, Models, CoreAgent
@@ -196,6 +195,7 @@ async def chat_stream():
         print(token, end="", flush=True)
 
 # if __name__ == '__main__':
+    # import asyncio
     # test_agent()
     # test_llm()
     # test_structured_output()

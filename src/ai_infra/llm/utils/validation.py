@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import List
 from ai_infra.llm.providers import Providers
-from ai_infra.llm.models import Models
+from ai_infra.llm.providers.models import Models
 
 def validate_provider(provider: str) -> None:
     """Validate that the provider is supported."""
