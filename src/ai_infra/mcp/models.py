@@ -9,13 +9,11 @@ class ServerConfig(BaseModel):
     headers: Optional[Dict[str, str]] = None
     transport: str
 
-
 class Server(BaseModel):
     id: str
     name: str
     description: str
     config: ServerConfig
-
 
 class McpConfig(BaseModel):
     name: str
