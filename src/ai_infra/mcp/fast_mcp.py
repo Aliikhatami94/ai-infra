@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, model_validator, ConfigDict
 from typing import Iterable, List
 from mcp.server.fastmcp import FastMCP
 from fastapi import FastAPI
@@ -9,10 +9,11 @@ class FastMcpConfig(BaseModel):
     path: str
     module: FastMCP | None = None
 
+    # 👇 this line fixes the error
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     @model_validator(mode="after")
-    def _validate_module(self) -> "FastMcpConfig":
-        # Allow module=None for cases where you’ll inject later,
-        # but if provided, make sure it has what we need.
+    def _validate_module(self):
         if self.module is not None:
             missing = []
             if not hasattr(self.module, "session_manager"):
@@ -20,9 +21,7 @@ class FastMcpConfig(BaseModel):
             if not hasattr(self.module, "streamable_http_app"):
                 missing.append("streamable_http_app()")
             if missing:
-                raise ValueError(
-                    f"FastMCP at path='{self.path}' is missing: {', '.join(missing)}"
-                )
+                raise ValueError(f"FastMCP at path='{self.path}' missing: {', '.join(missing)}")
         return self
 
 class FastMcpList(BaseModel):
