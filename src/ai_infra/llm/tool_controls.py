@@ -28,6 +28,15 @@ def _extract_name(tool_choice: Any) -> Optional[str]:
         return None
     return tool_choice.get("name") or (tool_choice.get("function") or {}).get("name")
 
+def no_tools() -> Dict[str, Any]:
+    return {"tool_controls": {"tool_choice": "none"}}
+
+def force_tool(name: str, *, once: bool = False, parallel: bool = False) -> Dict[str, Any]:
+    return {"tool_controls": {
+        "tool_choice": {"name": name},
+        "force_once": once,
+        "parallel_tool_calls": parallel,
+    }}
 
 def normalize_tool_controls(
         provider: str,

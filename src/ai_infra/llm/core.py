@@ -8,7 +8,7 @@ from .settings import ModelSettings
 from .runtime_bind import ModelRegistry, make_agent_with_context as rb_make_agent_with_context
 from .tool_controls import ToolCallControls
 from .tools import apply_output_gate, wrap_tool_for_hitl, HITLConfig
-from .utils import sanitize_model_kwargs, with_retry as _with_retry_util, run_with_fallbacks as _run_fallbacks_util
+from .utils import sanitize_model_kwargs, with_retry as _with_retry_util, run_with_fallbacks as _run_fallbacks_util, make_messages
 
 
 class BaseLLMCore:
@@ -17,6 +17,7 @@ class BaseLLMCore:
     def __init__(self):
         self.registry = ModelRegistry()
         self.tools: List[Any] = []
+        self._make_messages = make_messages
         self._hitl = HITLConfig()
         self.require_explicit_tools: bool = False
 
@@ -30,31 +31,12 @@ class BaseLLMCore:
     def set_hitl(self, *, on_model_output=None, on_tool_call=None):
         self._hitl.set(on_model_output=on_model_output, on_tool_call=on_tool_call)
 
-    @staticmethod
-    def no_tools() -> Dict[str, Any]:
-        return {"tool_controls": {"tool_choice": "none"}}
-
-    @staticmethod
-    def force_tool(name: str, *, once: bool = False, parallel: bool = False) -> Dict[str, Any]:
-        return {"tool_controls": {"tool_choice": {"name": name}, "force_once": once, "parallel_tool_calls": parallel}}
-
     # model registry
     def set_model(self, provider: str, model_name: str, **kwargs):
         return self.registry.get_or_create(provider, model_name, **(kwargs or {}))
 
     def _get_or_create(self, provider: str, model_name: str, **kwargs):
         return self.registry.get_or_create(provider, model_name, **kwargs)
-
-    # helpers
-    @staticmethod
-    def make_messages(user: str, system: Optional[str] = None, extras: Optional[List[Dict[str, Any]]] = None):
-        msgs: List[Dict[str, Any]] = []
-        if system:
-            msgs.append({"role": "system", "content": system})
-        msgs.append({"role": "user", "content": user})
-        if extras:
-            msgs.extend(extras)
-        return msgs
 
     def with_structured_output(
             self,
@@ -92,7 +74,7 @@ class CoreLLM(BaseLLMCore):
     ):
         sanitize_model_kwargs(model_kwargs)
         model = self.set_model(provider, model_name, **model_kwargs)
-        messages = self.make_messages(user_msg, system)
+        messages = self._make_messages(user_msg, system)
         def _call():
             return model.invoke(messages)
         retry_cfg = (extra or {}).get("retry") if extra else None
@@ -127,7 +109,7 @@ class CoreLLM(BaseLLMCore):
     ):
         sanitize_model_kwargs(model_kwargs)
         model = self.set_model(provider, model_name, **model_kwargs)
-        messages = self.make_messages(user_msg, system)
+        messages = self._make_messages(user_msg, system)
         async def _call():
             return await model.ainvoke(messages)
         retry_cfg = (extra or {}).get("retry") if extra else None
@@ -155,7 +137,7 @@ class CoreLLM(BaseLLMCore):
         if max_tokens is not None:
             model_kwargs["max_tokens"] = max_tokens
         model = self.set_model(provider, model_name, **model_kwargs)
-        messages = self.make_messages(user_msg, system)
+        messages = self._make_messages(user_msg, system)
         async for event in model.astream(messages):
             text = getattr(event, "content", None)
             if text is None:

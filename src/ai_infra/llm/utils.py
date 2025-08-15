@@ -69,6 +69,14 @@ async def with_retry(afn: Callable[[], Any], *, max_tries: int = 3, base: float 
             await asyncio.sleep(base * (2 ** i) + random.random() * jitter)
     raise last if last else RuntimeError("Retry failed with unknown error")
 
+def make_messages(user: str, system: Optional[str] = None, extras: Optional[List[Dict[str, Any]]] = None):
+    msgs: List[Dict[str, Any]] = []
+    if system:
+        msgs.append({"role": "system", "content": system})
+    msgs.append({"role": "user", "content": user})
+    if extras:
+        msgs.extend(extras)
+    return msgs
 
 def run_with_fallbacks(
     messages: List[Dict[str, Any]],

@@ -7,7 +7,6 @@ from ai_infra.llm.models import Models
 __all__ = [
     "CoreLLM",
     "CoreAgent",
-    "BaseLLMCore",
     "ModelSettings",
     "Models",
     "Providers",
