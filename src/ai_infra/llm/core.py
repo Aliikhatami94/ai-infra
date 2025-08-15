@@ -8,7 +8,15 @@ from .settings import ModelSettings
 from .runtime_bind import ModelRegistry, make_agent_with_context as rb_make_agent_with_context
 from .tool_controls import ToolCallControls
 from .tools import apply_output_gate, wrap_tool_for_hitl, HITLConfig
-from .utils import sanitize_model_kwargs, with_retry as _with_retry_util, run_with_fallbacks as _run_fallbacks_util, make_messages
+from .utils import (
+    sanitize_model_kwargs,
+    with_retry as _with_retry_util,
+    run_with_fallbacks as _run_fallbacks_util,
+    arun_with_fallbacks as _arun_fallbacks_util,
+    is_valid_response as _is_valid_response,
+    merge_overrides as _merge_overrides,
+    make_messages as _make_messages,
+)
 
 
 class BaseLLMCore:
@@ -17,7 +25,6 @@ class BaseLLMCore:
     def __init__(self):
         self.registry = ModelRegistry()
         self.tools: List[Any] = []
-        self._make_messages = make_messages
         self._hitl = HITLConfig()
         self.require_explicit_tools: bool = False
 
@@ -74,7 +81,7 @@ class CoreLLM(BaseLLMCore):
     ):
         sanitize_model_kwargs(model_kwargs)
         model = self.set_model(provider, model_name, **model_kwargs)
-        messages = self._make_messages(user_msg, system)
+        messages = _make_messages(user_msg, system)
         def _call():
             return model.invoke(messages)
         retry_cfg = (extra or {}).get("retry") if extra else None
@@ -109,7 +116,7 @@ class CoreLLM(BaseLLMCore):
     ):
         sanitize_model_kwargs(model_kwargs)
         model = self.set_model(provider, model_name, **model_kwargs)
-        messages = self._make_messages(user_msg, system)
+        messages = _make_messages(user_msg, system)
         async def _call():
             return await model.ainvoke(messages)
         retry_cfg = (extra or {}).get("retry") if extra else None
@@ -137,7 +144,7 @@ class CoreLLM(BaseLLMCore):
         if max_tokens is not None:
             model_kwargs["max_tokens"] = max_tokens
         model = self.set_model(provider, model_name, **model_kwargs)
-        messages = self._make_messages(user_msg, system)
+        messages = _make_messages(user_msg, system)
         async for event in model.astream(messages):
             text = getattr(event, "content", None)
             if text is None:
@@ -284,6 +291,7 @@ class CoreAgent(BaseLLMCore):
     ):
         return self._make_agent_with_context(provider, model_name, tools, extra, model_kwargs)
 
+    # ---------- fallbacks (sync) ----------
     def run_with_fallbacks(
             self,
             messages: List[Dict[str, Any]],
@@ -294,37 +302,29 @@ class CoreAgent(BaseLLMCore):
             tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,
             config: Optional[Dict[str, Any]] = None,
     ):
-        """
-        Try each (provider, model_name) in candidates in order until one succeeds.
-        Uses run_agent under the hood, so HITL gating & tool policy still apply.
-
-        Args:
-            messages: chat state/messages
-            candidates: ordered list of (provider, model_name)
-            tools: per-call tools (pass [] to disable; None to use global tools if allowed)
-            extra: misc runtime options (e.g., recursion_limit)
-            model_kwargs: per-model kwargs (e.g., temperature)
-            tool_controls: tool_choice/parallel/force_once controls
-            config: graph/runtime config forwarded to agent.invoke
-
-        Returns:
-            The first successful agent result (already gated via apply_output_gate in run_agent).
-        """
-        def _single(provider: str, model_name: str):
+        def _run_single(provider: str, model_name: str, overrides: Dict[str, Any]):
+            eff_extra, eff_model_kwargs, eff_tools, eff_tool_controls = _merge_overrides(
+                extra, model_kwargs, tools, tool_controls, overrides
+            )
             return self.run_agent(
                 messages=messages,
                 provider=provider,
                 model_name=model_name,
-                tools=tools,
-                extra=extra,
-                model_kwargs=model_kwargs,
-                tool_controls=tool_controls,
+                tools=eff_tools,
+                extra=eff_extra,
+                model_kwargs=eff_model_kwargs,
+                tool_controls=eff_tool_controls,
                 config=config,
             )
 
-        # IMPORTANT: return the value from the fallback utility
-        return _run_fallbacks_util(messages, candidates, _single)
+        return _run_fallbacks_util(
+            candidates=candidates,
+            run_single=_run_single,
+            validate=_is_valid_response,
+            # on_attempt=lambda i, p, m: self._logger.info("Trying %s/%s (%d)", p, m, i),
+        )
 
+    # ---------- fallbacks (async) ----------
     async def arun_with_fallbacks(
             self,
             messages: List[Dict[str, Any]],
@@ -335,22 +335,23 @@ class CoreAgent(BaseLLMCore):
             tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,
             config: Optional[Dict[str, Any]] = None,
     ):
-        async def _single(provider: str, model_name: str):
+        async def _run_single(provider: str, model_name: str, overrides: Dict[str, Any]):
+            eff_extra, eff_model_kwargs, eff_tools, eff_tool_controls = _merge_overrides(
+                extra, model_kwargs, tools, tool_controls, overrides
+            )
             return await self.arun_agent(
                 messages=messages,
                 provider=provider,
                 model_name=model_name,
-                tools=tools,
-                extra=extra,
-                model_kwargs=model_kwargs,
-                tool_controls=tool_controls,
+                tools=eff_tools,
+                extra=eff_extra,
+                model_kwargs=eff_model_kwargs,
+                tool_controls=eff_tool_controls,
                 config=config,
             )
-        # If your _run_fallbacks_util has no async version,
-        # implement a simple loop here that awaits _single for each candidate.
-        for prov, model in candidates:
-            try:
-                return await _single(prov, model)
-            except Exception:
-                continue
-        raise RuntimeError("All fallback candidates failed.")
+
+        return await _arun_fallbacks_util(
+            candidates=candidates,
+            run_single_async=_run_single,
+            validate=_is_valid_response,
+        )

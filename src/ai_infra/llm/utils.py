@@ -1,10 +1,19 @@
 import os
 from langchain.chat_models import init_chat_model
-from typing import Dict, Any, List, Tuple, Optional, Callable
+from typing import Any, Callable, List, Optional, Sequence, Tuple, Union, Dict
 import asyncio, random
 
 from ai_infra.llm.providers import Providers
 from ai_infra.llm.models import Models
+from ai_infra.llm.tool_controls import ToolCallControls
+
+ProviderModel = Tuple[str, str]
+Candidate = Union[ProviderModel, dict]
+
+class FallbackError(RuntimeError):
+    def __init__(self, message: str, errors: List[BaseException]):
+        super().__init__(message)
+        self.errors = errors
 
 # Validation Functions
 def validate_provider(provider: str) -> None:
@@ -78,20 +87,103 @@ def make_messages(user: str, system: Optional[str] = None, extras: Optional[List
         msgs.extend(extras)
     return msgs
 
-def run_with_fallbacks(
-    messages: List[Dict[str, Any]],
-    candidates: List[Tuple[str, str]],
-    run_single: Callable[[str, str], Any],
-) -> Any:
-    """Try (provider, model) pairs until one succeeds or exhaust.
+def _resolve_candidate(c: Candidate) -> Tuple[str, str, dict]:
+    if isinstance(c, tuple):
+        prov, model = c
+        return prov, model, {}
+    if isinstance(c, dict):
+        prov = c.get("provider")
+        model = c.get("model_name") or c.get("model")
+        if not prov or not model:
+            raise ValueError("Candidate dict must include 'provider' and 'model_name' (or 'model').")
+        overrides = {k: v for k, v in c.items() if k not in ("provider", "model_name", "model")}
+        return prov, model, overrides
+    raise TypeError(f"Unsupported candidate type: {type(c)}")
 
-    run_single: callable(provider, model_name) -> result
-    """
-    last_err = None
-    for provider, model_name in candidates:
+def is_valid_response(res: Any) -> bool:
+    """Generic 'did we get something usable?' check."""
+    content = getattr(res, "content", None)
+    if content is not None:
+        return str(content).strip() != ""
+    if isinstance(res, dict) and isinstance(res.get("messages"), list) and res["messages"]:
+        last = res["messages"][-1]
+        if hasattr(last, "content"):
+            return str(getattr(last, "content", "")).strip() != ""
+        if isinstance(last, dict):
+            return str(last.get("content", "")).strip() != ""
+    return res is not None
+
+def merge_overrides(
+        base_extra: Optional[Dict[str, Any]],
+        base_model_kwargs: Optional[Dict[str, Any]],
+        base_tools: Optional[List[Any]],
+        base_tool_controls: Optional[ToolCallControls | Dict[str, Any]],
+        overrides: Dict[str, Any],
+) -> Tuple[Dict[str, Any], Dict[str, Any], Optional[List[Any]], Optional[ToolCallControls | Dict[str, Any]]]:
+    eff_extra = {**(base_extra or {}), **overrides.get("extra", {})}
+    eff_model_kwargs = {**(base_model_kwargs or {}), **overrides.get("model_kwargs", {})}
+    eff_tools = overrides.get("tools", base_tools)
+    eff_tool_controls = overrides.get("tool_controls", base_tool_controls)
+    return eff_extra, eff_model_kwargs, eff_tools, eff_tool_controls
+
+def run_with_fallbacks(
+        candidates: Sequence[Candidate],
+        run_single: Callable[[str, str, dict], Any],
+        *,
+        validate: Optional[Callable[[Any], bool]] = None,
+        should_retry: Optional[Callable[[Optional[BaseException], Any, int, str, str], bool]] = None,
+        on_attempt: Optional[Callable[[int, str, str], None]] = None,
+) -> Any:
+    errs: List[BaseException] = []
+    if validate is None:
+        validate = lambda r: r is not None
+    if should_retry is None:
+        should_retry = lambda exc, res, i, p, m: (exc is not None) or (not validate(res))
+
+    for i, cand in enumerate(candidates):
+        provider, model_name, overrides = _resolve_candidate(cand)
+        if on_attempt:
+            on_attempt(i, provider, model_name)
         try:
-            return run_single(provider, model_name)
-        except Exception as e:  # pragma: no cover - defensive
-            last_err = e
-            continue
-    raise last_err or RuntimeError("All fallbacks failed")
+            result = run_single(provider, model_name, overrides)
+            if not should_retry(None, result, i, provider, model_name):
+                return result
+        except BaseException as e:
+            errs.append(e)
+            if not should_retry(e, None, i, provider, model_name):
+                raise
+
+    if errs:
+        raise FallbackError("All fallback candidates failed.", errs)
+    raise RuntimeError("All fallback candidates produced invalid results.")
+
+async def arun_with_fallbacks(
+        candidates: Sequence[Candidate],
+        run_single_async: Callable[[str, str, dict], Any],
+        *,
+        validate: Optional[Callable[[Any], bool]] = None,
+        should_retry: Optional[Callable[[Optional[BaseException], Any, int, str, str], bool]] = None,
+        on_attempt: Optional[Callable[[int, str, str], None]] = None,
+) -> Any:
+    errs: List[BaseException] = []
+    if validate is None:
+        validate = lambda r: r is not None
+    if should_retry is None:
+        should_retry = lambda exc, res, i, p, m: (exc is not None) or (not validate(res))
+
+    for i, cand in enumerate(candidates):
+        provider, model_name, overrides = _resolve_candidate(cand)
+        if on_attempt:
+            on_attempt(i, provider, model_name)
+        try:
+            result = await run_single_async(provider, model_name, overrides)
+            if not should_retry(None, result, i, provider, model_name):
+                return result
+        except BaseException as e:
+            errs.append(e)
+            if not should_retry(e, None, i, provider, model_name):
+                raise
+
+    if errs:
+        raise FallbackError("All async fallback candidates failed.", errs)
+    raise RuntimeError("All async fallback candidates produced invalid results.")
