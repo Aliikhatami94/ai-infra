@@ -309,6 +309,66 @@ class CoreAgent(BaseLLMCore):
             tools: Optional[List[Any]] = None,
             extra: Optional[Dict[str, Any]] = None,
             model_kwargs: Optional[Dict[str, Any]] = None,
+            tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,
+            config: Optional[Dict[str, Any]] = None,
     ):
+        """
+        Try each (provider, model_name) in candidates in order until one succeeds.
+        Uses run_agent under the hood, so HITL gating & tool policy still apply.
+
+        Args:
+            messages: chat state/messages
+            candidates: ordered list of (provider, model_name)
+            tools: per-call tools (pass [] to disable; None to use global tools if allowed)
+            extra: misc runtime options (e.g., recursion_limit)
+            model_kwargs: per-model kwargs (e.g., temperature)
+            tool_controls: tool_choice/parallel/force_once controls
+            config: graph/runtime config forwarded to agent.invoke
+
+        Returns:
+            The first successful agent result (already gated via apply_output_gate in run_agent).
+        """
         def _single(provider: str, model_name: str):
-            return self.run_agent(messages, provider, model_name, tools, extra, model_kwargs)
+            return self.run_agent(
+                messages=messages,
+                provider=provider,
+                model_name=model_name,
+                tools=tools,
+                extra=extra,
+                model_kwargs=model_kwargs,
+                tool_controls=tool_controls,
+                config=config,
+            )
+
+        # IMPORTANT: return the value from the fallback utility
+        return _run_fallbacks_util(messages, candidates, _single)
+
+    async def arun_with_fallbacks(
+            self,
+            messages: List[Dict[str, Any]],
+            candidates: List[Tuple[str, str]],
+            tools: Optional[List[Any]] = None,
+            extra: Optional[Dict[str, Any]] = None,
+            model_kwargs: Optional[Dict[str, Any]] = None,
+            tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,
+            config: Optional[Dict[str, Any]] = None,
+    ):
+        async def _single(provider: str, model_name: str):
+            return await self.arun_agent(
+                messages=messages,
+                provider=provider,
+                model_name=model_name,
+                tools=tools,
+                extra=extra,
+                model_kwargs=model_kwargs,
+                tool_controls=tool_controls,
+                config=config,
+            )
+        # If your _run_fallbacks_util has no async version,
+        # implement a simple loop here that awaits _single for each candidate.
+        for prov, model in candidates:
+            try:
+                return await _single(prov, model)
+            except Exception:
+                continue
+        raise RuntimeError("All fallback candidates failed.")
