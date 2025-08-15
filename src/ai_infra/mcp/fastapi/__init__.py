@@ -1,0 +1,1 @@
+from .integration import add_mcp_to_fastapi

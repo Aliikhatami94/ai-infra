@@ -3,4 +3,13 @@ from .models import (
     Server,
     ServerConfig,
 )
-from .fast_mcp import add_mcp_to_fastapi
+from .server import setup_mcp_server
+from .fastapi import add_mcp_to_fastapi
+
+__all__ = [
+    "McpConfig",
+    "Server",
+    "ServerConfig",
+    "setup_mcp_server",
+    "add_mcp_to_fastapi",
+]
