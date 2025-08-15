@@ -3,7 +3,7 @@ from dataclasses import is_dataclass, asdict
 from typing import Any, Dict, Optional, Tuple, List
 from dataclasses import dataclass
 
-from .providers import Providers
+from ai_infra.llm.providers import Providers
 
 
 @dataclass

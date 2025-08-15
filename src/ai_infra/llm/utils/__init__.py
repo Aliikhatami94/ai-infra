@@ -27,3 +27,12 @@ from .fallbacks import (
     run_with_fallbacks,
     arun_with_fallbacks,
 )
+
+from .settings import ModelSettings
+from .runtime_bind import (
+    build_model_key,
+    bind_model_with_tools,
+    make_agent_with_context,
+    ModelRegistry,
+    tool_used,
+)
