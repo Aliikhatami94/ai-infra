@@ -78,3 +78,8 @@ class CoreMCP:
     async def get_client(self):
         server_setup = await self.get_server_setup()
         return MultiServerMCPClient(server_setup)
+
+    async def get_tools(self):
+        client = await self.get_client()
+        tools = await client.get_tools()
+        return tools
