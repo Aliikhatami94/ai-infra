@@ -7,9 +7,7 @@ import contextlib
 
 class FastMcpConfig(BaseModel):
     path: str
-    # don’t include in OpenAPI, and allow arbitrary type
-    module: FastMCP | None = Field(default=None, exclude=True)
-
+    module: FastMCP | None = None
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @model_validator(mode="after")
