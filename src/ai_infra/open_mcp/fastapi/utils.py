@@ -3,7 +3,7 @@ from typing import List
 from fastapi import FastAPI
 from mcp.server.fastmcp import FastMCP
 
-from ai_infra.mcp.core import McpConfig
+from ai_infra.open_mcp.core import McpConfig
 
 
 def make_lifespan(mcp_modules: List[FastMCP]):
