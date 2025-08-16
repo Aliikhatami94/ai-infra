@@ -2,7 +2,7 @@ from src.ai_infra.mcp.core import CoreMCP
 from src.ai_infra.mcp.models import McpConfig, Server, ServerConfig, ServerMetadata, Prompt
 
 # Example config following the models in src/ai_infra/mcp/models.py
-config = McpConfig(
+mcp_config = McpConfig(
     name="test_mcp",
     host="http://0.0.0.0:8000",
     prompts=[
@@ -24,16 +24,13 @@ config = McpConfig(
         )
     ],
 )
-
-# Instantiate CoreMCP with the config
-core_mcp = CoreMCP(config)
+mcp = CoreMCP(config=mcp_config)
 
 # Example usage in an async context
 import asyncio
 
 async def main():
-    metadata = await core_mcp.get_server_setup()
-    print("MCP Server configuration metadata:")
+    metadata = await mcp.get_tools()
     print(metadata)
 
 # Run the example
