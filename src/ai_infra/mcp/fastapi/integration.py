@@ -1,12 +1,12 @@
 from fastapi import FastAPI
 import contextlib
-from typing import Iterable
+from typing import List
 from mcp.server.fastmcp import FastMCP
 
 from ai_infra.mcp.core import McpConfig
 
 
-def make_lifespan(mcp_modules: Iterable[FastMCP]):
+def make_lifespan(mcp_modules: List[FastMCP]):
     @contextlib.asynccontextmanager
     async def lifespan(app: FastAPI):
         # The session_manager is initialized lazily by streamable_http_app().
@@ -14,7 +14,6 @@ def make_lifespan(mcp_modules: Iterable[FastMCP]):
         import contextlib as _ctx
         async with _ctx.AsyncExitStack() as stack:
             for module in mcp_modules:
-                # Do not access the property earlier than this point.
                 await stack.enter_async_context(module.session_manager.run())  # type: ignore[union-attr]
             yield
     return lifespan
@@ -22,8 +21,10 @@ def make_lifespan(mcp_modules: Iterable[FastMCP]):
 
 def mount_mcps(app: FastAPI, mcp_config: McpConfig) -> None:
     for server in mcp_config.servers:
-        config = server.config
-        app.mount(config.url, config.module.streamable_http_app())
+        app.mount(
+            server.config.url,
+            server.config.module.streamable_http_app()
+        )
 
 
 def add_mcp_to_fastapi(app: FastAPI, config: McpConfig) -> None:
