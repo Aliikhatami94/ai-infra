@@ -22,7 +22,7 @@ class Server(BaseModel):
     id: str
     name: str
     description: str
-    module: FastMCP | None = None
+    module: FastMCP | None = Field(default=None, exclude=True)
     tools: Optional[List[ToolDef]] = None
     config: ServerConfig
 
