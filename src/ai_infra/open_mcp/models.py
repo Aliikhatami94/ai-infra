@@ -47,10 +47,15 @@ class Server(BaseModel):
     @model_validator(mode="after")
     def _validate_cross_fields(self):
         if self.info.type == "hosted":
-            if self.config.url is not None:
-                raise ValueError("Hosted servers must not set 'url'.")
+            # allow `config.url` as a mount hint or an explicit `mount_path`
+            if self.config.transport in ("streamable_http", "sse"):
+                if not (getattr(self.config, "mount_path", None) or self.config.url):
+                    raise ValueError(
+                        "Hosted HTTP/SSE requires either 'mount_path' or 'url' (used as a mount hint)."
+                    )
+            # if you require hosted+stdio to provide a command, keep this:
             if self.config.transport == "stdio" and not self.config.command:
-                raise ValueError("Hosted+stdio requires 'command'.")
+                raise ValueError("Hosted+stdio requires 'command' if you intend to spawn a process.")
         else:  # remote
             if self.config.transport in ("streamable_http", "sse") and not self.config.url:
                 raise ValueError("Remote HTTP/SSE servers require 'url'.")
