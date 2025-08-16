@@ -19,7 +19,7 @@ class CoreMCP:
         self.config = config if isinstance(config, McpConfig) else McpConfig(**config)
 
     @staticmethod
-    def _make_system_messages(prompts: List[Prompt], additional_context: List[Prompt]) -> List[SystemMessage]:
+    def _make_system_messages(prompts: List[Prompt], additional_context: List[Prompt] = None) -> List[SystemMessage]:
         base = [SystemMessage(content="\n\n".join(prompt.contents)) for prompt in prompts]
         additional = [SystemMessage(content="\n\n".join(prompt.contents)) for prompt in additional_context]
         return base + additional
@@ -39,7 +39,7 @@ class CoreMCP:
 
         return self.config.model_dump()
 
-    async def get_server_prompt(self, additional_context: List[Prompt]) -> List[SystemMessage]:
+    async def get_server_prompt(self, additional_context: List[Prompt] = None) -> List[SystemMessage]:
         return self._make_system_messages(self.config.prompts or [], additional_context)
 
     def _resolve_arg_path(self, filename: str) -> str:
