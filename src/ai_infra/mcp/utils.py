@@ -24,7 +24,7 @@ def resolve_arg_path(filename: str) -> str:
             return os.path.abspath(os.path.join(root, os.path.basename(filename)))
     raise FileNotFoundError(f"Could not find file: {filename} (checked as absolute, relative to {caller_dir}, and recursively)")
 
-def make_system_messages(prompts: List[Prompt], additional_context: List[Prompt] = None) -> List[SystemMessage]:
-    base = [SystemMessage(content="\n\n".join(prompt.contents)) for prompt in prompts]
-    additional = [SystemMessage(content="\n\n".join(prompt.contents)) for prompt in additional_context]
+def make_system_messages(prompts: List[Prompt] = None, additional_context: List[Prompt] = None) -> List[SystemMessage]:
+    base = [SystemMessage(content="\n\n".join(prompt.contents)) for prompt in prompts if prompts]
+    additional = [SystemMessage(content="\n\n".join(prompt.contents)) for prompt in additional_context if additional_context]
     return base + additional
