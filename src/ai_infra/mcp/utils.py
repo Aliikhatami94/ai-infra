@@ -26,5 +26,5 @@ def resolve_arg_path(filename: str) -> str:
 
 def make_system_messages(prompts: List[Prompt] = None, additional_context: List[Prompt] = None) -> List[SystemMessage]:
     base = [SystemMessage(content="\n\n".join(prompt.contents)) for prompt in prompts if prompts]
-    additional = [SystemMessage(content="\n\n".join(prompt.contents)) for prompt in additional_context if additional_context]
+    additional = [SystemMessage(content="\n\n".join(prompt.contents)) for prompt in additional_context] if additional_context else []
     return base + additional
