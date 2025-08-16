@@ -3,8 +3,7 @@ from typing import Iterable, Union
 from .models import ToolDef, ToolFn
 
 
-def setup_mcp_server(tools: Iterable[Union[ToolFn, ToolDef]]) -> FastMCP:
-    server = FastMCP()
+def setup_mcp_server(server: FastMCP, tools: Iterable[Union[ToolFn, ToolDef]]) -> FastMCP:
     for item in tools:
         if isinstance(item, ToolDef):
             fn = item.fn
