@@ -1,5 +1,5 @@
 from __future__ import annotations
-from pydantic import ConfigDict, model_validator
+from pydantic import ConfigDict
 from typing import Dict, Any, List, Optional, Union, Awaitable, Callable, Literal
 from pydantic import BaseModel, Field
 from mcp.server.fastmcp import FastMCP
@@ -19,7 +19,6 @@ class ToolDef(BaseModel):
 
 # Server metadata and configuration
 class ServerMetadata(BaseModel):
-    id: Optional[str] = None
     name: str
     description: Optional[str] = None
 

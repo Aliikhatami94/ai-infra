@@ -5,5 +5,5 @@ from .utils import mount_mcps, make_lifespan
 
 
 def add_mcp_to_fastapi(app: FastAPI, config: McpConfig) -> None:
-    app.router.lifespan_context = make_lifespan(config)
-    mount_mcps(app, config)
+    app.router.lifespan_context = make_lifespan(config.servers)
+    mount_mcps(app, config.servers)
