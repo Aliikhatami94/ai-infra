@@ -7,7 +7,7 @@ from mcp.server.fastmcp import FastMCP
 ToolFn = Callable[..., Union[str, Awaitable[str]]]
 
 class ToolDef(BaseModel):
-    fn: ToolFn
+    fn: Optional[ToolFn] = None
     name: Optional[str] = None
     description: Optional[str] = None
 
