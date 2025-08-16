@@ -25,7 +25,7 @@ class ServerMetadata(BaseModel):
 
 class ServerConfig(BaseModel):
     # Transport selection + parameters for each transport
-    transport: Literal["stdio", "streamable-http", "sse"] = "streamable-http"
+    transport: Literal["stdio", "streamable_http", "sse"] = "streamable_http"
 
     # Common
     url: Optional[str] = None
