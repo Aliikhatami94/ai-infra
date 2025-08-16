@@ -29,7 +29,7 @@ class CoreMCP:
             server_key = server.name
             async with client.session(server_key) as session:
                 tools = await load_mcp_tools(session)
-            server["tools"] = [
+            server[server_key]["tools"] = [
                 {"name": tool.name, "description": tool.description}
                 for tool in tools
             ]
