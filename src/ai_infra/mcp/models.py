@@ -4,9 +4,12 @@ from typing import Dict, Any, List, Optional, Union, Awaitable, Callable
 from pydantic import BaseModel, Field
 from mcp.server.fastmcp import FastMCP
 
+# Prompts
 class Prompt(BaseModel):
     contents: Optional[List[str]] = None
 
+
+# Tool definitions
 ToolFn = Callable[..., Union[str, Awaitable[str]]]
 
 class ToolDef(BaseModel):
@@ -14,6 +17,8 @@ class ToolDef(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
 
+
+# Server metadata and configuration
 class ServerMetadata(BaseModel):
     id: Optional[str] = None
     name: Optional[str] = None
@@ -53,6 +58,8 @@ class Server(BaseModel):
             )
         return self
 
+
+#  MCP configuration
 class McpConfig(BaseModel):
     name: str
     host: str
