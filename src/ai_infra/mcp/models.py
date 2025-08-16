@@ -14,6 +14,11 @@ class ToolDef(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
 
+class ServerMetadata(BaseModel):
+    id: Optional[str] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+
 class ServerConfig(BaseModel):
     command: Optional[str] = None
     args: Optional[Any] = None
@@ -22,9 +27,7 @@ class ServerConfig(BaseModel):
     transport: str
 
 class Server(BaseModel):
-    id: str
-    name: str
-    description: str
+    metadata: ServerMetadata
     module: FastMCP | None = Field(default=None, exclude=True)
     tools: Optional[List[ToolDef]] = None
     config: ServerConfig
