@@ -53,5 +53,5 @@ class Server(BaseModel):
 class McpConfig(BaseModel):
     name: str
     host: str
-    prompts: Dict[str, Any]
+    prompts: List[Prompt]
     servers: List[Server]
