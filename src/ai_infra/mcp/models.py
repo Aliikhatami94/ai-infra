@@ -1,13 +1,13 @@
 from __future__ import annotations
 from pydantic import ConfigDict, model_validator
 from typing import Dict, Any, List, Optional, Union, Awaitable, Callable
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from mcp.server.fastmcp import FastMCP
 
 ToolFn = Callable[..., Union[str, Awaitable[str]]]
 
 class ToolDef(BaseModel):
-    fn: Optional[ToolFn] = None
+    fn: Optional[ToolFn] = Field(default=None, exclude=True)
     name: Optional[str] = None
     description: Optional[str] = None
 
