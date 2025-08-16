@@ -2,6 +2,7 @@ import contextlib
 from fastapi import FastAPI
 from typing import List, Tuple
 import importlib
+from urllib.parse import urlparse
 
 from ai_infra.open_mcp.models import Server
 
@@ -66,19 +67,15 @@ def make_lifespan(servers: List[Server]):
             yield
     return lifespan
 
+def _extract_mount_base(url_or_path: str) -> str:
+    if url_or_path.startswith("/"):
+        return url_or_path.rstrip("/").removesuffix("/mcp") or "/mcp"
+    parsed = urlparse(url_or_path)
+    path = (parsed.path or "/mcp").rstrip("/").removesuffix("/mcp")
+    return path or "/mcp"
+
 def mount_mcps(app: FastAPI, servers: List[Server]) -> None:
     for server in _hosted_servers(servers):
         mcp_obj = _load_hosted_mcp(server.info.module_path)  # type: ignore[attr-defined]
-
-        if not hasattr(mcp_obj, "streamable_http_app"):
-            raise TypeError(
-                f"Loaded object from '{server.info.module_path}' "
-                "does not expose 'streamable_http_app()'."
-            )
-
-        # Expect a mountable base path in config.url (e.g., "http://host:port/mcp" or "/mcp")
-        base = (server.config.url or "/mcp").removesuffix("/mcp")
-        if not base:
-            base = "/"
-
+        base = _extract_mount_base(server.config.url or "/mcp")
         app.mount(base, mcp_obj.streamable_http_app())
