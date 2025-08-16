@@ -1,5 +1,5 @@
 from __future__ import annotations
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Dict, Any, Optional, List
 
 from mcp.server.fastmcp import FastMCP
@@ -10,7 +10,7 @@ class ServerConfig(BaseModel):
     args: Optional[Any] = None
     url: Optional[str] = None
     headers: Optional[Dict[str, str]] = None
-    module: Optional[FastMCP] = None
+    module: FastMCP | None = Field(default=None, exclude=True)
     transport: str
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
