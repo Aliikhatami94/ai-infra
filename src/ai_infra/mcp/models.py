@@ -1,9 +1,8 @@
 from __future__ import annotations
-
+from pydantic import BaseModel
 from typing import Dict, Any, Optional, List
 
 from mcp.server import FastMCP
-from pydantic import BaseModel
 
 
 class ServerConfig(BaseModel):
@@ -11,7 +10,7 @@ class ServerConfig(BaseModel):
     args: Optional[Any] = None
     url: Optional[str] = None
     headers: Optional[Dict[str, str]] = None
-    module: FastMCP = None
+    module: Optional[FastMCP] = None
     transport: str
 
 class Server(BaseModel):
