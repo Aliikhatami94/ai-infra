@@ -5,7 +5,7 @@ import os
 from langchain_core.messages import SystemMessage
 from langchain_mcp_adapters.tools import load_mcp_tools
 
-from .models import McpConfig, ToolDef
+from .models import McpConfig, ToolDef, Prompt
 
 
 class CoreMCP:
@@ -19,10 +19,9 @@ class CoreMCP:
         self.config = config if isinstance(config, McpConfig) else McpConfig(**config)
 
     @staticmethod
-    def _make_system_messages(prompts: Dict[str, Any], additional_context: List[str]) -> List[SystemMessage]:
-        base = [SystemMessage(content="\n\n".join(v) if isinstance(v, list) else v)
-                for v in prompts.values() if v]
-        additional = [SystemMessage(content=p) for p in additional_context if p]
+    def _make_system_messages(prompts: List[Prompt], additional_context: List[Prompt]) -> List[SystemMessage]:
+        base = [SystemMessage(content="\n\n".join(prompt.contents)) for prompt in prompts]
+        additional = [SystemMessage(content="\n\n".join(prompt.contents)) for prompt in additional_context]
         return base + additional
 
     async def get_metadata(self):
@@ -40,8 +39,8 @@ class CoreMCP:
 
         return self.config.model_dump()
 
-    async def get_server_prompt(self, additional_context: List[str]) -> List[SystemMessage]:
-        return self._make_system_messages(self.config.prompts or {}, additional_context)
+    async def get_server_prompt(self, additional_context: List[Prompt]) -> List[SystemMessage]:
+        return self._make_system_messages(self.config.prompts or [], additional_context)
 
     def _resolve_arg_path(self, filename: str) -> str:
         for frame_info in inspect.stack():

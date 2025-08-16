@@ -4,6 +4,9 @@ from typing import Dict, Any, List, Optional, Union, Awaitable, Callable
 from pydantic import BaseModel, Field
 from mcp.server.fastmcp import FastMCP
 
+class Prompt(BaseModel):
+    contents: Optional[List[str]] = None
+
 ToolFn = Callable[..., Union[str, Awaitable[str]]]
 
 class ToolDef(BaseModel):

@@ -1,7 +1,7 @@
 from langchain_core.tools import tool
 
 from ai_infra.llm import CoreLLM, Providers, Models, CoreAgent
-from ai_infra.llm.tools.tool_controls import ToolCallControls
+from ai_infra.llm.tools.tool_controls import ToolCallControls, no_tools
 
 llm = CoreLLM()
 agent = CoreAgent()
@@ -111,13 +111,13 @@ def human_in_the_loop():
         messages=messages,
         provider="openai",
         model_name="gpt-5-mini",
-        tools=[get_weather, get_news],   # <- our wrapper will gate these
+        tools=[get_weather, get_news],
     )
     print("\nFINAL:", getattr(resp, "content", resp))
 
 async def ask_with_retry():
     extra = {
-        **CoreLLM.no_tools(),
+        **no_tools(),
         "retry": {"max_tries": 3, "base": 0.5, "jitter": 0.2},  # exponential backoff
     }
     res = await agent.arun_agent(
