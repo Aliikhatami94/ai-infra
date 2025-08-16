@@ -1,0 +1,35 @@
+{
+  "prompts": [
+    {
+      "contents": [
+        "Your name is AskOpenMCP.",
+        "You are a helpful assistant."
+      ]
+    }
+  ],
+  "servers": [
+    {
+      "info": {
+        "type": "remote",
+        "name": "wikipedia_mcp",
+        "description": "Wikipedia MCP server"
+      },
+      "config": {
+        "transport": "stdio",
+        "command": "npx",
+        "args": ["-y", "wikipedia-mcp"]
+      }
+    },
+    {
+      "info": {
+        "type": "remote",
+        "name": "test_server",
+        "description": "Test server"
+      },
+      "config": {
+        "transport": "streamable_http",
+        "url": "http://0.0.0.0:8000/test-mcp/mcp"
+      }
+    }
+  ]
+}

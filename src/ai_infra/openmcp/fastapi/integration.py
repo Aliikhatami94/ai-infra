@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from ai_infra.open_mcp.core import OpenMcp
+from ai_infra.openmcp.core import OpenMcp
 from .utils import mount_mcps, make_lifespan
 
 

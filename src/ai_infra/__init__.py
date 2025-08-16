@@ -8,7 +8,7 @@ if not os.environ.get("AI_INFRA_ENV_LOADED"):
 # Re-export primary public API components
 from .llm.core import CoreLLM
 from .graph.core import CoreGraph
-from .open_mcp.core import CoreMCP, OpenMcp
+from .openmcp.core import CoreMCP, OpenMcp
 from .llm.providers import Providers
 from ai_infra.llm.providers.models import Models
 
