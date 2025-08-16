@@ -1,8 +1,15 @@
 from __future__ import annotations
-from pydantic import BaseModel, ConfigDict, model_validator
-from typing import Dict, Any, Optional, List
+from pydantic import ConfigDict, model_validator
+from typing import Dict, Any, List, Optional, Union, Awaitable, Callable
+from pydantic import BaseModel
 from mcp.server.fastmcp import FastMCP
 
+ToolFn = Callable[..., Union[str, Awaitable[str]]]
+
+class ToolDef(BaseModel):
+    fn: ToolFn
+    name: Optional[str] = None
+    description: Optional[str] = None
 
 class ServerConfig(BaseModel):
     command: Optional[str] = None
@@ -16,6 +23,7 @@ class Server(BaseModel):
     name: str
     description: str
     module: FastMCP | None = None
+    tools: Optional[List[ToolDef]] = None
     config: ServerConfig
 
     # allow non-pydantic types like FastMCP

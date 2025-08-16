@@ -2,9 +2,11 @@ from typing import Optional, List, Dict, Any
 from langchain_mcp_adapters.client import MultiServerMCPClient
 import inspect
 import os
-from .models import McpConfig
 from langchain_core.messages import SystemMessage
 from langchain_mcp_adapters.tools import load_mcp_tools
+
+from .models import McpConfig, ToolDef
+
 
 class CoreMCP:
     """
@@ -25,14 +27,17 @@ class CoreMCP:
 
     async def get_metadata(self):
         client = await self.get_client()
-        for server in  self.config.servers:
+
+        for server in self.config.servers:
             server_key = server.name
             async with client.session(server_key) as session:
                 tools = await load_mcp_tools(session)
-            server[server_key]["tools"] = [
-                {"name": tool.name, "description": tool.description}
-                for tool in tools
+
+            server.tools = [
+                ToolDef(name=t.name, description=t.description)
+                for t in tools
             ]
+
         return self.config.model_dump()
 
     async def get_server_prompt(self, additional_context: List[str]) -> List[SystemMessage]:
