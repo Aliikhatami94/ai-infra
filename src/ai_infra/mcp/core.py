@@ -24,16 +24,16 @@ class CoreMCP:
         return base + additional
 
     async def get_metadata(self):
-        servers = self.config.servers
         client = await self.get_client()
-        for server_key, server_obj in servers.items():
+        for server in  self.config.servers:
+            server_key = server.name
             async with client.session(server_key) as session:
                 tools = await load_mcp_tools(session)
-            servers[server_key]["tools"] = [
+            server["tools"] = [
                 {"name": tool.name, "description": tool.description}
                 for tool in tools
             ]
-        return self.config.dict()
+        return self.config.model_dump()
 
     async def get_server_prompt(self, additional_context: List[str]) -> List[SystemMessage]:
         return self._make_system_messages(self.config.prompts or {}, additional_context)
