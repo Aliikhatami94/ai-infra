@@ -21,7 +21,8 @@ def make_lifespan(mcp_modules: List[FastMCP]):
 
 def mount_mcps(app: FastAPI, mcp_config: McpConfig) -> None:
     for server in mcp_config.servers:
-        app.mount(
-            server.config.url.removesuffix("/mcp"),
-            server.module.streamable_http_app()
-        )
+        if server.module is not None:
+            app.mount(
+                server.config.url.removesuffix("/mcp"),
+                server.module.streamable_http_app()
+            )
