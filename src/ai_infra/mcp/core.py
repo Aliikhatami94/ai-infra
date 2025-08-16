@@ -54,7 +54,7 @@ class CoreMCP:
         server_setup = {}
         for server in servers:
             cfg = server.config
-            server_setup[server.name] = self._process_config_dict(cfg, host, _resolve_arg_path)
+            server_setup[server.metadata.name] = self._process_config_dict(cfg, host, _resolve_arg_path)
         return server_setup
 
     async def get_client(self):
