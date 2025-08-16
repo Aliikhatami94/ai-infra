@@ -1,11 +1,13 @@
-from typing import Optional, List, Dict, Any
+from typing import List, Optional
 from langchain_mcp_adapters.client import MultiServerMCPClient
-import inspect
-import os
 from langchain_core.messages import SystemMessage
 from langchain_mcp_adapters.tools import load_mcp_tools
 
 from .models import McpConfig, ToolDef, Prompt
+from .utils import (
+    resolve_arg_path as _resolve_arg_path,
+    make_system_messages as _make_system_messages
+)
 
 
 class CoreMCP:
@@ -19,10 +21,14 @@ class CoreMCP:
         self.config = config if isinstance(config, McpConfig) else McpConfig(**config)
 
     @staticmethod
-    def _make_system_messages(prompts: List[Prompt], additional_context: List[Prompt] = None) -> List[SystemMessage]:
-        base = [SystemMessage(content="\n\n".join(prompt.contents)) for prompt in prompts]
-        additional = [SystemMessage(content="\n\n".join(prompt.contents)) for prompt in additional_context]
-        return base + additional
+    def _process_config_dict(cfg, host: Optional[str], resolve_arg_path) -> dict:
+        config_dict = cfg.dict(exclude_unset=True, exclude_none=True)
+        if config_dict.get("args"):
+            config_dict["args"] = [resolve_arg_path(arg) for arg in config_dict["args"]]
+        url = config_dict.get("url")
+        if url and host and not url.startswith("http"):
+            config_dict["url"] = host.rstrip("/") + "/" + url.lstrip("/")
+        return {k: v for k, v in config_dict.items() if v is not None}
 
     async def get_metadata(self):
         client = await self.get_client()
@@ -40,35 +46,7 @@ class CoreMCP:
         return self.config.model_dump()
 
     async def get_server_prompt(self, additional_context: List[Prompt] = None) -> List[SystemMessage]:
-        return self._make_system_messages(self.config.prompts or [], additional_context)
-
-    def _resolve_arg_path(self, filename: str) -> str:
-        for frame_info in inspect.stack():
-            if os.path.abspath(frame_info.filename) != os.path.abspath(__file__):
-                caller_file = frame_info.filename
-                break
-        else:
-            caller_file = __file__
-        caller_dir = os.path.dirname(os.path.abspath(caller_file))
-        if os.path.isabs(filename) and os.path.exists(filename):
-            return filename
-        rel_path = os.path.abspath(os.path.join(caller_dir, filename))
-        if os.path.exists(rel_path):
-            return rel_path
-        for root, dirs, files in os.walk(caller_dir):
-            if os.path.basename(filename) in files:
-                return os.path.abspath(os.path.join(root, os.path.basename(filename)))
-        raise FileNotFoundError(f"Could not find file: {filename} (checked as absolute, relative to {caller_dir}, and recursively)")
-
-    @staticmethod
-    def _process_config_dict(cfg, host: Optional[str], resolve_arg_path) -> dict:
-        config_dict = cfg.dict(exclude_unset=True, exclude_none=True)
-        if config_dict.get("args"):
-            config_dict["args"] = [resolve_arg_path(arg) for arg in config_dict["args"]]
-        url = config_dict.get("url")
-        if url and host and not url.startswith("http"):
-            config_dict["url"] = host.rstrip("/") + "/" + url.lstrip("/")
-        return {k: v for k, v in config_dict.items() if v is not None}
+        return _make_system_messages(self.config.prompts or [], additional_context)
 
     async def get_server_setup(self) -> dict:
         host = getattr(self.config, "host", None)
@@ -76,7 +54,7 @@ class CoreMCP:
         server_setup = {}
         for server in servers:
             cfg = server.config
-            server_setup[server.name] = self._process_config_dict(cfg, host, self._resolve_arg_path)
+            server_setup[server.name] = self._process_config_dict(cfg, host, _resolve_arg_path)
         return server_setup
 
     async def get_client(self):
