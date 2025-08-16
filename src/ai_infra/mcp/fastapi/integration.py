@@ -23,11 +23,11 @@ def mount_mcps(app: FastAPI, mcp_config: McpConfig) -> None:
     for server in mcp_config.servers:
         app.mount(
             server.config.url.removesuffix("/mcp"),
-            server.config.module.streamable_http_app()
+            server.module.streamable_http_app()
         )
 
 
 def add_mcp_to_fastapi(app: FastAPI, config: McpConfig) -> None:
-    modules = [server.config.module for server in config.servers]
+    modules = [server.module for server in config.servers]
     app.router.lifespan_context = make_lifespan(modules)
     mount_mcps(app, config)
