@@ -10,13 +10,11 @@ from ai_infra.open_mcp.models import Server
 def is_hosted_server(server: Server) -> bool:
     return getattr(server.info, "type", None) == "hosted"
 
-
 def parse_module_path(path: str) -> Tuple[str, str | None]:
     if ":" in path:
         mod, attr = path.split(":", 1)
         return mod.strip(), attr.strip() or None
     return path.strip(), None
-
 
 def load_hosted_mcp(module_path: str):
     mod_name, attr = parse_module_path(module_path)
@@ -37,7 +35,6 @@ def load_hosted_mcp(module_path: str):
         f"No MCP server object found in module '{mod_name}'. "
         "Provide an attribute explicitly (e.g., 'pkg.module:mcp')."
     )
-
 
 def hosted_servers(servers: List[Server]) -> List[Server]:
     """Return a list of servers where info.type == 'hosted'."""

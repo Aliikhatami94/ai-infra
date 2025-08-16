@@ -42,6 +42,7 @@ class ServerConfig(BaseModel):
 class Server(BaseModel):
     info: Union[HostedServerInfo, RemoteServerInfo] = Field(discriminator="type")
     config: ServerConfig
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @model_validator(mode="after")
@@ -64,6 +65,6 @@ class Server(BaseModel):
         return self
 
 # ---- top-level config ----
-class McpConfig(BaseModel):
+class OpenMcp(BaseModel):
     prompts: List[Prompt] = []
     servers: List[Server] = []

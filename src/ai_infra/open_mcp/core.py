@@ -8,7 +8,7 @@ from mcp.client.stdio import stdio_client
 from mcp import ClientSession
 from mcp.shared.metadata_utils import get_display_name
 
-from .models import McpConfig, ToolDef, Prompt
+from .models import OpenMcp, ToolDef, Prompt
 from .utils import (
     resolve_arg_path as _resolve_arg_path,
     make_system_messages as _make_system_messages
@@ -20,10 +20,10 @@ class CoreMCP:
     Main entry point for interacting with the MCP system.
 
     Args:
-        config (dict | McpConfig): Configuration dictionary or McpConfig model.
+        config (dict | OpenMcp): Configuration dictionary or OpenMcp model.
     """
-    def __init__(self, config: dict | McpConfig):
-        self.config = config if isinstance(config, McpConfig) else McpConfig(**config)
+    def __init__(self, config: dict | OpenMcp):
+        self.config = config if isinstance(config, OpenMcp) else OpenMcp(**config)
 
     # ---------- Transport factory ----------
     async def _open_session(self, cfg: "Server"):

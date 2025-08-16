@@ -6,15 +6,18 @@ if not os.environ.get("AI_INFRA_ENV_LOADED"):
     os.environ["AI_INFRA_ENV_LOADED"] = "1"
 
 # Re-export primary public API components
-from .llm.core import CoreLLM  # noqa: E402
-from ai_infra.llm.utils.settings import ModelSettings  # noqa: E402
-from .llm.providers import Providers  # noqa: E402
-from ai_infra.llm.providers.models import Models  # noqa: E402
+from .llm.core import CoreLLM
+from .graph.core import CoreGraph
+from .open_mcp.core import CoreMCP, OpenMcp
+from .llm.providers import Providers
+from ai_infra.llm.providers.models import Models
 
 __all__ = [
     "CoreLLM",
-    "ModelSettings",
+    "CoreGraph",
     "Models",
     "Providers",
+    "CoreMCP",
+    "OpenMcp",
 ]
 

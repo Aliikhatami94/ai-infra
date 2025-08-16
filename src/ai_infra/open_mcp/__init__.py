@@ -1,5 +1,5 @@
 from .models import (
-    McpConfig,
+    OpenMcp,
     Server,
     ServerConfig,
 )
@@ -7,7 +7,7 @@ from .server import setup_mcp_server
 from .fastapi import add_mcp_to_fastapi
 
 __all__ = [
-    "McpConfig",
+    "OpenMcp",
     "Server",
     "ServerConfig",
     "setup_mcp_server",
