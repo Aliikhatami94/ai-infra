@@ -124,13 +124,33 @@ class CoreMCP:
 
     @staticmethod
     def _process_config_dict(cfg, host: Optional[str], resolve_arg_path) -> dict:
-        config_dict = cfg.dict(exclude_unset=True, exclude_none=True)
-        if config_dict.get("args"):
-            config_dict["args"] = [resolve_arg_path(arg) for arg in config_dict["args"]]
-        url = config_dict.get("url")
-        if url and host and not url.startswith("http"):
-            config_dict["url"] = host.rstrip("/") + "/" + url.lstrip("/")
-        return {k: v for k, v in config_dict.items() if v is not None}
+        d = cfg.model_dump(exclude_unset=True, exclude_none=True)
+
+        # Only resolve args that look like filesystem paths
+        if "args" in d and d["args"]:
+            resolved = []
+            for a in d["args"]:
+                if isinstance(a, str) and (
+                        a.startswith("/")       # absolute *nix
+                        or a.startswith("./")   # relative
+                        or a.startswith("../")  # relative up
+                        or "\\" in a            # Windows-style path
+                ):
+                    try:
+                        resolved.append(resolve_arg_path(a))
+                    except FileNotFoundError:
+                        # If it looks like a path but we can't resolve, leave it as-is
+                        resolved.append(a)
+                else:
+                    # Flags like "-y" or program names, leave them
+                    resolved.append(a)
+            d["args"] = resolved
+
+        # Only prefix host for HTTP-style URLs, and only if the url is relative
+        if d.get("url") and host and not d["url"].startswith(("http://", "https://")):
+            d["url"] = host.rstrip("/") + "/" + d["url"].lstrip("/")
+
+        return d
 
     async def get_metadata(self):
         client = await self.get_client()
