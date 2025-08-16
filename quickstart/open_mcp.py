@@ -1,16 +1,12 @@
 from src.ai_infra.open_mcp.core import CoreMCP
-from src.ai_infra.open_mcp.models import McpConfig, Server, ServerConfig, ServerMetadata
+from src.ai_infra.open_mcp.models import McpConfig, Server, ServerConfig, RemoteServerInfo
 from ai_infra.llm import Models, Providers, CoreAgent
 
-# Example config following the models in src/ai_infra/mcp/models.py
 config = McpConfig(
-    name="test_mcp",
-    host="http://0.0.0.0:8000",
     prompts=[],
     servers=[
         Server(
-            metadata=ServerMetadata(
-                id="wikipedia_mcp",
+            info=RemoteServerInfo(
                 name="wikipedia_mcp",
                 description="Wikipedia MCP server"
             ),
@@ -21,13 +17,12 @@ config = McpConfig(
             )
         ),
         Server(
-            metadata=ServerMetadata(
-                id="test-mcp",
+            info=RemoteServerInfo(
                 name="test_server",
-                description="Test server"
+                description="Test server",
             ),
             config=ServerConfig(
-                url="/test-mcp/mcp",
+                url="http://0.0.0.0:8000/test-mcp/mcp",
                 transport="streamable_http",
             )
         )
@@ -53,4 +48,5 @@ async def ask_agent():
 # Run the example
 if __name__ == "__main__":
     asyncio.run(ask_agent())
+    # print(asyncio.run(mcp.get_server_setup()))
 

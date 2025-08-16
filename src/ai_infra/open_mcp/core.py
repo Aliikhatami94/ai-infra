@@ -38,9 +38,9 @@ class CoreMCP:
                         yield session
             return _ctx
 
-        elif t == "streamable-http":
+        elif t == "streamable_http":
             if not cfg.config.url:
-                raise ValueError(f"{cfg.metadata.name}: url required for streamable-http")
+                raise ValueError(f"{cfg.metadata.name}: url required for streamable_http")
             client_ctx = streamablehttp_client(cfg.config.url, headers=cfg.config.headers)
             async def _ctx() -> AsyncIterator[ClientSession]:
                 async with client_ctx as (read, write, _):
@@ -171,12 +171,10 @@ class CoreMCP:
         return _make_system_messages(self.config.prompts or [], additional_context)
 
     async def get_server_setup(self) -> dict:
-        host = getattr(self.config, "host", None)
         servers = self.config.servers
         server_setup = {}
         for server in servers:
-            cfg = server.config
-            server_setup[server.metadata.name] = self._process_config_dict(cfg, host, _resolve_arg_path)
+            server_setup[server.info.name] = server.config.model_dump(exclude_unset=True, exclude_none=True)
         return server_setup
 
     async def get_client(self):

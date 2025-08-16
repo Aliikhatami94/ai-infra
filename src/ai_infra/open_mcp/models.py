@@ -1,58 +1,64 @@
 from __future__ import annotations
-from pydantic import ConfigDict
-from typing import Dict, Any, List, Optional, Union, Awaitable, Callable, Literal
-from pydantic import BaseModel, Field
-from mcp.server.fastmcp import FastMCP
+from typing import Literal, Optional, Union, List, Dict, Any, Awaitable, Callable
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 
-# Prompts
+# ---- prompts/tools (unchanged) ----
 class Prompt(BaseModel):
     contents: Optional[List[str]] = None
 
-
-# Tool definitions
 ToolFn = Callable[..., Union[str, Awaitable[str]]]
-
 class ToolDef(BaseModel):
     fn: Optional[ToolFn] = Field(default=None, exclude=True)
     name: Optional[str] = None
     description: Optional[str] = None
 
-# Server metadata and configuration
-class ServerMetadata(BaseModel):
+# ---- discriminated variants ----
+class HostedServerInfo(BaseModel):
+    type: Literal["hosted"] = "hosted"
     name: str
     description: Optional[str] = None
+    module_path: str
+    model_config = ConfigDict(extra="forbid")
 
+class RemoteServerInfo(BaseModel):
+    type: Literal["remote"] = "remote"
+    name: str
+    description: Optional[str] = None
+    model_config = ConfigDict(extra="forbid")  # forbids module_path
+
+# ---- transport config ----
 class ServerConfig(BaseModel):
-    # Transport selection + parameters for each transport
     transport: Literal["stdio", "streamable_http", "sse"] = "streamable_http"
-
-    # Common
     url: Optional[str] = None
     headers: Optional[Dict[str, str]] = None
-
-    # stdio
     command: Optional[str] = None
     args: Optional[List[str]] = None
     env: Optional[Dict[str, str]] = None
-
-    # streamable-http flavors
     stateless_http: Optional[bool] = None
-    json_response: Optional[bool] = None  # stateless w/o SSE stream
+    json_response: Optional[bool] = None
+    oauth: Optional[Dict[str, Any]] = None
 
-    # auth (optional)
-    oauth: Optional[Dict[str, Any]] = None  # client metadata, scopes, etc.
-
+# ---- server ----
 class Server(BaseModel):
-    metadata: ServerMetadata
-    module: FastMCP | None = Field(default=None, exclude=True)
-    tools: Optional[List[ToolDef]] = None
+    info: Union[HostedServerInfo, RemoteServerInfo] = Field(discriminator="type")
     config: ServerConfig
-
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-#  MCP configuration
+    @model_validator(mode="after")
+    def _validate_cross_fields(self):
+        if self.info.type == "hosted":
+            if self.config.url is not None:
+                raise ValueError("Hosted servers must not set 'url'.")
+            if self.config.transport == "stdio" and not self.config.command:
+                raise ValueError("Hosted+stdio requires 'command'.")
+        else:  # remote
+            if self.config.transport in ("streamable_http", "sse") and not self.config.url:
+                raise ValueError("Remote HTTP/SSE servers require 'url'.")
+            if self.config.transport == "stdio" and not self.config.command:
+                raise ValueError("Remote stdio servers require 'command'.")
+        return self
+
+# ---- top-level config ----
 class McpConfig(BaseModel):
-    name: str
-    host: str
-    prompts: List[Prompt]
-    servers: List[Server]
+    prompts: List[Prompt] = []
+    servers: List[Server] = []
