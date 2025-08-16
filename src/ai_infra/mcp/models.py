@@ -9,8 +9,14 @@ class ServerConfig(BaseModel):
     args: Optional[Any] = None
     url: Optional[str] = None
     headers: Optional[Dict[str, str]] = None
-    module: FastMCP | None = None
     transport: str
+
+class Server(BaseModel):
+    id: str
+    name: str
+    description: str
+    module: FastMCP | None = None
+    config: ServerConfig
 
     # allow non-pydantic types like FastMCP
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -32,12 +38,6 @@ class ServerConfig(BaseModel):
                 f"FastMCP at path='{self.path}' missing: {', '.join(missing)}"
             )
         return self
-
-class Server(BaseModel):
-    id: str
-    name: str
-    description: str
-    config: ServerConfig
 
 class McpConfig(BaseModel):
     name: str
