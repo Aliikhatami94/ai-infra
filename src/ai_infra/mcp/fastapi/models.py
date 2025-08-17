@@ -5,7 +5,6 @@ from pydantic import BaseModel, model_validator
 
 class HostedServerInfo(BaseModel):
     name: str
-    description: Optional[str] = None
     module_path: str  # e.g. "pkg.mod:mcp" or "pkg.mod:app"
 
 class HostedServerConfig(BaseModel):

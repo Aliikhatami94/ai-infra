@@ -15,7 +15,6 @@ class Prompt(BaseModel):
 # ---------- REMOTE (no module_path) ----------
 class RemoteServerInfo(BaseModel):
     name: str
-    description: Optional[str] = None
 
 class RemoteServerConfig(BaseModel):
     transport: Literal["stdio", "streamable_http", "sse"]
