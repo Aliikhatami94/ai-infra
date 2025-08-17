@@ -1,8 +1,7 @@
-# openapi_to_mcp.py
 from __future__ import annotations
 import json, yaml, re
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Union
 import httpx
 
 from mcp.server.fastmcp import FastMCP
@@ -53,11 +52,10 @@ def extract_body_content_type(op: Dict[str, Any]) -> str:
     # fallback to first
     return next(iter(content.keys())) if content else "application/json"
 
-def build_mcp_from_openapi(spec: Dict[str, Any], base_url: Optional[str] = None) -> FastMCP:
+def build_mcp_from_openapi(spec: Union[dict, str, Path], base_url: str | None = None) -> FastMCP:
     if not isinstance(spec, dict):
-        spec = load_spec(spec)  # your loader that handles JSON/YAML or file path
+        spec = load_spec(spec)  # JSON/YAML string or file path → dict
     mcp = FastMCP(spec.get("info", {}).get("title") or "OpenAPI MCP")
-
     root_base = pick_base_url(spec, base_url)
 
     for path, path_item in (spec.get("paths") or {}).items():
