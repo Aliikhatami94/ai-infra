@@ -1,151 +1,157 @@
 from __future__ import annotations
-import json, yaml, re
+import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Union, Optional
 import httpx
 
 from mcp.server.fastmcp import FastMCP
 
-def load_spec(path_or_str: str | Path) -> Dict[str, Any]:
-    p = Path(path_or_str)
-    text = p.read_text(encoding="utf-8") if p.exists() else str(path_or_str)
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        return yaml.safe_load(text)
+from .utils import (
+    load_spec,
+    op_tool_name,
+    pick_base_url,
+    collect_params,
+    has_request_body,
+    extract_body_content_type,
+)
+from .models import OperationContext
+from .constants import ALLOWED_METHODS
 
-def sanitize_tool_name(s: str) -> str:
-    s = re.sub(r"[^a-zA-Z0-9_]+", "_", s.strip())
-    s = re.sub(r"_+", "_", s)
-    return s.strip("_") or "op"
+__all__ = ["build_mcp_from_openapi"]
 
-def op_tool_name(path: str, method: str, opid: Optional[str]) -> str:
-    if opid:  # prefer operationId if present
-        return sanitize_tool_name(opid)
-    return sanitize_tool_name(f"{method.lower()}_{path.strip('/').replace('/', '_')}")
 
-def pick_base_url(spec: Dict[str, Any], override: Optional[str] = None) -> str:
-    if override:
-        return override.rstrip("/")
-    servers = spec.get("servers") or []
-    if servers:
-        return str(servers[0].get("url", "")).rstrip("/") or ""
-    return ""
+def _make_operation_context(path: str, method: str, op: Dict[str, Any]) -> OperationContext:
+    params = collect_params(op)
+    wants_body = has_request_body(op)
+    body_ct = extract_body_content_type(op) if wants_body else None
+    return OperationContext(
+        name=op_tool_name(path, method, op.get("operationId")),
+        description=op.get("summary") or op.get("description") or f"{method.upper()} {path}",
+        method=method.upper(),
+        path=path,
+        path_params=params["path"],
+        query_params=params["query"],
+        header_params=params["header"],
+        wants_body=wants_body,
+        body_content_type=body_ct,
+        body_required=bool(op.get("requestBody", {}).get("required")) if wants_body else False,
+    )
 
-def collect_params(op: Dict[str, Any]) -> Dict[str, List[Dict[str, Any]]]:
-    out = {"path": [], "query": [], "header": []}
-    for p in (op.get("parameters") or []):
-        loc = p.get("in")
-        if loc in out:
-            out[loc].append(p)
-    return out
 
-def has_request_body(op: Dict[str, Any]) -> bool:
-    return bool(op.get("requestBody", {}).get("content"))
+def _register_operation_tool(mcp: FastMCP, *, root_base: str, op_ctx: OperationContext) -> None:
+    """Register one OpenAPI operation as an MCP tool using precomputed metadata."""
 
-def extract_body_content_type(op: Dict[str, Any]) -> str:
-    # choose a reasonable default
-    content = op.get("requestBody", {}).get("content", {})
-    for ct in ("application/json", "application/x-www-form-urlencoded", "text/plain"):
-        if ct in content:
-            return ct
-    # fallback to first
-    return next(iter(content.keys())) if content else "application/json"
+    @mcp.tool(name=op_ctx.name, description=op_ctx.full_description())
+    async def tool(**kwargs) -> str:  # type: ignore[override]
+        url_base = (kwargs.pop("_base_url", None) or root_base).rstrip("/")
+        if not url_base:
+            return "Error: no base URL provided (spec.servers[] missing and _base_url not set)."
+
+        errors: list[str] = []
+
+        # Path param substitution
+        url_path = op_ctx.path
+        for p in op_ctx.path_params:
+            pname = p.get("name")
+            if p.get("required") and pname not in kwargs:
+                errors.append(f"Missing required path param: {pname}")
+                continue
+            if pname in kwargs:
+                url_path = url_path.replace("{" + pname + "}", str(kwargs.pop(pname)))
+
+        # Query params extraction
+        query: Dict[str, Any] = {}
+        for p in op_ctx.query_params:
+            pname = p.get("name")
+            if pname in kwargs:
+                query[pname] = kwargs.pop(pname)
+            elif p.get("required"):
+                errors.append(f"Missing required query param: {pname}")
+
+        # Header params extraction
+        headers: Dict[str, str] = {}
+        for p in op_ctx.header_params:
+            pname = p.get("name")
+            if pname in kwargs:
+                headers[pname] = str(kwargs.pop(pname))
+            elif p.get("required"):
+                errors.append(f"Missing required header: {pname}")
+
+        data = None
+        json_body = None
+        if op_ctx.wants_body:
+            body_arg = kwargs.pop("body", None)
+            if body_arg is None and op_ctx.body_required:
+                errors.append("Missing required request body: pass as 'body=<json/dict/str>'.")
+            elif body_arg is not None:
+                if op_ctx.body_content_type == "application/json":
+                    json_body = body_arg
+                    headers.setdefault("Content-Type", "application/json")
+                elif op_ctx.body_content_type == "application/x-www-form-urlencoded":
+                    data = body_arg
+                    headers.setdefault("Content-Type", "application/x-www-form-urlencoded")
+                else:
+                    data = body_arg
+                    if op_ctx.body_content_type:
+                        headers.setdefault("Content-Type", op_ctx.body_content_type)
+
+        if errors:
+            return "Validation errors:\n" + "\n".join(f" - {e}" for e in errors)
+
+        if "_api_key" in kwargs:
+            headers.setdefault("Authorization", f"Bearer {kwargs.pop('_api_key')}")
+        if "_headers" in kwargs and isinstance(kwargs["_headers"], dict):
+            headers.update(kwargs.pop("_headers"))
+
+        for k, v in list(kwargs.items()):
+            query[k] = v
+
+        full_url = f"{url_base}{url_path}"
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.request(
+                op_ctx.method,
+                full_url,
+                params=query,
+                headers=headers,
+                json=json_body,
+                data=data,
+            )
+        ct_hdr = resp.headers.get("content-type", "")
+        if "application/json" in ct_hdr:
+            try:
+                return json.dumps(resp.json(), indent=2)
+            except Exception:
+                return resp.text
+        return resp.text
+
 
 def build_mcp_from_openapi(spec: Union[dict, str, Path], base_url: str | None = None) -> FastMCP:
+    """Build a FastMCP instance from an OpenAPI spec (dict, file path, or raw string).
+
+    Public contract:
+      spec: dict OR path to JSON/YAML OR raw JSON/YAML string
+      base_url: optional override for spec.servers[0].url
+    Returns:
+      FastMCP with one tool per supported operation.
+    """
     if not isinstance(spec, dict):
-        spec = load_spec(spec)  # JSON/YAML string or file path → dict
+        spec = load_spec(spec)
     mcp = FastMCP(spec.get("info", {}).get("title") or "OpenAPI MCP")
     root_base = pick_base_url(spec, base_url)
 
-    for path, path_item in (spec.get("paths") or {}).items():
+    paths = spec.get("paths") or {}
+    for path, path_item in paths.items():
+        if not isinstance(path_item, dict):  # defensive
+            continue
         for method, op in path_item.items():
-            if method.lower() not in {"get", "post", "put", "patch", "delete", "head", "options"}:
+            if method.lower() not in ALLOWED_METHODS:
                 continue
-            name = op_tool_name(path, method, op.get("operationId"))
-            desc = op.get("summary") or op.get("description") or f"{method.upper()} {path}"
-            params = collect_params(op)
-            wants_body = has_request_body(op)
-            body_ct = extract_body_content_type(op) if wants_body else None
-
-            # capture loop vars with defaults
-            def register_tool(name=name, desc=desc, method=method, path=path,
-                              params=params, wants_body=wants_body, body_ct=body_ct):
-                @mcp.tool(name=name, description=desc)
-                async def tool(**kwargs) -> str:
-                    # prepare URL
-                    url_base = (kwargs.pop("_base_url", None) or root_base).rstrip("/")
-                    if not url_base:
-                        return "Error: no base URL provided (spec.servers[] missing and _base_url not set)."
-
-                    # path params
-                    url_path = path
-                    for p in params["path"]:
-                        pname = p.get("name")
-                        if p.get("required") and pname not in kwargs:
-                            return f"Missing required path param: {pname}"
-                        if pname in kwargs:
-                            url_path = url_path.replace("{" + pname + "}", str(kwargs.pop(pname)))
-
-                    # query params
-                    q = {}
-                    for p in params["query"]:
-                        pname = p.get("name")
-                        if pname in kwargs:
-                            q[pname] = kwargs.pop(pname)
-                        elif p.get("required"):
-                            return f"Missing required query param: {pname}"
-
-                    # header params
-                    headers = {}
-                    for p in params["header"]:
-                        pname = p.get("name")
-                        if pname in kwargs:
-                            headers[pname] = str(kwargs.pop(pname))
-                        elif p.get("required"):
-                            return f"Missing required header: {pname}"
-
-                    data = None
-                    json_body = None
-
-                    if wants_body:
-                        body_arg = kwargs.pop("body", None)
-                        if body_arg is None and op.get("requestBody", {}).get("required"):
-                            return "Missing required request body: pass as 'body=<json/dict/str>'."
-                        if body_arg is not None:
-                            if body_ct == "application/json":
-                                json_body = body_arg  # httpx will serialize
-                                headers.setdefault("Content-Type", "application/json")
-                            elif body_ct == "application/x-www-form-urlencoded":
-                                data = body_arg
-                                headers.setdefault("Content-Type", "application/x-www-form-urlencoded")
-                            else:
-                                # send as raw text/bytes for other content types
-                                data = body_arg
-                                headers.setdefault("Content-Type", body_ct)
-
-                    # auth helpers (optional): env or passthrough
-                    # e.g., support _api_key or _auth_header from kwargs
-                    if "_api_key" in kwargs:
-                        headers.setdefault("Authorization", f"Bearer {kwargs.pop('_api_key')}")
-                    if "_headers" in kwargs and isinstance(kwargs["_headers"], dict):
-                        headers.update(kwargs.pop("_headers"))
-
-                    # anything left in kwargs gets added to query by default
-                    for k, v in list(kwargs.items()):
-                        q[k] = v
-
-                    full_url = f"{url_base}{url_path}"
-                    async with httpx.AsyncClient(timeout=30.0) as client:
-                        resp = await client.request(method.upper(), full_url, params=q, headers=headers,
-                                                    json=json_body, data=data)
-                    # return JSON if possible, else text
-                    ct = resp.headers.get("content-type", "")
-                    if "application/json" in ct:
-                        try:
-                            return json.dumps(resp.json(), indent=2)
-                        except Exception:
-                            return resp.text
-                    return resp.text
-            register_tool()
+            if not isinstance(op, dict):
+                continue
+            op_ctx = _make_operation_context(path, method, op)
+            _register_operation_tool(
+                mcp,
+                root_base=root_base,
+                op_ctx=op_ctx,
+            )
     return mcp
