@@ -54,7 +54,10 @@ def extract_body_content_type(op: Dict[str, Any]) -> str:
     return next(iter(content.keys())) if content else "application/json"
 
 def build_mcp_from_openapi(spec: Dict[str, Any], base_url: Optional[str] = None) -> FastMCP:
+    if not isinstance(spec, dict):
+        spec = load_spec(spec)  # your loader that handles JSON/YAML or file path
     mcp = FastMCP(spec.get("info", {}).get("title") or "OpenAPI MCP")
+
     root_base = pick_base_url(spec, base_url)
 
     for path, path_item in (spec.get("paths") or {}).items():
