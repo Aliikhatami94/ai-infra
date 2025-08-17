@@ -9,12 +9,12 @@ from mcp.client.stdio import stdio_client
 from mcp import ClientSession
 from mcp.shared.metadata_utils import get_display_name
 
-from ai_infra.mcp.models import OpenMcp, ToolDef, Prompt, Server
+from ai_infra.mcp.models import OpenMcp, ToolDef, Prompt, RemoteServer
 from .utils import (
     make_system_messages as _make_system_messages
 )
 
-__all__ = ["Server"]
+__all__ = ["RemoteServer"]
 
 
 class CoreMCP:
@@ -33,7 +33,7 @@ class CoreMCP:
             self.config = OpenMcp.model_validate(config)
 
     # ---------- Transport factory ----------
-    async def _open_session(self, cfg: "Server"):
+    async def _open_session(self, cfg: "RemoteServer"):
         t = cfg.config.transport
         if t == "stdio":
             params = dict(command=cfg.config.command, args=cfg.config.args or [], env=cfg.config.env or {})

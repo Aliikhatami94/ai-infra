@@ -1,6 +1,7 @@
 from mcp.server.fastmcp import FastMCP
 from typing import Iterable, Union
-from .models import ToolDef, ToolFn
+
+from ai_infra.mcp.models import ToolDef, ToolFn
 
 def setup_mcp_server(server: FastMCP, tools: Iterable[Union[ToolFn, ToolDef]]) -> FastMCP:
     for item in tools:

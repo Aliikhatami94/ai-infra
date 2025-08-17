@@ -1,12 +1,7 @@
 from __future__ import annotations
-from typing import Optional, List, Awaitable, Callable, Literal
-from pydantic import BaseModel, model_validator, Field
+from typing import Optional, List, Literal
+from pydantic import BaseModel, model_validator
 
-ToolFn = Callable[..., str | Awaitable[str]]
-class ToolDef(BaseModel):
-    fn: Optional[ToolFn] = Field(default=None, exclude=True)
-    name: Optional[str] = None
-    description: Optional[str] = None
 
 class HostedServerInfo(BaseModel):
     name: str

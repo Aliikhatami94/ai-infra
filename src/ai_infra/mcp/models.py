@@ -1,8 +1,14 @@
 from __future__ import annotations
-from typing import Optional, List, Dict, Any, Literal
-from pydantic import BaseModel, model_validator
+from typing import Optional, List, Dict, Any, Literal, Awaitable, Callable
+from pydantic import BaseModel, model_validator, Field
 
 # ---------- prompts/tools ----------
+ToolFn = Callable[..., str | Awaitable[str]]
+class ToolDef(BaseModel):
+    fn: Optional[ToolFn] = Field(default=None, exclude=True)
+    name: Optional[str] = None
+    description: Optional[str] = None
+
 class Prompt(BaseModel):
     contents: Optional[List[str]] = None
 
