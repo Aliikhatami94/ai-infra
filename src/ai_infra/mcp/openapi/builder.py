@@ -52,6 +52,9 @@ class SecurityResolver:
                         bearer = True
                     elif t == "http" and sch.get("scheme") == "basic":
                         basic = True
+                    elif t == "oauth2":
+                        # Many oauth2-protected APIs ultimately expect an Authorization: Bearer <token>
+                        bearer = True
                     elif t == "apiKey":
                         where = sch.get("in")
                         keyname = sch.get("name")
@@ -125,7 +128,13 @@ def _register_operation_tool(mcp: FastMCP, *, base_url: str, spec: OpenAPISpec, 
 
     @mcp.tool(name=op_ctx.name, description=op_ctx.full_description())
     async def tool(**kwargs) -> str:  # type: ignore[override]
-        # effective base url precedence: user override > computed
+        # --- NEW: normalize nested kwargs patterns some clients send ---
+        if "kwargs" in kwargs and isinstance(kwargs["kwargs"], dict):
+            inner = kwargs.pop("kwargs")
+            # merge inner first so explicit top-level keys still win
+            for k, v in inner.items():
+                kwargs.setdefault(k, v)
+
         url_base = (kwargs.pop("_base_url", None) or base_url).rstrip("/")
         if not url_base:
             return "Error: no base URL provided (servers missing and _base_url not set)."
@@ -205,9 +214,11 @@ def _register_operation_tool(mcp: FastMCP, *, base_url: str, spec: OpenAPISpec, 
         # Apply security AFTER collecting explicit params so user overrides win
         security.apply(headers, query, kwargs)
 
-        # leftover kwargs -> query params (loose mapping)
+        # --- CHANGED: only leak non-private leftovers into query ---
         for k, v in list(kwargs.items()):
-            query[k] = v
+            if not k.startswith("_"):
+                query[k] = v
+            kwargs.pop(k, None)
 
         full_url = f"{url_base}{url_path}"
         async with httpx.AsyncClient(timeout=30.0) as client:
