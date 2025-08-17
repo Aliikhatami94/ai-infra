@@ -38,11 +38,11 @@ def make_lifespan(servers: List[HostedServer]):
     async def lifespan(app: FastAPI):
         async with contextlib.AsyncExitStack() as stack:
             for server in servers:
-                mcp_obj = load_hosted_mcp(server.info.module_path)  # type: ignore[attr-defined]
+                mcp_obj = load_hosted_mcp(server.module_path)  # type: ignore[attr-defined]
                 # Expect a FastMCP instance with a session_manager
                 if not hasattr(mcp_obj, "session_manager"):
                     raise TypeError(
-                        f"Loaded object from '{server.info.module_path}' "
+                        f"Loaded object from '{server.module_path}' "
                         "does not expose 'session_manager'."
                     )
                 await stack.enter_async_context(mcp_obj.session_manager.run())
@@ -58,6 +58,6 @@ def _extract_mount_base(url_or_path: str) -> str:
 
 def mount_mcps(app: FastAPI, servers: List[HostedServer]) -> None:
     for server in servers:
-        mcp_obj = load_hosted_mcp(server.info.module_path)  # type: ignore[attr-defined]
+        mcp_obj = load_hosted_mcp(server.module_path)  # type: ignore[attr-defined]
         base = _extract_mount_base(server.config.url or "/mcp")
         app.mount(base, mcp_obj.streamable_http_app())

@@ -9,9 +9,7 @@
   ],
   "servers": [
     {
-      "info": {
-        "name": "test_server"
-      },
+      "name": "test_server",
       "config": {
         "transport": "streamable_http",
         "url": "http://0.0.0.0:8000/test-mcp/mcp"

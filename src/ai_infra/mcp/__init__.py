@@ -2,11 +2,9 @@ from .models import (
     OpenMcp,
     RemoteServer,
     RemoteServerConfig,
-    RemoteServerInfo,
 )
 from ai_infra.mcp.fastapi.models import (
     HostedMcp,
-    HostedServerInfo,
     HostedServer,
     HostedServerConfig
 )

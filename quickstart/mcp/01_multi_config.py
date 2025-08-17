@@ -14,7 +14,6 @@ agent = CoreAgent()
 async def _ask_agent(config):
     mcp = CoreMCP(config=config)
     tools = await mcp.list_tools()
-    print(tools)
     sys_msg = await mcp.get_server_prompt()
     res = await agent.arun_agent(
         messages=[

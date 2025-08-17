@@ -3,10 +3,6 @@ from typing import Optional, List, Literal
 from pydantic import BaseModel, model_validator
 
 
-class HostedServerInfo(BaseModel):
-    name: str
-    module_path: str  # e.g. "pkg.mod:mcp" or "pkg.mod:app"
-
 class HostedServerConfig(BaseModel):
     # Typically you’ll mount a streamable-http FastMCP ASGI app
     transport: Literal["streamable_http", "stdio"] = "streamable_http"
@@ -26,7 +22,8 @@ class HostedServerConfig(BaseModel):
         return self
 
 class HostedServer(BaseModel):
-    info: HostedServerInfo
+    name: str
+    module_path: str
     config: HostedServerConfig
 
 class HostedMcp(BaseModel):

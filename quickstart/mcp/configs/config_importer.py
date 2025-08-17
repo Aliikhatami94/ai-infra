@@ -1,7 +1,7 @@
 import json
 import yaml
 from pathlib import Path
-from src.ai_infra.mcp.models import OpenMcp, RemoteServer, RemoteServerConfig, RemoteServerInfo, Prompt
+from src.ai_infra.mcp.models import OpenMcp, RemoteServer, RemoteServerConfig, Prompt
 
 json_path = Path(__file__).parent / "config.json"
 json_text = json_path.read_text(encoding="utf-8")
@@ -18,7 +18,7 @@ openmcp_config = OpenMcp(
     ])],
     servers=[
         RemoteServer(
-            info=RemoteServerInfo(name="wikipedia_mcp"),
+            name="wikipedia_mcp",
             config=RemoteServerConfig(
                 command="npx",
                 args=["-y", "wikipedia-mcp"],
@@ -26,7 +26,7 @@ openmcp_config = OpenMcp(
             )
         ),
         RemoteServer(
-            info=RemoteServerInfo(name="test_server"),
+            name="test_server",
             config=RemoteServerConfig(
                 url="http://0.0.0.0:8000/test-mcp/mcp",
                 transport="streamable_http",

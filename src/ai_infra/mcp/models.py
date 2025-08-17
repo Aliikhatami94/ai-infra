@@ -13,9 +13,6 @@ class Prompt(BaseModel):
     contents: Optional[List[str]] = None
 
 # ---------- REMOTE (no module_path) ----------
-class RemoteServerInfo(BaseModel):
-    name: str
-
 class RemoteServerConfig(BaseModel):
     transport: Literal["stdio", "streamable_http", "sse"]
     # http-like
@@ -41,7 +38,7 @@ class RemoteServerConfig(BaseModel):
         return self
 
 class RemoteServer(BaseModel):
-    info: RemoteServerInfo
+    name: str
     config: RemoteServerConfig
     tools: Optional[List[ToolDef]] = None
 

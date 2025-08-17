@@ -54,8 +54,8 @@ class CoreMCP:
 
         elif t == "streamable_http":
             if not cfg.config.url:
-                # FIX: info.name (was info.name)
-                raise ValueError(f"{cfg.info.name}: url required for streamable_http")
+                # FIX: name (was name)
+                raise ValueError(f"{cfg.name}: url required for streamable_http")
 
             client_ctx = streamablehttp_client(cfg.config.url, headers=cfg.config.headers)
 
@@ -77,14 +77,14 @@ class CoreMCP:
     def _find_server(self, server_name: str) -> RemoteServer:
         # exact match
         for s in self.config.servers:
-            if s.info.name == server_name:
+            if s.name == server_name:
                 return s
         # case-insensitive / startswith fallback (optional)
         lowered = server_name.lower()
-        candidates = [s for s in self.config.servers if s.info.name.lower().startswith(lowered)]
+        candidates = [s for s in self.config.servers if s.name.lower().startswith(lowered)]
         if len(candidates) == 1:
             return candidates[0]
-        names = ", ".join(s.info.name for s in self.config.servers)
+        names = ", ".join(s.name for s in self.config.servers)
         raise ValueError(f"Server '{server_name}' not found. Available: {names}")
 
     async def call_tool(self, server_name: str, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
@@ -100,7 +100,7 @@ class CoreMCP:
         client = await self.get_client()
 
         for server in self.config.servers:
-            server_key = server.info.name
+            server_key = server.name
             async with client.session(server_key) as session:
                 tools = await load_mcp_tools(session)
 
@@ -118,7 +118,7 @@ class CoreMCP:
         servers = self.config.servers
         server_setup = {}
         for server in servers:
-            server_setup[server.info.name] = server.config.model_dump(exclude_unset=True, exclude_none=True)
+            server_setup[server.name] = server.config.model_dump(exclude_unset=True, exclude_none=True)
         return server_setup
 
     async def get_client(self):
