@@ -3,11 +3,11 @@ from .models import (
     RemoteServer,
     RemoteServerConfig,
 )
-from ai_infra.mcp.fastapi.models import (
+from ai_infra.mcp.hosting.models import (
     HostedMcp,
     HostedServer,
     HostedServerConfig
 )
 from ai_infra.mcp.core import CoreMCP
-from ai_infra.mcp.fastapi.server import setup_mcp_server
-from .fastapi import add_mcp_to_fastapi
+from ai_infra.mcp.hosting.server import setup_mcp_server
+from .hosting import add_mcp_to_fastapi

@@ -4,7 +4,7 @@ from typing import List, Tuple
 import importlib
 from urllib.parse import urlparse
 
-from ai_infra.mcp.fastapi.models import HostedServer
+from ai_infra.mcp.hosting.models import HostedServer
 
 
 def parse_module_path(path: str) -> Tuple[str, str | None]:

@@ -2,7 +2,10 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
-__all__ = ["OperationContext"]
+__all__ = ["OpenAPISpec", "OperationContext", "Operation"]
+
+OpenAPISpec = Dict[str, Any]
+Operation = Dict[str, Any]
 
 class OperationContext(BaseModel):
     """Metadata for a single OpenAPI operation used to register an MCP tool.

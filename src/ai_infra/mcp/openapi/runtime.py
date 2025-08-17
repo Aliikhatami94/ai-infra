@@ -1,27 +1,7 @@
 from __future__ import annotations
-import json
 import re
-from pathlib import Path
 from typing import Any, Dict, List, Optional
-
-import yaml
-
-# Type aliases
-OpenAPISpec = Dict[str, Any]
-Operation = Dict[str, Any]
-
-
-def load_spec(path_or_str: str | Path) -> OpenAPISpec:
-    """Load an OpenAPI document from a file path (JSON or YAML) or a raw string.
-
-    Falls back from JSON to YAML automatically.
-    """
-    p = Path(path_or_str)
-    text = p.read_text(encoding="utf-8") if p.exists() else str(path_or_str)
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        return yaml.safe_load(text)
+from .models import OpenAPISpec, Operation
 
 
 def sanitize_tool_name(s: str) -> str:
@@ -75,7 +55,6 @@ def extract_body_content_type(op: Operation) -> str:
     return next(iter(content.keys())) if content else "application/json"
 
 __all__ = [
-    "load_spec",
     "sanitize_tool_name",
     "op_tool_name",
     "pick_base_url",

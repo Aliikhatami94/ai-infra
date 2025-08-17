@@ -7,8 +7,8 @@ import yaml
 from pydantic import BaseModel
 from fastapi import FastAPI
 
-from ai_infra.mcp.fastapi.models import HostedMcp
-from .utils import mount_mcps, make_lifespan
+from ai_infra.mcp.hosting.models import HostedMcp
+from .runtime import mount_mcps, make_lifespan
 
 
 def _parse_text_to_mapping(text: str) -> dict:

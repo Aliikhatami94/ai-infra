@@ -5,7 +5,7 @@ from ai_infra.mcp.core import CoreMCP
 from ai_infra.llm import Models, Providers, CoreAgent
 
 from ai_infra.mcp.models import Prompt, RemoteServer, RemoteServerConfig
-from ai_infra.mcp.openapi.openapi_mcp import load_spec
+from ai_infra.mcp.openapi.builder import load_spec
 
 remote_mcp_config = RemoteMcp(
     prompts=[Prompt(contents=[

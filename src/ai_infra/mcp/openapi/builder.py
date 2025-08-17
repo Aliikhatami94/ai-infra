@@ -1,13 +1,14 @@
 from __future__ import annotations
 import json
+import yaml
 from pathlib import Path
 from typing import Any, Dict, Union
 import httpx
-
 from mcp.server.fastmcp import FastMCP
 
-from .utils import (
-    load_spec,
+from .models import OpenAPISpec
+
+from .runtime import (
     op_tool_name,
     pick_base_url,
     collect_params,
@@ -18,7 +19,6 @@ from .models import OperationContext
 from .constants import ALLOWED_METHODS
 
 __all__ = ["build_mcp_from_openapi"]
-
 
 def _make_operation_context(path: str, method: str, op: Dict[str, Any]) -> OperationContext:
     params = collect_params(op)
@@ -124,8 +124,19 @@ def _register_operation_tool(mcp: FastMCP, *, root_base: str, op_ctx: OperationC
                 return resp.text
         return resp.text
 
+def load_spec(path_or_str: str | Path) -> OpenAPISpec:
+    """Load an OpenAPI document from a file path (JSON or YAML) or a raw string.
 
-def build_openmcp(spec: Union[dict, str, Path], base_url: str | None = None) -> FastMCP:
+    Falls back from JSON to YAML automatically.
+    """
+    p = Path(path_or_str)
+    text = p.read_text(encoding="utf-8") if p.exists() else str(path_or_str)
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        return yaml.safe_load(text)
+
+def build_mcp_from_openapi(spec: Union[dict, str, Path], base_url: str | None = None) -> FastMCP:
     """Build a FastMCP instance from an OpenAPI spec (dict, file path, or raw string).
 
     Public contract:
