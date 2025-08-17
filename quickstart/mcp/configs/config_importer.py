@@ -1,7 +1,7 @@
 import json
 import yaml
 from pathlib import Path
-from src.ai_infra.openmcp.models import OpenMcp, Server, ServerConfig, RemoteServerInfo, Prompt
+from src.ai_infra.mcp.models import OpenMcp, Server, ServerConfig, RemoteServerInfo, Prompt
 
 json_path = Path(__file__).parent / "config.json"
 json_text = json_path.read_text(encoding="utf-8")

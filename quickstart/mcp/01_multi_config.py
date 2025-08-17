@@ -1,5 +1,5 @@
 import asyncio
-from ai_infra.openmcp.core import CoreMCP
+from ai_infra.mcp.core import CoreMCP
 from ai_infra.llm import Models, Providers, CoreAgent
 
 from quickstart.mcp.configs.config_importer import (

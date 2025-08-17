@@ -4,7 +4,7 @@ from typing import List, Tuple
 import importlib
 from urllib.parse import urlparse
 
-from ai_infra.openmcp.models import Server
+from ai_infra.mcp.models import Server
 
 
 def is_hosted_server(server: Server) -> bool:

@@ -9,7 +9,7 @@ from mcp.client.stdio import stdio_client
 from mcp import ClientSession
 from mcp.shared.metadata_utils import get_display_name
 
-from ai_infra.openmcp.models import OpenMcp, ToolDef, Prompt, Server
+from ai_infra.mcp.models import OpenMcp, ToolDef, Prompt, Server
 from .utils import (
     make_system_messages as _make_system_messages
 )
