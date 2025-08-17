@@ -33,3 +33,7 @@ def main(config_type):
         asyncio.run(_ask_agent(yaml_config))
     else:
         asyncio.run(_ask_agent(openmcp_config))
+
+if __name__ == '__main__':
+    main("json")
+    # main("yaml")

@@ -4,11 +4,8 @@ from typing import List, Tuple
 import importlib
 from urllib.parse import urlparse
 
-from ai_infra.mcp.models import Server
+from ai_infra.mcp.fastapi.models import HostedServer
 
-
-def is_hosted_server(server: Server) -> bool:
-    return getattr(server.info, "type", None) == "hosted"
 
 def parse_module_path(path: str) -> Tuple[str, str | None]:
     if ":" in path:
@@ -36,15 +33,11 @@ def load_hosted_mcp(module_path: str):
         "Provide an attribute explicitly (e.g., 'pkg.module:mcp')."
     )
 
-def hosted_servers(servers: List[Server]) -> List[Server]:
-    """Return a list of servers where info.type == 'hosted'."""
-    return [s for s in servers if is_hosted_server(s)]
-
-def make_lifespan(servers: List[Server]):
+def make_lifespan(servers: List[HostedServer]):
     @contextlib.asynccontextmanager
     async def lifespan(app: FastAPI):
         async with contextlib.AsyncExitStack() as stack:
-            for server in hosted_servers(servers):
+            for server in servers:
                 mcp_obj = load_hosted_mcp(server.info.module_path)  # type: ignore[attr-defined]
                 # Expect a FastMCP instance with a session_manager
                 if not hasattr(mcp_obj, "session_manager"):
@@ -63,8 +56,8 @@ def _extract_mount_base(url_or_path: str) -> str:
     path = (parsed.path or "/mcp").rstrip("/").removesuffix("/mcp")
     return path or "/mcp"
 
-def mount_mcps(app: FastAPI, servers: List[Server]) -> None:
-    for server in hosted_servers(servers):
+def mount_mcps(app: FastAPI, servers: List[HostedServer]) -> None:
+    for server in servers:
         mcp_obj = load_hosted_mcp(server.info.module_path)  # type: ignore[attr-defined]
         base = _extract_mount_base(server.config.url or "/mcp")
         app.mount(base, mcp_obj.streamable_http_app())
