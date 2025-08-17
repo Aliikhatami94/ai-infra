@@ -10,17 +10,6 @@
   "servers": [
     {
       "info": {
-        "name": "wikipedia_mcp",
-        "description": "Wikipedia MCP server"
-      },
-      "config": {
-        "transport": "stdio",
-        "command": "npx",
-        "args": ["-y", "wikipedia-mcp"]
-      }
-    },
-    {
-      "info": {
         "name": "test_server",
         "description": "Test server"
       },
