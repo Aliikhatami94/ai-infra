@@ -5,7 +5,7 @@ from ai_infra.mcp.models import ToolDef, ToolFn
 
 def setup_mcp_server(name: Optional[str] = None, tools: Optional[Iterable[Union[ToolFn, ToolDef]]] = None) -> FastMCP:
     server = FastMCP(name=name)
-    for item in tools:
+    for item in tools if tools is not None else []:
         if isinstance(item, ToolDef):
             fn = item.fn
             name = item.name or fn.__name__
