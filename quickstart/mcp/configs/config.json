@@ -10,8 +10,7 @@
   "servers": [
     {
       "info": {
-        "name": "test_server",
-        "description": "Test server"
+        "name": "test_server"
       },
       "config": {
         "transport": "streamable_http",

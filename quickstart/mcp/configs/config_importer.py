@@ -18,10 +18,7 @@ openmcp_config = OpenMcp(
     ])],
     servers=[
         RemoteServer(
-            info=RemoteServerInfo(
-                name="wikipedia_mcp",
-                description="Wikipedia MCP server"
-            ),
+            info=RemoteServerInfo(name="wikipedia_mcp"),
             config=RemoteServerConfig(
                 command="npx",
                 args=["-y", "wikipedia-mcp"],
@@ -29,10 +26,7 @@ openmcp_config = OpenMcp(
             )
         ),
         RemoteServer(
-            info=RemoteServerInfo(
-                name="test_server",
-                description="Test server",
-            ),
+            info=RemoteServerInfo(name="test_server"),
             config=RemoteServerConfig(
                 url="http://0.0.0.0:8000/test-mcp/mcp",
                 transport="streamable_http",
