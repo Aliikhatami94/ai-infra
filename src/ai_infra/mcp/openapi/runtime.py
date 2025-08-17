@@ -54,6 +54,61 @@ def extract_body_content_type(op: Operation) -> str:
             return ct
     return next(iter(content.keys())) if content else "application/json"
 
+
+def merge_parameters(path_item: Dict[str, Any] | None, op: Operation) -> List[Dict[str, Any]]:
+    """Merge path-level and operation-level parameters with op-level overriding.
+
+    Does not resolve $ref. Skips invalid parameter objects.
+    """
+    merged: List[Dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    for src in (path_item.get("parameters") if path_item else []) or []:
+        if isinstance(src, dict) and {"in", "name"} <= src.keys():
+            merged.append(src)
+            seen.add((src["in"], src["name"]))
+    for src in (op.get("parameters") or []):
+        if isinstance(src, dict) and {"in", "name"} <= src.keys():
+            key = (src["in"], src["name"])
+            if key in seen:
+                for i, existing in enumerate(merged):
+                    if (existing.get("in"), existing.get("name")) == key:
+                        merged[i] = src
+                        break
+            else:
+                merged.append(src)
+                seen.add(key)
+    return merged
+
+
+def split_params(params: List[Dict[str, Any]]):
+    path_params: List[Dict[str, Any]] = []
+    query_params: List[Dict[str, Any]] = []
+    header_params: List[Dict[str, Any]] = []
+    cookie_params: List[Dict[str, Any]] = []
+    for p in params:
+        loc = p.get("in")
+        if loc == "path":
+            path_params.append(p)
+        elif loc == "query":
+            query_params.append(p)
+        elif loc == "header":
+            header_params.append(p)
+        elif loc == "cookie":
+            cookie_params.append(p)
+    return path_params, query_params, header_params, cookie_params
+
+
+def pick_effective_base_url(spec: OpenAPISpec, path_item: Dict[str, Any] | None, op: Operation | None, override: Optional[str]) -> str:
+    """Return base URL honoring precedence: override > op.servers > path.servers > root.servers.
+    """
+    if override:
+        return override.rstrip("/")
+    for node in (op or {}, path_item or {}, spec):  # type: ignore[arg-type]
+        servers = node.get("servers") or []  # type: ignore[assignment]
+        if servers:
+            return str(servers[0].get("url", "")).rstrip("/") or ""
+    return ""
+
 __all__ = [
     "sanitize_tool_name",
     "op_tool_name",
@@ -61,5 +116,7 @@ __all__ = [
     "collect_params",
     "has_request_body",
     "extract_body_content_type",
+    "merge_parameters",
+    "split_params",
+    "pick_effective_base_url",
 ]
-

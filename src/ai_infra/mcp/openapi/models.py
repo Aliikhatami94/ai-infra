@@ -19,10 +19,10 @@ class OperationContext(BaseModel):
     path_params: List[Dict[str, Any]] = Field(default_factory=list)
     query_params: List[Dict[str, Any]] = Field(default_factory=list)
     header_params: List[Dict[str, Any]] = Field(default_factory=list)
+    cookie_params: List[Dict[str, Any]] = Field(default_factory=list)
     wants_body: bool = False
     body_content_type: Optional[str] = None
     body_required: bool = False
 
     def full_description(self) -> str:
         return self.description
-
