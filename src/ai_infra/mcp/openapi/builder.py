@@ -18,7 +18,7 @@ from .runtime import (
 from .models import OperationContext
 from .constants import ALLOWED_METHODS
 
-__all__ = ["build_mcp_from_openapi", "load_openapi_spec"]
+__all__ = ["build_mcp_from_openapi", "load_openapi"]
 
 def _make_operation_context(path: str, method: str, op: Dict[str, Any]) -> OperationContext:
     params = collect_params(op)
@@ -124,7 +124,7 @@ def _register_operation_tool(mcp: FastMCP, *, root_base: str, op_ctx: OperationC
                 return resp.text
         return resp.text
 
-def load_openapi_spec(path_or_str: str | Path) -> OpenAPISpec:
+def load_openapi(path_or_str: str | Path) -> OpenAPISpec:
     """Load an OpenAPI document from a file path (JSON or YAML) or a raw string.
 
     Falls back from JSON to YAML automatically.
@@ -146,7 +146,7 @@ def build_mcp_from_openapi(spec: Union[dict, str, Path], base_url: str | None = 
       FastMCP with one tool per supported operation.
     """
     if not isinstance(spec, dict):
-        spec = load_openapi_spec(spec)
+        spec = load_openapi(spec)
     mcp = FastMCP(spec.get("info", {}).get("title") or "OpenAPI MCP")
     root_base = pick_base_url(spec, base_url)
 
