@@ -20,6 +20,12 @@ langchain-mcp-adapters = "^0.1.9"
 langsmith = "^0.4.13"
 fastapi = "^0.116.1"
 
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.0"
+pytest-asyncio = "^0.23.0"
+ruff = "^0.5.0"
+mypy = "^1.10.0"
+
 [build-system]
 requires = ["poetry-core>=1.9.0"]
 build-backend = "poetry.core.masonry.api"

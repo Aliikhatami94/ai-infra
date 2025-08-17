@@ -1,4 +1,4 @@
-# template.yaml
+# config.yaml
 prompts:
   - contents:
       - "Your name is AskOpenMCP."

@@ -1,3 +1,4 @@
+from pydantic import BaseModel
 from typing import List, Optional, AsyncIterator, Dict, Any
 from langchain_core.messages import SystemMessage
 from langchain_mcp_adapters.tools import load_mcp_tools
@@ -8,11 +9,12 @@ from mcp.client.stdio import stdio_client
 from mcp import ClientSession
 from mcp.shared.metadata_utils import get_display_name
 
-from .models import OpenMcp, ToolDef, Prompt
+from ai_infra.openmcp.models import OpenMcp, ToolDef, Prompt, Server
 from .utils import (
-    resolve_arg_path as _resolve_arg_path,
     make_system_messages as _make_system_messages
 )
+
+__all__ = ["Server"]
 
 
 class CoreMCP:
@@ -22,8 +24,13 @@ class CoreMCP:
     Args:
         config (dict | OpenMcp): Configuration dictionary or OpenMcp model.
     """
-    def __init__(self, config: dict | OpenMcp):
-        self.config = config if isinstance(config, OpenMcp) else OpenMcp(**config)
+    def __init__(self, config):
+        if isinstance(config, OpenMcp):
+            self.config = config
+        else:
+            if isinstance(config, BaseModel):
+                config = config.model_dump()
+            self.config = OpenMcp.model_validate(config)
 
     # ---------- Transport factory ----------
     async def _open_session(self, cfg: "Server"):
