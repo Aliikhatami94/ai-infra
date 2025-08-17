@@ -9,7 +9,7 @@ from mcp.client.streamable_http import streamablehttp_client
 from mcp.client.stdio import stdio_client
 from mcp import ClientSession
 
-from ai_infra.mcp.models import OpenMcp, ToolDef, Prompt, RemoteServer
+from ai_infra.mcp.models import RemoteMcp, ToolDef, Prompt, RemoteServer
 from .utils import (
     make_system_messages as _make_system_messages
 )
@@ -22,15 +22,15 @@ class CoreMCP:
     Main entry point for interacting with the MCP system.
 
     Args:
-        config (dict | OpenMcp): Configuration dictionary or OpenMcp model.
+        config (dict | RemoteMcp): Configuration dictionary or RemoteMcp model.
     """
     def __init__(self, config):
-        if isinstance(config, OpenMcp):
+        if isinstance(config, RemoteMcp):
             self.config = config
         else:
             if isinstance(config, BaseModel):
                 config = config.model_dump()
-            self.config = OpenMcp.model_validate(config)
+            self.config = RemoteMcp.model_validate(config)
 
     def _open_session(self, cfg: "RemoteServer") -> AsyncContextManager[ClientSession]:
         t = cfg.config.transport

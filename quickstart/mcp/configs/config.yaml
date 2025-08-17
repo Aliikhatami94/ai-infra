@@ -1,7 +1,7 @@
 # config.yaml
 prompts:
   - contents:
-      - "Your name is AskOpenMCP."
+      - "Your name is AskRemoteMcp."
       - "You are a helpful assistant."
 
 servers:

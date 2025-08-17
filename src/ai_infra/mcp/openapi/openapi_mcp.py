@@ -125,7 +125,7 @@ def _register_operation_tool(mcp: FastMCP, *, root_base: str, op_ctx: OperationC
         return resp.text
 
 
-def build_mcp_from_openapi(spec: Union[dict, str, Path], base_url: str | None = None) -> FastMCP:
+def build_openmcp(spec: Union[dict, str, Path], base_url: str | None = None) -> FastMCP:
     """Build a FastMCP instance from an OpenAPI spec (dict, file path, or raw string).
 
     Public contract:

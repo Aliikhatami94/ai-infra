@@ -42,7 +42,7 @@ class RemoteServer(BaseModel):
     config: RemoteServerConfig
     tools: Optional[List[ToolDef]] = None
 
-class OpenMcp(BaseModel):
+class RemoteMcp(BaseModel):
     """Remote-only MCP config; accepts prompts."""
     prompts: List[Prompt] = []
     servers: List[RemoteServer] = []

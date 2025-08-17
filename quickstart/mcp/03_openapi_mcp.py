@@ -1,14 +1,13 @@
 import asyncio
-from pathlib import Path
 
-from ai_infra import OpenMcp
+from ai_infra import RemoteMcp
 from ai_infra.mcp.core import CoreMCP
 from ai_infra.llm import Models, Providers, CoreAgent
 
 from ai_infra.mcp.models import Prompt, RemoteServer, RemoteServerConfig
-from ai_infra.mcp.openapi.openapi_to_mcp import load_spec
+from ai_infra.mcp.openapi.openapi_mcp import load_spec
 
-openmcp_config = OpenMcp(
+remote_mcp_config = RemoteMcp(
     prompts=[Prompt(contents=[
         "Your name is AskOpenMCP.",
         "You are a helpful assistant.",
@@ -28,7 +27,7 @@ openmcp_config = OpenMcp(
 agent = CoreAgent()
 
 async def _get_openapi_agent():
-    mcp = CoreMCP(config=openmcp_config)
+    mcp = CoreMCP(config=remote_mcp_config)
     tools = await mcp.list_tools()
     spec = load_spec("./resources/apiframeworks.json")
     res = await agent.arun_agent(

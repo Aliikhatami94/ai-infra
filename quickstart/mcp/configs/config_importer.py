@@ -1,7 +1,7 @@
 import json
 import yaml
 from pathlib import Path
-from src.ai_infra.mcp.models import OpenMcp, RemoteServer, RemoteServerConfig, Prompt
+from src.ai_infra.mcp.models import RemoteMcp, RemoteServer, RemoteServerConfig, Prompt
 
 json_path = Path(__file__).parent / "config.json"
 json_text = json_path.read_text(encoding="utf-8")
@@ -11,9 +11,9 @@ yaml_path = Path(__file__).parent / "config.yaml"
 yaml_text = yaml_path.read_text(encoding="utf-8")
 yaml_config = yaml.safe_load(yaml_text)
 
-openmcp_config = OpenMcp(
+openmcp_config = RemoteMcp(
     prompts=[Prompt(contents=[
-        "Your name is AskOpenMCP.",
+        "Your name is AskRemoteMcp.",
         "You are a helpful assistant.",
     ])],
     servers=[
