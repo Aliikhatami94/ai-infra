@@ -8,8 +8,8 @@ from quickstart.mcp.configs.config_importer import (
     openmcp_config
 )
 
-agent = CoreAgent()
 
+agent = CoreAgent()
 
 async def _ask_agent(config):
     mcp = CoreMCP(config=config)

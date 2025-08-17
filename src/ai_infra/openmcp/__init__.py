@@ -3,7 +3,7 @@ from .models import (
     Server,
     ServerConfig,
 )
-from .server import setup_mcp_server
+from ai_infra.openmcp.fastapi.server import setup_mcp_server
 from .fastapi import add_mcp_to_fastapi
 
 __all__ = [
