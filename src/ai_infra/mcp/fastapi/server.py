@@ -1,9 +1,10 @@
 from mcp.server.fastmcp import FastMCP
-from typing import Iterable, Union
+from typing import Iterable, Union, Optional
 
 from ai_infra.mcp.models import ToolDef, ToolFn
 
-def setup_mcp_server(server: FastMCP, tools: Iterable[Union[ToolFn, ToolDef]]) -> FastMCP:
+def setup_mcp_server(name: Optional[str], tools: Optional[Iterable[Union[ToolFn, ToolDef]]]) -> FastMCP:
+    server = FastMCP(name=name)
     for item in tools:
         if isinstance(item, ToolDef):
             fn = item.fn
