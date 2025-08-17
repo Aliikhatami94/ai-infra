@@ -10,7 +10,6 @@
   "servers": [
     {
       "info": {
-        "type": "remote",
         "name": "wikipedia_mcp",
         "description": "Wikipedia MCP server"
       },
@@ -22,7 +21,6 @@
     },
     {
       "info": {
-        "type": "remote",
         "name": "test_server",
         "description": "Test server"
       },

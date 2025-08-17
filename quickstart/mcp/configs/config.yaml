@@ -6,7 +6,6 @@ prompts:
 
 servers:
   - info:
-      type: remote
       name: wikipedia_mcp
       description: "Wikipedia MCP server"
     config:
@@ -15,7 +14,6 @@ servers:
       args: ["-y", "wikipedia-mcp"]
 
   - info:
-      type: remote
       name: test_server
       description: "Test server"
     config:
