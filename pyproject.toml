@@ -19,6 +19,7 @@ langchain-google-genai = "^2.1.9"
 langchain-mcp-adapters = "^0.1.9"
 langsmith = "^0.4.13"
 fastapi = "^0.116.1"
+fastmcp = "^2.11.3"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.0"
