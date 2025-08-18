@@ -1,11 +1,13 @@
 from __future__ import annotations
 import json
 import yaml
-from pathlib import Path
-from typing import Any, Dict, Union, Optional
+import re
 import base64
 import httpx
+from pathlib import Path
 from mcp.server.fastmcp import FastMCP
+from pydantic import BaseModel, Field, create_model
+from typing import Optional, Any, Dict, List, Union
 
 from .models import OpenAPISpec, OperationContext
 from .constants import ALLOWED_METHODS
@@ -123,66 +125,155 @@ def _make_operation_context(path: str, method: str, path_item: dict, op: dict) -
 
 # --------------- Tool Registration --------------
 
-def _register_operation_tool(mcp: FastMCP, *, base_url: str, spec: OpenAPISpec, op: dict, op_ctx: OperationContext) -> None:
+def _py_type_from_schema(schema: Dict[str, Any]) -> Any:
+    t = (schema or {}).get("type")
+    fmt = (schema or {}).get("format")
+    if t == "string":
+        return str
+    if t == "integer":
+        return int
+    if t == "number":
+        return float
+    if t == "boolean":
+        return bool
+    if t == "array":
+        items = (schema or {}).get("items") or {}
+        return List[_py_type_from_schema(items)]  # type: ignore[index]
+    if t == "object":
+        return Dict[str, Any]
+    # fallbacks
+    if fmt in {"binary", "byte"}:
+        return bytes
+    return Any
+
+def _build_input_model_name(opid: Optional[str], method: str, path: str) -> str:
+    base = opid or f"{method.lower()}_{path.strip('/').replace('/', '_')}"
+    base = re.sub(r"\W+", "_", base).strip("_")
+    return f"{base}_Input"
+
+def _extract_param_type(param: Dict[str, Any]) -> Any:
+    schema = param.get("schema") or {}
+    return _py_type_from_schema(schema)
+
+def _build_input_model(op_ctx: OperationContext, path_item: dict, op: dict) -> type[BaseModel]:
+    """
+    Create a Pydantic model that reflects required/optional fields:
+      - path/query/header/cookie params
+      - request body (if any) as 'body'
+      - helper/transport fields: _headers, _api_key, _basic_auth, _base_url
+    """
+    fields: Dict[str, tuple[Any, Any]] = {}
+
+    # Required/optional params
+    for p in op_ctx.path_params + op_ctx.query_params + op_ctx.header_params + op_ctx.cookie_params:
+        name = p.get("name")
+        if not name:
+            continue
+        typ = _extract_param_type(p)
+        required = p.get("required", False) or (p.get("in") == "path")
+        default = ... if required else None
+        fields[name] = (typ, default)
+
+    # Request body
+    if op_ctx.wants_body:
+        # Try to infer a json-ish body type; fallback to Any
+        req = (op.get("requestBody") or {})
+        content = (req.get("content") or {})
+        # prefer application/json schema if present
+        body_schema = (content.get("application/json") or {}).get("schema") or {}
+        body_typ = _py_type_from_schema(body_schema) if body_schema else Any
+        fields["body"] = (body_typ, ... if op_ctx.body_required else None)
+
+        # multipart helper for file uploads (optional)
+        if op_ctx.body_content_type == "multipart/form-data":
+            fields["_files"] = (Optional[Dict[str, Any]], None)
+
+    # Helper/transport fields (private-ish, but visible via alias)
+    # Note: use Field(..., alias=...) + model_config to allow by_name & by_alias
+    fields["_headers"]   = (Optional[Dict[str, str]], Field(default=None, alias="_headers"))
+    fields["_api_key"]   = (Optional[str],          Field(default=None, alias="_api_key"))
+    fields["_basic_auth"]= (Optional[Union[str, List[str], tuple]], Field(default=None, alias="_basic_auth"))
+    fields["_base_url"]  = (Optional[str],          Field(default=None, alias="_base_url"))
+
+    Model = create_model(
+        _build_input_model_name(op.get("operationId"), op_ctx.method, op_ctx.path),
+        __base__=BaseModel,
+        **fields,  # type: ignore[arg-type]
+    )
+    # Make sure aliases are accepted and preserved
+    Model.model_config = getattr(Model, "model_config", {}) | {"populate_by_name": True}
+    return Model
+
+def _register_operation_tool(
+        mcp: FastMCP,
+        *,
+        base_url: str,
+        spec: OpenAPISpec,
+        op: dict,
+        op_ctx: OperationContext
+) -> None:
     security = SecurityResolver.from_spec(spec, op)
+    InputModel = _build_input_model(op_ctx, path_item={}, op=op)  # path_item not needed here anymore
 
     @mcp.tool(name=op_ctx.name, description=op_ctx.full_description())
-    async def tool(**kwargs) -> str:  # type: ignore[override]
-        # --- NEW: normalize nested kwargs patterns some clients send ---
-        if "kwargs" in kwargs and isinstance(kwargs["kwargs"], dict):
-            inner = kwargs.pop("kwargs")
-            # merge inner first so explicit top-level keys still win
-            for k, v in inner.items():
-                kwargs.setdefault(k, v)
+    async def tool(args: InputModel) -> str:  # <— single validated argument
+        payload = args.model_dump(by_alias=True, exclude_none=True)
 
-        url_base = (kwargs.pop("_base_url", None) or base_url).rstrip("/")
+        # pull helpers out
+        url_base   = (payload.pop("_base_url", None) or base_url).rstrip("/")
+        api_key    = payload.pop("_api_key", None)
+        basic_auth = payload.pop("_basic_auth", None)
+        headers_in = payload.pop("_headers", None) or {}
+
         if not url_base:
             return "Error: no base URL provided (servers missing and _base_url not set)."
 
         errors: list[str] = []
 
-        # path params
+        # path expansion
         url_path = op_ctx.path
         for p in op_ctx.path_params:
             pname = p.get("name")
-            if p.get("required") and pname not in kwargs:
+            if p.get("required") and pname not in payload:
                 errors.append(f"Missing required path param: {pname}")
                 continue
-            if pname in kwargs:
-                url_path = url_path.replace("{" + pname + "}", str(kwargs.pop(pname)))
+            if pname in payload:
+                url_path = url_path.replace("{" + pname + "}", str(payload.pop(pname)))
 
-        # query / header / cookie params
+        # query/header/cookie
         query: Dict[str, Any] = {}
         headers: Dict[str, str] = {}
         cookies: Dict[str, str] = {}
 
         for p in op_ctx.query_params:
             pname = p.get("name")
-            if pname in kwargs:
-                query[pname] = kwargs.pop(pname)
+            if pname in payload:
+                query[pname] = payload.pop(pname)
             elif p.get("required"):
                 errors.append(f"Missing required query param: {pname}")
+
         for p in op_ctx.header_params:
             pname = p.get("name")
-            if pname in kwargs:
-                headers[pname] = str(kwargs.pop(pname))
+            if pname in payload:
+                headers[pname] = str(payload.pop(pname))
             elif p.get("required"):
                 errors.append(f"Missing required header: {pname}")
+
         for p in op_ctx.cookie_params:
             pname = p.get("name")
-            if pname in kwargs:
-                cookies[pname] = str(kwargs.pop(pname))
+            if pname in payload:
+                cookies[pname] = str(payload.pop(pname))
             elif p.get("required"):
                 errors.append(f"Missing required cookie: {pname}")
 
-        # body handling (multipart, json, form, octet-stream, text, fallback)
+        # body
         data = None
         json_body = None
         files = None
         if op_ctx.wants_body:
-            body_arg = kwargs.pop("body", None)
+            body_arg = payload.pop("body", None)
             if body_arg is None and op_ctx.body_required:
-                errors.append("Missing required request body: pass as 'body=<json/dict/str>'.")
+                errors.append("Missing required request body: pass 'body'.")
             elif body_arg is not None:
                 ct = op_ctx.body_content_type
                 if ct == "application/json":
@@ -192,14 +283,12 @@ def _register_operation_tool(mcp: FastMCP, *, base_url: str, spec: OpenAPISpec, 
                     data = body_arg
                     headers.setdefault("Content-Type", "application/x-www-form-urlencoded")
                 elif ct == "multipart/form-data":
-                    files = kwargs.pop("_files", None)
+                    files = payload.pop("_files", None)
                     if files is None:
                         if isinstance(body_arg, dict):
-                            # convert dict into multipart parts (simple heuristic)
                             files = {k: (k, v) for k, v in body_arg.items()}
                         else:
                             files = {"file": ("file", body_arg)}
-                    # httpx sets boundary automatically; don't set explicit Content-Type
                 elif ct in ("text/plain", "application/octet-stream"):
                     data = body_arg
                     headers.setdefault("Content-Type", ct)
@@ -211,14 +300,17 @@ def _register_operation_tool(mcp: FastMCP, *, base_url: str, spec: OpenAPISpec, 
         if errors:
             return "Validation errors:\n" + "\n".join(f" - {e}" for e in errors)
 
-        # Apply security AFTER collecting explicit params so user overrides win
-        security.apply(headers, query, kwargs)
+        # apply security (and merge user headers last)
+        security.apply(headers, query, {
+            "_api_key": api_key,
+            "_basic_auth": basic_auth,
+            "_headers": headers_in
+        })
 
-        # --- CHANGED: only leak non-private leftovers into query ---
-        for k, v in list(kwargs.items()):
-            if not k.startswith("_"):
+        # any leftover public fields → query (rare; usually none left)
+        for k, v in list(payload.items()):
+            if not str(k).startswith("_"):
                 query[k] = v
-            kwargs.pop(k, None)
 
         full_url = f"{url_base}{url_path}"
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -232,6 +324,7 @@ def _register_operation_tool(mcp: FastMCP, *, base_url: str, spec: OpenAPISpec, 
                 data=data,
                 files=files,
             )
+
         content_type = resp.headers.get("content-type", "")
         result: Dict[str, Any] = {
             "status": resp.status_code,
@@ -239,7 +332,6 @@ def _register_operation_tool(mcp: FastMCP, *, base_url: str, spec: OpenAPISpec, 
             "url": str(resp.request.url),
             "method": resp.request.method,
         }
-        # attach body
         if "application/json" in content_type:
             try:
                 result["json"] = resp.json()
@@ -247,11 +339,10 @@ def _register_operation_tool(mcp: FastMCP, *, base_url: str, spec: OpenAPISpec, 
                 result["text"] = resp.text
         else:
             try:
-                # some APIs send JSON with wrong/missing content-type
                 result["json"] = resp.json()
             except Exception:
                 result["text"] = resp.text
-        # default serialization as JSON string (to remain tool-friendly)
+
         return json.dumps(result, indent=2, default=str)
 
 # --------------- Builder -----------------------
