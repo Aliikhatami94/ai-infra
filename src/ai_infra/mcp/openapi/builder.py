@@ -6,8 +6,8 @@ import base64
 import httpx
 from pathlib import Path
 from mcp.server.fastmcp import FastMCP
-from pydantic import BaseModel, Field, create_model, ConfigDict
-from typing import Optional, Any, Dict, List, Union, Tuple
+from pydantic import BaseModel, Field, create_model, ConfigDict, conlist
+from typing import Optional, Any, Dict, List, Union
 
 from .models import OpenAPISpec, OperationContext
 from .constants import ALLOWED_METHODS
@@ -20,7 +20,7 @@ from .runtime import (
     pick_effective_base_url,
 )
 
-__all__ = ["build_mcp_from_openapi", "load_openapi", "load_spec"]
+__all__ = ["build_mcp_from_openapi", "load_spec"]
 
 # ---------------- Security Resolver -----------------
 class SecurityResolver:
@@ -155,12 +155,14 @@ def _extract_param_type(param: Dict[str, Any]) -> Any:
     schema = param.get("schema") or {}
     return _py_type_from_schema(schema)
 
+BasicAuthList = conlist(str, min_length=2, max_length=2)
+
 def _build_input_model(op_ctx: OperationContext, path_item: dict, op: dict) -> type[BaseModel]:
     """
     Create a Pydantic model that reflects required/optional fields:
       - path/query/header/cookie params
       - request body (if any) as 'body'
-      - helper/transport fields: _headers, _api_key, _basic_auth, _base_url
+      - helper/transport fields: headers/_headers, api_key/_api_key, basic_auth/_basic_auth, base_url/_base_url
     """
     fields: dict[str, tuple[object, object]] = {}
 
@@ -176,30 +178,30 @@ def _build_input_model(op_ctx: OperationContext, path_item: dict, op: dict) -> t
 
     # Request body
     if op_ctx.wants_body:
-        # Try to infer a json-ish body type; fallback to Any
         req = (op.get("requestBody") or {})
         content = (req.get("content") or {})
-        # prefer application/json schema if present
         body_schema = (content.get("application/json") or {}).get("schema") or {}
         body_typ = _py_type_from_schema(body_schema) if body_schema else Any
         fields["body"] = (body_typ, ... if op_ctx.body_required else None)
 
         # multipart helper for file uploads (optional)
         if op_ctx.body_content_type == "multipart/form-data":
-            fields["_files"] = (Optional[Dict[str, Any]], None)
+            # IMPORTANT: no leading-underscore field names; use alias to expose `_files`
+            fields["files"] = (Optional[Dict[str, Any]], Field(default=None, alias="_files"))
 
-    # helper fields: public names, underscore aliases
-    fields["headers"]    = (Optional[Dict[str, str]], Field(default=None, alias="_headers"))
-    fields["api_key"]    = (Optional[str],           Field(default=None, alias="_api_key"))
-    fields["basic_auth"] = (Optional[Union[str, Tuple[str,str], List[str]]], Field(default=None, alias="_basic_auth"))
-    fields["base_url"]   = (Optional[str],           Field(default=None, alias="_base_url"))
+    # Helper/transport fields: public names with underscore aliases (OpenAI-safe)
+    fields["headers"]     = (Optional[Dict[str, str]], Field(default=None, alias="_headers"))
+    fields["api_key"]     = (Optional[str],           Field(default=None, alias="_api_key"))
+    # Drop Tuple[str, str] to avoid 'prefixItems' in JSON Schema
+    fields["basic_auth"]  = (Optional[Union[str, BasicAuthList]], Field(default=None, alias="_basic_auth"))
+    fields["base_url"]    = (Optional[str],           Field(default=None, alias="_base_url"))
 
     Model = create_model(
-        "Input_" + op_ctx.name,  # unique name helps debugging
+        "Input_" + op_ctx.name,
         __base__=BaseModel,
         __config__=ConfigDict(
-            populate_by_name=True,   # allow using field names as well as aliases
-            protected_namespaces=(),  # don’t treat leading '_' specially
+            populate_by_name=True,    # allow using aliases (_headers, etc.)
+            protected_namespaces=(),  # don't treat leading '_' specially
         ),
         **fields,
         )
