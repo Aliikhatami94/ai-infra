@@ -38,6 +38,7 @@ class McpServerConfig(BaseModel):
         return self
 
 class RemoteServer(BaseModel):
+    name: str
     config: McpServerConfig
     tools: Optional[List[ToolDef]] = None
 
