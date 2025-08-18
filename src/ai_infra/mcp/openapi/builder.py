@@ -6,7 +6,7 @@ import base64
 import httpx
 from pathlib import Path
 from mcp.server.fastmcp import FastMCP
-from pydantic import BaseModel, Field, create_model
+from pydantic import BaseModel, Field, create_model, ConfigDict
 from typing import Optional, Any, Dict, List, Union
 
 from .models import OpenAPISpec, OperationContext
@@ -188,20 +188,22 @@ def _build_input_model(op_ctx: OperationContext, path_item: dict, op: dict) -> t
         if op_ctx.body_content_type == "multipart/form-data":
             fields["_files"] = (Optional[Dict[str, Any]], None)
 
-    # Helper/transport fields (private-ish, but visible via alias)
+    # Helper/transport fields: use public names + alias to underscore
     # Note: use Field(..., alias=...) + model_config to allow by_name & by_alias
-    fields["_headers"]   = (Optional[Dict[str, str]], Field(default=None, alias="_headers"))
-    fields["_api_key"]   = (Optional[str],          Field(default=None, alias="_api_key"))
-    fields["_basic_auth"]= (Optional[Union[str, List[str], tuple]], Field(default=None, alias="_basic_auth"))
-    fields["_base_url"]  = (Optional[str],          Field(default=None, alias="_base_url"))
+    fields["headers"]    = (Optional[Dict[str, str]], Field(default=None, alias="_headers"))
+    fields["api_key"]    = (Optional[str],          Field(default=None, alias="_api_key"))
+    fields["basic_auth"] = (Optional[Union[str, List[str], tuple]], Field(default=None, alias="_basic_auth"))
+    fields["base_url"]   = (Optional[str],          Field(default=None, alias="_base_url"))
 
     Model = create_model(
         _build_input_model_name(op.get("operationId"), op_ctx.method, op_ctx.path),
         __base__=BaseModel,
-        **fields,  # type: ignore[arg-type]
+        __config__=ConfigDict(  # allow aliases + no special treatment of leading underscores
+            populate_by_name=True,
+            protected_namespaces=(),  # important: otherwise leading '_' treated as private
+        ),
+        **fields,
     )
-    # Make sure aliases are accepted and preserved
-    Model.model_config = getattr(Model, "model_config", {}) | {"populate_by_name": True}
     return Model
 
 def _register_operation_tool(
@@ -219,7 +221,6 @@ def _register_operation_tool(
     async def tool(args: InputModel) -> str:  # <— single validated argument
         payload = args.model_dump(by_alias=True, exclude_none=True)
 
-        # pull helpers out
         url_base   = (payload.pop("_base_url", None) or base_url).rstrip("/")
         api_key    = payload.pop("_api_key", None)
         basic_auth = payload.pop("_basic_auth", None)
