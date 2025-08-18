@@ -221,7 +221,7 @@ class CoreMCPClient:
                         pass
 
     # ---------- High-level operations ----------
-    async def list_tools(self, name: str) -> list[Any]:
+    async def list_server_tools(self, name: str) -> list[Any]:
         """
         Return the tool descriptors for a connected server.
         """
@@ -238,6 +238,59 @@ class CoreMCPClient:
             raise RuntimeError("This MCP session does not support list_tools().")
 
         raise RuntimeError(f"[{name}] Not connected. Call connect(name) first.")
+
+    @staticmethod
+    def _coerce_tools_list(obj) -> list:
+        """Normalize both reference-client and FastMCP-client responses to a list[Tool]."""
+        # Reference MCP client returns ListToolsResult(meta, nextCursor, tools=[...])
+        tools = getattr(obj, "tools", None)
+        if tools is not None:
+            return list(tools)
+        # FastMCP's in-memory client returns list[Tool]
+        if isinstance(obj, list):
+            return obj
+        # Fallback: nothing / unknown shape
+        return []
+
+    async def list_tools(
+            self,
+            *,
+            connect_missing: bool = True,
+            dedupe: bool = True,
+    ) -> list:
+        """
+        Return a single flattened list of tools from all connected servers.
+        No server names, just tools.
+
+        - connect_missing=True will auto-connect all configured servers first
+        - dedupe=True keeps the first tool per unique .name
+        """
+        if connect_missing:
+            await self.connect_all()
+
+        # Gather per-server tool lists concurrently
+        names = list(self._inmem_clients.keys() | self._remote_sessions.keys())
+        per_server = await asyncio.gather(*(self.list_server_tools(n) for n in names))
+
+        # Normalize & flatten
+        flat: list = []
+        for result in per_server:
+            flat.extend(self._coerce_tools_list(result))
+
+        if dedupe:
+            seen = set()
+            deduped = []
+            for t in flat:
+                # prefer the 'name' attribute; fall back to dict key if a dict-like tool
+                key = getattr(t, "name", None) or (isinstance(t, dict) and t.get("name"))
+                if key and key in seen:
+                    continue
+                if key:
+                    seen.add(key)
+                deduped.append(t)
+            return deduped
+
+        return flat
 
     async def call_tool(self, name: str, tool: str, args: Dict[str, Any] | None = None) -> Any:
         """
