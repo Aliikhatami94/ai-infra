@@ -11,10 +11,19 @@ cfg = [
     ),
 ]
 
-async def demo():
+client = CoreMCPClient(cfg)
+
+async def get_tools():
     async with CoreMCPClient(cfg) as c:
         await c.connect("Wikipedia")
         tools = await c.list_server_tools("Wikipedia")
         print(tools)
 
-asyncio.run(demo())
+async def call_tool():
+    async with client as c:
+        tool = "Wikipedia"
+        await c.connect(tool)  # or: await c.connect("weather")
+        res = await c.call_tool(tool, "search", {"query": "Capital of France"})
+        print(c.extract_payload(res))  # nice helper
+
+asyncio.run(get_tools())
