@@ -7,7 +7,7 @@ import httpx
 from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel, Field, create_model, ConfigDict
-from typing import Optional, Any, Dict, List, Union
+from typing import Optional, Any, Dict, List, Union, Tuple
 
 from .models import OpenAPISpec, OperationContext
 from .constants import ALLOWED_METHODS
@@ -162,7 +162,7 @@ def _build_input_model(op_ctx: OperationContext, path_item: dict, op: dict) -> t
       - request body (if any) as 'body'
       - helper/transport fields: _headers, _api_key, _basic_auth, _base_url
     """
-    fields: Dict[str, tuple[Any, Any]] = {}
+    fields: dict[str, tuple[object, object]] = {}
 
     # Required/optional params
     for p in op_ctx.path_params + op_ctx.query_params + op_ctx.header_params + op_ctx.cookie_params:
@@ -188,22 +188,21 @@ def _build_input_model(op_ctx: OperationContext, path_item: dict, op: dict) -> t
         if op_ctx.body_content_type == "multipart/form-data":
             fields["_files"] = (Optional[Dict[str, Any]], None)
 
-    # Helper/transport fields: use public names + alias to underscore
-    # Note: use Field(..., alias=...) + model_config to allow by_name & by_alias
+    # helper fields: public names, underscore aliases
     fields["headers"]    = (Optional[Dict[str, str]], Field(default=None, alias="_headers"))
-    fields["api_key"]    = (Optional[str],          Field(default=None, alias="_api_key"))
-    fields["basic_auth"] = (Optional[Union[str, List[str], tuple]], Field(default=None, alias="_basic_auth"))
-    fields["base_url"]   = (Optional[str],          Field(default=None, alias="_base_url"))
+    fields["api_key"]    = (Optional[str],           Field(default=None, alias="_api_key"))
+    fields["basic_auth"] = (Optional[Union[str, Tuple[str,str], List[str]]], Field(default=None, alias="_basic_auth"))
+    fields["base_url"]   = (Optional[str],           Field(default=None, alias="_base_url"))
 
     Model = create_model(
-        _build_input_model_name(op.get("operationId"), op_ctx.method, op_ctx.path),
+        "Input_" + op_ctx.name,  # unique name helps debugging
         __base__=BaseModel,
-        __config__=ConfigDict(  # allow aliases + no special treatment of leading underscores
-            populate_by_name=True,
-            protected_namespaces=(),  # important: otherwise leading '_' treated as private
+        __config__=ConfigDict(
+            populate_by_name=True,   # allow using field names as well as aliases
+            protected_namespaces=(),  # don’t treat leading '_' specially
         ),
         **fields,
-    )
+        )
     return Model
 
 def _register_operation_tool(
