@@ -211,13 +211,12 @@ def _register_operation_tool(
         base_url: str,
         spec: OpenAPISpec,
         op: dict,
-        op_ctx: OperationContext
+        op_ctx: OperationContext,
 ) -> None:
     security = SecurityResolver.from_spec(spec, op)
-    InputModel = _build_input_model(op_ctx, path_item={}, op=op)  # path_item not needed here anymore
+    InputModel = _build_input_model(op_ctx, path_item={}, op=op)  # your existing builder
 
-    @mcp.tool(name=op_ctx.name, description=op_ctx.full_description())
-    async def tool(args: InputModel) -> str:  # <— single validated argument
+    async def tool(args) -> str:  # no decorator; untyped param for now
         payload = args.model_dump(by_alias=True, exclude_none=True)
 
         url_base   = (payload.pop("_base_url", None) or base_url).rstrip("/")
@@ -230,7 +229,7 @@ def _register_operation_tool(
 
         errors: list[str] = []
 
-        # path expansion
+        # ---- expand path
         url_path = op_ctx.path
         for p in op_ctx.path_params:
             pname = p.get("name")
@@ -240,7 +239,7 @@ def _register_operation_tool(
             if pname in payload:
                 url_path = url_path.replace("{" + pname + "}", str(payload.pop(pname)))
 
-        # query/header/cookie
+        # ---- collect params
         query: Dict[str, Any] = {}
         headers: Dict[str, str] = {}
         cookies: Dict[str, str] = {}
@@ -266,7 +265,7 @@ def _register_operation_tool(
             elif p.get("required"):
                 errors.append(f"Missing required cookie: {pname}")
 
-        # body
+        # ---- body
         data = None
         json_body = None
         files = None
@@ -289,6 +288,7 @@ def _register_operation_tool(
                             files = {k: (k, v) for k, v in body_arg.items()}
                         else:
                             files = {"file": ("file", body_arg)}
+                    # httpx will set boundary etc.
                 elif ct in ("text/plain", "application/octet-stream"):
                     data = body_arg
                     headers.setdefault("Content-Type", ct)
@@ -300,17 +300,18 @@ def _register_operation_tool(
         if errors:
             return "Validation errors:\n" + "\n".join(f" - {e}" for e in errors)
 
-        # apply security (and merge user headers last)
+        # ---- security + user headers
         security.apply(headers, query, {
             "_api_key": api_key,
             "_basic_auth": basic_auth,
-            "_headers": headers_in
+            "_headers": headers_in,
         })
 
-        # any leftover public fields → query (rare; usually none left)
+        # ---- leftover public keys to query
         for k, v in list(payload.items()):
             if not str(k).startswith("_"):
                 query[k] = v
+            payload.pop(k, None)
 
         full_url = f"{url_base}{url_path}"
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -344,6 +345,16 @@ def _register_operation_tool(
                 result["text"] = resp.text
 
         return json.dumps(result, indent=2, default=str)
+
+    # <<< key bit: give FastMCP the real class, not a ForwardRef string
+    tool.__annotations__ = {"args": InputModel, "return": str}
+
+    # and register it explicitly
+    mcp.add_tool(
+        name=op_ctx.name,
+        description=op_ctx.full_description(),
+        fn=tool,
+    )
 
 # --------------- Builder -----------------------
 
