@@ -195,14 +195,13 @@ class CoreMCPClient:
         if cfg.transport == "sse":
             if not cfg.url:
                 raise ValueError(f"[{name}] sse requires 'url'.")
-            # optional headers are supported
             ctx = sse_client(cfg.url, headers=cfg.headers or {})
             read, write = await ctx.__aenter__()
             session = ClientSession(read, write)
             await session.__aenter__()
             await session.initialize()
             self._remote_sessions[name] = session
-            self._remote_contexts[name] = ctx  # store so __aexit__ can close it
+            self._remote_contexts[name] = ctx  # so __aexit__ can close it
             return
 
         raise ValueError(f"[{name}] Unknown transport: {cfg.transport}")
