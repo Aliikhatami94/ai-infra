@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Any, Dict, Optional, Iterable, Literal, Protocol, runtime_checkable
 from dataclasses import dataclass
 import asyncio
-import inspect
 
 # In-memory (FastMCP ↔ Client)
 from fastmcp import FastMCP
@@ -13,7 +12,7 @@ from fastmcp.client import Client as FastMCPClient
 from mcp import ClientSession
 from mcp.client.stdio import stdio_client, StdioServerParameters
 from mcp.client.streamable_http import streamablehttp_client
-# from mcp.client.sse import sse_client   # (if/when you add SSE)
+from mcp.client.sse import sse_client
 
 # Optional: if you have a tiny wrapper around FastMCP already
 try:
@@ -194,7 +193,17 @@ class CoreMCPClient:
 
         # SSE (if you add it later)
         if cfg.transport == "sse":
-            raise NotImplementedError("SSE transport not implemented yet.")
+            if not cfg.url:
+                raise ValueError(f"[{name}] sse requires 'url'.")
+            # optional headers are supported
+            ctx = sse_client(cfg.url, headers=cfg.headers or {})
+            read, write = await ctx.__aenter__()
+            session = ClientSession(read, write)
+            await session.__aenter__()
+            await session.initialize()
+            self._remote_sessions[name] = session
+            self._remote_contexts[name] = ctx  # store so __aexit__ can close it
+            return
 
         raise ValueError(f"[{name}] Unknown transport: {cfg.transport}")
 
