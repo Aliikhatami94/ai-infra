@@ -24,7 +24,7 @@ async def _get_openapi_agent():
     mcp = CoreMCP(config=remote_mcp_config)
     tools = await mcp.list_tools()
     res = await agent.arun_agent(
-        messages=[{"role": "user", "content": '''can you tell me my profile info for spotify'''}],
+        messages=[{"role": "user", "content": '''can you tell me my profile info'''}],
         provider=Providers.openai,
         model_name=Models.openai.gpt_4_1_mini.value,
         tools=tools,

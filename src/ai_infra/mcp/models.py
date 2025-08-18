@@ -13,7 +13,7 @@ class Prompt(BaseModel):
     contents: Optional[List[str]] = None
 
 # ---------- REMOTE (no module_path) ----------
-class RemoteServerConfig(BaseModel):
+class McpServerConfig(BaseModel):
     transport: Literal["stdio", "streamable_http", "sse"]
     # http-like
     url: Optional[str] = None
@@ -39,7 +39,7 @@ class RemoteServerConfig(BaseModel):
 
 class RemoteServer(BaseModel):
     name: str
-    config: RemoteServerConfig
+    config: McpServerConfig
     tools: Optional[List[ToolDef]] = None
 
 class RemoteMcp(BaseModel):
