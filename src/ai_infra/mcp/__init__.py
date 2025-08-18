@@ -2,12 +2,11 @@
 from ai_infra.mcp.models import (
     RemoteMcp,
     RemoteServer,
-    RemoteServerConfig,
+    McpServerConfig,
 )
 from ai_infra.mcp.hosting.models import (
     HostedMcp,
     HostedServer,
-    HostedServerConfig
 )
 
 # Main MCP classes and functions
