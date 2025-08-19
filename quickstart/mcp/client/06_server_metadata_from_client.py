@@ -10,7 +10,6 @@ cfg = [
         "transport": "sse",
         "url": "http://0.0.0.0:8000/sse-app/sse",
     },
-    # add more servers (stdio / sse / streamable_http) here, still unnamed
 ]
 
 client = CoreMCPClient(cfg)
