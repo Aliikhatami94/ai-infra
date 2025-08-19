@@ -7,7 +7,7 @@ import httpx
 from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel, Field, create_model, ConfigDict, conlist
-from typing import Optional, Any, Dict, List, Union
+from typing import Optional, Any, Dict, List, Union, Callable
 
 from .models import OpenAPISpec, OperationContext
 from .constants import ALLOWED_METHODS
@@ -210,15 +210,16 @@ def _build_input_model(op_ctx: OperationContext, path_item: dict, op: dict) -> t
 def _register_operation_tool(
         mcp: FastMCP,
         *,
+        client: httpx.AsyncClient,
         base_url: str,
         spec: OpenAPISpec,
         op: dict,
         op_ctx: OperationContext,
 ) -> None:
     security = SecurityResolver.from_spec(spec, op)
-    InputModel = _build_input_model(op_ctx, path_item={}, op=op)  # your existing builder
+    InputModel = _build_input_model(op_ctx, path_item={}, op=op)
 
-    async def tool(args) -> str:  # no decorator; untyped param for now
+    async def tool(args) -> str:
         payload = args.model_dump(by_alias=True, exclude_none=True)
 
         url_base   = (payload.pop("_base_url", None) or base_url).rstrip("/")
@@ -231,7 +232,7 @@ def _register_operation_tool(
 
         errors: list[str] = []
 
-        # ---- expand path
+        # expand path from args
         url_path = op_ctx.path
         for p in op_ctx.path_params:
             pname = p.get("name")
@@ -241,7 +242,6 @@ def _register_operation_tool(
             if pname in payload:
                 url_path = url_path.replace("{" + pname + "}", str(payload.pop(pname)))
 
-        # ---- collect params
         query: Dict[str, Any] = {}
         headers: Dict[str, str] = {}
         cookies: Dict[str, str] = {}
@@ -267,7 +267,6 @@ def _register_operation_tool(
             elif p.get("required"):
                 errors.append(f"Missing required cookie: {pname}")
 
-        # ---- body
         data = None
         json_body = None
         files = None
@@ -290,7 +289,6 @@ def _register_operation_tool(
                             files = {k: (k, v) for k, v in body_arg.items()}
                         else:
                             files = {"file": ("file", body_arg)}
-                    # httpx will set boundary etc.
                 elif ct in ("text/plain", "application/octet-stream"):
                     data = body_arg
                     headers.setdefault("Content-Type", ct)
@@ -302,31 +300,30 @@ def _register_operation_tool(
         if errors:
             return "Validation errors:\n" + "\n".join(f" - {e}" for e in errors)
 
-        # ---- security + user headers
+        # Merge security + user headers per-call (optional; your client can already have static auth)
         security.apply(headers, query, {
             "_api_key": api_key,
             "_basic_auth": basic_auth,
             "_headers": headers_in,
         })
 
-        # ---- leftover public keys to query
+        # Any leftover non-underscore args → query
         for k, v in list(payload.items()):
             if not str(k).startswith("_"):
                 query[k] = v
             payload.pop(k, None)
 
         full_url = f"{url_base}{url_path}"
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.request(
-                op_ctx.method,
-                full_url,
-                params=query,
-                headers=headers,
-                cookies=cookies,
-                json=json_body,
-                data=data,
-                files=files,
-            )
+        resp = await client.request(
+            op_ctx.method,
+            full_url,
+            params=query or None,
+            headers=headers or None,
+            cookies=cookies or None,
+            json=json_body,
+            data=data,
+            files=files,
+        )
 
         content_type = resp.headers.get("content-type", "")
         result: Dict[str, Any] = {
@@ -348,39 +345,63 @@ def _register_operation_tool(
 
         return json.dumps(result, indent=2, default=str)
 
-    # <<< key bit: give FastMCP the real class, not a ForwardRef string
     tool.__annotations__ = {"args": InputModel, "return": str}
-
-    # and register it explicitly
-    mcp.add_tool(
-        name=op_ctx.name,
-        description=op_ctx.full_description(),
-        fn=tool,
-    )
+    mcp.add_tool(name=op_ctx.name, description=op_ctx.full_description(), fn=tool)
 
 # --------------- Builder -----------------------
 
-def build_mcp_from_openapi(spec: Union[dict, str, Path], base_url: str | None = None) -> FastMCP:
+def build_mcp_from_openapi(
+        spec: Union[dict, str, Path],
+        *,
+        # Provide exactly one of these:
+        client: httpx.AsyncClient | None = None,
+        client_factory: Callable[[], httpx.AsyncClient] | None = None,
+        base_url: str | None = None,  # optional default if client.base_url is not set
+) -> FastMCP:
     if not isinstance(spec, dict):
         spec = load_openapi(spec)
-    mcp = FastMCP(spec.get("info", {}).get("title") or "OpenAPI MCP")
-    paths = spec.get("paths") or {}
 
+    # Choose client
+    own_client = False
+    if client is None:
+        if client_factory is not None:
+            client = client_factory()
+        else:
+            # Fallback: minimal default client; user can still override per-op via _base_url/_headers
+            client = httpx.AsyncClient(timeout=30.0)
+        own_client = True
+
+    mcp = FastMCP(spec.get("info", {}).get("title") or "OpenAPI MCP")
+
+    paths = spec.get("paths") or {}
     for path, path_item in paths.items():
         if not isinstance(path_item, dict):
             continue
         for method, op in path_item.items():
-            if method.lower() not in ALLOWED_METHODS:
+            if method.lower() not in ALLOWED_METHODS or not isinstance(op, dict):
                 continue
-            if not isinstance(op, dict):
-                continue
+
             op_ctx = _make_operation_context(path, method, path_item, op)
+
             effective_base = pick_effective_base_url(spec, path_item, op, override=base_url)
+            # If the injected client already has base_url, we still let per-tool call prepend _base_url when needed.
+
             _register_operation_tool(
                 mcp,
+                client=client,
                 base_url=effective_base,
                 spec=spec,
                 op=op,
                 op_ctx=op_ctx,
             )
+
+    # Only close the client if we created it here
+    if own_client:
+        @mcp.lifespan
+        async def _lifespan(state):
+            try:
+                yield
+            finally:
+                await client.aclose()
+
     return mcp
