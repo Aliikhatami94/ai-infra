@@ -1,11 +1,13 @@
 from __future__ import annotations
-from typing import Dict, Any, List, AsyncIterator, AsyncContextManager
+from typing import Dict, Any, AsyncContextManager
 from contextlib import asynccontextmanager
+from dataclasses import asdict, is_dataclass
 
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain_mcp_adapters.sessions import (
     StreamableHttpConnection, StdioConnection, SSEConnection
 )
+from langchain_mcp_adapters.tools import load_mcp_tools
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
@@ -27,6 +29,23 @@ class CoreMCPClient:
 
     # ---------- per-server session helpers (raw MCP) ----------
 
+    @staticmethod
+    def _set_server_info_on_session(session: ClientSession, init_result):
+        """Store initialize()'s server info on the session for easy access."""
+        # try common field names across library versions
+        info = (
+                getattr(init_result, "server_info", None)
+                or getattr(init_result, "serverInfo", None)
+                or getattr(init_result, "serverinfo", None)
+        )
+        if info is None:
+            return
+        if is_dataclass(info):
+            info = asdict(info)
+        elif hasattr(info, "model_dump"):
+            info = info.model_dump()
+        session.mcp_server_info = info
+
     def _open_session(self, srv: RemoteServer) -> AsyncContextManager[ClientSession]:
         t = srv.config.transport
 
@@ -39,69 +58,40 @@ class CoreMCPClient:
             parent_ctx = stdio_client(params)
 
             @asynccontextmanager
-            async def ctx() -> AsyncIterator[ClientSession]:
+            async def ctx():
                 async with parent_ctx as (read, write):
                     async with ClientSession(read, write) as session:
-                        # initialize
-                        await session.initialize()
-                        # attach metadata for caller
-                        setattr(session, "server_name", srv.name)
-                        setattr(session, "transport", "stdio")
-                        setattr(session, "connection_info", {
-                            "command": srv.config.command,
-                            "args": srv.config.args or [],
-                            "env": srv.config.env or {},
-                        })
+                        init_result = await session.initialize()
+                        self._set_server_info_on_session(session, init_result)
                         yield session
-
             return ctx()
 
         if t == "streamable_http":
             if not srv.config.url:
                 raise ValueError(f"{srv.name}: 'url' is required for streamable_http")
-            parent_ctx = streamablehttp_client(
-                srv.config.url,
-                headers=srv.config.headers,
-            )
+            parent_ctx = streamablehttp_client(srv.config.url, headers=srv.config.headers)
 
             @asynccontextmanager
-            async def ctx() -> AsyncIterator[ClientSession]:
-                # streamable_http yields (read, write, closer)
+            async def ctx():
                 async with parent_ctx as (read, write, _closer):
                     async with ClientSession(read, write) as session:
-                        await session.initialize()
-                        setattr(session, "server_name", srv.name)
-                        setattr(session, "transport", "streamable_http")
-                        setattr(session, "connection_info", {
-                            "url": srv.config.url,
-                            "headers": srv.config.headers or {},
-                        })
+                        init_result = await session.initialize()
+                        self._set_server_info_on_session(session, init_result)
                         yield session
-
             return ctx()
 
         if t == "sse":
             if not srv.config.url:
                 raise ValueError(f"{srv.name}: 'url' is required for sse")
-            parent_ctx = sse_client(
-                srv.config.url,
-                headers=srv.config.headers or None,
-            )
+            parent_ctx = sse_client(srv.config.url, headers=srv.config.headers or None)
 
             @asynccontextmanager
-            async def ctx() -> AsyncIterator[ClientSession]:
-                # sse yields (read, write)
+            async def ctx():
                 async with parent_ctx as (read, write):
                     async with ClientSession(read, write) as session:
-                        await session.initialize()
-                        setattr(session, "server_name", srv.name)
-                        setattr(session, "transport", "sse")
-                        setattr(session, "connection_info", {
-                            "url": srv.config.url,
-                            "headers": srv.config.headers or {},
-                        })
+                        init_result = await session.initialize()
+                        self._set_server_info_on_session(session, init_result)
                         yield session
-
             return ctx()
 
         raise ValueError(f"Unknown transport: {t}")
