@@ -15,52 +15,47 @@ except Exception:
 
 log = logging.getLogger(__name__)
 
-
 # ----------------------------
-# small value object
+# value object
 # ----------------------------
 @dataclass
 class MCPMount:
     """
     Represents one mounted MCP sub-app.
 
-    path: mount base (parent of '/mcp'), e.g. '/openapi-app'
-    app:  ASGI app with optional app.state.session_manager (set by FastMCP apps)
+    path: base mount (parent of '/mcp'), e.g. '/openapi-app'
+    app:  ASGI app (e.g., mcp.streamable_http_app(), mcp.sse_app())
     name: friendly label for logs
-    session_manager: explicit override; if omitted we try app.state.session_manager
+    session_manager: explicit override; if omitted, uses app.state.session_manager
+    require_manager: if False, silently skip session-manager lifecycle for this mount
     """
     path: str
     app: Any
     name: Optional[str] = None
     session_manager: Any | None = None
+    require_manager: bool = True
 
 
 # ----------------------------
-# main orchestrator
+# orchestrator
 # ----------------------------
 class CoreMCPServer:
     """
-    Minimal orchestrator for hosting multiple MCP servers.
+    Host multiple MCP servers (FastMCP transports or plain ASGI apps)
+    with optional FastAPI/Starlette integration.
 
-    Examples
-    --------
-    server = CoreMCPServer(strict=True)
-    server.add_app("/streamable-app", streamable_app, name="streamable")
-    server.add_fastmcp(mcp_sse, "/sse-demo", transport="sse", name="sse")
+    - add_app(): register a prebuilt ASGI app
+    - add_fastmcp(): create a transport app from a FastMCP (streamable_http/sse/ws)
+    - add_from_module(): load an object from 'pkg.mod[:attr]' (FastMCP or ASGI app)
+    - attach_to_fastapi(): mount all + wire managers into lifespan
+    - build_asgi_root(): standalone root ASGI app with health & lifespan
+    - run_uvicorn(): tiny helper for demos
 
-    # FastAPI
-    server.attach_to_fastapi(app)  # single line: mounts + wires lifespan
-
-    # Standalone
-    asgi = server.build_asgi_root()
-    # uvicorn.run(asgi, host="0.0.0.0", port=8000)
+    strict=True -> raise if a required manager is missing
+    strict=False -> warn and skip
     """
 
     def __init__(self, *, strict: bool = True, health_path: str = "/healthz") -> None:
-        """
-        strict=True  -> raise if a sub-app has no session_manager
-        strict=False -> warn and skip that sub-app
-        """
         self._strict = strict
         self._health_path = health_path
         self._mounts: list[MCPMount] = []
@@ -78,9 +73,16 @@ class CoreMCPServer:
             *,
             name: Optional[str] = None,
             session_manager: Any | None = None,
+            require_manager: bool = True,
     ) -> "CoreMCPServer":
-        """Register a prebuilt ASGI app (e.g., mcp.streamable_http_app())."""
-        self._mounts.append(MCPMount(path=normalize_mount(path), app=app, name=name, session_manager=session_manager))
+        """Register a prebuilt ASGI app (e.g., mcp.streamable_http_app() / mcp.sse_app())."""
+        self._mounts.append(MCPMount(
+            path=normalize_mount(path),
+            app=app,
+            name=name,
+            session_manager=session_manager,
+            require_manager=require_manager,
+        ))
         return self
 
     def add_fastmcp(
@@ -90,6 +92,7 @@ class CoreMCPServer:
             *,
             transport: str = "streamable_http",  # "streamable_http" | "sse" | "websocket"
             name: Optional[str] = None,
+            require_manager: bool | None = None,
     ) -> "CoreMCPServer":
         """Create the transport app from a FastMCP and add it."""
         if transport == "streamable_http":
@@ -101,12 +104,16 @@ class CoreMCPServer:
         else:
             raise ValueError(f"Unknown transport: {transport}")
 
-        # ensure the app exposes the manager for clients that expect it at app.state.session_manager
+        # session_manager exists after streamable_http_app(); may be None for SSE/WS
         sm = getattr(mcp, "session_manager", None)
         if sm and not getattr(getattr(sub_app, "state", object()), "session_manager", None):
             setattr(sub_app.state, "session_manager", sm)
 
-        return self.add_app(path, sub_app, name=name, session_manager=sm)
+        # default policy: require manager for streamable_http; not for SSE/WS
+        if require_manager is None:
+            require_manager = (transport == "streamable_http")
+
+        return self.add_app(path, sub_app, name=name, session_manager=sm, require_manager=require_manager)
 
     def add_from_module(
             self,
@@ -116,19 +123,18 @@ class CoreMCPServer:
             attr: Optional[str] = None,
             transport: Optional[str] = None,
             name: Optional[str] = None,
+            require_manager: bool | None = None,
     ) -> "CoreMCPServer":
         """
-        Load either a FastMCP object or an ASGI app from a module path.
-        - If it's a FastMCP, you must pass transport (unless the object is already an app).
+        Load a FastMCP object or an ASGI app from a module path.
+        - If it's a FastMCP (has .streamable_http_app), pass transport (unless you already built an app).
         - If it's already an ASGI app, transport is ignored.
         """
         obj = import_object(module_path, attr=attr)
-        # If the object looks like a FastMCP (has .streamable_http_app etc.)
         if transport and hasattr(obj, "streamable_http_app"):
-            return self.add_fastmcp(obj, path, transport=transport, name=name)
-
-        # else assume it's an ASGI app
-        return self.add_app(path, obj, name=name)
+            return self.add_fastmcp(obj, path, transport=transport, name=name, require_manager=require_manager)
+        # ASGI app path
+        return self.add_app(path, obj, name=name, require_manager=(require_manager if require_manager is not None else True))
 
     # ---------- mounting + lifespan ----------
 
@@ -136,23 +142,30 @@ class CoreMCPServer:
         """Mount all registered sub-apps onto an existing ASGI root (FastAPI/Starlette)."""
         for m in self._mounts:
             root_app.mount(m.path, m.app)
-            log.info("Mounted MCP app '%s' at %s", (m.name or "mcp"), m.path)
+            label = m.name or getattr(getattr(m.app, "state", object()), "mcp_name", None) or "mcp"
+            log.info("Mounted MCP app '%s' at %s", label, m.path)
 
     def _iter_unique_session_managers(self) -> Iterable[tuple[str, Any]]:
         seen: set[int] = set()
         for m in self._mounts:
             sm = m.session_manager or getattr(getattr(m.app, "state", None), "session_manager", None)
+
             if sm is None:
                 msg = f"[MCP] Sub-app at '{m.path}' has no session_manager."
-                if self._strict:
-                    raise RuntimeError(msg)
-                log.warning(msg + " Skipping.")
+                if m.require_manager:
+                    if self._strict:
+                        raise RuntimeError(msg)
+                    log.warning(msg + " Skipping.")
+                else:
+                    log.info("[MCP] No session_manager for '%s' (not required) — skipping.", m.path)
                 continue
+
             key = id(sm)
             if key in seen:
                 continue
             seen.add(key)
-            yield (m.name or m.path, sm)
+            label = m.name or m.path
+            yield label, sm
 
     @contextlib.asynccontextmanager
     async def lifespan(self, _app: Any):
@@ -160,7 +173,7 @@ class CoreMCPServer:
             for label, sm in self._iter_unique_session_managers():
                 log.info("Starting MCP session manager: %s", label)
                 await stack.enter_async_context(sm.run())
-            yield  # close in reverse
+            yield  # shutdown in reverse
 
     def attach_to_fastapi(self, app: Any) -> None:
         """One-liner FastAPI/Starlette integration: mount + wire lifespan."""
@@ -208,7 +221,7 @@ def normalize_mount(path: str) -> str:
 def import_object(module_path: str, *, attr: Optional[str] = None) -> Any:
     """
     Import object from 'pkg.mod' or 'pkg.mod:attr'. If attr not provided, try
-    common names 'mcp' then 'app'.
+    'mcp' then 'app'.
     """
     if ":" in module_path and not attr:
         module_path, attr = module_path.split(":", 1)
