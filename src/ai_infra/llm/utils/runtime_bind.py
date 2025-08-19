@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import logging
 from langgraph.prebuilt import create_react_agent
 from langgraph.runtime import Runtime
-from langchain_core.tools import BaseTool, tool as lc_tool  # added
+from langchain_core.tools import BaseTool, tool as lc_tool
 
 from .settings import ModelSettings
 from ai_infra.llm.tools.tool_controls import normalize_tool_controls, ToolCallControls
