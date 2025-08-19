@@ -1,6 +1,5 @@
 # Model setup
 from ai_infra.mcp.models import (
-    RemoteServer,
     McpServerConfig,
 )
 from ai_infra.mcp.hosting.models import (

@@ -1,8 +1,8 @@
+# ai_infra/mcp/models.py
 from __future__ import annotations
 from typing import Optional, List, Dict, Any, Literal, Awaitable, Callable
 from pydantic import BaseModel, model_validator, Field
 
-# ---------- tools ----------
 ToolFn = Callable[..., str | Awaitable[str]]
 
 class ToolDef(BaseModel):
@@ -10,7 +10,6 @@ class ToolDef(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
 
-# ---------- server config ----------
 class McpServerConfig(BaseModel):
     transport: Literal["stdio", "streamable_http", "sse"]
 
@@ -30,14 +29,8 @@ class McpServerConfig(BaseModel):
 
     @model_validator(mode="after")
     def _validate(self):
-        if self.transport in ("streamable_http", "sse"):
-            if not self.url:
-                raise ValueError(f"{self.transport} requires 'url'")
+        if self.transport in ("streamable_http", "sse") and not self.url:
+            raise ValueError(f"{self.transport} requires 'url'")
         if self.transport == "stdio" and not self.command:
             raise ValueError("Remote stdio requires 'command'")
         return self
-
-class RemoteServer(BaseModel):
-    name: str
-    config: McpServerConfig
-    tools: Optional[List[ToolDef]] = None

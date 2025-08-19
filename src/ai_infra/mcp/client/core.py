@@ -1,5 +1,6 @@
+# ai_infra/mcp/client/core.py
 from __future__ import annotations
-from typing import Dict, Any, AsyncContextManager
+from typing import Dict, Any, List, AsyncIterator, AsyncContextManager, Tuple
 from contextlib import asynccontextmanager
 from dataclasses import asdict, is_dataclass
 
@@ -14,46 +15,63 @@ from mcp.client.stdio import stdio_client
 from mcp.client.streamable_http import streamablehttp_client
 from mcp.client.sse import sse_client
 
-from ai_infra.mcp.models import RemoteServer, ToolDef
+from ai_infra.mcp.models import McpServerConfig, ToolDef
 
 
 class CoreMCPClient:
-    def __init__(self, config: list[dict] | list[RemoteServer]):
-        if isinstance(config, list):
-            self.config = [
-                s if isinstance(s, RemoteServer) else RemoteServer.model_validate(s)
-                for s in config
-            ]
-        else:
-            raise TypeError("Config must be a list of servers")
+    """
+    Config = list[McpServerConfig-like dicts]. No names required.
+    We discover server names from MCP initialize() and map them.
+    """
 
-    # ---------- per-server session helpers (raw MCP) ----------
+    def __init__(self, config: List[dict] | List[McpServerConfig]):
+        if not isinstance(config, list):
+            raise TypeError("Config must be a list of server configs")
+        self._configs: List[McpServerConfig] = [
+            c if isinstance(c, McpServerConfig) else McpServerConfig.model_validate(c)
+            for c in config
+        ]
+        self._by_name: Dict[str, McpServerConfig] = {}
+        self._discovered: bool = False
+
+    # ---------- utils ----------
 
     @staticmethod
-    def _set_server_info_on_session(session: ClientSession, init_result):
-        """Store initialize()'s server info on the session for easy access."""
-        # try common field names across library versions
+    def _extract_server_info(init_result) -> Dict[str, Any] | None:
         info = (
                 getattr(init_result, "server_info", None)
                 or getattr(init_result, "serverInfo", None)
                 or getattr(init_result, "serverinfo", None)
         )
         if info is None:
-            return
+            return None
         if is_dataclass(info):
-            info = asdict(info)
-        elif hasattr(info, "model_dump"):
-            info = info.model_dump()
-        session.mcp_server_info = info
+            return asdict(info)
+        if hasattr(info, "model_dump"):
+            return info.model_dump()
+        if isinstance(info, dict):
+            return info
+        return None
 
-    def _open_session(self, srv: RemoteServer) -> AsyncContextManager[ClientSession]:
-        t = srv.config.transport
+    @staticmethod
+    def _uniq_name(base: str, used: set[str]) -> str:
+        if base not in used:
+            return base
+        i = 2
+        while f"{base}#{i}" in used:
+            i += 1
+        return f"{base}#{i}"
+
+    # ---------- low-level open session from config ----------
+
+    def _open_session_from_config(self, cfg: McpServerConfig) -> AsyncContextManager[ClientSession]:
+        t = cfg.transport
 
         if t == "stdio":
             params = StdioServerParameters(
-                command=srv.config.command,
-                args=srv.config.args or [],
-                env=srv.config.env or {},
+                command=cfg.command,
+                args=cfg.args or [],
+                env=cfg.env or {},
             )
             parent_ctx = stdio_client(params)
 
@@ -62,88 +80,121 @@ class CoreMCPClient:
                 async with parent_ctx as (read, write):
                     async with ClientSession(read, write) as session:
                         init_result = await session.initialize()
-                        self._set_server_info_on_session(session, init_result)
+                        info = self._extract_server_info(init_result) or {}
+                        session.mcp_server_info = info
                         yield session
             return ctx()
 
         if t == "streamable_http":
-            if not srv.config.url:
-                raise ValueError(f"{srv.name}: 'url' is required for streamable_http")
-            parent_ctx = streamablehttp_client(srv.config.url, headers=srv.config.headers)
+            if not cfg.url:
+                raise ValueError("'url' is required for streamable_http")
+            parent_ctx = streamablehttp_client(cfg.url, headers=cfg.headers)
 
             @asynccontextmanager
             async def ctx():
                 async with parent_ctx as (read, write, _closer):
                     async with ClientSession(read, write) as session:
                         init_result = await session.initialize()
-                        self._set_server_info_on_session(session, init_result)
+                        info = self._extract_server_info(init_result) or {}
+                        session.mcp_server_info = info
                         yield session
             return ctx()
 
         if t == "sse":
-            if not srv.config.url:
-                raise ValueError(f"{srv.name}: 'url' is required for sse")
-            parent_ctx = sse_client(srv.config.url, headers=srv.config.headers or None)
+            if not cfg.url:
+                raise ValueError("'url' is required for sse")
+            parent_ctx = sse_client(cfg.url, headers=cfg.headers or None)
 
             @asynccontextmanager
             async def ctx():
                 async with parent_ctx as (read, write):
                     async with ClientSession(read, write) as session:
                         init_result = await session.initialize()
-                        self._set_server_info_on_session(session, init_result)
+                        info = self._extract_server_info(init_result) or {}
+                        session.mcp_server_info = info
                         yield session
             return ctx()
 
         raise ValueError(f"Unknown transport: {t}")
 
-    def _find_server(self, name: str) -> RemoteServer:
-        for s in self.config:
-            if s.name == name:
-                return s
-        lowered = name.lower()
-        candidates = [s for s in self.config if s.name.lower().startswith(lowered)]
-        if len(candidates) == 1:
-            return candidates[0]
-        names = ", ".join(s.name for s in self.config)
-        raise ValueError(f"Server '{name}' not found. Available: {names}")
+    # ---------- discovery ----------
+
+    async def discover(self) -> Dict[str, McpServerConfig]:
+        """
+        Connect briefly to each server to learn its declared name, then
+        build a stable name→config map. Run once (idempotent).
+        """
+        if self._discovered:
+            return self._by_name
+
+        name_map: Dict[str, McpServerConfig] = {}
+        used: set[str] = set()
+
+        for cfg in self._configs:
+            async with self._open_session_from_config(cfg) as session:
+                info = getattr(session, "mcp_server_info", {}) or {}
+                base = str(info.get("name") or "server").strip() or "server"
+                name = self._uniq_name(base, used)
+                used.add(name)
+                name_map[name] = cfg
+
+        self._by_name = name_map
+        self._discovered = True
+        return name_map
+
+    def server_names(self) -> List[str]:
+        """Return discovered names (call discover() first if you need them now)."""
+        return list(self._by_name.keys())
 
     # ---------- public API ----------
 
     def get_client(self, server_name: str) -> AsyncContextManager[ClientSession]:
-        srv = self._find_server(server_name)
-        return self._open_session(srv)  # returns @asynccontextmanager
+        """
+        Open a ready-to-use MCP ClientSession by discovered name.
+        NOTE: You must call `await client.discover()` at least once before using names.
+        """
+        if server_name not in self._by_name:
+            raise ValueError(
+                f"Unknown server '{server_name}'. "
+                f"Known: {', '.join(self._by_name) or '(none discovered yet)'}"
+            )
+        cfg = self._by_name[server_name]
+        return self._open_session_from_config(cfg)
 
     async def list_clients(self) -> MultiServerMCPClient:
+        """
+        Build a MultiServerMCPClient mapping discovered_name → Connection.
+        """
+        await self.discover()
         mapping: Dict[str, Any] = {}
-        for srv in self.config:
-            t = srv.config.transport
-            if t == "streamable_http":
-                mapping[srv.name] = StreamableHttpConnection(
+        for name, cfg in self._by_name.items():
+            if cfg.transport == "streamable_http":
+                mapping[name] = StreamableHttpConnection(
                     transport="streamable_http",
-                    url=srv.config.url,               # type: ignore[arg-type]
-                    headers=srv.config.headers or None,
+                    url=cfg.url,  # type: ignore[arg-type]
+                    headers=cfg.headers or None,
                 )
-            elif t == "stdio":
-                mapping[srv.name] = StdioConnection(
+            elif cfg.transport == "stdio":
+                mapping[name] = StdioConnection(
                     transport="stdio",
-                    command=srv.config.command,       # type: ignore[arg-type]
-                    args=srv.config.args or [],
-                    env=srv.config.env or {},
+                    command=cfg.command,  # type: ignore[arg-type]
+                    args=cfg.args or [],
+                    env=cfg.env or {},
                 )
-            elif t == "sse":
-                mapping[srv.name] = SSEConnection(
+            elif cfg.transport == "sse":
+                mapping[name] = SSEConnection(
                     transport="sse",
-                    url=srv.config.url,               # type: ignore[arg-type]
-                    headers=srv.config.headers or None,
+                    url=cfg.url,  # type: ignore[arg-type]
+                    headers=cfg.headers or None,
                 )
             else:
-                raise ValueError(f"Unknown transport: {t}")
-
+                raise ValueError(f"Unknown transport: {cfg.transport}")
         return MultiServerMCPClient(mapping)
 
     async def call_tool(self, server_name: str, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        srv = self._find_server(server_name)
-        async with self._open_session(srv) as session:
+        if not self._discovered:
+            await self.discover()
+        async with self.get_client(server_name) as session:
             res = await session.call_tool(tool_name, arguments=arguments)
             if getattr(res, "structuredContent", None):
                 return {"structured": res.structuredContent}
@@ -155,10 +206,16 @@ class CoreMCPClient:
         return await ms_client.get_tools()
 
     async def get_metadata(self):
+        """
+        Return lightweight metadata: discovered names + available tools.
+        """
         ms_client = await self.list_clients()
-        for server in self.config:
-            async with ms_client.session(server.name) as session:
+        out: List[Dict[str, Any]] = []
+        for name in self.server_names():
+            async with ms_client.session(name) as session:
                 tools = await load_mcp_tools(session)
-            server.tools = [ToolDef(name=t.name, description=t.description) for t in tools]
-        # return normalized list form
-        return [s.model_dump(exclude_unset=True, exclude_none=True) for s in self.config]
+            out.append({
+                "name": name,
+                "tools": [ToolDef(name=t.name, description=t.description).model_dump(exclude_none=True) for t in tools],
+            })
+        return out
