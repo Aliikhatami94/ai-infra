@@ -1,5 +1,3 @@
-import asyncio
-
 from langchain_mcp_adapters.tools import load_mcp_tools
 from mcp.client.streamable_http import streamablehttp_client
 from mcp import ClientSession
@@ -16,12 +14,9 @@ async def main():
             agent = CoreAgent()
             resp = await agent.arun_agent(
                 messages=[{"role": "user", "content": "Ping my apiframeworks and tell me what you get"}],
-                provider=Providers.openai,
-                model_name=Models.openai.gpt_5_mini.value,
+                provider=Providers.google_genai,
+                model_name=Models.google_genai.gemini_2_5_flash.value,
                 tools=tools,
                 model_kwargs={"temperature": 0.7},
             )
             print(resp)
-
-if __name__ == "__main__":
-    asyncio.run(main())
