@@ -18,18 +18,12 @@ log = logging.getLogger(__name__)
 
 @dataclass
 class MCPMount:
-    """
-    path: base mount (parent of '/mcp'), e.g. '/openapi-app'
-    app:  ASGI app (e.g., mcp.streamable_http_app(), mcp.sse_app())
-    name: friendly label for logs
-    session_manager: explicit override; if omitted, uses app.state.session_manager
-    require_manager: None -> auto (run if a manager exists), True/False -> force
-    """
     path: str
     app: Any
     name: Optional[str] = None
     session_manager: Any | None = None
-    require_manager: Optional[bool] = None  # <-- changed default to None (auto)
+    # None = auto (run if manager present), True/False = force
+    require_manager: Optional[bool] = None
 
 
 class CoreMCPServer:
@@ -60,10 +54,10 @@ class CoreMCPServer:
             session_manager=session_manager,
             require_manager=require_manager,
         )
-        # Auto-infer if not explicitly provided
+        # Auto-infer: run if a manager is present on the app, else skip.
         if m.require_manager is None:
             sm = m.session_manager or getattr(getattr(m.app, "state", None), "session_manager", None)
-            m.require_manager = bool(sm)  # run if it has one, skip if it doesn't
+            m.require_manager = bool(sm)
         self._mounts.append(m)
         return self
 
@@ -76,21 +70,38 @@ class CoreMCPServer:
             name: Optional[str] = None,
             require_manager: Optional[bool] = None,   # None = auto
     ) -> "CoreMCPServer":
+        """
+        For streamable_http: build app, attach session_manager, auto require_manager=True.
+        For sse/websocket:   build app, DO NOT touch mcp.session_manager (it may raise),
+                             auto require_manager=False.
+        """
         if transport == "streamable_http":
             sub_app = mcp.streamable_http_app()
+            # session_manager now exists safely
+            sm = getattr(mcp, "session_manager", None)
+            if sm and not getattr(getattr(sub_app, "state", object()), "session_manager", None):
+                setattr(sub_app.state, "session_manager", sm)
+            # default policy for HTTP: require manager
+            if require_manager is None:
+                require_manager = True
+            return self.add_app(path, sub_app, name=name, session_manager=sm, require_manager=require_manager)
+
         elif transport == "sse":
             sub_app = mcp.sse_app()
+            # IMPORTANT: do not access mcp.session_manager here (may raise)
+            if require_manager is None:
+                require_manager = False
+            return self.add_app(path, sub_app, name=name, session_manager=None, require_manager=require_manager)
+
         elif transport == "websocket":
             sub_app = mcp.websocket_app()
+            # Same as SSE: no manager
+            if require_manager is None:
+                require_manager = False
+            return self.add_app(path, sub_app, name=name, session_manager=None, require_manager=require_manager)
+
         else:
             raise ValueError(f"Unknown transport: {transport}")
-
-        sm = getattr(mcp, "session_manager", None)
-        if sm and not getattr(getattr(sub_app, "state", object()), "session_manager", None):
-            setattr(sub_app.state, "session_manager", sm)
-
-        # Defer to add_app (which will auto-infer if require_manager is None)
-        return self.add_app(path, sub_app, name=name, session_manager=sm, require_manager=require_manager)
 
     def add_from_module(
             self,
@@ -103,8 +114,10 @@ class CoreMCPServer:
             require_manager: Optional[bool] = None,  # None = auto
     ) -> "CoreMCPServer":
         obj = import_object(module_path, attr=attr)
+        # If it's a FastMCP (has .streamable_http_app), respect transport given
         if transport and hasattr(obj, "streamable_http_app"):
             return self.add_fastmcp(obj, path, transport=transport, name=name, require_manager=require_manager)
+        # Else assume it's an ASGI app
         return self.add_app(path, obj, name=name, require_manager=require_manager)
 
     # ---------- mounting + lifespan ----------
@@ -112,11 +125,7 @@ class CoreMCPServer:
     def mount_all(self, root_app: Any) -> None:
         for m in self._mounts:
             root_app.mount(m.path, m.app)
-            label = (
-                    m.name
-                    or getattr(getattr(m.app, "state", object()), "mcp_name", None)
-                    or "mcp"
-            )
+            label = m.name or getattr(getattr(m.app, "state", object()), "mcp_name", None) or "mcp"
             log.info("Mounted MCP app '%s' at %s", label, m.path)
 
     def _iter_unique_session_managers(self) -> Iterable[tuple[str, Any]]:
@@ -124,7 +133,7 @@ class CoreMCPServer:
         for m in self._mounts:
             sm = m.session_manager or getattr(getattr(m.app, "state", None), "session_manager", None)
 
-            # Auto-skip if require_manager is False, or if it's auto and no manager exists
+            # Skip when not required or when auto-mode found none
             if not m.require_manager:
                 log.debug("[MCP] Mount '%s' does not require a session manager; skipping.", m.path)
                 continue
@@ -135,14 +144,11 @@ class CoreMCPServer:
                 log.warning(msg + " Skipping.")
                 continue
 
-            # Dedup
             key = id(sm)
             if key in seen:
                 continue
             seen.add(key)
-
-            label = m.name or m.path
-            yield label, sm
+            yield (m.name or m.path), sm
 
     @contextlib.asynccontextmanager
     async def lifespan(self, _app: Any):
