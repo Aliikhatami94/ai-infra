@@ -1,16 +1,25 @@
 import asyncio
 
 from langchain_mcp_adapters.tools import load_mcp_tools
-from mcp.client.streamable_http import streamablehttp_client
-from mcp import ClientSession
+from ai_infra.mcp.client.core import CoreMCPClient
+
+cfg = [
+    {
+    "name": "streamable-app",
+    "config": {
+        "transport": "streamable_http",
+        "url": "http://0.0.0.0:8000/streamable-app/mcp",
+        }
+    }
+]
+
+client = CoreMCPClient(cfg)
 
 async def main():
-    url = "http://0.0.0.0:8000/streamable-app/mcp"
-    async with streamablehttp_client(url) as (read, write, closer):
-        async with ClientSession(read, write) as session:
-            await session.initialize()
-            tools = await load_mcp_tools(session)
-            print(tools)
+    async with client.get_client("streamable-app") as session:
+        # session is already initialized by get_client()
+        tools = await load_mcp_tools(session)
+        print(tools)
 
 if __name__ == "__main__":
     asyncio.run(main())

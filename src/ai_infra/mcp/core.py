@@ -9,7 +9,7 @@ from mcp.client.streamable_http import streamablehttp_client
 from mcp.client.stdio import stdio_client
 from mcp import ClientSession
 
-from ai_infra.mcp.models import RemoteMcp, ToolDef, Prompt, RemoteServer
+from ai_infra.mcp.models import ToolDef, Prompt, RemoteServer
 from .utils import (
     make_system_messages as _make_system_messages
 )
@@ -50,7 +50,7 @@ class CoreMCP:
 
             return ctx()
 
-        elif t == "01_streamable_http.py":
+        elif t == "streamable_http":
             if not cfg.config.url:
                 # FIX: name (was name)
                 raise ValueError(f"{cfg.name}: url required for 01_streamable_http.py")
