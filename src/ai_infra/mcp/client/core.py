@@ -1,5 +1,8 @@
 # ai_infra/mcp/client/core.py
 from __future__ import annotations
+
+import difflib
+import traceback
 from typing import Dict, Any, List, AsyncIterator, AsyncContextManager, Tuple
 from contextlib import asynccontextmanager
 from dataclasses import asdict, is_dataclass
@@ -33,6 +36,7 @@ class CoreMCPClient:
         ]
         self._by_name: Dict[str, McpServerConfig] = {}
         self._discovered: bool = False
+        self._errors: List[Dict[str, Any]] = []   # <-- NEW
 
     # ---------- utils ----------
 
@@ -61,6 +65,16 @@ class CoreMCPClient:
         while f"{base}#{i}" in used:
             i += 1
         return f"{base}#{i}"
+
+    def last_errors(self) -> List[Dict[str, Any]]:
+        """Return error records from the last discover() run."""
+        return list(self._errors)
+
+    def _cfg_identity(self, cfg: McpServerConfig) -> str:
+        """Human-friendly identity for error messages."""
+        if cfg.transport == "stdio":
+            return f"stdio: {cfg.command or '<missing command>'} {' '.join(cfg.args or [])}"
+        return f"{cfg.transport}: {cfg.url or '<missing url>'}"
 
     # ---------- low-level open session from config ----------
 
@@ -119,53 +133,78 @@ class CoreMCPClient:
 
     # ---------- discovery ----------
 
-    async def discover(self) -> Dict[str, McpServerConfig]:
+    async def discover(self, strict: bool = False) -> Dict[str, McpServerConfig]:
         """
-        Connect briefly to each server to learn its declared name, then
-        build a stable name→config map. Run once (idempotent).
+        Probe each server to learn its MCP-declared name.
+        - strict=False (default): collect errors and continue (partial success).
+        - strict=True: raise ExceptionGroup with all failures.
         """
-        if self._discovered:
-            return self._by_name
+        # reset state each time (optional: make it idempotent and skip already-known)
+        self._by_name = {}
+        self._errors = []
+        self._discovered = False
 
         name_map: Dict[str, McpServerConfig] = {}
         used: set[str] = set()
+        failures: List[BaseException] = []
 
         for cfg in self._configs:
-            async with self._open_session_from_config(cfg) as session:
-                info = getattr(session, "mcp_server_info", {}) or {}
-                base = str(info.get("name") or "server").strip() or "server"
-                name = self._uniq_name(base, used)
-                used.add(name)
-                name_map[name] = cfg
+            ident = self._cfg_identity(cfg)
+            try:
+                async with self._open_session_from_config(cfg) as session:
+                    info = getattr(session, "mcp_server_info", {}) or {}
+                    base = str(info.get("name") or "server").strip() or "server"
+                    name = self._uniq_name(base, used)
+                    used.add(name)
+                    name_map[name] = cfg
+            except Exception as e:
+                # record detailed error but keep going
+                tb = "".join(traceback.format_exception(e))
+                self._errors.append({
+                    "config": {
+                        "transport": cfg.transport,
+                        "url": cfg.url,
+                        "command": cfg.command,
+                        "args": cfg.args,
+                    },
+                    "identity": ident,
+                    "error_type": type(e).__name__,
+                    "error": str(e),
+                    "traceback": tb,
+                })
+                failures.append(e)
 
         self._by_name = name_map
         self._discovered = True
+
+        if strict and failures:
+            # Raise a summarized ExceptionGroup
+            raise ExceptionGroup(
+                f"MCP discovery failed for {len(failures)} server(s)",
+                failures
+            )
+
         return name_map
 
     def server_names(self) -> List[str]:
-        """Return discovered names (call discover() first if you need them now)."""
         return list(self._by_name.keys())
 
     # ---------- public API ----------
 
     def get_client(self, server_name: str) -> AsyncContextManager[ClientSession]:
-        """
-        Open a ready-to-use MCP ClientSession by discovered name.
-        NOTE: You must call `await client.discover()` at least once before using names.
-        """
         if server_name not in self._by_name:
-            raise ValueError(
-                f"Unknown server '{server_name}'. "
-                f"Known: {', '.join(self._by_name) or '(none discovered yet)'}"
-            )
+            # suggest close matches to reduce frustration
+            suggestions = difflib.get_close_matches(server_name, self.server_names(), n=3, cutoff=0.5)
+            suggest_msg = f" Did you mean: {', '.join(suggestions)}?" if suggestions else ""
+            known = ", ".join(self.server_names()) or "(none discovered yet)"
+            raise ValueError(f"Unknown server '{server_name}'. Known: {known}.{suggest_msg}")
         cfg = self._by_name[server_name]
         return self._open_session_from_config(cfg)
 
     async def list_clients(self) -> MultiServerMCPClient:
-        """
-        Build a MultiServerMCPClient mapping discovered_name → Connection.
-        """
-        await self.discover()
+        # ensure we have discovered mapping
+        if not self._discovered:
+            await self.discover()
         mapping: Dict[str, Any] = {}
         for name, cfg in self._by_name.items():
             if cfg.transport == "streamable_http":
