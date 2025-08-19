@@ -1,4 +1,3 @@
-# quickstart/mcp/client/04_stdio.py
 import asyncio, sys
 from pathlib import Path
 from mcp import ClientSession, StdioServerParameters

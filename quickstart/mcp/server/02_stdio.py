@@ -1,4 +1,3 @@
-# my_mcp_stdio/server.py
 from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("demo-stdio")
