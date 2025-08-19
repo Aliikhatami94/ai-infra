@@ -1,21 +1,16 @@
-import asyncio
-from langchain_mcp_adapters.client import MultiServerMCPClient
-from langchain_mcp_adapters.sessions import StreamableHttpConnection
+from ai_infra.mcp.client.core import CoreMCPClient
 
 async def main():
-    client = MultiServerMCPClient({
-        "streamable": StreamableHttpConnection(
-            transport="streamable_http",
-            url="http://0.0.0.0:8000/streamable-app/mcp",
-        ),
-        "openapi": StreamableHttpConnection(
-            transport="streamable_http",
-            url="http://0.0.0.0:8000/openapi-app/mcp",
-        )
-    })
-
-    tools = await client.get_tools()
+    cfg = [
+        {
+            "transport": "streamable_http",
+            "url": "http://0.0.0.0:8000/streamable-app/mcp",
+        },
+        {
+            "transport": "sse",
+            "url": "http://0.0.0.0:8000/sse-demo/sse",
+        },
+    ]
+    client = CoreMCPClient(cfg)
+    tools = await client.list_tools()
     print(tools)
-
-if __name__ == "__main__":
-    asyncio.run(main())

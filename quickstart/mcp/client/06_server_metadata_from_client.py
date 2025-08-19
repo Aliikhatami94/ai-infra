@@ -1,4 +1,3 @@
-import asyncio
 from ai_infra.mcp.client.core import CoreMCPClient
 
 cfg = [
@@ -8,7 +7,7 @@ cfg = [
     },
     {
         "transport": "sse",
-        "url": "http://0.0.0.0:8000/sse-app/sse",
+        "url": "http://0.0.0.0:8000/sse-demo/sse",
     },
 ]
 
@@ -29,5 +28,3 @@ async def main():
     ms = await client.list_clients()
     tools = await ms.get_tools()
     print("Tool count:", len(tools))
-
-asyncio.run(main())

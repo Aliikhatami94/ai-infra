@@ -5,11 +5,8 @@ from ai_infra.mcp.client.core import CoreMCPClient
 
 cfg = [
     {
-    "name": "streamable-app",
-    "config": {
         "transport": "streamable_http",
         "url": "http://0.0.0.0:8000/streamable-app/mcp",
-        }
     }
 ]
 
