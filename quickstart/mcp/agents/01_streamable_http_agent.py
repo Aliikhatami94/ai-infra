@@ -14,12 +14,11 @@ cfg = [
 async def main():
     client = CoreMCPClient(cfg)
     tools = await client.list_tools()
-    print(tools)
     agent = CoreAgent()
     resp = await agent.arun_agent(
-        messages=[{"role": "user", "content": "Call my ping endpoint. what did you get?"}],
-        provider=Providers.openai,
-        model_name=Models.openai.gpt_5_mini.value,
+        messages=[{"role": "user", "content": "How is the weather in Chicago today?"}],
+        provider=Providers.google_genai,
+        model_name=Models.google_genai.gemini_2_5_flash.value,
         tools=tools,
         model_kwargs={"temperature": 0.7},
     )
