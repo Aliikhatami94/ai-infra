@@ -14,7 +14,7 @@ class Prompt(BaseModel):
 
 # ---------- REMOTE (no module_path) ----------
 class McpServerConfig(BaseModel):
-    transport: Literal["stdio", "streamable_http", "sse"]
+    transport: Literal["stdio", "01_streamable_http.py", "sse"]
     # http-like
     url: Optional[str] = None
     headers: Optional[Dict[str, str]] = None
@@ -29,7 +29,7 @@ class McpServerConfig(BaseModel):
 
     @model_validator(mode="after")
     def _validate(self):
-        if self.transport in ("streamable_http", "sse"):
+        if self.transport in ("01_streamable_http.py", "sse"):
             if not self.url:
                 raise ValueError("Remote HTTP/SSE requires 'url'.")
         if self.transport == "stdio":

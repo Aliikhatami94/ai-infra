@@ -50,10 +50,10 @@ class CoreMCP:
 
             return ctx()
 
-        elif t == "streamable_http":
+        elif t == "01_streamable_http.py":
             if not cfg.config.url:
                 # FIX: name (was name)
-                raise ValueError(f"{cfg.name}: url required for streamable_http")
+                raise ValueError(f"{cfg.name}: url required for 01_streamable_http.py")
 
             client_ctx = streamablehttp_client(cfg.config.url, headers=cfg.config.headers)
 
