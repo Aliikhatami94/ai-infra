@@ -106,6 +106,7 @@ class SecurityResolver:
                 query.setdefault(k, kwargs.pop(k))
 
 # -------- Operation context --------
+
 def _make_operation_context(path: str, method: str, path_item: dict, op: dict) -> OperationContext:
     merged = merge_parameters(path_item, op)
     path_params, query_params, header_params, cookie_params = split_params(merged)
@@ -126,27 +127,72 @@ def _make_operation_context(path: str, method: str, path_item: dict, op: dict) -
     )
 
 # -------- Input model builder --------
-def _py_type_from_schema(schema: Dict[str, Any]) -> Any:
-    t = (schema or {}).get("type"); fmt = (schema or {}).get("format")
-    if t == "string": return str
-    if t == "integer": return int
-    if t == "number":  return float
-    if t == "boolean": return bool
-    if t == "array":   return List[_py_type_from_schema((schema or {}).get("items") or {})]  # type: ignore[index]
-    if t == "object":  return Dict[str, Any]
-    if fmt in {"binary", "byte"}: return bytes
+def _resolve_ref(schema: Dict[str, Any], spec: OpenAPISpec) -> Dict[str, Any]:
+    ref = schema.get("$ref")
+    if not ref or not isinstance(ref, str):
+        return schema
+    # Only support local refs like "#/components/schemas/Name"
+    if not ref.startswith("#/"):
+        return schema  # could extend to remote later
+    parts = ref.lstrip("#/").split("/")
+    node: Any = spec
+    for p in parts:
+        if not isinstance(node, dict) or p not in node:
+            return schema
+        node = node[p]
+    return node if isinstance(node, dict) else schema
+
+def _py_type_from_schema(schema: Dict[str, Any], spec: OpenAPISpec | None = None) -> Any:
+    # resolve one level of $ref if available
+    if spec is not None and isinstance(schema, dict) and "$ref" in schema:
+        schema = _resolve_ref(schema, spec)
+
+    t = (schema or {}).get("type")
+    fmt = (schema or {}).get("format")
+
+    if t == "string":
+        return bytes if fmt in {"binary", "byte"} else str
+    if t == "integer":
+        return int
+    if t == "number":
+        return float
+    if t == "boolean":
+        return bool
+    if t == "array":
+        items = (schema or {}).get("items") or {}
+        return List[_py_type_from_schema(items, spec)]  # type: ignore[index]
+    if t == "object" or ("properties" in (schema or {})):
+        # produce a pydantic model out of properties if present
+        from pydantic import BaseModel, create_model, Field, ConfigDict
+        props = (schema or {}).get("properties") or {}
+        reqs = set((schema or {}).get("required") or [])
+        fields: dict[str, tuple[object, object]] = {}
+        for k, v in props.items():
+            typ = _py_type_from_schema(v or {}, spec)
+            default = ... if k in reqs else None
+            fields[k] = (typ, default)
+        Model = create_model(
+            "AnonModel",
+            __base__=BaseModel,
+            __config__=ConfigDict(populate_by_name=True, protected_namespaces=()),
+            **fields
+        )
+        return Model
+
+    # fallback
     return Any
 
-def _build_input_model(op_ctx: OperationContext, path_item: dict, op: dict) -> type[BaseModel]:
+def _build_input_model(op_ctx: OperationContext, path_item: dict, op: dict, spec: OpenAPISpec) -> type[BaseModel]:
     fields: dict[str, tuple[object, object]] = {}
 
     def _extract_param_type(param: Dict[str, Any]) -> Any:
         schema = param.get("schema") or {}
-        return _py_type_from_schema(schema)
+        return _py_type_from_schema(schema, spec)
 
     for p in op_ctx.path_params + op_ctx.query_params + op_ctx.header_params + op_ctx.cookie_params:
         name = p.get("name")
-        if not name: continue
+        if not name:
+            continue
         typ = _extract_param_type(p)
         required = p.get("required", False) or (p.get("in") == "path")
         default = ... if required else None
@@ -155,8 +201,11 @@ def _build_input_model(op_ctx: OperationContext, path_item: dict, op: dict) -> t
     if op_ctx.wants_body:
         req = (op.get("requestBody") or {})
         content = (req.get("content") or {})
-        body_schema = (content.get("application/json") or {}).get("schema") or {}
-        body_typ = _py_type_from_schema(body_schema) if body_schema else Any
+        # Prefer matching declared content-type
+        body_schema = ((content.get(op_ctx.body_content_type) or {}).get("schema")) \
+                      or ((content.get("application/json") or {}).get("schema")) \
+                      or {}
+        body_typ = _py_type_from_schema(body_schema, spec) if body_schema else Any
         fields["body"] = (body_typ, ... if op_ctx.body_required else None)
 
         if op_ctx.body_content_type == "multipart/form-data":
@@ -176,6 +225,67 @@ def _build_input_model(op_ctx: OperationContext, path_item: dict, op: dict) -> t
         )
     return Model
 
+def _pick_response_schema(op: dict, spec: OpenAPISpec) -> tuple[Optional[dict], Optional[str]]:
+    """
+    Return (schema, content_type) for the first 2xx JSON response we find,
+    else None. We keep CT so we can note what we matched.
+    """
+    responses = (op.get("responses") or {})
+    # deterministic: sort by status code key
+    for status, resp in sorted(responses.items(), key=lambda kv: kv[0]):
+        try:
+            code = int(status)
+        except Exception:
+            # "default" or non-int codes; handle later if needed
+            continue
+        if 200 <= code < 300 and isinstance(resp, dict):
+            content = (resp.get("content") or {})
+            if "application/json" in content:
+                schema = (content["application/json"].get("schema")) or {}
+                return (_resolve_ref(schema, spec), "application/json")
+    # fallback: look for any content w/ schema
+    for _status, resp in responses.items():
+        if not isinstance(resp, dict): continue
+        content = (resp.get("content") or {})
+        for ct, cnode in content.items():
+            schema = (cnode or {}).get("schema")
+            if schema:
+                return (_resolve_ref(schema, spec), ct)
+    return (None, None)
+
+def _build_output_model(op_ctx: OperationContext, op: dict, spec: OpenAPISpec) -> type[BaseModel]:
+    """
+    Compose a response envelope with: status, headers, url, method,
+    and either 'json' (typed) or 'text' depending on chosen schema.
+    """
+    from pydantic import BaseModel, create_model, Field, ConfigDict
+    resp_schema, resp_ct = _pick_response_schema(op, spec)
+
+    # Base envelope
+    fields: dict[str, tuple[object, object]] = {
+        "status": (int, ...),
+        "headers": (Dict[str, str], ...),
+        "url": (str, ...),
+        "method": (str, ...),
+    }
+
+    if resp_schema and (resp_ct == "application/json"):
+        payload_type = _py_type_from_schema(resp_schema, spec)
+        fields["json"] = (Optional[payload_type], None)  # type: ignore[name-defined]
+        fields["text"] = (Optional[str], None)
+    else:
+        # opaque; still try to parse JSON at runtime, but schema says text
+        fields["json"] = (Optional[Any], None)
+        fields["text"] = (Optional[str], None)
+
+    Model = create_model(
+        "Output_" + op_ctx.name,
+        __base__=BaseModel,
+        __config__=ConfigDict(populate_by_name=True, protected_namespaces=()),
+        **fields,
+        )
+    return Model
+
 # -------- Tool registration --------
 def _register_operation_tool(
         mcp: FastMCP,
@@ -189,6 +299,9 @@ def _register_operation_tool(
         base_url_source: str,                # <-- NEW: pass provenance in
 ) -> None:
     warnings: List[str] = []
+    InputModel  = _build_input_model(op_ctx, path_item={}, op=op, spec=spec)
+    OutputModel = _build_output_model(op_ctx, op, spec)  # <-- NEW
+    security = SecurityResolver.from_spec(spec, op)
 
     # --- body/media-type inspection (for diagnostics only)
     media_types = list(((op.get("requestBody") or {}).get("content") or {}).keys())
@@ -227,9 +340,6 @@ def _register_operation_tool(
     if base_url and _has_var(base_url):
         warnings.append(f"Base URL contains server variables; not expanded: {base_url!r}")
 
-    InputModel = _build_input_model(op_ctx, path_item={}, op=op)
-    input_field_count = len(getattr(InputModel, "model_fields", {}))  # pydantic v2
-
     security = SecurityResolver.from_spec(spec, op)
 
     # flag unfamiliar/less-supported body content-types
@@ -259,7 +369,6 @@ def _register_operation_tool(
             "cookie": len(op_ctx.cookie_params),
         },
         security=security.as_dict(),
-        input_model_fields=input_field_count,
         media_types_seen=media_types,
         warnings=[],
     )
@@ -353,25 +462,30 @@ def _register_operation_tool(
         )
 
         content_type = resp.headers.get("content-type", "")
-        result: Dict[str, Any] = {
+        out = {
             "status": resp.status_code,
             "headers": dict(resp.headers),
             "url": str(resp.request.url),
             "method": resp.request.method,
+            "json": None,
+            "text": None,
         }
         if "application/json" in content_type:
-            try: result["json"] = resp.json()
-            except Exception: result["text"] = resp.text
+            try:
+                out["json"] = resp.json()
+            except Exception:
+                out["text"] = resp.text
         else:
-            try: result["json"] = resp.json()
-            except Exception: result["text"] = resp.text
+            try:
+                out["json"] = resp.json()
+            except Exception:
+                out["text"] = resp.text
 
-        return json.dumps(result, indent=2, default=str)
+        return OutputModel(**out)
 
-    tool.__annotations__ = {"args": InputModel, "return": str}
+    tool.__annotations__ = {"args": InputModel, "return": OutputModel}  # <-- drives outputSchema
     mcp.add_tool(name=op_ctx.name, description=op_ctx.full_description(), fn=tool)
 
-    # finalize op report (push local warnings)
     op_rep.warnings.extend(warnings)
     report.ops.append(op_rep)
 
