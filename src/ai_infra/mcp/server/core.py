@@ -11,7 +11,7 @@ from typing import Any, Iterable, Optional, Union, Callable, Awaitable, Dict
 from .models import MCPMount
 from ai_infra.mcp.server.openapi import _mcp_from_openapi
 from ai_infra.mcp.server.tools import _mcp_from_tools, ToolDef, ToolFn
-from ai_infra.mcp.server.openmcp import _select_openmcp_doc, _mcp_from_openmcp
+from ai_infra.mcp.server.openmcp.rest_shim import _select_openmcp_doc
 from .openmcp.rest_shim import fastapi_from_openmcp
 
 try:
