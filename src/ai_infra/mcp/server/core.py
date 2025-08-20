@@ -6,7 +6,7 @@ import importlib
 import logging
 from pathlib import Path
 from dataclasses import dataclass
-from typing import Any, Iterable, Optional, Union, Callable
+from typing import Any, Iterable, Optional, Union, Callable, Awaitable
 
 from ai_infra.mcp.server.openapi import _mcp_from_openapi
 from ai_infra.mcp.server.tools import _mcp_from_tools, ToolDef, ToolFn
@@ -27,8 +27,8 @@ class MCPMount:
     app: Any
     name: Optional[str] = None
     session_manager: Any | None = None
-    # None = auto (run if manager present), True/False = force
     require_manager: Optional[bool] = None
+    async_cleanup: Optional[Callable[[], Awaitable[None]]] = None
 
 
 class CoreMCPServer:
@@ -50,7 +50,8 @@ class CoreMCPServer:
             *,
             name: Optional[str] = None,
             session_manager: Any | None = None,
-            require_manager: Optional[bool] = None,   # None = auto
+            require_manager: Optional[bool] = None,
+            async_cleanup: Optional[Callable[[], Awaitable[None]]] = None,  # NEW
     ) -> "CoreMCPServer":
         m = MCPMount(
             path=normalize_mount(path),
@@ -58,8 +59,8 @@ class CoreMCPServer:
             name=name,
             session_manager=session_manager,
             require_manager=require_manager,
+            async_cleanup=async_cleanup,  # NEW
         )
-        # Auto-infer: run if a manager is present on the app, else skip.
         if m.require_manager is None:
             sm = m.session_manager or getattr(getattr(m.app, "state", None), "session_manager", None)
             m.require_manager = bool(sm)
@@ -71,39 +72,34 @@ class CoreMCPServer:
             mcp: Any,
             path: str,
             *,
-            transport: str = "streamable_http",  # "streamable_http" | "sse" | "websocket"
+            transport: str = "streamable_http",
             name: Optional[str] = None,
-            require_manager: Optional[bool] = None,   # None = auto
+            require_manager: Optional[bool] = None,
+            async_cleanup: Optional[Callable[[], Awaitable[None]]] = None,  # NEW
     ) -> "CoreMCPServer":
-        """
-        For streamable_http: build app, attach session_manager, auto require_manager=True.
-        For sse/websocket:   build app, DO NOT touch mcp.session_manager (it may raise),
-                             auto require_manager=False.
-        """
         if transport == "streamable_http":
             sub_app = mcp.streamable_http_app()
-            # session_manager now exists safely
             sm = getattr(mcp, "session_manager", None)
             if sm and not getattr(getattr(sub_app, "state", object()), "session_manager", None):
                 setattr(sub_app.state, "session_manager", sm)
-            # default policy for HTTP: require manager
             if require_manager is None:
                 require_manager = True
-            return self.add_app(path, sub_app, name=name, session_manager=sm, require_manager=require_manager)
+            return self.add_app(path, sub_app, name=name, session_manager=sm,
+                                require_manager=require_manager, async_cleanup=async_cleanup)
 
         elif transport == "sse":
             sub_app = mcp.sse_app()
-            # IMPORTANT: do not access mcp.session_manager here (may raise)
             if require_manager is None:
                 require_manager = False
-            return self.add_app(path, sub_app, name=name, session_manager=None, require_manager=require_manager)
+            return self.add_app(path, sub_app, name=name, session_manager=None,
+                                require_manager=require_manager, async_cleanup=async_cleanup)
 
         elif transport == "websocket":
             sub_app = mcp.websocket_app()
-            # Same as SSE: no manager
             if require_manager is None:
                 require_manager = False
-            return self.add_app(path, sub_app, name=name, session_manager=None, require_manager=require_manager)
+            return self.add_app(path, sub_app, name=name, session_manager=None,
+                                require_manager=require_manager, async_cleanup=async_cleanup)
 
         else:
             raise ValueError(f"Unknown transport: {transport}")
@@ -245,41 +241,26 @@ class CoreMCPServer:
             if client_factory is not None:
                 tools_client = client_factory()
             elif app is not None:
-                # Same-process: ASGITransport avoids the network entirely
                 transport_obj = httpx.ASGITransport(app=app)
                 tools_client = httpx.AsyncClient(transport=transport_obj, base_url=base_url or "http://fastapi.local")
                 own_client = True
             else:
-                # Remote: require base_url so tools can call the service
                 if not base_url:
                     raise ValueError("Remote FastAPI mode requires `base_url` for the tools client.")
                 tools_client = httpx.AsyncClient(base_url=base_url, timeout=30.0)
                 own_client = True
 
-        # Build MCP from OpenAPI (your existing builder takes care of auth helpers / params / etc.)
-        mcp = _mcp_from_openapi(
-            resolved_spec,
-            client=tools_client,
-            client_factory=None,   # we pass the client explicitly
-            base_url=base_url,
-        )
+        mcp = _mcp_from_openapi(resolved_spec, client=tools_client, client_factory=None, base_url=base_url)
 
-        # If we created the tools_client here, ensure it closes with the MCP lifespan
-        if own_client:
-            @mcp.lifespan
-            async def _close_tools_client(_state):
-                try:
-                    yield
-                finally:
-                    await tools_client.aclose()  # type: ignore[union-attr]
+        # Use mount-level cleanup instead of @mcp.lifespan
+        async_cleanup = (tools_client.aclose if own_client else None)
 
-        # Mount it like any other FastMCP
         return self.add_fastmcp(
             mcp,
             path,
             transport=transport,
             name=name or getattr(app, "title", None) if app is not None else name,
-            # require_manager is auto-inferred in add_fastmcp/add_app
+            async_cleanup=async_cleanup,  # <<< key change
         )
 
     # ---------- mounting + lifespan ----------
@@ -315,9 +296,16 @@ class CoreMCPServer:
     @contextlib.asynccontextmanager
     async def lifespan(self, _app: Any):
         async with contextlib.AsyncExitStack() as stack:
+            # Start session managers
             for label, sm in self._iter_unique_session_managers():
                 log.info("Starting MCP session manager: %s", label)
                 await stack.enter_async_context(sm.run())
+
+            # Ensure per-mount extra cleanup runs on shutdown
+            for m in self._mounts:
+                if m.async_cleanup:
+                    stack.push_async_callback(m.async_cleanup)
+
             yield
 
     def attach_to_fastapi(self, app: Any) -> None:
