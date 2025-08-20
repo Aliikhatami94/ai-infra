@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 from dataclasses import dataclass, field
 
-__all__ = ["OpenAPISpec", "OperationContext", "Operation"]
+__all__ = ["OpenAPISpec", "OperationContext", "Operation", "OpReport", "BuildReport"]
 
 OpenAPISpec = Dict[str, Any]
 Operation = Dict[str, Any]
@@ -33,14 +33,14 @@ class OpReport:
     method: str
     path: str
     base_url: str
-    base_url_source: str                 # <-- NEW: override | operation | path | root | none
+    base_url_source: str                 # override | operation | path | root | none
     has_body: bool
     body_content_type: Optional[str]
     body_required: bool
     params: Dict[str, int]
     security: Dict[str, Any]
-    input_model_fields: int = 0          # <-- NEW: # of input fields in generated model
-    media_types_seen: List[str] = field(default_factory=list)  # <-- NEW: content keys we saw
+    input_model_fields: int = 0          # number of input fields
+    media_types_seen: List[str] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
 
 @dataclass

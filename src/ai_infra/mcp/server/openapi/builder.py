@@ -1,7 +1,6 @@
 from __future__ import annotations
 import json, base64
 import logging
-
 import os
 import httpx
 from pathlib import Path
@@ -13,13 +12,14 @@ from .models import OpenAPISpec, OperationContext, BuildReport, OpReport
 from .constants import ALLOWED_METHODS
 from .runtime import (
     op_tool_name, has_request_body, extract_body_content_type, merge_parameters,
-    split_params, pick_effective_base_url, pick_effective_base_url_with_source,
+    split_params, pick_effective_base_url_with_source,
 )
 from .io import load_openapi
 
 __all__ = ["_mcp_from_openapi"]
-
 log = logging.getLogger(__name__)
+
+# ---------------------- Diagnostics logging ----------------------
 
 def _maybe_log_report(report: BuildReport, report_log: bool) -> None:
     if not report_log:
@@ -42,7 +42,8 @@ def _maybe_log_report(report: BuildReport, report_log: bool) -> None:
     for w in report.warnings:
         log.warning("[OpenAPI→MCP][global-warning] %s", w)
 
-# -------- Security Resolver --------
+# ---------------------- Security ----------------------
+
 class SecurityResolver:
     def __init__(self, header_api_keys=None, query_api_keys=None, bearer=False, basic=False):
         self.header_api_keys = header_api_keys or []
@@ -70,7 +71,6 @@ class SecurityResolver:
                     elif t == "http" and sch.get("scheme") == "basic":
                         basic = True
                     elif t == "oauth2":
-                        # oauth2 → bearer-style for outbound usage
                         bearer = True
                     elif t == "apiKey":
                         where = sch.get("in"); keyname = sch.get("name")
@@ -105,7 +105,7 @@ class SecurityResolver:
             if k in self.query_api_keys:
                 query.setdefault(k, kwargs.pop(k))
 
-# -------- Operation context --------
+# ---------------------- Context helpers ----------------------
 
 def _make_operation_context(path: str, method: str, path_item: dict, op: dict) -> OperationContext:
     merged = merge_parameters(path_item, op)
@@ -126,14 +126,14 @@ def _make_operation_context(path: str, method: str, path_item: dict, op: dict) -
         body_required=bool(op.get("requestBody", {}).get("required")) if wants_body else False,
     )
 
-# -------- Input model builder --------
+# ---------------------- Schema helpers ----------------------
+
 def _resolve_ref(schema: Dict[str, Any], spec: OpenAPISpec) -> Dict[str, Any]:
     ref = schema.get("$ref")
     if not ref or not isinstance(ref, str):
         return schema
-    # Only support local refs like "#/components/schemas/Name"
     if not ref.startswith("#/"):
-        return schema  # could extend to remote later
+        return schema
     parts = ref.lstrip("#/").split("/")
     node: Any = spec
     for p in parts:
@@ -143,7 +143,6 @@ def _resolve_ref(schema: Dict[str, Any], spec: OpenAPISpec) -> Dict[str, Any]:
     return node if isinstance(node, dict) else schema
 
 def _py_type_from_schema(schema: Dict[str, Any], spec: OpenAPISpec | None = None) -> Any:
-    # resolve one level of $ref if available
     if spec is not None and isinstance(schema, dict) and "$ref" in schema:
         schema = _resolve_ref(schema, spec)
 
@@ -162,8 +161,7 @@ def _py_type_from_schema(schema: Dict[str, Any], spec: OpenAPISpec | None = None
         items = (schema or {}).get("items") or {}
         return List[_py_type_from_schema(items, spec)]  # type: ignore[index]
     if t == "object" or ("properties" in (schema or {})):
-        # produce a pydantic model out of properties if present
-        from pydantic import BaseModel, create_model, Field, ConfigDict
+        from pydantic import BaseModel, create_model, ConfigDict
         props = (schema or {}).get("properties") or {}
         reqs = set((schema or {}).get("required") or [])
         fields: dict[str, tuple[object, object]] = {}
@@ -179,8 +177,9 @@ def _py_type_from_schema(schema: Dict[str, Any], spec: OpenAPISpec | None = None
         )
         return Model
 
-    # fallback
     return Any
+
+# ---------------------- Input / Output models ----------------------
 
 def _build_input_model(op_ctx: OperationContext, path_item: dict, op: dict, spec: OpenAPISpec) -> type[BaseModel]:
     fields: dict[str, tuple[object, object]] = {}
@@ -201,7 +200,6 @@ def _build_input_model(op_ctx: OperationContext, path_item: dict, op: dict, spec
     if op_ctx.wants_body:
         req = (op.get("requestBody") or {})
         content = (req.get("content") or {})
-        # Prefer matching declared content-type
         body_schema = ((content.get(op_ctx.body_content_type) or {}).get("schema")) \
                       or ((content.get("application/json") or {}).get("schema")) \
                       or {}
@@ -226,24 +224,17 @@ def _build_input_model(op_ctx: OperationContext, path_item: dict, op: dict, spec
     return Model
 
 def _pick_response_schema(op: dict, spec: OpenAPISpec) -> tuple[Optional[dict], Optional[str]]:
-    """
-    Return (schema, content_type) for the first 2xx JSON response we find,
-    else None. We keep CT so we can note what we matched.
-    """
     responses = (op.get("responses") or {})
-    # deterministic: sort by status code key
     for status, resp in sorted(responses.items(), key=lambda kv: kv[0]):
         try:
             code = int(status)
         except Exception:
-            # "default" or non-int codes; handle later if needed
             continue
         if 200 <= code < 300 and isinstance(resp, dict):
             content = (resp.get("content") or {})
             if "application/json" in content:
                 schema = (content["application/json"].get("schema")) or {}
                 return (_resolve_ref(schema, spec), "application/json")
-    # fallback: look for any content w/ schema
     for _status, resp in responses.items():
         if not isinstance(resp, dict): continue
         content = (resp.get("content") or {})
@@ -255,13 +246,13 @@ def _pick_response_schema(op: dict, spec: OpenAPISpec) -> tuple[Optional[dict], 
 
 def _build_output_model(op_ctx: OperationContext, op: dict, spec: OpenAPISpec) -> type[BaseModel]:
     """
-    Compose a response envelope with: status, headers, url, method,
-    and either 'json' (typed) or 'text' depending on chosen schema.
+    Envelope: status, headers, url, method, and payload as either:
+      - alias 'json' (typed if we discovered a schema), OR
+      - 'text'
+    Uses aliases to avoid shadowing BaseModel.json().
     """
-    from pydantic import BaseModel, create_model, Field, ConfigDict
     resp_schema, resp_ct = _pick_response_schema(op, spec)
 
-    # Base envelope
     fields: dict[str, tuple[object, object]] = {
         "status": (int, ...),
         "headers": (Dict[str, str], ...),
@@ -269,14 +260,14 @@ def _build_output_model(op_ctx: OperationContext, op: dict, spec: OpenAPISpec) -
         "method": (str, ...),
     }
 
+    # use internal names with alias="json"/"text"
     if resp_schema and (resp_ct == "application/json"):
         payload_type = _py_type_from_schema(resp_schema, spec)
-        fields["json"] = (Optional[payload_type], None)  # type: ignore[name-defined]
-        fields["text"] = (Optional[str], None)
+        fields["payload_json"] = (Optional[payload_type], Field(default=None, alias="json"))  # type: ignore[name-defined]
+        fields["payload_text"] = (Optional[str], Field(default=None, alias="text"))
     else:
-        # opaque; still try to parse JSON at runtime, but schema says text
-        fields["json"] = (Optional[Any], None)
-        fields["text"] = (Optional[str], None)
+        fields["payload_json"] = (Optional[Any], Field(default=None, alias="json"))
+        fields["payload_text"] = (Optional[str], Field(default=None, alias="text"))
 
     Model = create_model(
         "Output_" + op_ctx.name,
@@ -286,7 +277,8 @@ def _build_output_model(op_ctx: OperationContext, op: dict, spec: OpenAPISpec) -
         )
     return Model
 
-# -------- Tool registration --------
+# ---------------------- Tool registration ----------------------
+
 def _register_operation_tool(
         mcp: FastMCP,
         *,
@@ -296,14 +288,13 @@ def _register_operation_tool(
         op: dict,
         op_ctx: OperationContext,
         report: BuildReport,
-        base_url_source: str,                # <-- NEW: pass provenance in
+        base_url_source: str,
 ) -> None:
     warnings: List[str] = []
     InputModel  = _build_input_model(op_ctx, path_item={}, op=op, spec=spec)
-    OutputModel = _build_output_model(op_ctx, op, spec)  # <-- NEW
+    OutputModel = _build_output_model(op_ctx, op, spec)
     security = SecurityResolver.from_spec(spec, op)
 
-    # --- body/media-type inspection (for diagnostics only)
     media_types = list(((op.get("requestBody") or {}).get("content") or {}).keys())
     if op_ctx.wants_body and media_types and op_ctx.body_content_type not in media_types:
         warnings.append(
@@ -314,7 +305,6 @@ def _register_operation_tool(
         if not any(mt in preferred for mt in media_types):
             warnings.append(f"Multiple body media types; defaulting to {op_ctx.body_content_type!r}")
 
-    # --- param support checks
     for p in (op.get("parameters") or []):
         if p.get("deprecated"):
             warnings.append(f"Parameter '{p.get('name')}' is deprecated")
@@ -325,24 +315,11 @@ def _register_operation_tool(
         if explode not in (None, True, False):
             warnings.append(f"Unrecognized explode={explode!r} for param '{p.get('name')}'")
 
-    # --- request body existence vs required mismatch
-    if op_ctx.wants_body and op_ctx.body_required:
-        rb = (op.get("requestBody") or {})
-        content = (rb.get("content") or {})
-        schema_obj = (content.get(op_ctx.body_content_type) or {}).get("schema")
-        if schema_obj is None:
-            warnings.append("requestBody is required but missing a schema for selected content-type")
-
-    # --- servers variable placeholders
-    # catch most common "{var}" segments that we don't expand here
     def _has_var(url: str) -> bool:
         return "{" in url and "}" in url
     if base_url and _has_var(base_url):
         warnings.append(f"Base URL contains server variables; not expanded: {base_url!r}")
 
-    security = SecurityResolver.from_spec(spec, op)
-
-    # flag unfamiliar/less-supported body content-types
     if op_ctx.wants_body and op_ctx.body_content_type not in (
             None, "application/json", "application/x-www-form-urlencoded", "multipart/form-data",
             "text/plain", "application/octet-stream"
@@ -358,7 +335,7 @@ def _register_operation_tool(
         method=op_ctx.method,
         path=op_ctx.path,
         base_url=base_url or "",
-        base_url_source=base_url_source,          # <-- record where it came from
+        base_url_source=base_url_source,
         has_body=op_ctx.wants_body,
         body_content_type=op_ctx.body_content_type,
         body_required=op_ctx.body_required,
@@ -372,8 +349,13 @@ def _register_operation_tool(
         media_types_seen=media_types,
         warnings=[],
     )
+    # record input model field count
+    try:
+        op_rep.input_model_fields = len(getattr(InputModel, "model_fields", {}))
+    except Exception:
+        pass
 
-    async def tool(args) -> str:
+    async def tool(args) -> OutputModel:
         payload = args.model_dump(by_alias=True, exclude_none=True)
 
         url_base   = (payload.pop("_base_url", None) or base_url).rstrip("/")
@@ -382,7 +364,16 @@ def _register_operation_tool(
         headers_in = payload.pop("_headers", None) or {}
 
         if not url_base:
-            return "Error: no base URL provided (servers missing and _base_url not set)."
+            # Keep structure consistent even on error: still return OutputModel
+            out = {
+                "status": 0,
+                "headers": {},
+                "url": "",
+                "method": op_ctx.method,
+                "json": None,
+                "text": "Error: no base URL provided (servers missing and _base_url not set).",
+            }
+            return OutputModel.model_validate(out)
 
         errors: list[str] = []
 
@@ -445,7 +436,15 @@ def _register_operation_tool(
                     if ct: headers.setdefault("Content-Type", ct)
 
         if errors:
-            return "Validation errors:\n" + "\n".join(f" - {e}" for e in errors)
+            out = {
+                "status": 0,
+                "headers": {},
+                "url": f"{url_base}{url_path}",
+                "method": op_ctx.method,
+                "json": None,
+                "text": "Validation errors:\n" + "\n".join(f" - {e}" for e in errors),
+            }
+            return OutputModel.model_validate(out)
 
         security.apply(headers, query, {"_api_key": api_key, "_basic_auth": basic_auth, "_headers": headers_in})
 
@@ -481,13 +480,16 @@ def _register_operation_tool(
             except Exception:
                 out["text"] = resp.text
 
-        return OutputModel(**out)
+        return OutputModel.model_validate(out)
 
-    tool.__annotations__ = {"args": InputModel, "return": OutputModel}  # <-- drives outputSchema
+    # expose schemas to MCP (input/outputSchema) via annotations
+    tool.__annotations__ = {"args": InputModel, "return": OutputModel}
     mcp.add_tool(name=op_ctx.name, description=op_ctx.full_description(), fn=tool)
 
     op_rep.warnings.extend(warnings)
     report.ops.append(op_rep)
+
+# ---------------------- Builder entrypoint ----------------------
 
 def _mcp_from_openapi(
         spec: Union[dict, str, Path],
@@ -496,18 +498,14 @@ def _mcp_from_openapi(
         client_factory: Callable[[], httpx.AsyncClient] | None = None,
         base_url: str | None = None,
         strict_names: bool = False,
-        report_log: Optional[bool] = None,  # None -> env-driven
+        report_log: Optional[bool] = None,
 ) -> Tuple[FastMCP, Optional[Callable[[], Awaitable[None]]], BuildReport]:
     """
     Build a FastMCP from OpenAPI and return (mcp, async_cleanup, report).
-
-    - strict_names: if True, operationId collisions raise instead of auto-sanitizing.
-    - report_log: if True, log a concise summary + debug lines. If None, uses env MCP_OPENAPI_DEBUG=1.
     """
     if not isinstance(spec, dict):
         spec = load_openapi(spec)
 
-    # report + logging control
     title = (spec.get("info", {}) or {}).get("title") or "OpenAPI MCP"
     report = BuildReport(title=title)
     if report_log is None:
@@ -534,7 +532,6 @@ def _mcp_from_openapi(
 
             op_ctx = _make_operation_context(path, method, path_item, op)
 
-            # unique names
             base_tool = op_ctx.name
             if base_tool in seen_tool_names:
                 msg = f"Duplicate tool name '{base_tool}' from operationId/path; renaming."
@@ -549,7 +546,6 @@ def _mcp_from_openapi(
                 op_ctx.name = new_name
             seen_tool_names.add(op_ctx.name)
 
-            # correct per-op base URL with provenance
             effective_base, source = pick_effective_base_url_with_source(
                 spec, path_item, op, override=base_url
             )
@@ -563,7 +559,7 @@ def _mcp_from_openapi(
                     op=op,
                     op_ctx=op_ctx,
                     report=report,
-                    base_url_source=source,       # <-- pass provenance
+                    base_url_source=source,
                 )
                 report.registered_tools += 1
             except Exception as e:
