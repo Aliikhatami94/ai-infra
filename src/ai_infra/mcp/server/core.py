@@ -1,15 +1,17 @@
 from __future__ import annotations
 
+import json
 import httpx
 import contextlib
 import importlib
 import logging
 from pathlib import Path
-from typing import Any, Iterable, Optional, Union, Callable, Awaitable
+from typing import Any, Iterable, Optional, Union, Callable, Awaitable, Dict
 
 from .models import MCPMount
 from ai_infra.mcp.server.openapi import _mcp_from_openapi
 from ai_infra.mcp.server.tools import _mcp_from_tools, ToolDef, ToolFn
+from ai_infra.mcp.server.openmcp import _mcp_from_openmcp
 
 try:
     from starlette.applications import Starlette
@@ -266,6 +268,55 @@ class CoreMCPServer:
             name=resolved_name,
             async_cleanup=async_cleanup,
         )
+
+    def add_openmcp(
+            self,
+            path: str,
+            openmcp: Dict[str, Any] | str | Path,
+            *,
+            transport: str = "streamable_http",
+            name: Optional[str] = None,
+            backend_config: Optional[Dict[str, Any]] = None,
+            handlers: Optional[Dict[str, Callable[..., Awaitable[Any]]]] = None,
+    ) -> "CoreMCPServer":
+        """
+        Mount an MCP built from an OpenMCP (MCPS) document.
+
+        - `openmcp` can be:
+            * dict            -> direct document
+            * str / Path      -> filesystem path to JSON
+            * str (http URL)  -> fetch JSON from URL
+        - `backend_config`   -> McpServerConfig-like dict to enable proxy mode
+        - `handlers`         -> {tool_name: async fn} to enable handler mode
+        - default (neither)  -> stub mode (tools raise NotImplemented)
+        """
+        doc: Dict[str, Any]
+        if isinstance(openmcp, dict):
+            doc = openmcp
+        else:
+            # load from path or URL
+            import httpx, os
+            val = str(openmcp)
+            if val.startswith("http://") or val.startswith("https://"):
+                with httpx.Client(timeout=15.0) as c:
+                    r = c.get(val)
+                    r.raise_for_status()
+                    doc = r.json()
+            else:
+                p = Path(val)
+                if not p.exists():
+                    raise FileNotFoundError(f"OpenMCP file not found: {p}")
+                doc = json.loads(p.read_text())
+
+        mcp = _mcp_from_openmcp(
+            doc,
+            name=name,
+            backend_config=backend_config,
+            handlers=handlers,
+        )
+
+        # streamable_http default requires session_manager; FastMCP provides it
+        return self.add_fastmcp(mcp, path, transport=transport, name=name)
 
     # ---------- mounting + lifespan ----------
 
