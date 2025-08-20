@@ -33,13 +33,14 @@ class OpReport:
     method: str
     path: str
     base_url: str
-    base_url_source: str
+    base_url_source: str                 # <-- NEW: override | operation | path | root | none
     has_body: bool
     body_content_type: Optional[str]
     body_required: bool
     params: Dict[str, int]
     security: Dict[str, Any]
-    input_model_fields: int = 0
+    input_model_fields: int = 0          # <-- NEW: # of input fields in generated model
+    media_types_seen: List[str] = field(default_factory=list)  # <-- NEW: content keys we saw
     warnings: List[str] = field(default_factory=list)
 
 @dataclass
