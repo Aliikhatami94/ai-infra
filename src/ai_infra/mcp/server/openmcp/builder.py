@@ -92,7 +92,7 @@ def _build_tool_defs_from_openmcp(
 ) -> List[ToolDef]:
     """
     Translate OpenMCP tools into ToolDefs backed by the provided executor.
-    No event-loop tricks; ToolDef gets a real async function per tool.
+    Uses a closure so the exposed tool function has a clean signature (no '_' params).
     """
     tools = (doc or {}).get("tools") or []
     out: List[ToolDef] = []
@@ -102,18 +102,24 @@ def _build_tool_defs_from_openmcp(
         if not name:
             continue
         desc = t.get("description") or ""
-        args_schema = t.get("args_schema") or {}
+        args_schema = t.get("args_schema") or {"type": "object", "properties": {}, "additionalProperties": False}
         output_schema = t.get("output_schema") or None
 
-        async def tool_impl(_tool_name=name, _output_schema=output_schema, **kwargs):
-            result = await executor(_tool_name, kwargs)
-            if _output_schema is None and not isinstance(result, dict):
-                return {"result": str(result)}
-            return result
+        # factory to capture per-tool values without putting them in the function signature
+        def make_impl(tool_name: str, out_schema: Optional[Dict[str, Any]]):
+            async def tool_impl(**kwargs):
+                result = await executor(tool_name, kwargs)
+                # If no declared output schema, normalize to a simple object
+                if out_schema is None and not isinstance(result, dict):
+                    return {"result": str(result)}
+                return result
+            return tool_impl
+
+        impl = make_impl(name, output_schema)
 
         out.append(
             ToolDef(
-                fn=tool_impl,
+                fn=impl,
                 name=name,
                 description=desc,
                 args_schema=args_schema,
