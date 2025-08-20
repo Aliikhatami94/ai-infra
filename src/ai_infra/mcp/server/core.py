@@ -121,13 +121,29 @@ class CoreMCPServer:
             client_factory: Callable[[], httpx.AsyncClient] | None = None,
             base_url: str | None = None,
             name: str | None = None,
+            report_log: Optional[bool] = None,     # NEW: let callers force logging
+            strict_names: bool = False,            # NEW: propagate strict names
     ) -> "CoreMCPServer":
-        mcp, async_cleanup = _mcp_from_openapi(
+        res = _mcp_from_openapi(
             spec,
             client=client,
             client_factory=client_factory,
             base_url=base_url,
+            strict_names=strict_names,
+            report_log=report_log,
         )
+        # back-compat unpack (2 or 3 items)
+        if isinstance(res, tuple) and len(res) == 3:
+            mcp, async_cleanup, report = res
+            # optional: stash report for later introspection
+            try:
+                setattr(mcp, "openapi_build_report", report)
+            except Exception:
+                pass
+        else:
+            mcp, async_cleanup = res  # type: ignore[misc]
+            report = None
+
         return self.add_fastmcp(
             mcp,
             path,

@@ -1,12 +1,15 @@
 from __future__ import annotations
 import json, base64
+import logging
+
+import os
 import httpx
 from pathlib import Path
-from typing import Optional, Any, Dict, List, Union, Callable, Awaitable
+from typing import Optional, Any, Dict, List, Union, Callable, Awaitable, Tuple
 from pydantic import BaseModel, Field, create_model, ConfigDict, conlist
 from mcp.server.fastmcp import FastMCP
 
-from .models import OpenAPISpec, OperationContext
+from .models import OpenAPISpec, OperationContext, BuildReport, OpReport
 from .constants import ALLOWED_METHODS
 from .runtime import (
     op_tool_name, has_request_body, extract_body_content_type, merge_parameters,
@@ -15,6 +18,27 @@ from .runtime import (
 from .io import load_openapi
 
 __all__ = ["_mcp_from_openapi"]
+
+log = logging.getLogger(__name__)
+
+def _maybe_log_report(report: BuildReport, report_log: bool) -> None:
+    if not report_log:
+        return
+    # concise single-line summary
+    log.info("[OpenAPI→MCP] title=%s tools=%d/%d skipped=%d warnings=%d",
+             report.title, report.registered_tools, report.total_ops,
+             report.skipped_ops, len(report.warnings))
+    # verbose per-op (debug)
+    for op in report.ops:
+        log.debug(
+            "[OpenAPI→MCP] %s %s -> tool=%s base=%s params={path:%d query:%d header:%d cookie:%d} body(%s, req=%s) warn=%s",
+            op.method, op.path, op.tool_name, op.base_url,
+            op.params.get("path", 0), op.params.get("query", 0),
+            op.params.get("header", 0), op.params.get("cookie", 0),
+            op.body_content_type, op.body_required, op.warnings
+        )
+    for w in report.warnings:
+        log.warning("[OpenAPI→MCP][global-warning] %s", w)
 
 # -------- Security Resolver --------
 class SecurityResolver:
@@ -44,6 +68,7 @@ class SecurityResolver:
                     elif t == "http" and sch.get("scheme") == "basic":
                         basic = True
                     elif t == "oauth2":
+                        # oauth2 → bearer-style for outbound usage
                         bearer = True
                     elif t == "apiKey":
                         where = sch.get("in"); keyname = sch.get("name")
@@ -51,6 +76,14 @@ class SecurityResolver:
                             if where == "header": header_keys.append(keyname)
                             elif where == "query": query_keys.append(keyname)
         return cls(header_api_keys=header_keys, query_api_keys=query_keys, bearer=bearer, basic=basic)
+
+    def as_dict(self) -> Dict[str, Any]:
+        return {
+            "header_api_keys": list(self.header_api_keys),
+            "query_api_keys": list(self.query_api_keys),
+            "bearer": bool(self.bearer),
+            "basic": bool(self.basic),
+        }
 
     def apply(self, headers: dict, query: dict, kwargs: dict):
         if "_headers" in kwargs and isinstance(kwargs["_headers"], dict):
@@ -150,9 +183,41 @@ def _register_operation_tool(
         spec: OpenAPISpec,
         op: dict,
         op_ctx: OperationContext,
+        report: BuildReport,
 ) -> None:
+    warnings: List[str] = []
     InputModel = _build_input_model(op_ctx, path_item={}, op=op)
     security = SecurityResolver.from_spec(spec, op)
+
+    # flag unfamiliar/less-supported body content-types
+    if op_ctx.wants_body and op_ctx.body_content_type not in (
+            None, "application/json", "application/x-www-form-urlencoded", "multipart/form-data",
+            "text/plain", "application/octet-stream"
+    ):
+        warnings.append(f"Unsupported content-type mapped as raw data: {op_ctx.body_content_type!r}")
+
+    if not base_url:
+        warnings.append("No effective base URL: spec.servers empty and no base_url override; tool will require _base_url.")
+
+    # Save op report skeleton now; we’ll append warnings after tool add
+    op_rep = OpReport(
+        operation_id=op.get("operationId"),
+        tool_name=op_ctx.name,
+        method=op_ctx.method,
+        path=op_ctx.path,
+        base_url=base_url or "",
+        has_body=op_ctx.wants_body,
+        body_content_type=op_ctx.body_content_type,
+        body_required=op_ctx.body_required,
+        params={
+            "path":   len(op_ctx.path_params),
+            "query":  len(op_ctx.query_params),
+            "header": len(op_ctx.header_params),
+            "cookie": len(op_ctx.cookie_params),
+        },
+        security=security.as_dict(),
+        warnings=[],
+    )
 
     async def tool(args) -> str:
         payload = args.model_dump(by_alias=True, exclude_none=True)
@@ -261,46 +326,95 @@ def _register_operation_tool(
     tool.__annotations__ = {"args": InputModel, "return": str}
     mcp.add_tool(name=op_ctx.name, description=op_ctx.full_description(), fn=tool)
 
+    # finalize op report (push local warnings)
+    op_rep.warnings.extend(warnings)
+    report.ops.append(op_rep)
+
 def _mcp_from_openapi(
         spec: Union[dict, str, Path],
         *,
         client: httpx.AsyncClient | None = None,
         client_factory: Callable[[], httpx.AsyncClient] | None = None,
         base_url: str | None = None,
-) -> tuple[FastMCP, Optional[Callable[[], Awaitable[None]]]]:
+        strict_names: bool = False,
+        report_log: Optional[bool] = None,  # None -> env-driven
+) -> Tuple[FastMCP, Optional[Callable[[], Awaitable[None]]], BuildReport]:
+    """
+    Build a FastMCP from OpenAPI and return (mcp, async_cleanup, report).
+
+    - strict_names: if True, operationId collisions raise instead of auto-sanitizing.
+    - report_log: if True, log a concise summary + debug lines. If None, uses env MCP_OPENAPI_DEBUG=1.
+    """
     if not isinstance(spec, dict):
         spec = load_openapi(spec)
+
+    # report + logging control
+    title = (spec.get("info", {}) or {}).get("title") or "OpenAPI MCP"
+    report = BuildReport(title=title)
+    if report_log is None:
+        report_log = (os.getenv("MCP_OPENAPI_DEBUG", "0") == "1")
 
     own_client = False
     if client is None:
         client = client_factory() if client_factory else httpx.AsyncClient(timeout=30.0)
         own_client = True
 
-    mcp = FastMCP(spec.get("info", {}).get("title") or "OpenAPI MCP")
+    mcp = FastMCP(title)
+
+    # detect opId collisions
+    seen_tool_names: set[str] = set()
 
     paths = spec.get("paths") or {}
+    total_ops = 0
     for path, path_item in paths.items():
         if not isinstance(path_item, dict):
+            report.warnings.append(f"Path item is not an object: {path}")
             continue
         for method, op in path_item.items():
             if method.lower() not in ALLOWED_METHODS or not isinstance(op, dict):
                 continue
+            total_ops += 1
 
             op_ctx = _make_operation_context(path, method, path_item, op)
+            # enforce unique tool names
+            base_tool = op_ctx.name
+            if base_tool in seen_tool_names:
+                msg = f"Duplicate tool name '{base_tool}' from operationId or path; renaming."
+                if strict_names:
+                    raise ValueError(msg)
+                report.warnings.append(msg)
+                i = 2
+                new_name = f"{base_tool}_{i}"
+                while new_name in seen_tool_names:
+                    i += 1
+                    new_name = f"{base_tool}_{i}"
+                op_ctx.name = new_name
+            seen_tool_names.add(op_ctx.name)
+
             effective_base = (
                     (base_url or "").rstrip("/")
                     or (str(getattr(getattr(client, "base_url", None), "human_repr", lambda: "")()) or "").rstrip("/")
                     or pick_effective_base_url(spec, None, None, override=None)
             )
 
-            _register_operation_tool(
-                mcp,
-                client=client,
-                base_url=effective_base or "",
-                spec=spec,
-                op=op,
-                op_ctx=op_ctx,
-            )
+            try:
+                _register_operation_tool(
+                    mcp,
+                    client=client,
+                    base_url=effective_base or "",
+                    spec=spec,
+                    op=op,
+                    op_ctx=op_ctx,
+                    report=report,
+                )
+                report.registered_tools += 1
+            except Exception as e:
+                report.skipped_ops += 1
+                warn = f"Failed to register tool for {method.upper()} {path}: {type(e).__name__}: {e}"
+                report.warnings.append(warn)
+                log.debug(warn, exc_info=True)
+
+    report.total_ops = total_ops
 
     async_cleanup: Optional[Callable[[], Awaitable[None]]] = None
     if own_client:
@@ -308,4 +422,6 @@ def _mcp_from_openapi(
             await client.aclose()
         async_cleanup = _cleanup
 
-    return mcp, async_cleanup
+    _maybe_log_report(report, report_log)
+
+    return mcp, async_cleanup, report

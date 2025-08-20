@@ -1,6 +1,9 @@
 from __future__ import annotations
+
+import json
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
+from dataclasses import dataclass, field
 
 __all__ = ["OpenAPISpec", "OperationContext", "Operation"]
 
@@ -22,3 +25,33 @@ class OperationContext(BaseModel):
 
     def full_description(self) -> str:
         return self.description
+
+@dataclass
+class OpReport:
+    operation_id: Optional[str]
+    tool_name: str
+    method: str
+    path: str
+    base_url: str
+    has_body: bool
+    body_content_type: Optional[str]
+    body_required: bool
+    params: Dict[str, int]  # counts: path/query/header/cookie
+    security: Dict[str, Any]  # best-effort
+    warnings: List[str] = field(default_factory=list)
+
+@dataclass
+class BuildReport:
+    title: str
+    total_ops: int = 0
+    registered_tools: int = 0
+    skipped_ops: int = 0
+    warnings: List[str] = field(default_factory=list)
+    ops: List[OpReport] = field(default_factory=list)
+
+    def to_json(self) -> str:
+        def _default(o):
+            if isinstance(o, (BuildReport, OpReport)):
+                return o.__dict__
+            return str(o)
+        return json.dumps(self, default=_default, indent=2)
