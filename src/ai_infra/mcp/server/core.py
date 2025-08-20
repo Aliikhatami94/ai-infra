@@ -150,15 +150,16 @@ class CoreMCPServer:
             transport: str = "streamable_http",
             name: Optional[str] = None,
             executor: Optional[Callable[[str, Dict[str, Any]], Awaitable[Any]]] = None,
-            require_manager: Optional[bool] = None,   # None = auto
+            client_config: Optional[Dict[str, Any]] = None,
+            require_manager: Optional[bool] = None,
     ) -> "CoreMCPServer":
         """
-        Build an MCP server from an OpenMCP document and mount it.
+        Mount an MCP derived from an OpenMCP doc.
 
-        - If `executor` is None, we auto-proxy to the remote MCP described in `doc.server`.
-        - If provided, `executor(tool_name, args)` is invoked for each tool call.
+        If `executor` is None, we auto-proxy to the remote MCP described in `doc.server`,
+        or to an explicit `client_config` (CoreMCPClient config dict).
         """
-        mcp = _mcp_from_openmcp(doc, executor=executor, name=name)
+        mcp = _mcp_from_openmcp(doc, executor=executor, client_config=client_config, name=name)
         return self.add_fastmcp(
             mcp,
             path,
