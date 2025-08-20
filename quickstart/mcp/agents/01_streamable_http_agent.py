@@ -1,7 +1,7 @@
 import asyncio
 
 from ai_infra.llm import CoreAgent, Providers, Models
-from ai_infra.mcp import McpServerConfig
+from ai_infra.mcp.client.models import McpServerConfig
 from ai_infra.mcp.client.core import CoreMCPClient
 
 cfg = [

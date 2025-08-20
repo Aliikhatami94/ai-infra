@@ -1,7 +1,7 @@
 # ai_infra/mcp/models.py
 from __future__ import annotations
-from typing import Optional, List, Dict, Any, Literal, Awaitable, Callable
-from pydantic import BaseModel, model_validator, Field
+from typing import Optional, List, Dict, Any, Literal
+from pydantic import BaseModel, model_validator
 
 class McpServerConfig(BaseModel):
     transport: Literal["stdio", "streamable_http", "sse"]

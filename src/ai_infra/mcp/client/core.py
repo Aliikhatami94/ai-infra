@@ -17,7 +17,7 @@ from mcp.client.stdio import stdio_client
 from mcp.client.streamable_http import streamablehttp_client
 from mcp.client.sse import sse_client
 
-from ai_infra.mcp.models import McpServerConfig, ToolDef
+from ai_infra.mcp.client.models import McpServerConfig
 
 
 class CoreMCPClient:

@@ -1,5 +1,5 @@
 # Model setup
-from ai_infra.mcp.models import (
+from ai_infra.mcp.client.models import (
     McpServerConfig,
 )
 
