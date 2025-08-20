@@ -2,7 +2,7 @@ from __future__ import annotations
 import json, base64
 import httpx
 from pathlib import Path
-from typing import Optional, Any, Dict, List, Union, Callable
+from typing import Optional, Any, Dict, List, Union, Callable, Awaitable
 from pydantic import BaseModel, Field, create_model, ConfigDict, conlist
 from mcp.server.fastmcp import FastMCP
 
@@ -267,7 +267,7 @@ def _mcp_from_openapi(
         client: httpx.AsyncClient | None = None,
         client_factory: Callable[[], httpx.AsyncClient] | None = None,
         base_url: str | None = None,
-) -> FastMCP:
+) -> tuple[FastMCP, Optional[Callable[[], Awaitable[None]]]]:
     if not isinstance(spec, dict):
         spec = load_openapi(spec)
 
@@ -288,26 +288,24 @@ def _mcp_from_openapi(
 
             op_ctx = _make_operation_context(path, method, path_item, op)
             effective_base = (
-                    (base_url or "").rstrip("/")                           # explicit override wins
+                    (base_url or "").rstrip("/")
                     or (str(getattr(getattr(client, "base_url", None), "human_repr", lambda: "")()) or "").rstrip("/")
-                    or pick_effective_base_url(spec, None, None, override=None)   # servers[] at op/path/root
+                    or pick_effective_base_url(spec, None, None, override=None)
             )
 
             _register_operation_tool(
                 mcp,
                 client=client,
-                base_url=effective_base,
+                base_url=effective_base or "",
                 spec=spec,
                 op=op,
                 op_ctx=op_ctx,
             )
 
+    async_cleanup: Optional[Callable[[], Awaitable[None]]] = None
     if own_client:
-        @mcp.lifespan
-        async def _lifespan(_state):
-            try:
-                yield
-            finally:
-                await client.aclose()
+        async def _cleanup() -> None:
+            await client.aclose()
+        async_cleanup = _cleanup
 
-    return mcp
+    return mcp, async_cleanup

@@ -1,16 +1,14 @@
 from __future__ import annotations
 
-import json
 import httpx
 import contextlib
 import importlib
 import logging
 from pathlib import Path
-from typing import Any, Iterable, Optional, Union, Callable, Awaitable, Dict
+from typing import Any, Iterable, Optional, Union, Callable, Awaitable
 
 from .models import MCPMount
 from ai_infra.mcp.server.openapi import _mcp_from_openapi
-from ai_infra.mcp.server.openmcp import _mcp_from_openmcp
 from ai_infra.mcp.server.tools import _mcp_from_tools, ToolDef, ToolFn
 
 try:
@@ -118,54 +116,25 @@ class CoreMCPServer:
             path: str,
             spec: Union[dict, str, Path],
             *,
-            transport: str = "streamable_http",  # <— default, but configurable
+            transport: str = "streamable_http",
             client: httpx.AsyncClient | None = None,
             client_factory: Callable[[], httpx.AsyncClient] | None = None,
             base_url: str | None = None,
             name: str | None = None,
     ) -> "CoreMCPServer":
-        """
-        Build an MCP server from an OpenAPI spec and mount it at `path` using the selected transport.
-        """
-        mcp = _mcp_from_openapi(
+        mcp, async_cleanup = _mcp_from_openapi(
             spec,
             client=client,
             client_factory=client_factory,
             base_url=base_url,
         )
-        # Reuse the same logic you already have for FastMCP mounting:
         return self.add_fastmcp(
             mcp,
             path,
             transport=transport,
             name=name,
-            # require_manager stays auto-inferred in add_fastmcp/add_app
-        )
-
-    def add_openmcp(
-            self,
-            path: str,
-            *,
-            doc: Dict[str, Any],
-            transport: str = "streamable_http",
-            name: Optional[str] = None,
-            executor: Optional[Callable[[str, Dict[str, Any]], Awaitable[Any]]] = None,
-            client_config: Optional[Dict[str, Any]] = None,
-            require_manager: Optional[bool] = None,
-    ) -> "CoreMCPServer":
-        """
-        Mount an MCP derived from an OpenMCP doc.
-
-        If `executor` is None, we auto-proxy to the remote MCP described in `doc.server`,
-        or to an explicit `client_config` (CoreMCPClient config dict).
-        """
-        mcp = _mcp_from_openmcp(doc, executor=executor, client_config=client_config, name=name)
-        return self.add_fastmcp(
-            mcp,
-            path,
-            transport=transport,
-            name=name,
-            require_manager=require_manager,
+            require_manager=None,
+            async_cleanup=async_cleanup,
         )
 
     def add_tools(
