@@ -52,7 +52,7 @@ class CoreMCPClient:
 
     @staticmethod
     def _safe_schema(schema: Any) -> Any:
-        """Return a JSON-serializable schema (handles Pydantic v1/v2/str/dict/None)."""
+        """Return a JSON-serializable schema object (handles Pydantic v1/v2/str/dict/None)."""
         if schema is None:
             return None
         if hasattr(schema, "model_json_schema"):  # pydantic v2
@@ -71,7 +71,7 @@ class CoreMCPClient:
 
     @staticmethod
     def _safe_description(desc: Any) -> str:
-        return desc if (isinstance(desc, str) and desc.strip()) else "No description provided."
+        return desc if (isinstance(desc, str) and desc.strip()) else None
 
     # ---------- utils ----------
 
@@ -274,21 +274,6 @@ class CoreMCPClient:
         ms_client = await self.list_clients()
         return await ms_client.get_tools()
 
-    async def get_metadata(self):
-        """Return lightweight metadata: discovered names + available tools."""
-        ms_client = await self.list_clients()
-        out: List[Dict[str, Any]] = []
-        for name in self.server_names():
-            async with ms_client.session(name) as session:
-                tools = await load_mcp_tools(session)
-            out.append({
-                "name": name,
-                "tools": [ToolDef(name=t.name, description=t.description).model_dump(exclude_none=True) for t in tools],
-            })
-        return out
-
-    # ---------- NEW: MCPS-style doc ----------
-
     async def get_openmcp(
             self,
             server_name: Optional[str] = None,
@@ -296,13 +281,13 @@ class CoreMCPClient:
             schema_url: str = "https://meta.local/schemas/mcps-0.1.json",
     ) -> Dict[str, Any]:
         """
-        Build an OpenAPI-like MCP Spec (MCPS) for one discovered server.
-        All high-level fields (title/description/version) come from the server's
-        initialize() metadata captured as session.mcp_server_info.
+        Build an OpenAPI-like MCP Spec (MCPS) document for one server.
+        All high-level fields are read from the server's initialize() metadata.
         """
         if not self._discovered:
             await self.discover()
 
+        # choose target server
         target = server_name or (self.server_names()[0] if self.server_names() else None)
         if not target:
             raise RuntimeError("No servers discovered; cannot generate docs.")
@@ -310,36 +295,37 @@ class CoreMCPClient:
         cfg = self._by_name[target]
         ms_client = await self.list_clients()
 
-        server_info: Dict[str, Any] = {}
         tools: List[Dict[str, Any]] = []
         prompts: List[Dict[str, Any]] = []
         resources: List[Dict[str, Any]] = []
         templates: List[Dict[str, Any]] = []
         roots: List[Dict[str, Any]] = []
+        server_info: Dict[str, Any] = {}
 
         async with ms_client.session(target) as session:
-            # ---- server_info from initialize()
+            # server metadata captured at initialize() in self._open_session_from_config
             server_info = getattr(session, "mcp_server_info", {}) or {}
 
-            # ---- tools
+            # tools
             try:
                 listed = await session.list_tools()
+                listed = listed.tools
             except Exception:
                 listed = []
+
             for t in listed:
-                args_schema = self._attr_or(t, "inputSchema") or self._attr_or(t, "args_schema")
-                out_schema  = self._attr_or(t, "outputSchema") or self._attr_or(t, "output_schema")
                 tools.append({
-                    "name": self._attr_or(t, "name"),
-                    "description": self._safe_description(self._attr_or(t, "description")),
-                    "args_schema": self._safe_schema(args_schema),
-                    "output_schema": self._safe_schema(out_schema),
+                    "name": getattr(t, "name", None),
+                    "description": getattr(t, "description", None),
+                    "args_schema": getattr(t, "inputSchema", None) or getattr(t, "args_schema", None),
+                    "output_schema": getattr(t, "outputSchema", None) or getattr(t, "output_schema", None),
                     "examples": [],
                 })
 
-            # ---- prompts
+            # prompts
             try:
                 pl = await session.list_prompts()
+                pl = pl.prompts
                 for p in pl:
                     prompts.append({
                         "name": self._attr_or(p, "name"),
@@ -349,9 +335,10 @@ class CoreMCPClient:
             except Exception:
                 pass
 
-            # ---- resources
+            # resources
             try:
                 rl = await session.list_resources()
+                rl = rl.resources
                 for r in rl:
                     resources.append({
                         "uri": self._attr_or(r, "uri"),
@@ -363,7 +350,7 @@ class CoreMCPClient:
             except Exception:
                 pass
 
-            # ---- resource templates
+            # resource templates
             try:
                 tl = await session.list_resource_templates()
                 for tpl in tl:
@@ -384,7 +371,7 @@ class CoreMCPClient:
             except Exception:
                 pass
 
-            # ---- roots
+            # roots
             try:
                 base_roots = await session.list_roots()
                 for root in base_roots:
@@ -396,10 +383,11 @@ class CoreMCPClient:
             except Exception:
                 pass
 
-        # “endpoint” shown in docs
+        # derive endpoint for docs
         endpoint = cfg.url or cfg.command or "stdio"
 
-        # Pull title/description/version from server_info
+        # pull human-facing fields from server_info
+        # prefer explicit server-provided fields; fall back to target name
         title = (server_info.get("name") or target or "MCP Server")
         description = self._safe_description(server_info.get("description"))
         version = (
@@ -408,7 +396,7 @@ class CoreMCPClient:
                 or "0.1.0"
         )
 
-        # Capabilities: prefer server-declared, fall back to inference
+        # capabilities: prefer server-declared, else infer
         info_caps = server_info.get("capabilities") or {}
         inferred_caps = {
             "tools": bool(tools),
@@ -427,9 +415,9 @@ class CoreMCPClient:
                 "version": version,
             },
             "server": {
-                "name": title,                 # human-friendly
-                "transport": cfg.transport,    # stdio | streamable_http | sse
-                "endpoint": endpoint,          # URL or command
+                "name": title,
+                "transport": cfg.transport,
+                "endpoint": endpoint,
                 "capabilities": capabilities,
             },
             "tools": tools,
