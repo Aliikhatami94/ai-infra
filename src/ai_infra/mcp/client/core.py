@@ -17,6 +17,7 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from mcp.client.streamable_http import streamablehttp_client
 from mcp.client.sse import sse_client
+from pydantic import BaseModel
 
 from ai_infra.mcp.client.models import McpServerConfig
 from ai_infra.mcp.server.tools import ToolDef
@@ -51,32 +52,19 @@ class CoreMCPClient:
         return default
 
     @staticmethod
-    def _safe_schema(schema: Any) -> Any:
-        # JSON-serializable best-effort
-        if schema is None:
+    def _safe_schema(maybe_model: Any) -> Dict[str, Any] | None:
+        if maybe_model is None:
             return None
-        # pydantic v2 models
-        if hasattr(schema, "model_json_schema"):
-            try:
-                return schema.model_json_schema()
-            except Exception:
-                pass
-        # pydantic v1 models
-        if hasattr(schema, "schema"):
-            try:
-                return schema.schema()
-            except Exception:
-                pass
-        if isinstance(schema, dict):
-            return schema
-        if isinstance(schema, str):
-            import json as _json
-            try:
-                return _json.loads(schema)
-            except Exception:
-                return {"description": schema}
-        # last resort
-        return {"description": str(schema)}
+        try:
+            if isinstance(maybe_model, type) and issubclass(maybe_model, BaseModel):
+                return maybe_model.model_json_schema()
+            if hasattr(maybe_model, "model_json_schema"):
+                return maybe_model.model_json_schema()
+            if isinstance(maybe_model, dict):
+                return maybe_model
+            return None
+        except Exception:
+            return None
 
     @staticmethod
     def _safe_text(desc: Any) -> Optional[str]:
