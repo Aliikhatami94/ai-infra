@@ -5,5 +5,4 @@ client = CoreMCPClient([
     {"transport": "stdio", "command": "npx", "args": ["-y", "wikipedia-mcp"]},
     {"transport": "streamable_http", "url": "http://0.0.0.0:8000/api/mcp"},
 ])
-doc = asyncio.run(client.get_openmcp())
-print(doc)
+doc = asyncio.run(client.list_openmcp())
