@@ -155,15 +155,10 @@ def _make_tool_handler(
     return _handler, in_schema, out_schema
 
 def _register_tool_with_fallback(mcp, td, handler, in_schema, out_schema):
-    """
-    Register a tool with FastMCP. If this FastMCP version supports schema kwargs,
-    use them; otherwise, fall back to name/description only.
-    """
     name = td.get("name")
     desc = (td.get("description") or None)
-
-    # Try modern signature first
     try:
+        # Newer FastMCP
         return mcp.tool(
             name=name,
             description=desc,
@@ -171,11 +166,8 @@ def _register_tool_with_fallback(mcp, td, handler, in_schema, out_schema):
             output_schema=out_schema,
         )(handler)
     except TypeError:
-        # Older FastMCP: no schema kwargs supported
-        return mcp.tool(
-            name=name,
-            description=desc,
-        )(handler)
+        # Older FastMCP
+        return mcp.tool(name=name, description=desc)(handler)
 
 def _register_prompts_resources(
         mcp: FastMCP,
@@ -185,15 +177,18 @@ def _register_prompts_resources(
         server_name: str,
 ):
     """
-    Best-effort to expose prompts/resources/roots. In proxy mode, forward to backend.
-    In stub mode they list but read returns NotImplemented.
+    Register prompts and concrete resources described in the OpenMCP doc.
+
+    - Prompts: expose helper prompt handlers (optional).
+    - Resources: register each concrete resource by its actual URI.
+      We DO NOT register fake URIs like 'list' or 'templates' – FastMCP
+      will handle ListResources by returning all registered URIs.
     """
-    # Prompts (list + get)
+    # ---- Prompts (optional helpers) ----
     prompts = doc.get("prompts") or []
     if prompts:
         @mcp.prompt("list")
         async def _list_prompts():
-            # MCPS doc-level listing
             return [{"name": p.get("name"), "description": p.get("description")} for p in prompts]
 
         @mcp.prompt("get")
@@ -203,41 +198,52 @@ def _register_prompts_resources(
                     return p
             raise ValueError(f"Prompt '{name}' not found.")
 
-    # Resources (list + read)
+    # ---- Resources (register each concrete URI) ----
     resources = doc.get("resources") or []
     if resources:
-        @mcp.resource("list")
-        async def _list_resources():
-            return resources
+        for r in resources:
+            uri = r.get("uri")
+            if not uri or not isinstance(uri, str):
+                continue  # skip invalid entries
 
-        @mcp.resource("read")
-        async def _read_resource(uri: str):
             if backend_cfg is None:
-                raise NotImplementedError("No backend to read resources from.")
-            # Proxy read via client:
-            client = CoreMCPClient([backend_cfg.model_dump()])
-            await client.discover()
-            names = client.server_names()
-            target = server_name if server_name in names else (names[0] if len(names) == 1 else None)
-            if not target:
-                raise RuntimeError("Backend not available to read resource.")
-            async with client.get_client(target) as session:
-                res = await session.read_resource(uri)
-                # Return raw (FastMCP will serialize content)
-                return res
+                # Stub: we can register the URI, but reads will raise
+                @mcp.resource(uri)  # bind current uri via default arg
+                async def _stub_read(_uri=uri):
+                    raise NotImplementedError(f"No backend to read resource: {_uri}")
+            else:
+                # Proxy: forward read to backend MCP
+                @mcp.resource(uri)
+                async def _proxy_read(_uri=uri):
+                    client = CoreMCPClient([backend_cfg.model_dump()])
+                    await client.discover()
+                    names = client.server_names()
+                    target = server_name if server_name in names else (names[0] if len(names) == 1 else None)
+                    if not target:
+                        raise RuntimeError("Backend not available to read resource.")
+                    async with client.get_client(target) as session:
+                        res = await session.read_resource(_uri)
+                        return res
 
-    # Resource templates (list)
-    templates = doc.get("resource_templates") or []
-    if templates:
-        @mcp.resource("templates")
-        async def _list_templates():
-            return templates
-    # Roots (list)
-    roots = doc.get("roots") or []
-    if roots:
-        @mcp.resource("roots")
-        async def _list_roots():
-            return roots
+    # ---- Resource templates / roots ----
+    # If your FastMCP version has explicit APIs for templates/roots,
+    # use them here. Otherwise, we skip registering them as resources
+    # (to avoid invalid URIs like 'templates'), and rely on the doc
+    # returned by get_openmcp() to advertise their presence.
+    #
+    # Example (if available in your FastMCP):
+    #
+    # for tpl in (doc.get("resource_templates") or []):
+    #     mcp.resource_template(
+    #         uri_template=tpl.get("uri_template"),
+    #         name=tpl.get("name"),
+    #         description=tpl.get("description"),
+    #         mimeType=tpl.get("mime_type"),
+    #         variables=tpl.get("variables") or [],
+    #     )
+    #
+    # for root in (doc.get("roots") or []):
+    #     mcp.add_root(uri=root.get("uri"), name=root.get("name"), description=root.get("description"))
 
 
 def _mcp_from_openmcp(
@@ -277,14 +283,12 @@ def _mcp_from_openmcp(
         tool_name = td.get("name")
         if not tool_name:
             continue
-
         handler, in_schema, out_schema = _make_tool_handler(
             td,
             backend_cfg=backend_cfg_model,
             handlers=handlers,
             server_name=server_name,
         )
-
         _register_tool_with_fallback(mcp, td, handler, in_schema, out_schema)
 
     # Prompts / resources / roots
