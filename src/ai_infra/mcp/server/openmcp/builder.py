@@ -1,10 +1,11 @@
-# ai_infra/mcp/server/openmcp.py
 from __future__ import annotations
 
 import asyncio
 import json
 from typing import Any, Dict, Optional, Callable, Awaitable, List
+from pathlib import Path
 
+import httpx
 from jsonschema import Draft7Validator, ValidationError  # pip install jsonschema
 from mcp.server.fastmcp import FastMCP
 from mcp.server.stdio import stdio_server  # only for completeness if ever used directly
@@ -279,3 +280,59 @@ def _mcp_from_openmcp(
     )
 
     return mcp
+
+# --- NEW helper ---
+def _select_openmcp_doc(
+        openmcp: Dict[str, Any] | str | Path,
+        *,
+        select: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Accepts:
+      - a single MCPS doc (dict with 'server'/'tools' keys) -> returns it
+      - a bundle mapping {name -> MCPS doc}                 -> selects one entry
+
+    If `openmcp` is a str/Path, it will be loaded (file or http(s) URL).
+    """
+    # 1) Load if needed
+    if not isinstance(openmcp, dict):
+        val = str(openmcp)
+        if val.startswith("http://") or val.startswith("https://"):
+            with httpx.Client(timeout=15.0) as c:
+                r = c.get(val)
+                r.raise_for_status()
+                data = r.json()
+        else:
+            p = Path(val)
+            if not p.exists():
+                raise FileNotFoundError(f"OpenMCP file not found: {p}")
+            data = json.loads(p.read_text())
+    else:
+        data = openmcp
+
+    # 2) Single MCPS doc?
+    if isinstance(data.get("server"), dict) or isinstance(data.get("tools"), list):
+        return data  # looks like a single spec
+
+    # 3) Otherwise expect a bundle {name -> doc}
+    if not isinstance(data, dict):
+        raise ValueError("OpenMCP input must be a MCPS document dict or a bundle {name: doc}.")
+
+    keys = list(data.keys())
+    if select:
+        if select not in data:
+            raise ValueError(
+                f"OpenMCP bundle does not contain '{select}'. "
+                f"Available: {', '.join(keys) or '(none)'}"
+            )
+        return data[select]
+
+    if len(keys) == 1:
+        # Only one entry, just return it
+        return data[keys[0]]
+
+    # Ambiguous bundle: require selection
+    raise ValueError(
+        "OpenMCP input appears to be a bundle of multiple servers. "
+        f"Specify which one to mount via select=... . Available: {', '.join(keys)}"
+    )

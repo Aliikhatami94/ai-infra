@@ -11,7 +11,7 @@ from typing import Any, Iterable, Optional, Union, Callable, Awaitable, Dict
 from .models import MCPMount
 from ai_infra.mcp.server.openapi import _mcp_from_openapi
 from ai_infra.mcp.server.tools import _mcp_from_tools, ToolDef, ToolFn
-from ai_infra.mcp.server.openmcp import _mcp_from_openmcp
+from ai_infra.mcp.server.openmcp import _select_openmcp_doc, _mcp_from_openmcp
 
 try:
     from starlette.applications import Starlette
@@ -278,39 +278,27 @@ class CoreMCPServer:
             name: Optional[str] = None,
             backend_config: Optional[Dict[str, Any]] = None,
             handlers: Optional[Dict[str, Callable[..., Awaitable[Any]]]] = None,
+            select: Optional[str] = None,  # <--- NEW: which entry to pick if bundle
     ) -> "CoreMCPServer":
         """
         Mount an MCP built from an OpenMCP (MCPS) document.
 
-        - `openmcp` can be:
-            * dict            -> direct document
-            * str / Path      -> filesystem path to JSON
-            * str (http URL)  -> fetch JSON from URL
-        - `backend_config`   -> McpServerConfig-like dict to enable proxy mode
-        - `handlers`         -> {tool_name: async fn} to enable handler mode
-        - default (neither)  -> stub mode (tools raise NotImplemented)
+        `openmcp` can be:
+          - dict: a single MCPS doc, or a bundle {name -> MCPS doc}
+          - str/Path: path to a JSON file, or http(s) URL pointing to a JSON
+
+        If a bundle is provided, pass `select='name'` to choose which server to mount.
+        If omitted and the bundle has exactly one entry, it is selected automatically.
+
+        `backend_config` -> McpServerConfig-like dict to enable proxy mode
+        `handlers`       -> {tool_name: async fn} to implement local tools
         """
-        doc: Dict[str, Any]
-        if isinstance(openmcp, dict):
-            doc = openmcp
-        else:
-            # load from path or URL
-            import httpx, os
-            val = str(openmcp)
-            if val.startswith("http://") or val.startswith("https://"):
-                with httpx.Client(timeout=15.0) as c:
-                    r = c.get(val)
-                    r.raise_for_status()
-                    doc = r.json()
-            else:
-                p = Path(val)
-                if not p.exists():
-                    raise FileNotFoundError(f"OpenMCP file not found: {p}")
-                doc = json.loads(p.read_text())
+        # Resolve to a single MCPS document
+        doc = _select_openmcp_doc(openmcp, select=select)
 
         mcp = _mcp_from_openmcp(
             doc,
-            name=name,
+            name=name,  # optional override
             backend_config=backend_config,
             handlers=handlers,
         )
