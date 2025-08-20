@@ -13,7 +13,7 @@ from .models import OpenAPISpec, OperationContext, BuildReport, OpReport
 from .constants import ALLOWED_METHODS
 from .runtime import (
     op_tool_name, has_request_body, extract_body_content_type, merge_parameters,
-    split_params, pick_effective_base_url,
+    split_params, pick_effective_base_url, pick_effective_base_url_with_source,
 )
 from .io import load_openapi
 
@@ -24,18 +24,20 @@ log = logging.getLogger(__name__)
 def _maybe_log_report(report: BuildReport, report_log: bool) -> None:
     if not report_log:
         return
-    # concise single-line summary
-    log.info("[OpenAPI→MCP] title=%s tools=%d/%d skipped=%d warnings=%d",
-             report.title, report.registered_tools, report.total_ops,
-             report.skipped_ops, len(report.warnings))
-    # verbose per-op (debug)
+    log.info(
+        "[OpenAPI→MCP] title=%s tools=%d/%d skipped=%d warnings=%d",
+        report.title, report.registered_tools, report.total_ops,
+        report.skipped_ops, len(report.warnings)
+    )
     for op in report.ops:
         log.debug(
-            "[OpenAPI→MCP] %s %s -> tool=%s base=%s params={path:%d query:%d header:%d cookie:%d} body(%s, req=%s) warn=%s",
-            op.method, op.path, op.tool_name, op.base_url,
+            "[OpenAPI→MCP] %s %s -> tool=%s base=%s (%s) params={path:%d query:%d header:%d cookie:%d} "
+            "body(%s, req=%s) fields=%d media=%s warn=%s",
+            op.method, op.path, op.tool_name, op.base_url, op.base_url_source,
             op.params.get("path", 0), op.params.get("query", 0),
             op.params.get("header", 0), op.params.get("cookie", 0),
-            op.body_content_type, op.body_required, op.warnings
+            op.body_content_type, op.body_required, op.input_model_fields,
+            op.media_types_seen, op.warnings
         )
     for w in report.warnings:
         log.warning("[OpenAPI→MCP][global-warning] %s", w)
@@ -184,9 +186,50 @@ def _register_operation_tool(
         op: dict,
         op_ctx: OperationContext,
         report: BuildReport,
+        base_url_source: str,                # <-- NEW: pass provenance in
 ) -> None:
     warnings: List[str] = []
+
+    # --- body/media-type inspection (for diagnostics only)
+    media_types = list(((op.get("requestBody") or {}).get("content") or {}).keys())
+    if op_ctx.wants_body and media_types and op_ctx.body_content_type not in media_types:
+        warnings.append(
+            f"Chosen content-type {op_ctx.body_content_type!r} not present in requestBody keys={media_types!r}"
+        )
+    if len(media_types) > 1:
+        preferred = ("application/json", "application/x-www-form-urlencoded", "multipart/form-data", "text/plain")
+        if not any(mt in preferred for mt in media_types):
+            warnings.append(f"Multiple body media types; defaulting to {op_ctx.body_content_type!r}")
+
+    # --- param support checks
+    for p in (op.get("parameters") or []):
+        if p.get("deprecated"):
+            warnings.append(f"Parameter '{p.get('name')}' is deprecated")
+        style = p.get("style")
+        explode = p.get("explode")
+        if style not in (None, "form", "simple", "matrix", "label", "spaceDelimited", "pipeDelimited", "deepObject"):
+            warnings.append(f"Unrecognized style={style!r} for param '{p.get('name')}'")
+        if explode not in (None, True, False):
+            warnings.append(f"Unrecognized explode={explode!r} for param '{p.get('name')}'")
+
+    # --- request body existence vs required mismatch
+    if op_ctx.wants_body and op_ctx.body_required:
+        rb = (op.get("requestBody") or {})
+        content = (rb.get("content") or {})
+        schema_obj = (content.get(op_ctx.body_content_type) or {}).get("schema")
+        if schema_obj is None:
+            warnings.append("requestBody is required but missing a schema for selected content-type")
+
+    # --- servers variable placeholders
+    # catch most common "{var}" segments that we don't expand here
+    def _has_var(url: str) -> bool:
+        return "{" in url and "}" in url
+    if base_url and _has_var(base_url):
+        warnings.append(f"Base URL contains server variables; not expanded: {base_url!r}")
+
     InputModel = _build_input_model(op_ctx, path_item={}, op=op)
+    input_field_count = len(getattr(InputModel, "model_fields", {}))  # pydantic v2
+
     security = SecurityResolver.from_spec(spec, op)
 
     # flag unfamiliar/less-supported body content-types
@@ -197,15 +240,15 @@ def _register_operation_tool(
         warnings.append(f"Unsupported content-type mapped as raw data: {op_ctx.body_content_type!r}")
 
     if not base_url:
-        warnings.append("No effective base URL: spec.servers empty and no base_url override; tool will require _base_url.")
+        warnings.append("No effective base URL: spec.servers empty and no override; tool will require _base_url.")
 
-    # Save op report skeleton now; we’ll append warnings after tool add
     op_rep = OpReport(
         operation_id=op.get("operationId"),
         tool_name=op_ctx.name,
         method=op_ctx.method,
         path=op_ctx.path,
         base_url=base_url or "",
+        base_url_source=base_url_source,          # <-- record where it came from
         has_body=op_ctx.wants_body,
         body_content_type=op_ctx.body_content_type,
         body_required=op_ctx.body_required,
@@ -216,6 +259,8 @@ def _register_operation_tool(
             "cookie": len(op_ctx.cookie_params),
         },
         security=security.as_dict(),
+        input_model_fields=input_field_count,
+        media_types_seen=media_types,
         warnings=[],
     )
 
@@ -360,12 +405,10 @@ def _mcp_from_openapi(
         own_client = True
 
     mcp = FastMCP(title)
-
-    # detect opId collisions
     seen_tool_names: set[str] = set()
-
     paths = spec.get("paths") or {}
     total_ops = 0
+
     for path, path_item in paths.items():
         if not isinstance(path_item, dict):
             report.warnings.append(f"Path item is not an object: {path}")
@@ -376,10 +419,11 @@ def _mcp_from_openapi(
             total_ops += 1
 
             op_ctx = _make_operation_context(path, method, path_item, op)
-            # enforce unique tool names
+
+            # unique names
             base_tool = op_ctx.name
             if base_tool in seen_tool_names:
-                msg = f"Duplicate tool name '{base_tool}' from operationId or path; renaming."
+                msg = f"Duplicate tool name '{base_tool}' from operationId/path; renaming."
                 if strict_names:
                     raise ValueError(msg)
                 report.warnings.append(msg)
@@ -391,10 +435,9 @@ def _mcp_from_openapi(
                 op_ctx.name = new_name
             seen_tool_names.add(op_ctx.name)
 
-            effective_base = (
-                    (base_url or "").rstrip("/")
-                    or (str(getattr(getattr(client, "base_url", None), "human_repr", lambda: "")()) or "").rstrip("/")
-                    or pick_effective_base_url(spec, None, None, override=None)
+            # correct per-op base URL with provenance
+            effective_base, source = pick_effective_base_url_with_source(
+                spec, path_item, op, override=base_url
             )
 
             try:
@@ -406,6 +449,7 @@ def _mcp_from_openapi(
                     op=op,
                     op_ctx=op_ctx,
                     report=report,
+                    base_url_source=source,       # <-- pass provenance
                 )
                 report.registered_tools += 1
             except Exception as e:

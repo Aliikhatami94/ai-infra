@@ -33,11 +33,13 @@ class OpReport:
     method: str
     path: str
     base_url: str
+    base_url_source: str
     has_body: bool
     body_content_type: Optional[str]
     body_required: bool
-    params: Dict[str, int]  # counts: path/query/header/cookie
-    security: Dict[str, Any]  # best-effort
+    params: Dict[str, int]
+    security: Dict[str, Any]
+    input_model_fields: int = 0
     warnings: List[str] = field(default_factory=list)
 
 @dataclass

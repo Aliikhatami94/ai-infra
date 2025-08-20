@@ -13,13 +13,24 @@ def op_tool_name(path: str, method: str, opid: Optional[str]) -> str:
         return sanitize_tool_name(opid)
     return sanitize_tool_name(f"{method.lower()}_{path.strip('/').replace('/', '_')}")
 
-def pick_base_url(spec: OpenAPISpec, override: Optional[str] = None) -> str:
+def pick_effective_base_url_with_source(
+        spec: OpenAPISpec,
+        path_item: Dict[str, Any] | None,
+        op: Operation | None,
+        override: Optional[str],
+) -> tuple[str, str]:
+    """
+    Returns (url, source) where source ∈ {"override","operation","path","root","none"}.
+    """
     if override:
-        return override.rstrip("/")
-    servers = spec.get("servers") or []
-    if servers:
-        return str(servers[0].get("url", "")).rstrip("/") or ""
-    return ""
+        return override.rstrip("/"), "override"
+    for source, node in (("operation", op or {}), ("path", path_item or {}), ("root", spec or {})):
+        servers = node.get("servers") or []
+        if servers:
+            url = str(servers[0].get("url", "")).rstrip("/")
+            if url:
+                return url, source
+    return "", "none"
 
 def collect_params(op: Operation) -> Dict[str, List[Dict[str, Any]]]:
     out = {"path": [], "query": [], "header": []}
