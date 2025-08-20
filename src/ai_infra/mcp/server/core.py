@@ -32,7 +32,7 @@ class MCPMount:
 
 
 class CoreMCPServer:
-    def __init__(self, *, strict: bool = True, health_path: str = "/healthz") -> None:
+    def __init__(self, *, strict: bool = True, health_path: str = "/health") -> None:
         self._strict = strict
         self._health_path = health_path
         self._mounts: list[MCPMount] = []
@@ -187,58 +187,41 @@ class CoreMCPServer:
             base_url: str | None = None,
             name: str | None = None,
             transport: str = "streamable_http",
-            # If you want to force providing the spec (e.g., for remote):
             spec: dict | str | Path | None = None,
             openapi_url: str = "/openapi.json",
             client: httpx.AsyncClient | None = None,
             client_factory: Callable[[], httpx.AsyncClient] | None = None,
+            headers: dict[str, str] | None = None,
+            timeout: float | httpx.Timeout | None = 30.0,
+            verify: bool | str | None = True,
+            auth: httpx.Auth | tuple[str, str] | None = None,
     ) -> "CoreMCPServer":
         """
         Convert a FastAPI app (local) or a remote FastAPI service into an MCP server.
-
-        - Same-process mode (recommended):
-            pass `app` (FastAPI instance). We'll:
-              * get spec via `app.openapi()` (dict)
-              * call routes with httpx.ASGITransport(app=app) (no network)
-
-        - Remote mode:
-            pass `base_url` (e.g. "https://api.example.com").
-            Provide `spec` (dict/filepath), or we'll fetch from `base_url + openapi_url`.
-
-        Other params are forwarded to the OpenAPI->MCP builder and the MCP mounting.
         """
-        # --- Resolve OpenAPI spec ---
-        resolved_spec: dict
-        if isinstance(spec, dict):
+
+        # ---------- resolve OpenAPI spec ----------
+        resolved_spec: dict | str | Path | None = None
+
+        if isinstance(spec, dict) or isinstance(spec, (str, Path)):
             resolved_spec = spec
-        elif isinstance(spec, (str, Path)):
-            # Let the OpenAPI builder normalize file/string; just pass through
-            resolved_spec = spec  # type: ignore[assignment]
         elif app is not None:
             if not hasattr(app, "openapi"):
                 raise TypeError("Provided `app` does not look like a FastAPI application (missing .openapi())")
             resolved_spec = app.openapi()
-        else:
-            # Remote FastAPI: need a base URL (from param or client.base_url)
-            effective_base = base_url
-            if not effective_base and client is not None:
-                try:
-                    effective_base = str(client.base_url) or None
-                except Exception:
-                    effective_base = None
-            if not effective_base:
-                raise ValueError("Remote FastAPI requires either `base_url` or a `client` with base_url.")
-            # Fetch spec synchronously to avoid async-at-import issues
-            url = effective_base.rstrip("/") + openapi_url
-            with httpx.Client(timeout=30.0) as sync_client:
+        elif base_url:
+            url = base_url.rstrip("/") + openapi_url
+            with httpx.Client(headers=headers, timeout=timeout, verify=verify, auth=auth) as sync_client:
                 resp = sync_client.get(url)
                 resp.raise_for_status()
                 resolved_spec = resp.json()
+        else:
+            raise ValueError("You must provide either `app`, `base_url`, or an explicit `spec`.")
 
-        # --- Resolve HTTP client for tools ---
+        # ---------- resolve Async client for tools ----------
+        own_client = False
         if client is not None:
             tools_client = client
-            own_client = False
         elif client_factory is not None:
             tools_client = client_factory()
             own_client = True
@@ -246,33 +229,43 @@ class CoreMCPServer:
             transport_obj = httpx.ASGITransport(app=app)
             tools_client = httpx.AsyncClient(
                 transport=transport_obj,
-                base_url=base_url or "http://fastapi.local",
+                base_url=base_url or "http://app.local",
+                headers=headers,
+                timeout=timeout,
+                verify=verify,
+                auth=auth,
+            )
+            own_client = True
+        elif base_url:
+            tools_client = httpx.AsyncClient(
+                base_url=base_url,
+                headers=headers,
+                timeout=timeout,
+                verify=verify,
+                auth=auth,
             )
             own_client = True
         else:
-            # Remote mode without provided client: base_url is guaranteed above
-            if not base_url:
-                raise ValueError("Remote FastAPI mode requires `base_url` when no `client`/`client_factory` is given.")
-            tools_client = httpx.AsyncClient(base_url=base_url, timeout=30.0)
-            own_client = True
+            raise ValueError("Unable to build AsyncClient: no `app`, no `base_url`, and no provided client.")
 
-        # Infer base URL for the tool builder:
+        # ---------- infer base_url ----------
         inferred_base = base_url
         if inferred_base is None:
             try:
-                inferred_base = str(tools_client.base_url) or None  # httpx.URL('') -> ''
+                inferred_base = str(tools_client.base_url) or None
             except Exception:
                 inferred_base = None
+        if inferred_base is None and app is not None:
+            inferred_base = "http://app.local"
 
-        # --- Build MCP server from spec ---
+        # ---------- build MCP ----------
         mcp = _mcp_from_openapi(
             resolved_spec,
             client=tools_client,
             client_factory=None,
-            base_url=inferred_base,  # allow spec.servers/_base_url to override per-call
+            base_url=inferred_base,
         )
 
-        # Ensure the async client we created is closed on shutdown
         async_cleanup = (tools_client.aclose if own_client else None)
         resolved_name = name or (getattr(app, "title", None) if app is not None else None)
 
