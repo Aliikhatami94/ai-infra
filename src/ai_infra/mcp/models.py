@@ -3,13 +3,6 @@ from __future__ import annotations
 from typing import Optional, List, Dict, Any, Literal, Awaitable, Callable
 from pydantic import BaseModel, model_validator, Field
 
-ToolFn = Callable[..., str | Awaitable[str]]
-
-class ToolDef(BaseModel):
-    fn: Optional[ToolFn] = Field(default=None, exclude=True)
-    name: Optional[str] = None
-    description: Optional[str] = None
-
 class McpServerConfig(BaseModel):
     transport: Literal["stdio", "streamable_http", "sse"]
 

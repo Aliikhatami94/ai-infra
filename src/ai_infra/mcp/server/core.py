@@ -8,7 +8,8 @@ from pathlib import Path
 from dataclasses import dataclass
 from typing import Any, Iterable, Optional, Union, Callable
 
-from ai_infra.mcp.server.openapi import openapi_to_mcp
+from ai_infra.mcp.server.openapi import _mcp_from_openapi
+from ai_infra.mcp.server.tools import _mcp_from_tools, ToolDef, ToolFn
 
 try:
     from starlette.applications import Starlette
@@ -124,7 +125,6 @@ class CoreMCPServer:
         # Else assume it's an ASGI app
         return self.add_app(path, obj, name=name, require_manager=require_manager)
 
-
     def add_openapi(
             self,
             path: str,
@@ -139,7 +139,7 @@ class CoreMCPServer:
         """
         Build an MCP server from an OpenAPI spec and mount it at `path` using the selected transport.
         """
-        mcp = openapi_to_mcp(
+        mcp = _mcp_from_openapi(
             spec,
             client=client,
             client_factory=client_factory,
@@ -152,6 +152,35 @@ class CoreMCPServer:
             transport=transport,
             name=name,
             # require_manager stays auto-inferred in add_fastmcp/add_app
+        )
+
+    def add_tools(
+            self,
+            path: str,
+            *,
+            tools: Iterable[Union[ToolFn, ToolDef]] | None,
+            name: Optional[str] = None,
+            transport: str = "streamable_http",
+            require_manager: Optional[bool] = None,  # None = auto
+    ) -> "CoreMCPServer":
+        """
+        Build a FastMCP server from in-code tools and mount it.
+
+        Example:
+            server.add_tools(
+                "/my-tools",
+                tools=[say_hello, ToolDef(fn=foo, name="foo", description="...")],
+                name="my-tools",
+                transport="streamable_http",
+            )
+        """
+        mcp = _mcp_from_tools(name=name, tools=tools)
+        return self.add_fastmcp(
+            mcp,
+            path,
+            transport=transport,
+            name=name,
+            require_manager=require_manager,
         )
 
     # ---------- mounting + lifespan ----------
