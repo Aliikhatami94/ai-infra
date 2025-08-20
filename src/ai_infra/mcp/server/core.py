@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import httpx
 import contextlib
 import importlib
 import logging
+from pathlib import Path
 from dataclasses import dataclass
-from typing import Any, Iterable, Optional
+from typing import Any, Iterable, Optional, Union, Callable
+
+from ai_infra.mcp.server.openapi import build_mcp_from_openapi
 
 try:
     from starlette.applications import Starlette
@@ -119,6 +123,36 @@ class CoreMCPServer:
             return self.add_fastmcp(obj, path, transport=transport, name=name, require_manager=require_manager)
         # Else assume it's an ASGI app
         return self.add_app(path, obj, name=name, require_manager=require_manager)
+
+
+    def add_openapi(
+            self,
+            path: str,
+            spec: Union[dict, str, Path],
+            *,
+            transport: str = "streamable_http",  # <— default, but configurable
+            client: httpx.AsyncClient | None = None,
+            client_factory: Callable[[], httpx.AsyncClient] | None = None,
+            base_url: str | None = None,
+            name: str | None = None,
+    ) -> "CoreMCPServer":
+        """
+        Build an MCP server from an OpenAPI spec and mount it at `path` using the selected transport.
+        """
+        mcp = build_mcp_from_openapi(
+            spec,
+            client=client,
+            client_factory=client_factory,
+            base_url=base_url,
+        )
+        # Reuse the same logic you already have for FastMCP mounting:
+        return self.add_fastmcp(
+            mcp,
+            path,
+            transport=transport,
+            name=name,
+            # require_manager stays auto-inferred in add_fastmcp/add_app
+        )
 
     # ---------- mounting + lifespan ----------
 

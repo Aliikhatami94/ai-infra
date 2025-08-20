@@ -1,34 +1,23 @@
 from __future__ import annotations
-import json
-import yaml
-import re
-import base64
+import json, yaml, re, base64
 import httpx
 from pathlib import Path
-from mcp.server.fastmcp import FastMCP
-from pydantic import BaseModel, Field, create_model, ConfigDict, conlist
 from typing import Optional, Any, Dict, List, Union, Callable
+from pydantic import BaseModel, Field, create_model, ConfigDict, conlist
+from mcp.server.fastmcp import FastMCP
 
 from .models import OpenAPISpec, OperationContext
 from .constants import ALLOWED_METHODS
 from .runtime import (
-    op_tool_name,
-    has_request_body,
-    extract_body_content_type,
-    merge_parameters,
-    split_params,
-    pick_effective_base_url,
+    op_tool_name, has_request_body, extract_body_content_type, merge_parameters,
+    split_params, pick_effective_base_url,
 )
+from .io import load_openapi
 
-__all__ = ["build_mcp_from_openapi", "load_spec"]
+__all__ = ["build_mcp_from_openapi"]
 
-# ---------------- Security Resolver -----------------
+# -------- Security Resolver --------
 class SecurityResolver:
-    """Pragmatic security handler: apiKey (header/query), http bearer/basic.
-
-    It inspects spec.components.securitySchemes and effective security (op.security or root.security).
-    Users may still override by passing _api_key, _basic_auth, or explicit header/query kwargs.
-    """
     def __init__(self, header_api_keys=None, query_api_keys=None, bearer=False, basic=False):
         self.header_api_keys = header_api_keys or []
         self.query_api_keys = query_api_keys or []
@@ -55,26 +44,19 @@ class SecurityResolver:
                     elif t == "http" and sch.get("scheme") == "basic":
                         basic = True
                     elif t == "oauth2":
-                        # Many oauth2-protected APIs ultimately expect an Authorization: Bearer <token>
                         bearer = True
                     elif t == "apiKey":
-                        where = sch.get("in")
-                        keyname = sch.get("name")
+                        where = sch.get("in"); keyname = sch.get("name")
                         if keyname:
-                            if where == "header":
-                                header_keys.append(keyname)
-                            elif where == "query":
-                                query_keys.append(keyname)
+                            if where == "header": header_keys.append(keyname)
+                            elif where == "query": query_keys.append(keyname)
         return cls(header_api_keys=header_keys, query_api_keys=query_keys, bearer=bearer, basic=basic)
 
     def apply(self, headers: dict, query: dict, kwargs: dict):
-        # merge user-provided headers first
         if "_headers" in kwargs and isinstance(kwargs["_headers"], dict):
             headers.update(kwargs.pop("_headers"))
-        # bearer token via _api_key
         if self.bearer and "_api_key" in kwargs:
             headers.setdefault("Authorization", f"Bearer {kwargs.pop('_api_key')}")
-        # basic auth via _basic_auth -> tuple/user:pass
         if self.basic and "_basic_auth" in kwargs:
             cred = kwargs.pop("_basic_auth")
             if isinstance(cred, (list, tuple)) and len(cred) == 2:
@@ -82,28 +64,13 @@ class SecurityResolver:
             else:
                 token = str(cred)
             headers.setdefault("Authorization", f"Basic {token}")
-        # apiKey mappings
         for k in list(kwargs.keys()):
             if k in self.header_api_keys:
                 headers.setdefault(k, str(kwargs.pop(k)))
             if k in self.query_api_keys:
                 query.setdefault(k, kwargs.pop(k))
 
-# --------------- Spec Loading ------------------
-
-def load_openapi(path_or_str: str | Path) -> OpenAPISpec:
-    p = Path(path_or_str)
-    text = p.read_text(encoding="utf-8") if p.exists() else str(path_or_str)
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        return yaml.safe_load(text)
-
-def load_spec(path_or_str: str | Path) -> OpenAPISpec:  # backward compat alias
-    return load_openapi(path_or_str)
-
-# --------------- Operation Context --------------
-
+# -------- Operation context --------
 def _make_operation_context(path: str, method: str, path_item: dict, op: dict) -> OperationContext:
     merged = merge_parameters(path_item, op)
     path_params, query_params, header_params, cookie_params = split_params(merged)
@@ -123,60 +90,33 @@ def _make_operation_context(path: str, method: str, path_item: dict, op: dict) -
         body_required=bool(op.get("requestBody", {}).get("required")) if wants_body else False,
     )
 
-# --------------- Tool Registration --------------
-
+# -------- Input model builder --------
 def _py_type_from_schema(schema: Dict[str, Any]) -> Any:
-    t = (schema or {}).get("type")
-    fmt = (schema or {}).get("format")
-    if t == "string":
-        return str
-    if t == "integer":
-        return int
-    if t == "number":
-        return float
-    if t == "boolean":
-        return bool
-    if t == "array":
-        items = (schema or {}).get("items") or {}
-        return List[_py_type_from_schema(items)]  # type: ignore[index]
-    if t == "object":
-        return Dict[str, Any]
-    # fallbacks
-    if fmt in {"binary", "byte"}:
-        return bytes
+    t = (schema or {}).get("type"); fmt = (schema or {}).get("format")
+    if t == "string": return str
+    if t == "integer": return int
+    if t == "number":  return float
+    if t == "boolean": return bool
+    if t == "array":   return List[_py_type_from_schema((schema or {}).get("items") or {})]  # type: ignore[index]
+    if t == "object":  return Dict[str, Any]
+    if fmt in {"binary", "byte"}: return bytes
     return Any
 
-def _build_input_model_name(opid: Optional[str], method: str, path: str) -> str:
-    base = opid or f"{method.lower()}_{path.strip('/').replace('/', '_')}"
-    base = re.sub(r"\W+", "_", base).strip("_")
-    return f"{base}_Input"
-
-def _extract_param_type(param: Dict[str, Any]) -> Any:
-    schema = param.get("schema") or {}
-    return _py_type_from_schema(schema)
-
-BasicAuthList = conlist(str, min_length=2, max_length=2)
-
 def _build_input_model(op_ctx: OperationContext, path_item: dict, op: dict) -> type[BaseModel]:
-    """
-    Create a Pydantic model that reflects required/optional fields:
-      - path/query/header/cookie params
-      - request body (if any) as 'body'
-      - helper/transport fields: headers/_headers, api_key/_api_key, basic_auth/_basic_auth, base_url/_base_url
-    """
     fields: dict[str, tuple[object, object]] = {}
 
-    # Required/optional params
+    def _extract_param_type(param: Dict[str, Any]) -> Any:
+        schema = param.get("schema") or {}
+        return _py_type_from_schema(schema)
+
     for p in op_ctx.path_params + op_ctx.query_params + op_ctx.header_params + op_ctx.cookie_params:
-        name = p.get("name")
-        if not name:
-            continue
+        name = p.get("name");
+        if not name: continue
         typ = _extract_param_type(p)
         required = p.get("required", False) or (p.get("in") == "path")
         default = ... if required else None
         fields[name] = (typ, default)
 
-    # Request body
     if op_ctx.wants_body:
         req = (op.get("requestBody") or {})
         content = (req.get("content") or {})
@@ -184,29 +124,24 @@ def _build_input_model(op_ctx: OperationContext, path_item: dict, op: dict) -> t
         body_typ = _py_type_from_schema(body_schema) if body_schema else Any
         fields["body"] = (body_typ, ... if op_ctx.body_required else None)
 
-        # multipart helper for file uploads (optional)
         if op_ctx.body_content_type == "multipart/form-data":
-            # IMPORTANT: no leading-underscore field names; use alias to expose `_files`
             fields["files"] = (Optional[Dict[str, Any]], Field(default=None, alias="_files"))
 
-    # Helper/transport fields: public names with underscore aliases (OpenAI-safe)
-    fields["headers"]     = (Optional[Dict[str, str]], Field(default=None, alias="_headers"))
-    fields["api_key"]     = (Optional[str],           Field(default=None, alias="_api_key"))
-    # Drop Tuple[str, str] to avoid 'prefixItems' in JSON Schema
-    fields["basic_auth"]  = (Optional[Union[str, BasicAuthList]], Field(default=None, alias="_basic_auth"))
-    fields["base_url"]    = (Optional[str],           Field(default=None, alias="_base_url"))
+    BasicAuthList = conlist(str, min_length=2, max_length=2)
+    fields["headers"]    = (Optional[Dict[str, str]], Field(default=None, alias="_headers"))
+    fields["api_key"]    = (Optional[str],           Field(default=None, alias="_api_key"))
+    fields["basic_auth"] = (Optional[Union[str, BasicAuthList]], Field(default=None, alias="_basic_auth"))
+    fields["base_url"]   = (Optional[str],           Field(default=None, alias="_base_url"))
 
     Model = create_model(
         "Input_" + op_ctx.name,
         __base__=BaseModel,
-        __config__=ConfigDict(
-            populate_by_name=True,    # allow using aliases (_headers, etc.)
-            protected_namespaces=(),  # don't treat leading '_' specially
-        ),
+        __config__=ConfigDict(populate_by_name=True, protected_namespaces=()),
         **fields,
         )
     return Model
 
+# -------- Tool registration --------
 def _register_operation_tool(
         mcp: FastMCP,
         *,
@@ -216,8 +151,8 @@ def _register_operation_tool(
         op: dict,
         op_ctx: OperationContext,
 ) -> None:
-    security = SecurityResolver.from_spec(spec, op)
     InputModel = _build_input_model(op_ctx, path_item={}, op=op)
+    security = SecurityResolver.from_spec(spec, op)
 
     async def tool(args) -> str:
         payload = args.model_dump(by_alias=True, exclude_none=True)
@@ -232,7 +167,6 @@ def _register_operation_tool(
 
         errors: list[str] = []
 
-        # expand path from args
         url_path = op_ctx.path
         for p in op_ctx.path_params:
             pname = p.get("name")
@@ -267,9 +201,7 @@ def _register_operation_tool(
             elif p.get("required"):
                 errors.append(f"Missing required cookie: {pname}")
 
-        data = None
-        json_body = None
-        files = None
+        data = json_body = files = None
         if op_ctx.wants_body:
             body_arg = payload.pop("body", None)
             if body_arg is None and op_ctx.body_required:
@@ -277,11 +209,9 @@ def _register_operation_tool(
             elif body_arg is not None:
                 ct = op_ctx.body_content_type
                 if ct == "application/json":
-                    json_body = body_arg
-                    headers.setdefault("Content-Type", "application/json")
+                    json_body = body_arg; headers.setdefault("Content-Type", "application/json")
                 elif ct == "application/x-www-form-urlencoded":
-                    data = body_arg
-                    headers.setdefault("Content-Type", "application/x-www-form-urlencoded")
+                    data = body_arg; headers.setdefault("Content-Type", "application/x-www-form-urlencoded")
                 elif ct == "multipart/form-data":
                     files = payload.pop("_files", None)
                     if files is None:
@@ -290,24 +220,16 @@ def _register_operation_tool(
                         else:
                             files = {"file": ("file", body_arg)}
                 elif ct in ("text/plain", "application/octet-stream"):
-                    data = body_arg
-                    headers.setdefault("Content-Type", ct)
+                    data = body_arg; headers.setdefault("Content-Type", ct)
                 else:
                     data = body_arg
-                    if ct:
-                        headers.setdefault("Content-Type", ct)
+                    if ct: headers.setdefault("Content-Type", ct)
 
         if errors:
             return "Validation errors:\n" + "\n".join(f" - {e}" for e in errors)
 
-        # Merge security + user headers per-call (optional; your client can already have static auth)
-        security.apply(headers, query, {
-            "_api_key": api_key,
-            "_basic_auth": basic_auth,
-            "_headers": headers_in,
-        })
+        security.apply(headers, query, {"_api_key": api_key, "_basic_auth": basic_auth, "_headers": headers_in})
 
-        # Any leftover non-underscore args → query
         for k, v in list(payload.items()):
             if not str(k).startswith("_"):
                 query[k] = v
@@ -315,14 +237,9 @@ def _register_operation_tool(
 
         full_url = f"{url_base}{url_path}"
         resp = await client.request(
-            op_ctx.method,
-            full_url,
-            params=query or None,
-            headers=headers or None,
-            cookies=cookies or None,
-            json=json_body,
-            data=data,
-            files=files,
+            op_ctx.method, full_url,
+            params=query or None, headers=headers or None, cookies=cookies or None,
+            json=json_body, data=data, files=files,
         )
 
         content_type = resp.headers.get("content-type", "")
@@ -333,42 +250,30 @@ def _register_operation_tool(
             "method": resp.request.method,
         }
         if "application/json" in content_type:
-            try:
-                result["json"] = resp.json()
-            except Exception:
-                result["text"] = resp.text
+            try: result["json"] = resp.json()
+            except Exception: result["text"] = resp.text
         else:
-            try:
-                result["json"] = resp.json()
-            except Exception:
-                result["text"] = resp.text
+            try: result["json"] = resp.json()
+            except Exception: result["text"] = resp.text
 
         return json.dumps(result, indent=2, default=str)
 
     tool.__annotations__ = {"args": InputModel, "return": str}
     mcp.add_tool(name=op_ctx.name, description=op_ctx.full_description(), fn=tool)
 
-# --------------- Builder -----------------------
-
 def build_mcp_from_openapi(
         spec: Union[dict, str, Path],
         *,
-        # Provide exactly one of these:
         client: httpx.AsyncClient | None = None,
         client_factory: Callable[[], httpx.AsyncClient] | None = None,
-        base_url: str | None = None,  # optional default if client.base_url is not set
+        base_url: str | None = None,
 ) -> FastMCP:
     if not isinstance(spec, dict):
         spec = load_openapi(spec)
 
-    # Choose client
     own_client = False
     if client is None:
-        if client_factory is not None:
-            client = client_factory()
-        else:
-            # Fallback: minimal default client; user can still override per-op via _base_url/_headers
-            client = httpx.AsyncClient(timeout=30.0)
+        client = client_factory() if client_factory else httpx.AsyncClient(timeout=30.0)
         own_client = True
 
     mcp = FastMCP(spec.get("info", {}).get("title") or "OpenAPI MCP")
@@ -382,9 +287,7 @@ def build_mcp_from_openapi(
                 continue
 
             op_ctx = _make_operation_context(path, method, path_item, op)
-
             effective_base = pick_effective_base_url(spec, path_item, op, override=base_url)
-            # If the injected client already has base_url, we still let per-tool call prepend _base_url when needed.
 
             _register_operation_tool(
                 mcp,
@@ -395,10 +298,9 @@ def build_mcp_from_openapi(
                 op_ctx=op_ctx,
             )
 
-    # Only close the client if we created it here
     if own_client:
         @mcp.lifespan
-        async def _lifespan(state):
+        async def _lifespan(_state):
             try:
                 yield
             finally:

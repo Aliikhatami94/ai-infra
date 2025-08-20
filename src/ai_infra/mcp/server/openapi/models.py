@@ -8,10 +8,6 @@ OpenAPISpec = Dict[str, Any]
 Operation = Dict[str, Any]
 
 class OperationContext(BaseModel):
-    """Metadata for a single OpenAPI operation used to register an MCP tool.
-
-    Uses Pydantic for future validation/serialization needs.
-    """
     name: str
     description: str
     method: str
