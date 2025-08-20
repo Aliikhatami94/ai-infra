@@ -1,5 +1,5 @@
 from __future__ import annotations
-import json, yaml, re, base64
+import json, base64
 import httpx
 from pathlib import Path
 from typing import Optional, Any, Dict, List, Union, Callable
@@ -110,7 +110,7 @@ def _build_input_model(op_ctx: OperationContext, path_item: dict, op: dict) -> t
         return _py_type_from_schema(schema)
 
     for p in op_ctx.path_params + op_ctx.query_params + op_ctx.header_params + op_ctx.cookie_params:
-        name = p.get("name");
+        name = p.get("name")
         if not name: continue
         typ = _extract_param_type(p)
         required = p.get("required", False) or (p.get("in") == "path")
