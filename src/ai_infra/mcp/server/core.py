@@ -8,7 +8,7 @@ from pathlib import Path
 from dataclasses import dataclass
 from typing import Any, Iterable, Optional, Union, Callable
 
-from ai_infra.mcp.server.openapi import build_mcp_from_openapi
+from ai_infra.mcp.server.openapi import openapi_to_mcp
 
 try:
     from starlette.applications import Starlette
@@ -139,7 +139,7 @@ class CoreMCPServer:
         """
         Build an MCP server from an OpenAPI spec and mount it at `path` using the selected transport.
         """
-        mcp = build_mcp_from_openapi(
+        mcp = openapi_to_mcp(
             spec,
             client=client,
             client_factory=client_factory,

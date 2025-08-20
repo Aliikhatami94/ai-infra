@@ -14,7 +14,7 @@ from .runtime import (
 )
 from .io import load_openapi
 
-__all__ = ["build_mcp_from_openapi"]
+__all__ = ["openapi_to_mcp"]
 
 # -------- Security Resolver --------
 class SecurityResolver:
@@ -261,7 +261,7 @@ def _register_operation_tool(
     tool.__annotations__ = {"args": InputModel, "return": str}
     mcp.add_tool(name=op_ctx.name, description=op_ctx.full_description(), fn=tool)
 
-def build_mcp_from_openapi(
+def openapi_to_mcp(
         spec: Union[dict, str, Path],
         *,
         client: httpx.AsyncClient | None = None,

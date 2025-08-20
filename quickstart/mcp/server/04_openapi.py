@@ -4,7 +4,7 @@ import httpx
 from pathlib import Path
 from typing import Dict, Any
 
-from ai_infra.mcp import build_mcp_from_openapi
+from ai_infra.mcp import openapi_to_mcp
 
 OpenAPISpec = Dict[str, Any]
 path_to_spec = (Path(__file__).resolve().parents[1] / "resources" / "apiframeworks.json").resolve()
@@ -24,6 +24,6 @@ client = httpx.AsyncClient(
     timeout=30.0,
 )
 
-mcp = build_mcp_from_openapi(spec, client=client)   # <- injected client
+mcp = openapi_to_mcp(spec, client=client)   # <- injected client
 streamable_app = mcp.streamable_http_app()
 streamable_app.state.session_manager = mcp.session_manager
