@@ -16,7 +16,7 @@ try:
     from starlette.responses import JSONResponse
     from starlette.routing import Route
 except Exception:
-    Starlette = None  # optional
+    Starlette = None
 
 log = logging.getLogger(__name__)
 

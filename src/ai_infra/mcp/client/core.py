@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import difflib
 import traceback
-from typing import Dict, Any, List, AsyncContextManager
+import json
+from typing import Dict, Any, List, AsyncContextManager, Optional
 from contextlib import asynccontextmanager
 from dataclasses import asdict, is_dataclass
 
@@ -37,6 +38,40 @@ class CoreMCPClient:
         self._by_name: Dict[str, McpServerConfig] = {}
         self._discovered: bool = False
         self._errors: List[Dict[str, Any]] = []   # <-- NEW
+
+    # ---------- helpers for doc generation (NEW) ----------
+
+    @staticmethod
+    def _attr_or(dobj: Any, attr: str, default=None):
+        """Get attr from object; if dict use key, else attribute, else default."""
+        if hasattr(dobj, attr):
+            return getattr(dobj, attr)
+        if isinstance(dobj, dict):
+            return dobj.get(attr, default)
+        return default
+
+    @staticmethod
+    def _safe_schema(schema: Any) -> Any:
+        """Return a JSON-serializable schema (handles Pydantic v1/v2/str/dict/None)."""
+        if schema is None:
+            return None
+        if hasattr(schema, "model_json_schema"):  # pydantic v2
+            return schema.model_json_schema()
+        if hasattr(schema, "schema"):             # pydantic v1
+            return schema.schema()
+        if isinstance(schema, dict):
+            return schema
+        if isinstance(schema, str):
+            try:
+                import json as _json
+                return _json.loads(schema)
+            except Exception:
+                return {"description": schema}
+        return {"description": str(schema)}
+
+    @staticmethod
+    def _safe_description(desc: Any) -> str:
+        return desc if (isinstance(desc, str) and desc.strip()) else "No description provided."
 
     # ---------- utils ----------
 
@@ -139,7 +174,6 @@ class CoreMCPClient:
         - strict=False (default): collect errors and continue (partial success).
         - strict=True: raise ExceptionGroup with all failures.
         """
-        # reset state each time (optional: make it idempotent and skip already-known)
         self._by_name = {}
         self._errors = []
         self._discovered = False
@@ -158,7 +192,6 @@ class CoreMCPClient:
                     used.add(name)
                     name_map[name] = cfg
             except Exception as e:
-                # record detailed error but keep going
                 tb = "".join(traceback.format_exception(e))
                 self._errors.append({
                     "config": {
@@ -178,7 +211,6 @@ class CoreMCPClient:
         self._discovered = True
 
         if strict and failures:
-            # Raise a summarized ExceptionGroup
             raise ExceptionGroup(
                 f"MCP discovery failed for {len(failures)} server(s)",
                 failures
@@ -193,7 +225,6 @@ class CoreMCPClient:
 
     def get_client(self, server_name: str) -> AsyncContextManager[ClientSession]:
         if server_name not in self._by_name:
-            # suggest close matches to reduce frustration
             suggestions = difflib.get_close_matches(server_name, self.server_names(), n=3, cutoff=0.5)
             suggest_msg = f" Did you mean: {', '.join(suggestions)}?" if suggestions else ""
             known = ", ".join(self.server_names()) or "(none discovered yet)"
@@ -202,7 +233,6 @@ class CoreMCPClient:
         return self._open_session_from_config(cfg)
 
     async def list_clients(self) -> MultiServerMCPClient:
-        # ensure we have discovered mapping
         if not self._discovered:
             await self.discover()
         mapping: Dict[str, Any] = {}
@@ -245,9 +275,7 @@ class CoreMCPClient:
         return await ms_client.get_tools()
 
     async def get_metadata(self):
-        """
-        Return lightweight metadata: discovered names + available tools.
-        """
+        """Return lightweight metadata: discovered names + available tools."""
         ms_client = await self.list_clients()
         out: List[Dict[str, Any]] = []
         for name in self.server_names():
@@ -258,3 +286,157 @@ class CoreMCPClient:
                 "tools": [ToolDef(name=t.name, description=t.description).model_dump(exclude_none=True) for t in tools],
             })
         return out
+
+    # ---------- NEW: MCPS-style doc ----------
+
+    async def get_openmcp(
+            self,
+            server_name: Optional[str] = None,
+            *,
+            schema_url: str = "https://meta.local/schemas/mcps-0.1.json",
+    ) -> Dict[str, Any]:
+        """
+        Build an OpenAPI-like MCP Spec (MCPS) for one discovered server.
+        All high-level fields (title/description/version) come from the server's
+        initialize() metadata captured as session.mcp_server_info.
+        """
+        if not self._discovered:
+            await self.discover()
+
+        target = server_name or (self.server_names()[0] if self.server_names() else None)
+        if not target:
+            raise RuntimeError("No servers discovered; cannot generate docs.")
+
+        cfg = self._by_name[target]
+        ms_client = await self.list_clients()
+
+        server_info: Dict[str, Any] = {}
+        tools: List[Dict[str, Any]] = []
+        prompts: List[Dict[str, Any]] = []
+        resources: List[Dict[str, Any]] = []
+        templates: List[Dict[str, Any]] = []
+        roots: List[Dict[str, Any]] = []
+
+        async with ms_client.session(target) as session:
+            # ---- server_info from initialize()
+            server_info = getattr(session, "mcp_server_info", {}) or {}
+
+            # ---- tools
+            try:
+                listed = await session.list_tools()
+            except Exception:
+                listed = []
+            for t in listed:
+                args_schema = self._attr_or(t, "inputSchema") or self._attr_or(t, "args_schema")
+                out_schema  = self._attr_or(t, "outputSchema") or self._attr_or(t, "output_schema")
+                tools.append({
+                    "name": self._attr_or(t, "name"),
+                    "description": self._safe_description(self._attr_or(t, "description")),
+                    "args_schema": self._safe_schema(args_schema),
+                    "output_schema": self._safe_schema(out_schema),
+                    "examples": [],
+                })
+
+            # ---- prompts
+            try:
+                pl = await session.list_prompts()
+                for p in pl:
+                    prompts.append({
+                        "name": self._attr_or(p, "name"),
+                        "description": self._safe_description(self._attr_or(p, "description")),
+                        "arguments_schema": self._safe_schema(self._attr_or(p, "arguments_schema")),
+                    })
+            except Exception:
+                pass
+
+            # ---- resources
+            try:
+                rl = await session.list_resources()
+                for r in rl:
+                    resources.append({
+                        "uri": self._attr_or(r, "uri"),
+                        "name": self._attr_or(r, "name"),
+                        "description": self._safe_description(self._attr_or(r, "description")),
+                        "mime_type": self._attr_or(r, "mimeType"),
+                        "readable": True,
+                    })
+            except Exception:
+                pass
+
+            # ---- resource templates
+            try:
+                tl = await session.list_resource_templates()
+                for tpl in tl:
+                    variables = []
+                    for v in self._attr_or(tpl, "variables", []) or []:
+                        variables.append({
+                            "name": self._attr_or(v, "name"),
+                            "description": self._safe_description(self._attr_or(v, "description")),
+                            "required": bool(self._attr_or(v, "required", False)),
+                        })
+                    templates.append({
+                        "uri_template": self._attr_or(tpl, "uriTemplate"),
+                        "name": self._attr_or(tpl, "name"),
+                        "description": self._safe_description(self._attr_or(tpl, "description")),
+                        "mime_type": self._attr_or(tpl, "mimeType"),
+                        "variables": variables,
+                    })
+            except Exception:
+                pass
+
+            # ---- roots
+            try:
+                base_roots = await session.list_roots()
+                for root in base_roots:
+                    roots.append({
+                        "uri": self._attr_or(root, "uri"),
+                        "name": self._attr_or(root, "name"),
+                        "description": self._safe_description(self._attr_or(root, "description")),
+                    })
+            except Exception:
+                pass
+
+        # “endpoint” shown in docs
+        endpoint = cfg.url or cfg.command or "stdio"
+
+        # Pull title/description/version from server_info
+        title = (server_info.get("name") or target or "MCP Server")
+        description = self._safe_description(server_info.get("description"))
+        version = (
+                server_info.get("version")
+                or server_info.get("semver")
+                or "0.1.0"
+        )
+
+        # Capabilities: prefer server-declared, fall back to inference
+        info_caps = server_info.get("capabilities") or {}
+        inferred_caps = {
+            "tools": bool(tools),
+            "resources": bool(resources or templates),
+            "prompts": bool(prompts),
+            "sampling": bool(info_caps.get("sampling", False)),
+        }
+        capabilities = {**inferred_caps, **{k: bool(v) for k, v in info_caps.items()}}
+
+        return {
+            "$schema": schema_url,
+            "mcps_version": "0.1",
+            "info": {
+                "title": title,
+                "description": description,
+                "version": version,
+            },
+            "server": {
+                "name": title,                 # human-friendly
+                "transport": cfg.transport,    # stdio | streamable_http | sse
+                "endpoint": endpoint,          # URL or command
+                "capabilities": capabilities,
+            },
+            "tools": tools,
+            "prompts": prompts,
+            "resources": resources,
+            "resource_templates": templates,
+            "roots": roots,
+            "auth": {"notes": None},
+            "x-vendor": {},
+        }
