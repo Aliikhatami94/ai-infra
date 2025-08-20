@@ -11,8 +11,6 @@ from typing import Any, Iterable, Optional, Union, Callable, Awaitable, Dict
 from .models import MCPMount
 from ai_infra.mcp.server.openapi import _mcp_from_openapi
 from ai_infra.mcp.server.tools import _mcp_from_tools, ToolDef, ToolFn
-from ai_infra.mcp.server.openmcp.rest_shim import _select_openmcp_doc
-from .openmcp.rest_shim import fastapi_from_openmcp
 
 try:
     from starlette.applications import Starlette
@@ -268,56 +266,6 @@ class CoreMCPServer:
             transport=transport,
             name=resolved_name,
             async_cleanup=async_cleanup,
-        )
-
-    def add_openmcp(
-            self,
-            path: str,
-            openmcp: Dict[str, Any] | str | Path,
-            *,
-            select: Optional[str] = None,
-            transport: str = "streamable_http",
-            name: Optional[str] = None,
-            backend_config: Optional[Dict[str, Any]] = None,
-            handlers: Optional[Dict[str, Callable[..., Awaitable[Any]]]] = None,
-    ) -> "CoreMCPServer":
-        """
-        Build a FastAPI shim from OpenMCP, then reuse add_fastapi -> add_openapi path.
-        - openmcp can be a dict (single doc or bundle), a path to JSON, or a URL to JSON.
-        - select: which entry in a bundle to use.
-        - backend_config: McpServerConfig-like dict to proxy tool calls to a real MCP.
-        - handlers: {tool_name: async fn} to implement tools locally.
-        """
-        # 1) Load OpenMCP
-        if isinstance(openmcp, dict):
-            doc = openmcp
-        else:
-            s = str(openmcp)
-            if s.startswith("http://") or s.startswith("https://"):
-                with httpx.Client(timeout=15.0) as c:
-                    r = c.get(s)
-                    r.raise_for_status()
-                    doc = r.json()
-            else:
-                p = Path(s)
-                if not p.exists():
-                    raise FileNotFoundError(f"OpenMCP file not found: {p}")
-                import json
-                doc = json.loads(p.read_text())
-
-        # 2) Pick one server doc if bundle
-        doc = _select_openmcp_doc(doc, select)
-
-        # 3) Build FastAPI shim
-        shim = fastapi_from_openmcp(doc, backend_config=backend_config, handlers=handlers)
-
-        # 4) Mount via existing add_fastapi (this auto-derives OpenAPI and pipes through your working OpenAPI->MCP)
-        resolved_name = name or (doc.get("server") or {}).get("name") or (doc.get("info") or {}).get("title")
-        return self.add_fastapi(
-            path,
-            app=shim,
-            name=resolved_name,
-            transport=transport,
         )
 
     # ---------- mounting + lifespan ----------
