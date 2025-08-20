@@ -10,6 +10,7 @@ from typing import Any, Iterable, Optional, Union, Callable, Awaitable, Dict
 
 from .models import MCPMount
 from ai_infra.mcp.server.openapi import _mcp_from_openapi
+from ai_infra.mcp.server.openmcp import _mcp_from_openmcp
 from ai_infra.mcp.server.tools import _mcp_from_tools, ToolDef, ToolFn
 
 try:
@@ -139,6 +140,31 @@ class CoreMCPServer:
             transport=transport,
             name=name,
             # require_manager stays auto-inferred in add_fastmcp/add_app
+        )
+
+    def add_openmcp(
+            self,
+            path: str,
+            *,
+            doc: Dict[str, Any],
+            transport: str = "streamable_http",
+            name: Optional[str] = None,
+            executor: Optional[Callable[[str, Dict[str, Any]], Awaitable[Any]]] = None,
+            require_manager: Optional[bool] = None,   # None = auto
+    ) -> "CoreMCPServer":
+        """
+        Build an MCP server from an OpenMCP document and mount it.
+
+        - If `executor` is None, we auto-proxy to the remote MCP described in `doc.server`.
+        - If provided, `executor(tool_name, args)` is invoked for each tool call.
+        """
+        mcp = _mcp_from_openmcp(doc, executor=executor, name=name)
+        return self.add_fastmcp(
+            mcp,
+            path,
+            transport=transport,
+            name=name,
+            require_manager=require_manager,
         )
 
     def add_tools(
