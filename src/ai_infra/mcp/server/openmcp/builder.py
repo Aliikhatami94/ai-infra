@@ -154,6 +154,28 @@ def _make_tool_handler(
 
     return _handler, in_schema, out_schema
 
+def _register_tool_with_fallback(mcp, td, handler, in_schema, out_schema):
+    """
+    Register a tool with FastMCP. If this FastMCP version supports schema kwargs,
+    use them; otherwise, fall back to name/description only.
+    """
+    name = td.get("name")
+    desc = (td.get("description") or None)
+
+    # Try modern signature first
+    try:
+        return mcp.tool(
+            name=name,
+            description=desc,
+            input_schema=in_schema,
+            output_schema=out_schema,
+        )(handler)
+    except TypeError:
+        # Older FastMCP: no schema kwargs supported
+        return mcp.tool(
+            name=name,
+            description=desc,
+        )(handler)
 
 def _register_prompts_resources(
         mcp: FastMCP,
@@ -263,13 +285,7 @@ def _mcp_from_openmcp(
             server_name=server_name,
         )
 
-        # FastMCP lets you register with rich metadata
-        mcp.tool(
-            name=tool_name,
-            description=(td.get("description") or None),
-            input_schema=in_schema,
-            output_schema=out_schema,
-        )(handler)
+        _register_tool_with_fallback(mcp, td, handler, in_schema, out_schema)
 
     # Prompts / resources / roots
     _register_prompts_resources(
@@ -281,7 +297,6 @@ def _mcp_from_openmcp(
 
     return mcp
 
-# --- NEW helper ---
 def _select_openmcp_doc(
         openmcp: Dict[str, Any] | str | Path,
         *,
