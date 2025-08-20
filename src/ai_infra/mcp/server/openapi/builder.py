@@ -1,5 +1,5 @@
 from __future__ import annotations
-import json, base64
+import base64
 import logging
 import os
 import httpx
@@ -355,8 +355,9 @@ def _register_operation_tool(
     except Exception:
         pass
 
-    async def tool(args) -> OutputModel:
-        payload = args.model_dump(by_alias=True, exclude_none=True)
+    async def tool(args: Optional[InputModel] = None) -> OutputModel:
+        # Allow completely empty calls (e.g., ping) by treating None as {}
+        payload = (args.model_dump(by_alias=True, exclude_none=True) if args is not None else {})
 
         url_base   = (payload.pop("_base_url", None) or base_url).rstrip("/")
         api_key    = payload.pop("_api_key", None)
@@ -444,7 +445,7 @@ def _register_operation_tool(
                 "json": None,
                 "text": "Validation errors:\n" + "\n".join(f" - {e}" for e in errors),
             }
-            return OutputModel.model_validate(out)
+            return OutputModel(**out)
 
         security.apply(headers, query, {"_api_key": api_key, "_basic_auth": basic_auth, "_headers": headers_in})
 
@@ -483,7 +484,7 @@ def _register_operation_tool(
         return OutputModel.model_validate(out)
 
     # expose schemas to MCP (input/outputSchema) via annotations
-    tool.__annotations__ = {"args": InputModel, "return": OutputModel}
+    tool.__annotations__ = {"args": Optional[InputModel], "return": OutputModel}
     mcp.add_tool(name=op_ctx.name, description=op_ctx.full_description(), fn=tool)
 
     op_rep.warnings.extend(warnings)
