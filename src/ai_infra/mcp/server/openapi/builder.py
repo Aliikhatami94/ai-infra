@@ -287,7 +287,11 @@ def _mcp_from_openapi(
                 continue
 
             op_ctx = _make_operation_context(path, method, path_item, op)
-            effective_base = pick_effective_base_url(spec, path_item, op, override=base_url)
+            effective_base = (
+                    (base_url or "").rstrip("/")                           # explicit override wins
+                    or (str(getattr(getattr(client, "base_url", None), "human_repr", lambda: "")()) or "").rstrip("/")
+                    or pick_effective_base_url(spec, None, None, override=None)   # servers[] at op/path/root
+            )
 
             _register_operation_tool(
                 mcp,
