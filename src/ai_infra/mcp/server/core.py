@@ -187,6 +187,7 @@ class CoreMCPServer:
             base_url: str | None = None,
             name: str | None = None,
             transport: str = "streamable_http",
+            # If you want to force providing the spec (e.g., for remote):
             spec: dict | str | Path | None = None,
             openapi_url: str = "/openapi.json",
             client: httpx.AsyncClient | None = None,
@@ -194,21 +195,46 @@ class CoreMCPServer:
     ) -> "CoreMCPServer":
         """
         Convert a FastAPI app (local) or a remote FastAPI service into an MCP server.
+
+        - Same-process mode (recommended):
+            pass `app` (FastAPI instance). We'll:
+              * get spec via `app.openapi()` (dict)
+              * call routes with httpx.ASGITransport(app=app) (no network)
+
+        - Remote mode:
+            pass `base_url` (e.g. "https://api.example.com").
+            Provide `spec` (dict/filepath/URL), or we'll fetch from `base_url + openapi_url`.
+
+        Other params are forwarded to the OpenAPI->MCP builder and the MCP mounting.
         """
-
-        # --- Resolve OpenAPI spec ---
+        # Resolve OpenAPI spec
+        resolved_spec: dict
         if spec is not None:
-            resolved_spec = spec
-        elif app is not None:
-            resolved_spec = app.openapi()
+            # You already support dict | str | Path -> _mcp_from_openapi can take it directly.
+            resolved_spec = spec  # let _mcp_from_openapi do the normalization
         else:
-            if not (client and client.base_url) and not base_url:
-                raise ValueError("Remote FastAPI requires either `client` with base_url or a `base_url`.")
-            url = (str(base_url or client.base_url)).rstrip("/") + openapi_url
-            with (client or httpx.Client()) as tmp:
-                resolved_spec = tmp.get(url).json()
+            if app is not None:
+                # Same-process: get the spec straight from FastAPI
+                if not hasattr(app, "openapi"):
+                    raise TypeError("Provided `app` does not look like a FastAPI application (missing .openapi())")
+                resolved_spec = app.openapi()
+            else:
+                if not base_url:
+                    raise ValueError("When `app` is not provided, you must pass `base_url` for remote FastAPI.")
+                # Fetch spec from remote FastAPI
+                fetch_client = client or (client_factory() if client_factory else httpx.AsyncClient(timeout=30.0))
+                async def _fetch():
+                    resp = await fetch_client.get(base_url.rstrip("/") + openapi_url)
+                    resp.raise_for_status()
+                    return resp.json()
+                # We’re in sync context; fetch synchronously with a temp event loop:
+                import asyncio
+                resolved_spec = asyncio.get_event_loop().run_until_complete(_fetch())
+                if client is None and client_factory is None:
+                    # Close temp fetch client we created just for the spec call
+                    asyncio.get_event_loop().run_until_complete(fetch_client.aclose())
 
-        # --- Resolve HTTP client for tools ---
+        # Resolve HTTP client for tools
         tools_client = client or (
             client_factory() if client_factory else
             (httpx.AsyncClient(transport=httpx.ASGITransport(app=app),
@@ -218,22 +244,22 @@ class CoreMCPServer:
         )
         own_client = client is None and client_factory is None
 
-        # --- Build MCP server from spec ---
         mcp = _mcp_from_openapi(
             resolved_spec,
             client=tools_client,
+            client_factory=None,
             base_url=base_url,
         )
 
-        async_cleanup = tools_client.aclose if own_client else None
-        resolved_name = name or (getattr(app, "title", None) if app is not None else None)
+        # Use mount-level cleanup instead of @mcp.lifespan
+        async_cleanup = (tools_client.aclose if own_client else None)
 
         return self.add_fastmcp(
             mcp,
             path,
             transport=transport,
-            name=resolved_name,
-            async_cleanup=async_cleanup,
+            name=name or getattr(app, "title", None) if app is not None else name,
+            async_cleanup=async_cleanup,  # <<< key change
         )
 
     # ---------- mounting + lifespan ----------
