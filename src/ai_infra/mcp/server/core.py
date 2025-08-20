@@ -12,6 +12,7 @@ from .models import MCPMount
 from ai_infra.mcp.server.openapi import _mcp_from_openapi
 from ai_infra.mcp.server.tools import _mcp_from_tools, ToolDef, ToolFn
 from ai_infra.mcp.server.openmcp import _select_openmcp_doc, _mcp_from_openmcp
+from .openmcp.rest_shim import fastapi_from_openmcp
 
 try:
     from starlette.applications import Starlette
@@ -274,37 +275,50 @@ class CoreMCPServer:
             path: str,
             openmcp: Dict[str, Any] | str | Path,
             *,
+            select: Optional[str] = None,
             transport: str = "streamable_http",
             name: Optional[str] = None,
             backend_config: Optional[Dict[str, Any]] = None,
             handlers: Optional[Dict[str, Callable[..., Awaitable[Any]]]] = None,
-            select: Optional[str] = None,  # <--- NEW: which entry to pick if bundle
     ) -> "CoreMCPServer":
         """
-        Mount an MCP built from an OpenMCP (MCPS) document.
-
-        `openmcp` can be:
-          - dict: a single MCPS doc, or a bundle {name -> MCPS doc}
-          - str/Path: path to a JSON file, or http(s) URL pointing to a JSON
-
-        If a bundle is provided, pass `select='name'` to choose which server to mount.
-        If omitted and the bundle has exactly one entry, it is selected automatically.
-
-        `backend_config` -> McpServerConfig-like dict to enable proxy mode
-        `handlers`       -> {tool_name: async fn} to implement local tools
+        Build a FastAPI shim from OpenMCP, then reuse add_fastapi -> add_openapi path.
+        - openmcp can be a dict (single doc or bundle), a path to JSON, or a URL to JSON.
+        - select: which entry in a bundle to use.
+        - backend_config: McpServerConfig-like dict to proxy tool calls to a real MCP.
+        - handlers: {tool_name: async fn} to implement tools locally.
         """
-        # Resolve to a single MCPS document
-        doc = _select_openmcp_doc(openmcp, select=select)
+        # 1) Load OpenMCP
+        if isinstance(openmcp, dict):
+            doc = openmcp
+        else:
+            s = str(openmcp)
+            if s.startswith("http://") or s.startswith("https://"):
+                with httpx.Client(timeout=15.0) as c:
+                    r = c.get(s)
+                    r.raise_for_status()
+                    doc = r.json()
+            else:
+                p = Path(s)
+                if not p.exists():
+                    raise FileNotFoundError(f"OpenMCP file not found: {p}")
+                import json
+                doc = json.loads(p.read_text())
 
-        mcp = _mcp_from_openmcp(
-            doc,
-            name=name,  # optional override
-            backend_config=backend_config,
-            handlers=handlers,
+        # 2) Pick one server doc if bundle
+        doc = _select_openmcp_doc(doc, select)
+
+        # 3) Build FastAPI shim
+        shim = fastapi_from_openmcp(doc, backend_config=backend_config, handlers=handlers)
+
+        # 4) Mount via existing add_fastapi (this auto-derives OpenAPI and pipes through your working OpenAPI->MCP)
+        resolved_name = name or (doc.get("server") or {}).get("name") or (doc.get("info") or {}).get("title")
+        return self.add_fastapi(
+            path,
+            app=shim,
+            name=resolved_name,
+            transport=transport,
         )
-
-        # streamable_http default requires session_manager; FastMCP provides it
-        return self.add_fastmcp(mcp, path, transport=transport, name=name)
 
     # ---------- mounting + lifespan ----------
 
