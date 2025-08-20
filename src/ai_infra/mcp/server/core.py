@@ -5,9 +5,9 @@ import contextlib
 import importlib
 import logging
 from pathlib import Path
-from dataclasses import dataclass
 from typing import Any, Iterable, Optional, Union, Callable, Awaitable
 
+from .models import MCPMount
 from ai_infra.mcp.server.openapi import _mcp_from_openapi
 from ai_infra.mcp.server.tools import _mcp_from_tools, ToolDef, ToolFn
 
@@ -19,16 +19,6 @@ except Exception:
     Starlette = None  # optional
 
 log = logging.getLogger(__name__)
-
-
-@dataclass
-class MCPMount:
-    path: str
-    app: Any
-    name: Optional[str] = None
-    session_manager: Any | None = None
-    require_manager: Optional[bool] = None
-    async_cleanup: Optional[Callable[[], Awaitable[None]]] = None
 
 
 class CoreMCPServer:
