@@ -6,3 +6,4 @@ aiinfa.iml
 __pycache__/
 **/__pycache__/
 *.py[cod]
+.pypl-token
