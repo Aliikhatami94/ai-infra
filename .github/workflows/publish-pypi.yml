@@ -87,7 +87,9 @@ jobs:
         run: poetry build
 
       # Publish to PyPI via Trusted Publisher / OIDC (no API token needed)
-      - name: Publish to PyPI via OIDC
+      - name: Publish to PyPI via OIDC (no attestations)
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist
+          skip-existing: true
+          attestations: false
