@@ -8,22 +8,27 @@ class OpenAIModels(Enum):
     gpt_5_nano = "gpt-5-nano"
     gpt_5_mini = "gpt-5-mini"
     gpt_5_chat = "gpt-5-chat"
+    default = "gpt-5-mini"
 
 class AnthropicModels(Enum):
     claude_3_5_sonnet_latest = "claude-3-5-sonnet-latest"
     claude_3_7_sonnet_latest = "claude-3-7-sonnet-latest"
     claude_3_5_haiku_latest = "claude-3-5-haiku-latest"
+    default = "claude-3-5-sonnet-latest"
 
 class GoogleGenAIModels(Enum):
     gemini_2_5_flash = "gemini-2.5-flash"
+    default = "gemini-2.5-flash"
 
 class XAIModels(Enum):
     grok_3 = "grok-3"
     grok_3_mini = "grok-3-mini"
+    default = "grok-3"
 
 class DeepseekModels(Enum):
     deepseek_chat = "deepseek-chat"
     deepseek_reasoner = "deepseek-reasoner"
+    default = "deepseek-chat"
 
 class MistralAiModels(Enum):
     codestral_latest = "codestral-latest"
@@ -31,6 +36,7 @@ class MistralAiModels(Enum):
     magistral_small_latest = "magistral-small-latest"
     mistral_medium_latest = "mistral-medium-latest"
     mistral_large_latest = "mistral-large-latest"
+    default = "mistral-medium-latest"
 
 class Models:
     openai = OpenAIModels
