@@ -41,16 +41,16 @@ class BaseLLMCore:
     @staticmethod
     def make_sys_gate(autoapprove: bool = False):
         def gate(tool_name: str, args: dict):
-            if not autoapprove:
+            if autoapprove:
                 return {"action": "pass"}
             print(f"\nTool request: {tool_name}\nArgs: {args}")
             try:
                 ans = input("Approve? [y]es / [b]lock: ").strip().lower()
             except EOFError:
                 return {"action": "block", "replacement": "[auto-block: no input]"}
-            if ans.startswith("b"):
-                return {"action": "block", "replacement": "[blocked by user]"}
-            return {"action": "pass"}
+            if ans.startswith("y"):
+                return {"action": "pass"}
+            return {"action": "block", "replacement": "[blocked by user]"}
         return gate
 
     # model registry
