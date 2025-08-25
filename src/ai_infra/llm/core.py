@@ -39,7 +39,7 @@ class BaseLLMCore:
         self._hitl.set(on_model_output=on_model_output, on_tool_call=on_tool_call)
 
     @staticmethod
-    def make_sys_gate(autoapprove: bool = True):
+    def make_sys_gate(autoapprove: bool = False):
         def gate(tool_name: str, args: dict):
             if not autoapprove:
                 return {"action": "pass"}
