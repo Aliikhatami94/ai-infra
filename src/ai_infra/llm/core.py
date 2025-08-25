@@ -39,9 +39,9 @@ class BaseLLMCore:
         self._hitl.set(on_model_output=on_model_output, on_tool_call=on_tool_call)
 
     @staticmethod
-    def make_sys_gate(interactive: bool = True):
+    def make_sys_gate(autoapprove: bool = True):
         def gate(tool_name: str, args: dict):
-            if not interactive:
+            if not autoapprove:
                 return {"action": "pass"}
             print(f"\nTool request: {tool_name}\nArgs: {args}")
             try:
