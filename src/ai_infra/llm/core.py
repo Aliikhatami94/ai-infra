@@ -38,6 +38,21 @@ class BaseLLMCore:
     def set_hitl(self, *, on_model_output=None, on_tool_call=None):
         self._hitl.set(on_model_output=on_model_output, on_tool_call=on_tool_call)
 
+    @staticmethod
+    def make_sys_gate(interactive: bool = True):
+        def gate(tool_name: str, args: dict):
+            if not interactive:
+                return {"action": "pass"}
+            print(f"\nTool request: {tool_name}\nArgs: {args}")
+            try:
+                ans = input("Approve? [y]es / [b]lock: ").strip().lower()
+            except EOFError:
+                return {"action": "block", "replacement": "[auto-block: no input]"}
+            if ans.startswith("b"):
+                return {"action": "block", "replacement": "[blocked by user]"}
+            return {"action": "pass"}
+        return gate
+
     # model registry
     def set_model(self, provider: str, model_name: str, **kwargs):
         return self.registry.get_or_create(provider, model_name, **(kwargs or {}))

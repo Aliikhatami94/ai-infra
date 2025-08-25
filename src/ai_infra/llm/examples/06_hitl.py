@@ -8,23 +8,6 @@ from langchain_core.tools import tool
 from ai_infra.llm import CoreAgent, Providers, Models
 
 
-def _make_gate():
-    interactive = os.environ.get("HITL_MODE", "").lower() == "interactive"
-    def gate(tool_name: str, args: dict):
-        if not interactive:
-            # auto approve in non-interactive environments
-            return {"action": "pass"}
-        print(f"Tool request: {tool_name} with args={args}")
-        try:
-            ans = input("Approve? [y]es / [b]lock:").strip().lower()
-        except EOFError:
-            return {"action": "block", "replacement": "[auto-block: no input]"}
-        if ans.startswith("b"):
-            return {"action": "block", "replacement": "[blocked by user]"}
-        return {"action": "pass"}
-    return gate
-
-
 def main():
     agent = CoreAgent()
 
@@ -33,7 +16,7 @@ def main():
         """Return fake weather for city."""
         return f"Weather in {city}: sunny 80F"
 
-    agent.set_hitl(on_tool_call=_make_gate())
+    agent.set_hitl(on_tool_call=agent.make_sys_gate())
     resp = agent.run_agent(
         messages=[{"role": "user", "content": "Use a tool to get weather for Tokyo."}],
         provider=Providers.openai,
@@ -41,3 +24,6 @@ def main():
         tools=[get_weather],
     )
     print(getattr(resp, "content", resp))
+
+if __name__ == '__main__':
+    main()
