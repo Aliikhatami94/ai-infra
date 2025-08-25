@@ -21,8 +21,21 @@ class XAIModels(Enum):
     grok_3 = "grok-3"
     grok_3_mini = "grok-3-mini"
 
+class DeepseekModels(Enum):
+    deepseek_chat = "deepseek-chat"
+    deepseek_reasoner = "deepseek-reasoner"
+
+class MistralAiModels(Enum):
+    codestral_latest = "codestral-latest"
+    magistral_medium_latest = "magistral-medium-latest"
+    magistral_small_latest = "magistral-small-latest"
+    mistral_medium_latest = "mistral-medium-latest"
+    mistral_large_latest = "mistral-large-latest"
+
 class Models:
     openai = OpenAIModels
     anthropic = AnthropicModels
     google_genai = GoogleGenAIModels
     xai = XAIModels
+    deepseek = DeepseekModels
+    mistralai = MistralAiModels

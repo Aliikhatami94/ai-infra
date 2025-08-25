@@ -10,7 +10,10 @@ def main():
     resp = llm.chat(
         user_msg="What is one fun fact about the moon?",
         system="You are a concise assistant.",
-        provider=Providers.openai,
-        model_name=Models.openai.gpt_4o.value,
+        provider=Providers.mistralai,
+        model_name=Models.mistralai.codestral_latest.value,
     )
     print("Response:\n", resp)
+
+if __name__ == '__main__':
+    main()

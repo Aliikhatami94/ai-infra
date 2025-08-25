@@ -13,6 +13,11 @@ cfg = [
         "transport": "sse",
         "url": "http://0.0.0.0:8000/sse-demo/sse",
     },
+    {
+        "transport": "stdio",
+        "command": "npx",
+        "args": ["-y", "wikipedia-mcp"]
+    }
 ]
 
 async def main():
@@ -20,9 +25,9 @@ async def main():
     tools = await client.list_tools()
     agent = CoreAgent()
     resp = await agent.arun_agent(
-        messages=[{"role": "user", "content": "Call my ping endpoint. what did you get?"}],
-        provider=Providers.google_genai,
-        model_name=Models.google_genai.gemini_2_5_flash.value,
+        messages=[{"role": "user", "content": "What is the capital of france? use wikipedia to find out."}],
+        provider=Providers.mistralai,
+        model_name=Models.mistralai.codestral_latest.value,
         tools=tools,
         model_kwargs={"temperature": 0.7},
     )
