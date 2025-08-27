@@ -1,29 +1,43 @@
 import sys
 import subprocess
+import asyncio
 
-def run_command(command: str) -> str:
+async def run_command(command: str) -> str:
     """
-    Run a shell command and return its output as a string.
-    Uses bash on Unix and PowerShell on Windows for better parity.
+    Run a shell command asynchronously and return its stdout as a string.
+    - Windows: PowerShell for better pipelines/globbing
+    - Unix: bash -lc for predictable shell semantics
+    Raises RuntimeError on non-zero exit with stdout/stderr attached.
     """
     if sys.platform.startswith("win"):
-        # PowerShell: good for pipelines/globbing, avoids cmd quirks
-        ps_cmd = [
+        args = [
             "powershell",
             "-NoProfile",
             "-NonInteractive",
             "-ExecutionPolicy", "Bypass",
             "-Command", command,
         ]
-        result = subprocess.run(ps_cmd, text=True, capture_output=True)
-    else:
-        # Use bash -lc so things like $PWD, pipes, &&, set -e behave predictably
-        result = subprocess.run(["bash", "-lc", command], text=True, capture_output=True)
-
-    if result.returncode != 0:
-        raise RuntimeError(
-            f"Command failed with code {result.returncode}\n"
-            f"STDOUT:\n{result.stdout}\n"
-            f"STDERR:\n{result.stderr}"
+        proc = await asyncio.create_subprocess_exec(
+            *args,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
-    return (result.stdout or "").strip()
+    else:
+        proc = await asyncio.create_subprocess_exec(
+            "bash", "-lc", command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+    stdout_b, stderr_b = await proc.communicate()
+    code = proc.returncode
+    out = (stdout_b or b"").decode(errors="replace")
+    err = (stderr_b or b"").decode(errors="replace")
+
+    if code != 0:
+        raise RuntimeError(
+            f"Command failed with code {code}\n"
+            f"STDOUT:\n{out}\n"
+            f"STDERR:\n{err}"
+        )
+    return out.strip()

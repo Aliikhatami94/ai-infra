@@ -1,5 +1,5 @@
 from __future__ import annotations
-import os, re, io, json, shutil, difflib
+import re, json, shutil, difflib
 from pathlib import Path
 from typing import Iterable, Sequence, Literal
 
@@ -150,48 +150,54 @@ def _detect_tasks(root: Path) -> dict[str, list[str]]:
 
 # ---------- Tool: project_scan ----------
 
-def project_scan(
+import asyncio
+import subprocess
+
+async def project_scan(
         depth_tree: int = 3,
         include_capabilities: bool = True,
         include_git: bool = True,
         include_tasks: bool = True,
         include_env_keys: bool = True,
 ) -> str:
-    """Return a concise JSON block describing repo, tree, caps, git, tasks, env keys."""
+    """Async: Return concise JSON describing repo, tree, caps, git, tasks, env keys.
+    Heavy IO is offloaded to a worker thread. Git calls are safe (no global chdir).
+    """
     root = _REPO_ROOT
-    data: dict = {"repo_root": str(root)}
-    data["tree"] = _tree(root, depth_tree)
-    if include_capabilities:
-        caps = []
-        if (root / "pyproject.toml").exists(): caps.append("Python/Poetry")
-        elif (root / "requirements.txt").exists(): caps.append("Python/pip")
-        if (root / "package.json").exists(): caps.append("Node")
-        if (root / "pom.xml").exists(): caps.append("Java/Maven")
-        if any((root / f).exists() for f in ("build.gradle","build.gradle.kts")): caps.append("Java/Gradle")
-        if any((root / f).exists() for f in ("Dockerfile","docker-compose.yml","compose.yml")): caps.append("Docker")
-        for tool in ("poetry","npm","yarn","pnpm","mvn","gradle","docker","make","just","task","svc-infra"):
-            if shutil.which(tool): caps.append(f"{tool} on PATH")
-        data["capabilities"] = sorted(set(caps))
-    if include_git:
-        def _run(args):  # quiet
-            try:
-                return shutil.which("git") and \
-                    (Path(os.fsdecode(root)).exists()) and \
-                    (io.StringIO(os.popen(" ".join(["git", *args])).read()).getvalue().strip())
-            except Exception:
-                return ""
-        try:
-            os.chdir(root)
-            branch = _run(["rev-parse","--abbrev-ref","HEAD"]) or ""
-            upstream = _run(["rev-parse","--abbrev-ref","--symbolic-full-name","@{u}"]) or ""
+
+    def _run_scan() -> str:
+        data: dict = {"repo_root": str(root)}
+        data["tree"] = _tree(root, depth_tree)
+        if include_capabilities:
+            caps = []
+            if (root / "pyproject.toml").exists(): caps.append("Python/Poetry")
+            elif (root / "requirements.txt").exists(): caps.append("Python/pip")
+            if (root / "package.json").exists(): caps.append("Node")
+            if (root / "pom.xml").exists(): caps.append("Java/Maven")
+            if any((root / f).exists() for f in ("build.gradle","build.gradle.kts")): caps.append("Java/Gradle")
+            if any((root / f).exists() for f in ("Dockerfile","docker-compose.yml","compose.yml")): caps.append("Docker")
+            for tool in ("poetry","npm","yarn","pnpm","mvn","gradle","docker","make","just","task","svc-infra"):
+                if shutil.which(tool): caps.append(f"{tool} on PATH")
+            data["capabilities"] = sorted(set(caps))
+        if include_git:
+            def _git(args: list[str]) -> str:
+                try:
+                    if not shutil.which("git"):
+                        return ""
+                    res = subprocess.run(["git", *args], cwd=str(root), text=True, capture_output=True)
+                    return (res.stdout or "").strip()
+                except Exception:
+                    return ""
+            branch = _git(["rev-parse","--abbrev-ref","HEAD"]) or ""
+            upstream = _git(["rev-parse","--abbrev-ref","--symbolic-full-name","@{u}"]) or ""
             ahead_behind = ""
             if branch and upstream:
-                ab = _run(["rev-list","--left-right","--count",f"{upstream}...HEAD"]) or ""
+                ab = _git(["rev-list","--left-right","--count",f"{upstream}...HEAD"]) or ""
                 if ab:
                     left,right = (ab.split() + ["0","0"])[:2]
                     ahead_behind = f"{right} ahead / {left} behind"
-            recent = _run(["--no-pager","log","--oneline","-n","3"]) or ""
-            remotes = _run(["remote","-v"]) or ""
+            recent = _git(["--no-pager","log","--oneline","-n","3"]) or ""
+            remotes = _git(["remote","-v"]) or ""
             data["git"] = {
                 "branch": branch,
                 "upstream": upstream,
@@ -199,27 +205,27 @@ def project_scan(
                 "recent_commits": recent,
                 "remotes": remotes,
             }
-        finally:
-            os.chdir(root)
-    if include_tasks:
-        data["tasks"] = _detect_tasks(root)
-    if include_env_keys:
-        keys = []
-        f = root / ".env"
-        if f.exists():
-            for line in f.read_text(errors="ignore").splitlines():
-                line = line.strip()
-                if not line or line.startswith("#") or "=" not in line:
-                    continue
-                k = line.split("=",1)[0].strip()
-                if re.fullmatch(r"[A-Z0-9_]+", k):
-                    keys.append(k)
-        data["env_keys"] = keys[:50]
-    return json.dumps(data, ensure_ascii=False)
+        if include_tasks:
+            data["tasks"] = _detect_tasks(root)
+        if include_env_keys:
+            keys = []
+            f = root / ".env"
+            if f.exists():
+                for line in f.read_text(errors="ignore").splitlines():
+                    line = line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    k = line.split("=",1)[0].strip()
+                    if re.fullmatch(r"[A-Z0-9_]+", k):
+                        keys.append(k)
+            data["env_keys"] = keys[:50]
+        return json.dumps(data, ensure_ascii=False)
+
+    return await asyncio.to_thread(_run_scan)
 
 # ---------- Tool: files_list ----------
 
-def files_list(
+async def files_list(
         root_or_dir: str = ".",
         glob: str | None = None,
         exclude: Sequence[str] | None = None,
@@ -227,38 +233,37 @@ def files_list(
         as_tree: bool = False,
         limit: int = 1000,
 ) -> str:
-    """
-    List files/dirs from a directory (repo-root sandboxed).
-    - glob: optional pattern relative to 'root_or_dir' (e.g. 'src/**/*.py')
-    - exclude: patterns to skip (dir/ or file globs)
-    - as_tree: render a simple tree instead of a flat list
-    """
+    """Async listing of files/dirs (repo-root sandboxed)."""
     base = _confine(root_or_dir)
-    if as_tree:
-        return _tree(base, max_depth=max_depth)
-    # flat list (glob or walk)
-    paths: list[Path] = []
-    if glob:
-        for p in base.glob(glob):
-            try:
-                p.relative_to(_REPO_ROOT)  # enforce sandbox
-                if exclude and any(p.match(g) or p.name == g for g in exclude):
+
+    def _list() -> str:
+        if as_tree:
+            return _tree(base, max_depth=max_depth)
+        # flat list (glob or walk)
+        paths: list[Path] = []
+        if glob:
+            for p in base.glob(glob):
+                try:
+                    p.relative_to(_REPO_ROOT)  # enforce sandbox
+                    if exclude and any(p.match(g) or p.name == g for g in (exclude or [])):
+                        continue
+                    paths.append(p)
+                    if len(paths) >= limit:
+                        break
+                except Exception:
                     continue
+        else:
+            for p in _walk(base, max_depth=max_depth, exclude_globs=exclude or []):
                 paths.append(p)
                 if len(paths) >= limit:
                     break
-            except Exception:
-                continue
-    else:
-        for p in _walk(base, max_depth=max_depth, exclude_globs=exclude or []):
-            paths.append(p)
-            if len(paths) >= limit:
-                break
-    return "\n".join(str(p.relative_to(_REPO_ROOT)) for p in paths)
+        return "\n".join(str(p.relative_to(_REPO_ROOT)) for p in paths)
+
+    return await asyncio.to_thread(_list)
 
 # ---------- Tool: file_read ----------
 
-def file_read(
+async def file_read(
         path: str,
         *,
         max_bytes: int = 200_000,
@@ -266,38 +271,37 @@ def file_read(
         tail_lines: int | None = None,
         binary_hex: bool = True,
 ) -> str:
-    """
-    Read a file safely.
-    - max_bytes caps IO; if truncated, we note it.
-    - head_lines/tail_lines slice after decoding text (ignored for binary).
-    - binary files return a short hex preview if binary_hex=True.
-    """
+    """Async safe file read with size/preview guards."""
     p = _confine(path)
-    if not p.exists():
-        raise FileNotFoundError(str(p))
-    content, truncated = _read_small(p, max_bytes=max_bytes)
-    if isinstance(content, bytes):
-        if not binary_hex:
-            return f"[binary {p.name} size<= {max_bytes} bytes preview omitted]"
-        h = content[:2048].hex()
-        note = " (truncated)" if truncated else ""
-        return f"[binary hex{note}] {h}"
-    # text
-    lines = content.splitlines()
-    if head_lines is not None:
-        lines = lines[: head_lines]
-    if tail_lines is not None:
-        lines = lines[-tail_lines:]
-    body = "\n".join(lines)
-    if truncated:
-        body += "\n... [truncated]"
-    return body
+
+    def _read() -> str:
+        if not p.exists():
+            raise FileNotFoundError(str(p))
+        content, truncated = _read_small(p, max_bytes=max_bytes)
+        if isinstance(content, bytes):
+            if not binary_hex:
+                return f"[binary {p.name} size<= {max_bytes} bytes preview omitted]"
+            h = content[:2048].hex()
+            note = " (truncated)" if truncated else ""
+            return f"[binary hex{note}] {h}"
+        # text
+        lines = content.splitlines()
+        if head_lines is not None:
+            lines = lines[: head_lines]
+        if tail_lines is not None:
+            lines = lines[-tail_lines:]
+        body = "\n".join(lines)
+        if truncated:
+            body += "\n... [truncated]"
+        return body
+
+    return await asyncio.to_thread(_read)
 
 # ---------- Tool: file_write ----------
 
 WriteMode = Literal["write","append","replace","rename","delete","mkdir"]
 
-def file_write(
+async def file_write(
         mode: WriteMode,
         *,
         path: str,
@@ -311,95 +315,85 @@ def file_write(
         new_path: str | None = None,
         make_parents: bool | None = None,  # alias for create_dirs
 ) -> str:
-    """
-    Multi-op writer, repo-sandboxed.
-    Modes:
-      - write: create/overwrite file with 'content'
-      - append: append 'content'
-      - replace: run (regex|literal) find/replace in file (returns change stats)
-      - rename: move 'path' to 'new_path'
-      - delete: delete file/dir (non-recursive for dirs)
-      - mkdir: create directory (like 'mkdir -p')
-    Guardrails:
-      - refuses to overwrite unless overwrite=True
-      - creates parents if create_dirs=True
-      - delete on dir requires it to be empty
-    """
+    """Async multi-op writer, repo-sandboxed. All work happens in a thread."""
     if make_parents is not None:
         create_dirs = make_parents
 
     p = _confine(path)
 
-    if mode == "mkdir":
-        if p.exists():
-            return f"[mkdir] exists: {p}"
-        p.mkdir(parents=create_dirs, exist_ok=False)
-        return f"[mkdir] created: {p}"
+    def _write() -> str:
+        if mode == "mkdir":
+            if p.exists():
+                return f"[mkdir] exists: {p}"
+            p.mkdir(parents=create_dirs, exist_ok=False)
+            return f"[mkdir] created: {p}"
 
-    if mode == "delete":
-        if not p.exists():
-            return f"[delete] not found: {p}"
-        if p.is_dir():
-            # safety: only remove empty dirs
-            if any(p.iterdir()):
-                raise IsADirectoryError(f"Directory not empty: {p}")
-            p.rmdir()
-        else:
-            p.unlink()
-        return f"[delete] removed: {p}"
-
-    if mode == "rename":
-        if not new_path:
-            raise ValueError("new_path is required for rename")
-        dst = _confine(new_path)
-        if not overwrite and dst.exists():
-            raise FileExistsError(f"Target exists: {dst}")
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        p.replace(dst)
-        return f"[rename] {p} -> {dst}"
-
-    if mode == "write":
-        if p.exists() and not overwrite:
-            raise FileExistsError(f"Refusing to overwrite without overwrite=True: {p}")
-        if create_dirs:
-            p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(content or "", encoding="utf-8")
-        return f"[write] {p} ({len(content or '')} bytes)"
-
-    if mode == "append":
-        if create_dirs:
-            p.parent.mkdir(parents=True, exist_ok=True)
-        with p.open("a", encoding="utf-8") as f:
-            f.write(content or "")
-        return f"[append] {p} (+{len(content or '')} bytes)"
-
-    if mode == "replace":
-        if not p.exists():
-            raise FileNotFoundError(str(p))
-        text = p.read_text(encoding="utf-8", errors="replace")
-        if find is None:
-            raise ValueError("find is required for replace")
-        if regex:
-            new_text, n = re.subn(find, replace or "", text, count=0 if count is None else count, flags=re.MULTILINE)
-        else:
-            if count is None or count <= 0:
-                n = text.count(find)
-                new_text = text.replace(find, replace or "")
+        if mode == "delete":
+            if not p.exists():
+                return f"[delete] not found: {p}"
+            if p.is_dir():
+                # safety: only remove empty dirs
+                if any(p.iterdir()):
+                    raise IsADirectoryError(f"Directory not empty: {p}")
+                p.rmdir()
             else:
-                # limited literal replaces
-                parts = text.split(find)
-                new_text = (replace or "").join(parts[:count+1]) + find.join(parts[count+1:])
-                n = min(len(parts)-1, count)
-        if new_text == text:
-            return "[replace] no changes"
-        if not overwrite and p.exists():
-            # Make a simple .bak once per call to avoid accidental loss
-            bak = p.with_suffix(p.suffix + ".bak")
-            if not bak.exists():
-                bak.write_text(text, encoding="utf-8")
-        p.write_text(new_text, encoding="utf-8")
-        diff = "\n".join(difflib.unified_diff(text.splitlines(), new_text.splitlines(), lineterm=""))
-        clipped = "\n".join(diff.splitlines()[:300])
-        return f"[replace] {n} change(s)\n{clipped}"
+                p.unlink()
+            return f"[delete] removed: {p}"
 
-    raise ValueError(f"Unknown mode: {mode}")
+        if mode == "rename":
+            if not new_path:
+                raise ValueError("new_path is required for rename")
+            dst = _confine(new_path)
+            if not overwrite and dst.exists():
+                raise FileExistsError(f"Target exists: {dst}")
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            p.replace(dst)
+            return f"[rename] {p} -> {dst}"
+
+        if mode == "write":
+            if p.exists() and not overwrite:
+                raise FileExistsError(f"Refusing to overwrite without overwrite=True: {p}")
+            if create_dirs:
+                p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(content or "", encoding="utf-8")
+            return f"[write] {p} ({len(content or '')} bytes)"
+
+        if mode == "append":
+            if create_dirs:
+                p.parent.mkdir(parents=True, exist_ok=True)
+            with p.open("a", encoding="utf-8") as f:
+                f.write(content or "")
+            return f"[append] {p} (+{len(content or '')} bytes)"
+
+        if mode == "replace":
+            if not p.exists():
+                raise FileNotFoundError(str(p))
+            text = p.read_text(encoding="utf-8", errors="replace")
+            if find is None:
+                raise ValueError("find is required for replace")
+            if regex:
+                new_text, n = re.subn(find, replace or "", text, count=0 if count is None else count, flags=re.MULTILINE)
+            else:
+                if count is None or count <= 0:
+                    n = text.count(find)
+                    new_text = text.replace(find, replace or "")
+                else:
+                    # limited literal replaces
+                    parts = text.split(find)
+                    new_text = (replace or "").join(parts[:count+1]) + find.join(parts[count+1:])
+                    n = min(len(parts)-1, count)
+            if new_text == text:
+                return "[replace] no changes"
+            if not overwrite and p.exists():
+                # Make a simple .bak once per call to avoid accidental loss
+                bak = p.with_suffix(p.suffix + ".bak")
+                if not bak.exists():
+                    bak.write_text(text, encoding="utf-8")
+            p.write_text(new_text, encoding="utf-8")
+            diff = "\n".join(difflib.unified_diff(text.splitlines(), new_text.splitlines(), lineterm=""))
+            clipped = "\n".join(diff.splitlines()[:300])
+            return f"[replace] {n} change(s)\n{clipped}"
+
+        raise ValueError(f"Unknown mode: {mode}")
+
+    return await asyncio.to_thread(_write)
