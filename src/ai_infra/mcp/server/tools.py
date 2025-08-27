@@ -18,7 +18,7 @@ def _describe(fn: Callable[..., object], fallback: str) -> str:
     doc = textwrap.dedent(doc).strip()
     return doc or f"{fallback} tool"
 
-def _mcp_from_tools(
+def mcp_from_tools(
         *,
         name: Optional[str],
         tools: Iterable[Union[ToolFn, ToolDef]] | None,
