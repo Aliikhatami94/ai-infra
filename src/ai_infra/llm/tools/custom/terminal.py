@@ -1,9 +1,6 @@
 import sys
 import subprocess
 
-from langchain_core.tools import tool
-
-@tool
 def run_command(command: str) -> str:
     """
     Run a shell command and return its output as a string.
