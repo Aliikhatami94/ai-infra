@@ -1,3 +1,4 @@
+import sys
 import subprocess
 
 from langchain_core.tools import tool
@@ -6,18 +7,26 @@ from langchain_core.tools import tool
 def run_command(command: str) -> str:
     """
     Run a shell command and return its output as a string.
-    Raises an exception if the command fails.
+    Uses bash on Unix and PowerShell on Windows for better parity.
     """
-    result = subprocess.run(
-        command,
-        shell=True,          # run in the shell
-        text=True,           # decode bytes to str
-        capture_output=True  # capture stdout + stderr
-    )
+    if sys.platform.startswith("win"):
+        # PowerShell: good for pipelines/globbing, avoids cmd quirks
+        ps_cmd = [
+            "powershell",
+            "-NoProfile",
+            "-NonInteractive",
+            "-ExecutionPolicy", "Bypass",
+            "-Command", command,
+        ]
+        result = subprocess.run(ps_cmd, text=True, capture_output=True)
+    else:
+        # Use bash -lc so things like $PWD, pipes, &&, set -e behave predictably
+        result = subprocess.run(["bash", "-lc", command], text=True, capture_output=True)
+
     if result.returncode != 0:
         raise RuntimeError(
             f"Command failed with code {result.returncode}\n"
             f"STDOUT:\n{result.stdout}\n"
             f"STDERR:\n{result.stderr}"
         )
-    return result.stdout.strip()
+    return (result.stdout or "").strip()
