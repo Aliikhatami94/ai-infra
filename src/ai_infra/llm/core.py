@@ -1,8 +1,9 @@
 from __future__ import annotations
-from typing import List, Optional, Dict, Any, Tuple, Union, Sequence
+from typing import List, Optional, Dict, Any, Tuple, Union, Sequence, Literal
 import logging
 
 from pydantic import BaseModel
+from langchain_core.messages import BaseMessage
 
 from ai_infra.llm.utils.settings import ModelSettings
 from ai_infra.llm.utils.runtime_bind import ModelRegistry, make_agent_with_context as rb_make_agent_with_context
@@ -16,6 +17,10 @@ from .utils import (
     is_valid_response as _is_valid_response,
     merge_overrides as _merge_overrides,
     make_messages as _make_messages,
+)
+from ai_infra.llm.utils.structured import (
+    build_structured_messages as _build_structured_messages,
+    validate_or_raise as _validate_or_raise,
 )
 
 
@@ -77,21 +82,83 @@ class BaseLLMCore:
             provider: str,
             model_name: str,
             schema: Union[type[BaseModel], Dict[str, Any]],
+            *,
+            method: Literal["json_schema", "json_mode", "function_calling"] | None = "json_mode",
             **model_kwargs,
     ):
         model = self.registry.get_or_create(provider, model_name, **model_kwargs)
         try:
-            return model.with_structured_output(schema)
+            # Pass method through if provided (LangChain 0.3 supports this)
+            return model.with_structured_output(schema, **({} if method is None else {"method": method}))
         except Exception as e:  # pragma: no cover
             self._logger.warning(
                 "[CoreLLM] Structured output unavailable; provider=%s model=%s schema=%s error=%s",
-                provider,
-                model_name,
-                getattr(schema, "__name__", type(schema)),
-                e,
-                exc_info=True,
+                provider, model_name, getattr(schema, "__name__", type(schema)), e, exc_info=True,
             )
             return model
+
+    def _run_with_retry_sync(self, fn, retry_cfg):
+        import asyncio
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        if loop and loop.is_running():
+            self._logger.warning("[CoreLLM] chat() retry config ignored due to running loop; use achat().")
+            return fn()
+        async def _acall():
+            return fn()
+        return asyncio.run(_with_retry_util(_acall, **retry_cfg))
+
+    # ========== PROMPT method helpers (shared by chat/achat) ==========
+    def _prompt_structured_sync(
+            self,
+            *,
+            user_msg: str,
+            system: Optional[str],
+            provider: str,
+            model_name: str,
+            schema: Union[type[BaseModel], Dict[str, Any]],
+            extra: Optional[Dict[str, Any]],
+            model_kwargs: Dict[str, Any],
+    ) -> BaseModel:
+        model = self.set_model(provider, model_name, **model_kwargs)
+        messages: List[BaseMessage] = _build_structured_messages(
+            schema=schema, user_msg=user_msg, system_preamble=system
+        )
+
+        def _call():
+            return model.invoke(messages)
+
+        retry_cfg = (extra or {}).get("retry") if extra else None
+        res = _call() if not retry_cfg else self._run_with_retry_sync(_call, retry_cfg)
+        content = getattr(res, "content", None) or str(res)
+        return _validate_or_raise(schema, content)
+
+    async def _prompt_structured_async(
+            self,
+            *,
+            user_msg: str,
+            system: Optional[str],
+            provider: str,
+            model_name: str,
+            schema: Union[type[BaseModel], Dict[str, Any]],
+            extra: Optional[Dict[str, Any]],
+            model_kwargs: Dict[str, Any],
+    ) -> BaseModel:
+        """Async variant of prompt-only structured output."""
+        model = self.set_model(provider, model_name, **model_kwargs)
+        messages: List[BaseMessage] = _build_structured_messages(
+            schema=schema, user_msg=user_msg, system_preamble=system
+        )
+
+        async def _call():
+            return await model.ainvoke(messages)
+
+        retry_cfg = (extra or {}).get("retry") if extra else None
+        res = await (_with_retry_util(_call, **retry_cfg) if retry_cfg else _call())
+        content = getattr(res, "content", None) or str(res)
+        return _validate_or_raise(schema, content)
 
 
 class CoreLLM(BaseLLMCore):
@@ -104,33 +171,42 @@ class CoreLLM(BaseLLMCore):
             model_name: str,
             system: Optional[str] = None,
             extra: Optional[Dict[str, Any]] = None,
+            output_schema: Union[type[BaseModel], Dict[str, Any], None] = None,
+            output_method: Literal["json_schema", "json_mode", "function_calling", "prompt"] | None = "prompt",
             **model_kwargs,
     ):
         sanitize_model_kwargs(model_kwargs)
-        model = self.set_model(provider, model_name, **model_kwargs)
+
+        # PROMPT method uses shared helper
+        if output_schema is not None and output_method == "prompt":
+            return self._prompt_structured_sync(
+                user_msg=user_msg,
+                system=system,
+                provider=provider,
+                model_name=model_name,
+                schema=output_schema,
+                extra=extra,
+                model_kwargs=model_kwargs,
+            )
+
+        # otherwise: existing structured (json_mode/function_calling/json_schema) or plain
+        if output_schema is not None:
+            model = self.with_structured_output(
+                provider, model_name, output_schema, method=output_method, **model_kwargs
+            )
+        else:
+            model = self.set_model(provider, model_name, **model_kwargs)
+
         messages = _make_messages(user_msg, system)
         def _call():
             return model.invoke(messages)
+
         retry_cfg = (extra or {}).get("retry") if extra else None
-        if retry_cfg:
-            import asyncio
-            try:
-                running_loop = asyncio.get_running_loop()
-            except RuntimeError:
-                running_loop = None
-            if running_loop and running_loop.is_running():
-                self._logger.warning(
-                    "[CoreLLM] chat() retry config ignored due to existing event loop; use achat() instead."
-                )
-                res = _call()
-            else:
-                async def _acall():
-                    return _call()
-                res = asyncio.run(_with_retry_util(_acall, **retry_cfg))
-        else:
-            res = _call()
-        ai_msg = apply_output_gate(res, self._hitl)
-        return ai_msg
+        res = _call() if not retry_cfg else self._run_with_retry_sync(_call, retry_cfg)
+        try:
+            return apply_output_gate(res, self._hitl)
+        except Exception:
+            return res
 
     async def achat(
             self,
@@ -139,17 +215,40 @@ class CoreLLM(BaseLLMCore):
             model_name: str,
             system: Optional[str] = None,
             extra: Optional[Dict[str, Any]] = None,
+            output_schema: Union[type[BaseModel], Dict[str, Any], None] = None,
+            output_method: Literal["json_schema", "json_mode", "function_calling", "prompt"] | None = "prompt",
             **model_kwargs,
     ):
         sanitize_model_kwargs(model_kwargs)
-        model = self.set_model(provider, model_name, **model_kwargs)
+
+        if output_schema is not None and output_method == "prompt":
+            return await self._prompt_structured_async(
+                user_msg=user_msg,
+                system=system,
+                provider=provider,
+                model_name=model_name,
+                schema=output_schema,
+                extra=extra,
+                model_kwargs=model_kwargs,
+            )
+
+        if output_schema is not None:
+            model = self.with_structured_output(
+                provider, model_name, output_schema, method=output_method, **model_kwargs
+            )
+        else:
+            model = self.set_model(provider, model_name, **model_kwargs)
+
         messages = _make_messages(user_msg, system)
         async def _call():
             return await model.ainvoke(messages)
+
         retry_cfg = (extra or {}).get("retry") if extra else None
         res = await (_with_retry_util(_call, **retry_cfg) if retry_cfg else _call())
-        ai_msg = await apply_output_gate_async(res, self._hitl)
-        return ai_msg
+        try:
+            return await apply_output_gate_async(res, self._hitl)
+        except Exception:
+            return res
 
     async def stream_tokens(
             self,
