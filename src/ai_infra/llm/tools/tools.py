@@ -93,6 +93,42 @@ class HITLConfig:
         return {"on_model_output": self.on_model_output, "on_tool_call": self.on_tool_call}
 
 
+class _HITLWrappedTool(BaseTool):
+    """Async-first wrapper around a BaseTool enforcing async execution."""
+
+    def __init__(self, base: BaseTool, hitl: HITLConfig):
+        super().__init__(name=getattr(base, "name", "tool"), description=getattr(base, "description", "") or "")
+        self._base = base
+        self._hitl = hitl
+        # preserve args schema if present
+        if hasattr(base, "args_schema") and base.args_schema is not None:
+            self.args_schema = base.args_schema  # type: ignore[attr-defined]
+
+    # Disallow sync path to avoid StructuredTool sync errors
+    def _run(self, *args, **kwargs):  # type: ignore[override]
+        raise NotImplementedError("HITL-wrapped tools are async-only. Use ainvoke/_arun.")
+
+    async def _arun(self, *args, **kwargs):  # type: ignore[override]
+        args_dict = dict(kwargs) if kwargs else {}
+        try:
+            decision = await self._hitl.call_tool(self.name, args_dict)
+        except Exception:
+            decision = {"action": "pass"}
+
+        action = (decision or {}).get("action", "pass")
+        if action == "block":
+            return (decision or {}).get("replacement", "[blocked by reviewer]")
+        if action == "modify":
+            args_dict = (decision or {}).get("args", args_dict)
+
+        # prefer async on the base tool
+        if hasattr(self._base, "ainvoke"):
+            return await self._base.ainvoke(args_dict)
+        # fallback: run sync tool in a thread
+        return await asyncio.to_thread(self._base.invoke, args_dict)
+
+
+
 # ---------- Async helper ----------
 def maybe_await(result: Any) -> Any:
     """Resolve an awaitable in a sync context safely.
@@ -182,53 +218,20 @@ async def apply_output_gate_async(ai_msg: Any, hitl: Optional[HITLConfig]) -> An
 
 
 # ---------- Tool wrapping ----------
-def wrap_tool_for_hitl(tool_obj: Any, hitl: Optional[HITLConfig | Dict[str, Any]]):
-    """Return a HITL-wrapped tool (StructuredTool) if a tool_call callback is present.
-
-    Accepts BaseTool, callable, or other objects (returned unchanged if unsupported).
-    """
-    on_tool = None
-    if hitl:
-        on_tool = hitl.on_tool_call if isinstance(hitl, HITLConfig) else hitl.get("on_tool_call")
-    if not on_tool:
+def wrap_tool_for_hitl(tool_obj: Any, hitl: Optional[HITLConfig]):
+    """Return an async-first HITL-wrapped tool when a tool_call gate is present."""
+    if not hitl or not (hitl.on_tool_call or hitl.on_tool_call_async):
         return tool_obj
 
     # Normalize to BaseTool
     if isinstance(tool_obj, BaseTool):
         base = tool_obj
     elif callable(tool_obj):
-        base = lc_tool(tool_obj)  # wrap plain function
+        base = lc_tool(tool_obj)  # wraps function into a BaseTool (supports ainvoke when func is async)
     else:
         return tool_obj
 
-    name = getattr(base, "name", getattr(tool_obj, "__name__", "tool"))
-    description = getattr(base, "description", getattr(tool_obj, "__doc__", "")) or ""
-    args_schema = getattr(base, "args_schema", None)
-
-    def _impl(**kwargs):  # executed on agent tool invocation
-        try:
-            decision = maybe_await(on_tool(name, dict(kwargs) if kwargs else {}))
-        except Exception:
-            decision = {"action": "pass"}
-        action = (decision or {}).get("action", "pass")
-        if action == "block":
-            return (decision or {}).get("replacement", "[blocked by reviewer]")
-        if action == "modify":
-            kwargs = (decision or {}).get("args", kwargs)
-        return base.invoke(kwargs)
-
-    try:
-        _impl.__name__ = name  # cosmetic
-    except Exception:  # pragma: no cover
-        pass
-
-    return StructuredTool.from_function(
-        func=_impl,
-        name=name,
-        description=description,
-        args_schema=args_schema,
-        infer_schema=not bool(args_schema),
-    )
+    return _HITLWrappedTool(base, hitl)
 
 
 # ---------- Tool policy ----------
