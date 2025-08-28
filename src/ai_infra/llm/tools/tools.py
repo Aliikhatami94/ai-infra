@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import asyncio
 
-"""Centralized HITL + tool policy utilities.
+"""
+Centralized HITL + tool policy utilities.
 
 This module consolidates logic that previously lived ad‑hoc in CoreLLM / runtime_bind:
   - HITLConfig: stores callbacks and provides a .set API
@@ -89,8 +90,13 @@ class HITLConfig:
             return await asyncio.to_thread(self.on_tool_call, name, args)
         return None
 
-    def as_dict(self) -> Dict[str, Any]:  # convenient for legacy code expectations
-        return {"on_model_output": self.on_model_output, "on_tool_call": self.on_tool_call}
+    def as_dict(self) -> Dict[str, Any]:
+        return {
+            "on_model_output": self.on_model_output,
+            "on_tool_call": self.on_tool_call,
+            "on_model_output_async": self.on_model_output_async,
+            "on_tool_call_async": self.on_tool_call_async,
+        }
 
 
 class _HITLWrappedTool(BaseTool):
