@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from ai_infra.llm.utils.settings import ModelSettings
 from ai_infra.llm.utils.runtime_bind import ModelRegistry, make_agent_with_context as rb_make_agent_with_context
 from ai_infra.llm.tools.tool_controls import ToolCallControls
-from .tools import apply_output_gate, wrap_tool_for_hitl, HITLConfig
+from .tools import apply_output_gate, wrap_tool_for_hitl, HITLConfig, apply_output_gate_async
 from .utils import (
     sanitize_model_kwargs,
     with_retry as _with_retry_util,
@@ -148,7 +148,7 @@ class CoreLLM(BaseLLMCore):
             return await model.ainvoke(messages)
         retry_cfg = (extra or {}).get("retry") if extra else None
         res = await (_with_retry_util(_call, **retry_cfg) if retry_cfg else _call())
-        ai_msg = await apply_output_gate(res, self._hitl)
+        ai_msg = await apply_output_gate_async(res, self._hitl)
         return ai_msg
 
     async def stream_tokens(
@@ -228,7 +228,7 @@ class CoreAgent(BaseLLMCore):
             res = await _with_retry_util(_call, **retry_cfg)
         else:
             res = await _call()
-        ai_msg = await apply_output_gate(res, self._hitl)
+        ai_msg = await apply_output_gate_async(res, self._hitl)
         return ai_msg
 
     def run_agent(
@@ -283,7 +283,7 @@ class CoreAgent(BaseLLMCore):
             else:
                 yield mode, chunk
         if last_values is not None:
-            gated_values = await apply_output_gate(last_values, self._hitl)
+            gated_values = await apply_output_gate_async(last_values, self._hitl)
             yield "values", gated_values
 
     async def astream_agent_tokens(
