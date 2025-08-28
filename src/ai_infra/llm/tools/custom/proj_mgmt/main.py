@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Sequence, Literal
 
 from ai_infra.llm.tools.custom.proj_mgmt.utils import (
-    _REPO_ROOT, _confine, _tree, _walk, _read_small, _detect_tasks,
+    _REPO_ROOT, _confine, _tree, _walk, _read_small, _detect_tasks, _shim_cwd
 )
 
 import asyncio
@@ -91,7 +91,7 @@ async def files_list(
         limit: int = 1000,
 ) -> str:
     """Async listing of files/dirs (repo-root sandboxed)."""
-    base = _confine(root_or_dir)
+    base = _confine(_shim_cwd(root_or_dir))
 
     def _list() -> str:
         if as_tree:
@@ -128,7 +128,7 @@ async def file_read(
         binary_hex: bool = True,
 ) -> str:
     """Async safe file read with size/preview guards."""
-    p = _confine(path)
+    p = _confine(_shim_cwd(path))
 
     def _read() -> str:
         if not p.exists():
@@ -174,7 +174,7 @@ async def file_write(
     if make_parents is not None:
         create_dirs = make_parents
 
-    p = _confine(path)
+    p = _confine(_shim_cwd(path))
 
     def _write() -> str:
         if mode == "mkdir":

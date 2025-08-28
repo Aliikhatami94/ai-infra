@@ -1,7 +1,7 @@
 from __future__ import annotations
-import re, json
+import re, json, os
 from pathlib import Path
-from typing import Iterable, Sequence
+from typing import Iterable, Sequence, Union
 
 # ---------- Repo root & sandbox ----------
 
@@ -20,16 +20,47 @@ def _find_repo_root(start: Path) -> Path:
             return start.resolve()
         cur = cur.parent
 
-_REPO_ROOT = _find_repo_root(Path.cwd())
+_REPO_ROOT = Path(os.getenv("REPO_ROOT", os.getcwd())).resolve()
 
-def _confine(path_like: str | Path) -> Path:
-    """Resolve to an absolute path inside repo root; raise if outside."""
-    p = (_REPO_ROOT / Path(path_like)).resolve()
-    try:
-        p.relative_to(_REPO_ROOT)
-    except Exception:
-        raise ValueError(f"Path escapes repo root: {p}")
+class ToolException(RuntimeError):
+    pass
+
+_CWD_PROC_PREFIXES = ("/proc/self/cwd",)  # extend if you need more shims later
+
+def _normalize_user_path(p: Path) -> Path:
+    s = str(p)
+    for pref in _CWD_PROC_PREFIXES:
+        if s == pref or s.startswith(pref + "/"):
+            tail = s[len(pref):].lstrip("/")
+            return (Path(os.getcwd()).resolve() / tail).resolve()
     return p
+
+def _confine(path: Union[str, Path]) -> Path:
+    """
+    Map user-supplied path to a real path under _REPO_ROOT, handling proc/symlink cwd.
+    Raises ToolException if it escapes the repo root.
+    """
+    root = _REPO_ROOT.resolve()
+    p = _normalize_user_path(Path(path))
+
+    # Make path absolute under root when relative; always resolve to realpath
+    if not p.is_absolute():
+        p = (root / p).resolve()
+    else:
+        p = p.resolve()
+
+    try:
+        # Will raise ValueError if p is not under root
+        p.relative_to(root)
+    except Exception:
+        raise ToolException(f"Path escapes repo root: {p}")
+
+    return p
+
+def _shim_cwd(path: str) -> str:
+    if path.startswith("/proc/self/cwd"):
+        return str(Path(os.getcwd()).resolve() / path.replace("/proc/self/cwd/", "", 1))
+    return path
 
 # ---------- Utils ----------
 
