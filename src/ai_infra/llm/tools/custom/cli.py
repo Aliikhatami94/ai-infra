@@ -1,5 +1,4 @@
 import sys
-import subprocess
 import asyncio
 
 async def run_command(command: str) -> str:

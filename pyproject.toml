@@ -59,7 +59,7 @@ mypy = "^1.10.0"
 
 [tool.poetry.scripts]
 project-management-mcp = "ai_infra.mcp.server.custom.proj_mgt:main"
-cli = "ai_infra.mcp.server.custom.cli:main"
+cli-mcp = "ai_infra.mcp.server.custom.cli:main"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

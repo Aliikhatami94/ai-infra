@@ -1,6 +1,5 @@
 from ai_infra.mcp.server.tools import mcp_from_tools
-
-from ai_infra.llm.tools.custom.files import (
+from ai_infra.llm.tools.custom.proj_mgmt.main import (
     file_read,
     file_write,
     files_list,
@@ -8,7 +7,7 @@ from ai_infra.llm.tools.custom.files import (
 )
 
 mcp = mcp_from_tools(
-    name="project_management",
+    name="project-management",
     tools=[file_read, file_write, files_list, project_scan]
 )
 

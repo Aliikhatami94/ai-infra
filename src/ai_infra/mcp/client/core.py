@@ -271,6 +271,14 @@ class CoreMCPClient:
         ms_client = await self.list_clients()
         return await ms_client.get_tools()
 
+    async def list_resources(self, server_name: str):
+        ms_client = await self.list_clients()
+        return await ms_client.get_resources(server_name)
+
+    async def list_prompts(self, server_name: str, prompt_name: str):
+        ms_client = await self.list_clients()
+        return await ms_client.get_prompt(server_name, prompt_name)
+
     async def get_openmcp(
             self,
             server_name: Optional[str] = None,

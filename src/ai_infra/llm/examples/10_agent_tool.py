@@ -4,7 +4,7 @@ What you learn: constructing an agent and running a simple user prompt.
 """
 from ai_infra.llm import CoreAgent, Providers, Models
 
-from ai_infra.llm.tools.custom.terminal import run_command
+from ai_infra.llm.tools.custom.cli import run_command
 
 def main():
     agent = CoreAgent()

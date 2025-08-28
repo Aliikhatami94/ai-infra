@@ -9,7 +9,7 @@ from typing import Any, Iterable, Optional, Union, Callable, Awaitable
 
 from .models import MCPMount
 from ai_infra.mcp.server.openapi import _mcp_from_openapi
-from ai_infra.mcp.server.tools import _mcp_from_tools, ToolDef, ToolFn
+from ai_infra.mcp.server.tools import mcp_from_tools, ToolDef, ToolFn
 
 try:
     from starlette.applications import Starlette
@@ -173,7 +173,7 @@ class CoreMCPServer:
                 transport="streamable_http",
             )
         """
-        mcp = _mcp_from_tools(name=name, tools=tools)
+        mcp = mcp_from_tools(name=name, tools=tools)
         return self.add_fastmcp(
             mcp,
             path,
