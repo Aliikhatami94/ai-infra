@@ -1,4 +1,7 @@
 from __future__ import annotations
+
+import asyncio
+
 """Centralized HITL + tool policy utilities.
 
 This module consolidates logic that previously lived ad‑hoc in CoreLLM / runtime_bind:
@@ -22,6 +25,7 @@ __all__ = [
     "HITLConfig",
     "maybe_await",
     "apply_output_gate",
+    "apply_output_gate_async",
     "wrap_tool_for_hitl",
     "ToolPolicy",
     "compute_effective_tools",
@@ -40,16 +44,50 @@ class HITLConfig:
     on_tool_call(name: str, args: dict) -> decision dict or None
         decision: {action: pass|modify|block, args: {...}, replacement: any}
     """
-    def __init__(self, *, on_model_output: Optional[Callable[..., Any]] = None, on_tool_call: Optional[Callable[..., Any]] = None):
+    def __init__(
+            self,
+            *,
+            on_model_output: Optional[Callable[..., Any]] = None,
+            on_tool_call: Optional[Callable[..., Any]] = None,
+            on_model_output_async: Optional[Callable[..., Any]] = None,
+            on_tool_call_async: Optional[Callable[..., Any]] = None,
+    ):
         self.on_model_output = on_model_output
         self.on_tool_call = on_tool_call
+        self.on_model_output_async = on_model_output_async
+        self.on_tool_call_async = on_tool_call_async
 
-    def set(self, *, on_model_output: Optional[Callable[..., Any]] = None, on_tool_call: Optional[Callable[..., Any]] = None):
+    def set(
+            self,
+            *,
+            on_model_output: Optional[Callable[..., Any]] = None,
+            on_tool_call: Optional[Callable[..., Any]] = None,
+            on_model_output_async: Optional[Callable[..., Any]] = None,
+            on_tool_call_async: Optional[Callable[..., Any]] = None,
+    ):
         if on_model_output is not None:
             self.on_model_output = on_model_output
         if on_tool_call is not None:
             self.on_tool_call = on_tool_call
+        if on_model_output_async is not None:
+            self.on_model_output_async = on_model_output_async
+        if on_tool_call_async is not None:
+            self.on_tool_call_async = on_tool_call_async
         return self
+
+    async def call_model_output(self, ai_msg: Any):
+        if self.on_model_output_async:
+            return await self.on_model_output_async(ai_msg)
+        if self.on_model_output:
+            return await asyncio.to_thread(self.on_model_output, ai_msg)
+        return None
+
+    async def call_tool(self, name: str, args: Dict[str, Any]):
+        if self.on_tool_call_async:
+            return await self.on_tool_call_async(name, args)
+        if self.on_tool_call:
+            return await asyncio.to_thread(self.on_tool_call, name, args)
+        return None
 
     def as_dict(self) -> Dict[str, Any]:  # convenient for legacy code expectations
         return {"on_model_output": self.on_model_output, "on_tool_call": self.on_tool_call}
@@ -115,6 +153,30 @@ def apply_output_gate(ai_msg: Any, hitl: Optional[HITLConfig | Dict[str, Any]]) 
             else:
                 ai_msg = {"role": "ai", "content": replacement} if not isinstance(ai_msg, dict) else ai_msg
     except Exception:  # pragma: no cover - defensive
+        pass
+    return ai_msg
+
+async def apply_output_gate_async(ai_msg: Any, hitl: Optional[HITLConfig]) -> Any:
+    if not hitl:
+        return ai_msg
+    try:
+        decision = await hitl.call_model_output(ai_msg)
+        if isinstance(decision, dict) and decision.get("action") in ("modify", "block"):
+            replacement = decision.get("replacement", "")
+            # mirror your existing mutation logic:
+            if isinstance(ai_msg, dict) and isinstance(ai_msg.get("messages"), list) and ai_msg["messages"]:
+                last_msg = ai_msg["messages"][-1]
+                if isinstance(last_msg, dict) and "content" in last_msg:
+                    last_msg["content"] = replacement
+                elif hasattr(last_msg, "content"):
+                    last_msg.content = replacement  # type: ignore
+                else:
+                    ai_msg["messages"][-1] = {"role": "ai", "content": replacement}
+            elif hasattr(ai_msg, "content"):
+                ai_msg.content = replacement  # type: ignore
+            else:
+                ai_msg = {"role": "ai", "content": replacement} if not isinstance(ai_msg, dict) else ai_msg
+    except Exception:
         pass
     return ai_msg
 

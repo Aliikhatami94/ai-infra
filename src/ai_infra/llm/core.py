@@ -35,8 +35,20 @@ class BaseLLMCore:
     def require_tools_explicit(self, required: bool = True):
         self.require_explicit_tools = required
 
-    def set_hitl(self, *, on_model_output=None, on_tool_call=None):
-        self._hitl.set(on_model_output=on_model_output, on_tool_call=on_tool_call)
+    def set_hitl(
+            self,
+            *,
+            on_model_output=None,
+            on_tool_call=None,
+            on_model_output_async=None,
+            on_tool_call_async=None,
+    ):
+        self._hitl.set(
+            on_model_output=on_model_output,
+            on_tool_call=on_tool_call,
+            on_model_output_async=on_model_output_async,
+            on_tool_call_async=on_tool_call_async,
+        )
 
     @staticmethod
     def make_sys_gate(autoapprove: bool = False):
@@ -136,7 +148,7 @@ class CoreLLM(BaseLLMCore):
             return await model.ainvoke(messages)
         retry_cfg = (extra or {}).get("retry") if extra else None
         res = await (_with_retry_util(_call, **retry_cfg) if retry_cfg else _call())
-        ai_msg = apply_output_gate(res, self._hitl)
+        ai_msg = await apply_output_gate(res, self._hitl)
         return ai_msg
 
     async def stream_tokens(
@@ -216,7 +228,7 @@ class CoreAgent(BaseLLMCore):
             res = await _with_retry_util(_call, **retry_cfg)
         else:
             res = await _call()
-        ai_msg = apply_output_gate(res, self._hitl)
+        ai_msg = await apply_output_gate(res, self._hitl)
         return ai_msg
 
     def run_agent(
@@ -271,7 +283,7 @@ class CoreAgent(BaseLLMCore):
             else:
                 yield mode, chunk
         if last_values is not None:
-            gated_values = apply_output_gate(last_values, self._hitl)
+            gated_values = await apply_output_gate(last_values, self._hitl)
             yield "values", gated_values
 
     async def astream_agent_tokens(

@@ -20,7 +20,6 @@ from mcp.client.sse import sse_client
 from pydantic import BaseModel
 
 from ai_infra.mcp.client.models import McpServerConfig
-from ai_infra.mcp.server.tools import ToolDef
 
 
 class CoreMCPClient:
