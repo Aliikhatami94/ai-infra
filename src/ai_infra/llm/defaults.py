@@ -1,5 +1,4 @@
-from ai_infra import Providers
-from ai_infra.llm import Models
+from ai_infra.llm import Models, Providers
 
 MODEL = Models.openai.default.value
 PROVIDER = Providers.openai
