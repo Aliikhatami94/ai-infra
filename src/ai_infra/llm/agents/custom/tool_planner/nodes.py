@@ -2,14 +2,59 @@ from __future__ import annotations
 import asyncio
 import json
 
-from ai_infra.llm.agents.custom.planner.states import PlannerState
-from ai_infra.llm.agents.custom.planner.utils import (
-    _gather_msgs,
-    _render_presentation_md,
-    _call_planner,
-    _summarize_tool,
+from ai_infra.llm.agents.custom.tool_planner.states import (
+    PlannerState, ComplexityAssessment, PlanDraft
+)
+from ai_infra.llm.agents.custom.tool_planner.utils import (
+    _gather_msgs, _render_presentation_md, _summarize_tool, call_structured
 )
 
+async def assess_complexity(state: PlannerState) -> PlannerState:
+    """
+    Quick, token-lean LLM gate: rate complexity and decide whether to skip planning.
+    """
+    base_sys = (
+        "ROLE=Planner-ComplexityRater\n"
+        "Rate the user's request complexity and whether tool-planning is needed.\n"
+        "Definitions:\n"
+        "- trivial: a single tool call or one-liner answer; no orchestration.\n"
+        "- simple: ≤2 steps, minimal branching, args obvious.\n"
+        "- moderate: 3–5 steps or needs clarification.\n"
+        "- complex: >5 steps, dependencies, or multi-tool workflow.\n"
+        "Return JSON with fields: complexity, reason, skip_planning.\n"
+        "Set skip_planning=true whenever complexity is trivial or simple and there is no missing configuration."
+    )
+
+    user_msg = _gather_msgs(state)
+    assess = await call_structured(
+        state,
+        output_schema=ComplexityAssessment,
+        base_sys=base_sys,
+        user=user_msg,
+    )
+    print(assess)
+
+    state["meta_complexity"] = assess.complexity
+    state["meta_reason"] = assess.reason
+
+    # **Deterministic policy**: trivial/simple => skip, even if the model forgot to set the flag.
+    skip_by_policy = assess.complexity in ("trivial", "simple")
+    state["skipped"] = bool(assess.skip_planning or skip_by_policy)
+
+    if state["skipped"]:
+        state["plan"] = []
+        state["questions"] = []
+        state["presentation_md"] = (
+            "### No plan needed\n"
+            f"- Complexity: **{assess.complexity}**\n"
+            f"- Reason: {assess.reason}\n"
+            "_Proceed directly without planning._"
+        )
+        state["approved"] = True
+        state["awaiting_approval"] = False
+        state["aborted"] = False
+
+    return state
 
 async def analyze(state: PlannerState) -> PlannerState:
     """Build a token-lean summary: one line per tool with name | desc | req= | opt=."""
@@ -37,7 +82,7 @@ async def draft_plan(state: PlannerState) -> PlannerState:
         f"Available tools:\n{tools_md}\n\n"
     )
 
-    draft = await _call_planner(state, base_sys=base_sys, user=user)
+    draft = await call_structured(state, output_schema=PlanDraft, base_sys=base_sys, user=user)
 
     state["plan"] = [s.model_dump() for s in draft.plan]
     state["questions"] = draft.questions
@@ -114,7 +159,7 @@ async def replan(state: PlannerState) -> PlannerState:
         f"Feedback:\n{feedback}."
     )
 
-    draft = await _call_planner(state, base_sys=base_sys, user=user)
+    draft = await call_structured(state, output_schema=PlanDraft, base_sys=base_sys, user=user)
 
     state["plan"] = [s.model_dump() for s in draft.plan]
     state["questions"] = draft.questions

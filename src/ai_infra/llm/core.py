@@ -21,6 +21,8 @@ from .utils import (
 from ai_infra.llm.utils.structured import (
     build_structured_messages as _build_structured_messages,
     validate_or_raise as _validate_or_raise,
+    coerce_structured_result as _coerce_structured_result,
+    is_pydantic_schema as _is_pydantic_schema
 )
 
 
@@ -203,6 +205,10 @@ class CoreLLM(BaseLLMCore):
 
         retry_cfg = (extra or {}).get("retry") if extra else None
         res = _call() if not retry_cfg else self._run_with_retry_sync(_call, retry_cfg)
+
+        if output_schema is not None and _is_pydantic_schema(output_schema):
+            return _coerce_structured_result(output_schema, res)
+
         try:
             return apply_output_gate(res, self._hitl)
         except Exception:
@@ -245,6 +251,10 @@ class CoreLLM(BaseLLMCore):
 
         retry_cfg = (extra or {}).get("retry") if extra else None
         res = await (_with_retry_util(_call, **retry_cfg) if retry_cfg else _call())
+
+        if output_schema is not None and _is_pydantic_schema(output_schema):
+            return _coerce_structured_result(output_schema, res)
+
         try:
             return await apply_output_gate_async(res, self._hitl)
         except Exception:

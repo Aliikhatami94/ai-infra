@@ -1,8 +1,8 @@
 import json
 from typing import Any, Dict, List
 
-from ai_infra.llm import CoreLLM
-from ai_infra.llm.agents.custom.planner.states import PlannerState, PlanDraft
+from ai_infra import CoreLLM
+from ai_infra.llm.agents.custom.tool_planner.states import PlannerState, PlanDraft
 
 
 def _gather_msgs(state, roles=("user", "human")) -> str:
@@ -95,25 +95,20 @@ def _summarize_tool(t: Any) -> str:
         segs.append("opt=" + ",".join(opt))
     return " | ".join(segs)
 
-
-async def _call_planner(state: PlannerState, *, base_sys: str, user: str) -> PlanDraft:
-    """Shared LLM call that returns a PlanDraft, normalizing diverse provider outputs."""
+async def call_structured(
+        state: PlannerState,
+        output_schema: Any,
+        *,
+        base_sys: str,
+        user: str,
+) -> Any:
     llm = CoreLLM()
     sys = _compose_system(base_sys, state)
 
-    resp = await llm.achat(
+    return await llm.achat(
         user_msg=user,
         system=sys,
         provider=state["provider"],
         model_name=state["model_name"],
-        output_schema=PlanDraft
+        output_schema=output_schema,
     )
-
-    if isinstance(resp, PlanDraft):
-        return resp
-
-    # Some providers may return a dict or an object with a `content` string.
-    if isinstance(resp, dict):
-        return PlanDraft.model_validate(resp)
-
-    return PlanDraft.model_validate_json(getattr(resp, "content", str(resp)))

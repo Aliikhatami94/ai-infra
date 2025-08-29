@@ -6,6 +6,16 @@ from langgraph.graph import MessagesState
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 
+class ComplexityAssessment(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    complexity: Literal["trivial", "simple", "moderate", "complex"] = Field(
+        ..., description="Overall complexity rating."
+    )
+    reason: str = Field(..., description="Why this rating was chosen (1-2 lines).")
+    skip_planning: bool = Field(
+        ..., description="True if planning should be skipped and we can act directly."
+    )
+
 class Tool(BaseModel):
     name: str
     description: str
@@ -33,7 +43,6 @@ class PlanDraft(BaseModel):
             raise ValueError("Questions must be non-empty strings.")
         return v
 
-
 class PlannerState(TypedDict, total=False):
     messages: MessagesState
     provider: str
@@ -42,6 +51,10 @@ class PlannerState(TypedDict, total=False):
     tool_summary: str
     plan: List[PlanStep]
     questions: List[str]
+
+    meta_complexity: Literal["trivial", "simple", "moderate", "complex"]
+    meta_reason: str
+    skipped: bool   # True if planning was skipped by gate
 
     # HITL control
     io_mode: Literal["terminal", "api"]
