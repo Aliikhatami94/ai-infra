@@ -1,7 +1,7 @@
 from typing import Dict, Any, Literal
 from langgraph.graph import END, START
 
-from ai_infra import CoreGraph, Providers, Models
+from ai_infra import CoreGraph
 from ai_infra.graph import ConditionalEdge, Edge
 from ai_infra.llm.agents.custom.tool_planner.states import PlannerState
 from ai_infra.llm.agents.custom.tool_planner.nodes import (
@@ -11,10 +11,8 @@ from ai_infra.llm.agents.custom.tool_planner.nodes import (
     present_for_hitl,
     replan,
 )
+from ai_infra.llm import PROVIDER, MODEL
 
-
-PROVIDER = Providers.openai
-MODEL_NAME = Models.openai.default.value
 
 PlannerGraph = CoreGraph(
     state_type=PlannerState,
@@ -48,7 +46,7 @@ async def tool_planner(
         tools: list,
         io_mode: Literal["terminal", "api"] = "terminal",
         provider: str = PROVIDER,
-        model_name: str = MODEL_NAME,
+        model_name: str = MODEL,
 ) -> Dict[str, Any]:
     """
     Plans a sequence of tool calls based on input messages and available tools.
