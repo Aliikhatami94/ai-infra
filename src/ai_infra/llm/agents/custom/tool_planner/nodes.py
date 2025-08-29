@@ -32,8 +32,6 @@ async def assess_complexity(state: PlannerState) -> PlannerState:
         base_sys=base_sys,
         user=user_msg,
     )
-    print(assess)
-
     state["meta_complexity"] = assess.complexity
     state["meta_reason"] = assess.reason
 
