@@ -3,8 +3,8 @@ from langgraph.graph import END, START
 
 from ai_infra import CoreGraph
 from ai_infra.graph import ConditionalEdge, Edge
-from ai_infra.llm.agents.custom.tool_planner.states import PlannerState
-from ai_infra.llm.agents.custom.tool_planner.nodes import (
+from ai_infra.llm.agents.custom.action_planner.states import PlannerState
+from ai_infra.llm.agents.custom.action_planner.nodes import (
     assess_complexity,
     analyze,
     draft_plan,
@@ -12,7 +12,7 @@ from ai_infra.llm.agents.custom.tool_planner.nodes import (
     replan,
 )
 from ai_infra.llm import PROVIDER, MODEL
-from ai_infra.mcp.client.core import CoreMCPClient
+
 
 ActionPlannerGraph = CoreGraph(
     state_type=PlannerState,
@@ -40,7 +40,7 @@ ActionPlannerGraph = CoreGraph(
     ],
 )
 
-async def action_planner(
+async def run_action_planner(
         *,
         messages,
         tools: list,
