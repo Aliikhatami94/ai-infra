@@ -12,9 +12,9 @@ from ai_infra.llm.agents.custom.tool_planner.nodes import (
     replan,
 )
 from ai_infra.llm import PROVIDER, MODEL
+from ai_infra.mcp.client.core import CoreMCPClient
 
-
-PlannerGraph = CoreGraph(
+ActionPlannerGraph = CoreGraph(
     state_type=PlannerState,
     node_definitions=[assess_complexity, analyze, draft_plan, present_for_hitl, replan],
     edges=[
@@ -40,7 +40,7 @@ PlannerGraph = CoreGraph(
     ],
 )
 
-async def tool_planner(
+async def action_planner(
         *,
         messages,
         tools: list,
@@ -48,10 +48,6 @@ async def tool_planner(
         provider: str = PROVIDER,
         model_name: str = MODEL,
 ) -> Dict[str, Any]:
-    """
-    Plans a sequence of tool calls based on input messages and available tools.
-    Supports human-in-the-loop approval in terminal or API modes.
-    """
     initial: PlannerState = {
         "messages": messages,
         "provider": provider,
@@ -63,12 +59,18 @@ async def tool_planner(
         "awaiting_approval": False,
         "feedback": "",
     }
-    result = await PlannerGraph.arun(initial)
+    result = await ActionPlannerGraph.arun(initial)
+    # Convert plan (Pydantic) to plain dicts for downstream consumers
+    plan_dicts = [s.model_dump() for s in (result.get("plan") or [])]
     return {
-        "plan": result.get("plan", []),
+        "plan": plan_dicts,
         "questions": result.get("questions", []),
         "presentation_md": result.get("presentation_md", ""),
         "approved": bool(result.get("approved")),
         "aborted": bool(result.get("aborted")),
         "awaiting_approval": bool(result.get("awaiting_approval")),
+        # optional metadata if you want it downstream
+        "meta_complexity": result.get("meta_complexity"),
+        "meta_reason": result.get("meta_reason"),
+        "skipped": result.get("skipped", False),
     }

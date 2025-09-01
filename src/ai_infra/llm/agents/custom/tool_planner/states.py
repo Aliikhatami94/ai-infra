@@ -1,41 +1,51 @@
 from __future__ import annotations
-from typing import TypedDict, List, Dict, Any, Optional, Literal
+from typing import TypedDict, List, Dict, Any, Optional, Literal, Union, Annotated
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 from langgraph.graph import MessagesState
-
-from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 
 class ComplexityAssessment(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    complexity: Literal["trivial", "simple", "moderate", "complex"] = Field(
-        ..., description="Overall complexity rating."
-    )
-    reason: str = Field(..., description="Why this rating was chosen (1-2 lines).")
-    skip_planning: bool = Field(
-        ..., description="True if planning should be skipped and we can act directly."
-    )
+    complexity: Literal["trivial", "simple", "moderate", "complex"]
+    reason: str
+    skip_planning: bool
 
-class Tool(BaseModel):
-    name: str
-    description: str
-    args_schema: Optional[Any]
+# ---- Step types (discriminated by `kind`) ----
 
-class PlanStep(BaseModel):
+class ReasonStep(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    rationale: str = Field(..., description="Why this step is needed.")
-    tool: str = Field(..., description="Name of the tool to use.")
-    args: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Arguments for the tool."
-    )
+    kind: Literal["reason"] = "reason"
+    text: str
+    title: str | None = None  # optional subtitle
+
+class ToolStep(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    kind: Literal["tool"] = "tool"
+    tool: str                          # e.g. "run_command" | "file_read" | "project_scan"
+    args: Dict[str, Any] = Field(default_factory=dict)
+    rationale: str                     # why this call is needed
+    title: str | None = None
+
+class AssertStep(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    kind: Literal["assert"] = "assert"
+    condition: str                     # human-readable guard, e.g. "Poetry >= 1.6 is installed"
+    on_fail_hint: str | None = None    # short fix suggestion
+
+class AskStep(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    kind: Literal["ask"] = "ask"
+    question: str
+    key: str | None = None             # optional variable name to store the answer
+
+ActionStep = Annotated[Union[ReasonStep, ToolStep, AssertStep, AskStep], Field(discriminator="kind")]
 
 class PlanDraft(BaseModel):
-    # Required fields (no defaults). Add min_length if you want non-empty lists.
     model_config = ConfigDict(extra="forbid")
-    plan: List[PlanStep] = Field(..., min_length=1, description="Ordered steps to plan the action.")
-    questions: List[str] = Field(..., description="Questions needing user input.")
-    # If you also want to reject blank questions:
+    plan: List[ActionStep] = Field(..., min_length=1)
+    questions: List[str] = Field(default_factory=list)
+
     @field_validator("questions")
     @classmethod
     def no_blank_questions(cls, v: List[str]) -> List[str]:
@@ -43,25 +53,30 @@ class PlanDraft(BaseModel):
             raise ValueError("Questions must be non-empty strings.")
         return v
 
+# ---- Planner state ----
+
+class Tool(BaseModel):
+    name: str
+    description: str
+    args_schema: Optional[Any]
+
 class PlannerState(TypedDict, total=False):
     messages: MessagesState
     provider: str
     model_name: str
     tools: List[Tool]
     tool_summary: str
-    plan: List[PlanStep]
+    plan: List[ActionStep]
     questions: List[str]
 
     meta_complexity: Literal["trivial", "simple", "moderate", "complex"]
     meta_reason: str
-    skipped: bool   # True if planning was skipped by gate
+    skipped: bool
 
-    # HITL control
     io_mode: Literal["terminal", "api"]
     awaiting_approval: bool
     approved: bool
     aborted: bool
     feedback: str
 
-    # For API mode: return a presentation string
     presentation_md: str
