@@ -1,7 +1,7 @@
-from ai_infra.mcp.server.tools import mcp_from_tools
+from ai_infra.mcp.server.tools import tools_from_functions
 from ai_infra.llm.tools.custom.cli import run_command
 
-mcp = mcp_from_tools(
+mcp = tools_from_functions(
     name="cli",
     tools=[run_command]
 )

@@ -18,10 +18,10 @@ def _describe(fn: Callable[..., object], fallback: str) -> str:
     doc = textwrap.dedent(doc).strip()
     return doc or f"{fallback} tool"
 
-def mcp_from_tools(
+def mcp_from_functions(
         *,
         name: Optional[str],
-        tools: Iterable[Union[ToolFn, ToolDef]] | None,
+        functions: Iterable[Union[ToolFn, ToolDef]] | None,
 ) -> FastMCP:
     """
     Create a FastMCP from plain functions or ToolDef objects.
@@ -29,11 +29,11 @@ def mcp_from_tools(
     - Deduplicates by final tool name (last one wins).
     """
     server = FastMCP(name=name)
-    if not tools:
+    if not functions:
         return server
 
     seen: set[str] = set()
-    for item in tools:
+    for item in functions:
         if isinstance(item, ToolDef):
             fn = getattr(item, "fn", None)
             if fn is None:

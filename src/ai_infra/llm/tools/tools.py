@@ -2,7 +2,7 @@ from typing import Callable, List, Any
 from langchain_core.tools import StructuredTool
 
 
-def tools_from_functions(tools: List[Callable[..., Any]]) -> List[StructuredTool]:
+def tools_from_functions(functions: List[Callable[..., Any]]) -> List[StructuredTool]:
     """
     Given a list of functions (sync or async), return a list of StructuredTool objects.
     
@@ -11,7 +11,7 @@ def tools_from_functions(tools: List[Callable[..., Any]]) -> List[StructuredTool
     """
     structured: List[StructuredTool] = []
 
-    for fn in tools:
+    for fn in functions:
         if callable(fn):
             if callable(getattr(fn, "__call__", None)):
                 # detect coroutine function
