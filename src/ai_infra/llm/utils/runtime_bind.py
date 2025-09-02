@@ -7,30 +7,9 @@ from langchain_core.tools import BaseTool, tool as lc_tool
 
 from .settings import ModelSettings
 from ai_infra.llm.tools.tool_controls import normalize_tool_controls, ToolCallControls
-from ai_infra.llm.utils import (
-    validate_provider_and_model,
-    build_model_key,
-    initialize_model,
-)
+from .model_registry import ModelRegistry
 
 _logger = logging.getLogger(__name__)
-
-class ModelRegistry:
-    """Lightweight model cache / registry per provider+model key."""
-    def __init__(self):
-        self._models: Dict[str, Any] = {}
-
-    def get_or_create(self, provider: str, model_name: str, **kwargs) -> Any:
-        validate_provider_and_model(provider, model_name)
-        key = build_model_key(provider, model_name)
-        if key not in self._models:
-            self._models[key] = initialize_model(key, provider, **(kwargs or {}))
-        return self._models[key]
-
-    def get(self, provider: str, model_name: str) -> Any:
-        key = build_model_key(provider, model_name)
-        return self._models.get(key)
-
 
 def tool_used(state: Any) -> bool:
     """Heuristic: did the agent already emit a tool call (or a tool message)?"""
@@ -82,18 +61,18 @@ def bind_model_with_tools(
 
 
 def make_agent_with_context(
-    registry: ModelRegistry,
-    *,
-    provider: str,
-    model_name: str,
-    tools: Optional[List[Any]] = None,
-    extra: Optional[Dict[str, Any]] = None,
-    model_kwargs: Optional[Dict[str, Any]] = None,
-    tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,
-    require_explicit_tools: bool = False,
-    global_tools: Optional[List[Any]] = None,
-    hitl_tool_wrapper = None,
-    logger: Optional[logging.Logger] = None,
+        registry: ModelRegistry,
+        *,
+        provider: str,
+        model_name: str | None,
+        tools: Optional[List[Any]] = None,
+        extra: Optional[Dict[str, Any]] = None,
+        model_kwargs: Optional[Dict[str, Any]] = None,
+        tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,
+        require_explicit_tools: bool = False,
+        global_tools: Optional[List[Any]] = None,
+        hitl_tool_wrapper = None,
+        logger: Optional[logging.Logger] = None,
 ) -> Tuple[Any, ModelSettings]:
     """Construct an agent (LangGraph ReAct) and its runtime context.
 
@@ -105,7 +84,8 @@ def make_agent_with_context(
       - agent graph creation with deferred model binding
     """
     model_kwargs = model_kwargs or {}
-    registry.get_or_create(provider, model_name, **model_kwargs)
+    effective_model = registry.resolve_model_name(provider, model_name)
+    registry.get_or_create(provider, effective_model, **model_kwargs)
     if tool_controls is not None:
         from dataclasses import is_dataclass, asdict
         if is_dataclass(tool_controls):
@@ -145,7 +125,7 @@ def make_agent_with_context(
 
     context = ModelSettings(
         provider=provider,
-        model_name=model_name,
+        model_name=effective_model,
         tools=effective_tools,
         extra={"model_kwargs": model_kwargs or {}, **(extra or {})},
     )

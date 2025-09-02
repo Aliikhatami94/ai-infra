@@ -9,8 +9,8 @@ def main():
     agent = CoreAgent()
     resp = agent.run_agent(
         messages=[{"role": "user", "content": "Introduce yourself in one sentence."}],
-        provider=Providers.openai,
-        model_name=Models.openai.gpt_4o.value,
+        provider=Providers.mistralai,
+        model_name=Models.mistralai.magistral_small_latest.value,
         model_kwargs={"temperature": 0.7},
     )
     print("Response:\n", getattr(resp, "content", resp))

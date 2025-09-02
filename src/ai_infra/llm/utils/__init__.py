@@ -30,7 +30,6 @@ from .fallbacks import (
 
 from .settings import ModelSettings
 from .runtime_bind import (
-    build_model_key,
     bind_model_with_tools,
     make_agent_with_context,
     ModelRegistry,
