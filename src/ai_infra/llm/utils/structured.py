@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import re, json
 
-from typing import List, TypeVar, Any, Type
+from typing import List, TypeVar, Any, Type, Callable
 from pydantic import BaseModel, ValidationError
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_core.output_parsers import PydanticOutputParser
-
 
 def build_structured_messages(
         *,
@@ -40,60 +39,85 @@ def validate_or_raise(schema: type[BaseModel], raw_json: str) -> BaseModel:
         obj = json.loads(raw_json)
         return schema.model_validate(obj)
 
-
-T = TypeVar("T", bound=BaseModel)
-
-def coerce_structured_result(schema: Type[T], res: Any) -> T:
-    """Normalize a model result into a validated Pydantic object of type `schema`."""
-    if isinstance(res, schema):
-        return res
-    if isinstance(res, dict):
-        return schema.model_validate(res)
-
-    # AIMessage-like object?
-    content = getattr(res, "content", None)
-    if isinstance(content, str) and content.strip():
-        # try direct JSON
-        try:
-            return schema.model_validate_json(content)
-        except Exception:
-            # maybe it's text + JSON → attempt json.loads
-            return schema.model_validate(json.loads(content))
-
-    # last resort: stringify
-    text = str(res)
-    try:
-        return schema.model_validate_json(text)
-    except Exception:
-        try:
-            return schema.model_validate(json.loads(text))
-        except Exception as e:
-            raise ValueError(
-                f"Could not coerce model output into {schema.__name__}: {type(res)} / {text[:200]} ..."
-            ) from e
-
 def is_pydantic_schema(obj) -> bool:
     return isinstance(obj, type) and issubclass(obj, BaseModel)
 
-def extract_json_candidate(text: str) -> Any | None:
+T = TypeVar("T", bound=BaseModel)
+
+def coerce_from_text_or_fragment(schema, text: str):
+    """
+    Try strict schema validation first; on failure, try extracting a JSON fragment
+    and validate that. Return a validated object or None if both attempts fail.
+    """
+    # Strict: raw content
+    try:
+        return validate_or_raise(schema, text)
+    except Exception:
+        pass
+
+    # Fragment: first JSON-looking snippet
+    try:
+        cand = _extract_json_candidate(text)
+        if cand is None:
+            return None
+        if is_pydantic_schema(schema):
+            return schema.model_validate(cand)
+        return validate_or_raise(schema, json.dumps(cand))
+    except Exception:
+        return None
+
+def coerce_structured_result(schema: Type[T], res: Any) -> T:
+    """Normalize arbitrary model output into a validated Pydantic object of type `schema`."""
+    # Already the right type
+    if isinstance(res, schema):
+        return res
+    # Plain dict
+    if isinstance(res, dict):
+        return schema.model_validate(res)
+
+    # AIMessage-like or str: prefer robust text path
+    content = getattr(res, "content", None)
+    if isinstance(content, str) and content.strip():
+        obj = coerce_from_text_or_fragment(schema, content)
+        if obj is not None:
+            return obj
+        # Fall through to hard-fail with context
+
+    if isinstance(res, str):
+        obj = coerce_from_text_or_fragment(schema, res)
+        if obj is not None:
+            return obj
+        # Fall through to hard-fail with context
+
+    # Last resorts: stringify and try again with the text pipeline
+    text = str(res)
+    obj = coerce_from_text_or_fragment(schema, text)
+    if obj is not None:
+        return obj
+
+    # Make failure explicit and helpful
+    preview = (content if isinstance(content, str) and content.strip() else text)[:200]
+    raise ValueError(
+        f"Could not coerce model output into {schema.__name__}: {type(res)} / {preview} ..."
+    )
+
+def _extract_json_candidate(text: str) -> Any | None:
     """
     Best-effort: pull the first balanced JSON object/array from a free-form reply.
-    Handles code fences and minor trailing-commas.
+    Handles code fences and minor trailing commas.
     """
     if not text:
         return None
-    # strip code fences if present
     t = text.strip()
     t = re.sub(r"^```(?:json)?\s*", "", t, flags=re.I)
     t = re.sub(r"```$", "", t)
-    # find first '{' or '['
+
     i1, i2 = t.find("{"), t.find("[")
     starts = [i for i in (i1, i2) if i != -1]
     if not starts:
         return None
     start = min(starts)
 
-    # scan for a balanced close, honoring quotes/escapes
     stack = []
     in_str = False
     esc = False
@@ -122,10 +146,42 @@ def extract_json_candidate(text: str) -> Any | None:
                 try:
                     return json.loads(snippet)
                 except Exception:
-                    # try a light cleanup for trailing commas
                     cleaned = re.sub(r",\s*([}\]])", r"\1", snippet)
                     try:
                         return json.loads(cleaned)
                     except Exception:
                         return None
     return None
+
+def structured_mode_call_sync(
+        with_structured_output_fn: Callable[..., Any],
+        provider: str,
+        model_name: str,
+        schema,
+        messages,
+        model_kwargs,
+):
+    """
+    Single retry using provider's native structured mode ('json_mode') to coerce output.
+    Raises if validation still fails.
+    """
+    model2 = with_structured_output_fn(provider, model_name, schema, method="json_mode", **model_kwargs)
+    res2 = model2.invoke(messages)
+    content2 = getattr(res2, "content", None) or str(res2)
+    return validate_or_raise(schema, content2)
+
+async def structured_mode_call_async(
+        with_structured_output_fn: Callable[..., Any],
+        provider: str,
+        model_name: str,
+        schema,
+        messages,
+        model_kwargs,
+):
+    """
+    Async counterpart of structured_mode_call_sync.
+    """
+    model2 = with_structured_output_fn(provider, model_name, schema, method="json_mode", **model_kwargs)
+    res2 = await model2.ainvoke(messages)
+    content2 = getattr(res2, "content", None) or str(res2)
+    return validate_or_raise(schema, content2)
