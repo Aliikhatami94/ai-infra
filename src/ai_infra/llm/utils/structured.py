@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import re, json
+
 from typing import List, TypeVar, Any, Type
-import json
 from pydantic import BaseModel, ValidationError
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_core.output_parsers import PydanticOutputParser
@@ -71,6 +72,60 @@ def coerce_structured_result(schema: Type[T], res: Any) -> T:
                 f"Could not coerce model output into {schema.__name__}: {type(res)} / {text[:200]} ..."
             ) from e
 
-
 def is_pydantic_schema(obj) -> bool:
     return isinstance(obj, type) and issubclass(obj, BaseModel)
+
+def extract_json_candidate(text: str) -> Any | None:
+    """
+    Best-effort: pull the first balanced JSON object/array from a free-form reply.
+    Handles code fences and minor trailing-commas.
+    """
+    if not text:
+        return None
+    # strip code fences if present
+    t = text.strip()
+    t = re.sub(r"^```(?:json)?\s*", "", t, flags=re.I)
+    t = re.sub(r"```$", "", t)
+    # find first '{' or '['
+    i1, i2 = t.find("{"), t.find("[")
+    starts = [i for i in (i1, i2) if i != -1]
+    if not starts:
+        return None
+    start = min(starts)
+
+    # scan for a balanced close, honoring quotes/escapes
+    stack = []
+    in_str = False
+    esc = False
+    for i, ch in enumerate(t[start:], start):
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"':
+            in_str = True
+        elif ch in "{[":
+            stack.append(ch)
+        elif ch in "}]":
+            if not stack:
+                continue
+            top = stack.pop()
+            if (top == "{" and ch != "}") or (top == "[" and ch != "]"):
+                continue
+            if not stack:
+                end = i + 1
+                snippet = t[start:end]
+                try:
+                    return json.loads(snippet)
+                except Exception:
+                    # try a light cleanup for trailing commas
+                    cleaned = re.sub(r",\s*([}\]])", r"\1", snippet)
+                    try:
+                        return json.loads(cleaned)
+                    except Exception:
+                        return None
+    return None

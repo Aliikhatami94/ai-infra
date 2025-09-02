@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import List, Optional, Dict, Any, Tuple, Union, Sequence, Literal
-import logging
+import logging, json
 
 from pydantic import BaseModel
 from langchain_core.messages import BaseMessage
@@ -22,7 +22,7 @@ from ai_infra.llm.utils.structured import (
     build_structured_messages as _build_structured_messages,
     validate_or_raise as _validate_or_raise,
     coerce_structured_result as _coerce_structured_result,
-    is_pydantic_schema as _is_pydantic_schema
+    is_pydantic_schema as _is_pydantic_schema, extract_json_candidate
 )
 
 
@@ -135,7 +135,35 @@ class BaseLLMCore:
         retry_cfg = (extra or {}).get("retry") if extra else None
         res = _call() if not retry_cfg else self._run_with_retry_sync(_call, retry_cfg)
         content = getattr(res, "content", None) or str(res)
-        return _validate_or_raise(schema, content)
+
+        # 1) try strict validation of the raw content
+        try:
+            return _validate_or_raise(schema, content)
+        except Exception:
+            pass
+
+        # 2) try to extract a JSON snippet from the prose and validate that
+        try:
+            cand = extract_json_candidate(content)
+            if cand is not None:
+                if _is_pydantic_schema(schema):
+                    return schema.model_validate(cand)
+                else:
+                    return _validate_or_raise(schema, json.dumps(cand))
+        except Exception:
+            pass
+
+        # 3) one-shot fallback: ask the same model using structured mode if supported
+        try:
+            model2 = self.with_structured_output(
+                provider, model_name, schema, method="json_mode", **model_kwargs
+            )
+            res2 = model2.invoke(messages)
+            content2 = getattr(res2, "content", None) or str(res2)
+            return _validate_or_raise(schema, content2)
+        except Exception:
+            # last resort: re-raise the original error context
+            return _validate_or_raise(schema, content)
 
     async def _prompt_structured_async(
             self,
@@ -148,19 +176,48 @@ class BaseLLMCore:
             extra: Optional[Dict[str, Any]],
             model_kwargs: Dict[str, Any],
     ) -> BaseModel:
-        """Async variant of prompt-only structured output."""
+        """Async variant of prompt-only structured output with robust JSON fallback."""
         model = self.set_model(provider, model_name, **model_kwargs)
         messages: List[BaseMessage] = _build_structured_messages(
             schema=schema, user_msg=user_msg, system_preamble=system
         )
-
+    
         async def _call():
             return await model.ainvoke(messages)
-
+    
         retry_cfg = (extra or {}).get("retry") if extra else None
         res = await (_with_retry_util(_call, **retry_cfg) if retry_cfg else _call())
         content = getattr(res, "content", None) or str(res)
-        return _validate_or_raise(schema, content)
+    
+        # 1) try strict validation of the raw content
+        try:
+            return _validate_or_raise(schema, content)
+        except Exception:
+            pass
+    
+        # 2) try to extract a JSON snippet from the prose and validate that
+        try:
+            cand = extract_json_candidate(content)
+            if cand is not None:
+                if _is_pydantic_schema(schema):
+                    return schema.model_validate(cand)
+                else:
+                    import json as _json  # local alias to avoid shadowing
+                    return _validate_or_raise(schema, _json.dumps(cand))
+        except Exception:
+            pass
+    
+        # 3) one-shot fallback: re-ask using provider structured mode if available
+        try:
+            model2 = self.with_structured_output(
+                provider, model_name, schema, method="json_mode", **model_kwargs
+            )
+            res2 = await model2.ainvoke(messages)
+            content2 = getattr(res2, "content", None) or str(res2)
+            return _validate_or_raise(schema, content2)
+        except Exception:
+            # last resort: re-raise by validating original content (to surface the failure)
+            return _validate_or_raise(schema, content)
 
 
 class CoreLLM(BaseLLMCore):
