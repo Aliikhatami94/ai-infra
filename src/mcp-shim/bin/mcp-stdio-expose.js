@@ -19,3 +19,4 @@ const args = [
 
 const child = spawn(UVX, args, { stdio: "inherit", shell: process.platform === "win32" });
 child.on("exit", code => process.exit(code));
+
