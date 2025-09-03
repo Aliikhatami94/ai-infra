@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from ai_infra.mcp.server.tools import mcp_from_functions
-from ai_infra.llm.tools.custom.stdio_exposure import mcp_expose_remove, mcp_expose_add, make_executable
+from ai_infra.llm.tools.custom.stdio_exposure import mcp_publish_remove, mcp_publish_add, make_executable
 
 mcp = mcp_from_functions(
     name="stdio-exposure-mcp",
     functions=[
-        mcp_expose_add,
-        mcp_expose_remove,
+        mcp_publish_add,
+        mcp_publish_remove,
         make_executable
     ],
 )

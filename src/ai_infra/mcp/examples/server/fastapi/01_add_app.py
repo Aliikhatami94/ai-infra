@@ -5,7 +5,7 @@ from ai_infra.mcp.server.core import CoreMCPServer
 app = FastAPI()
 mcp_server = CoreMCPServer(strict=True)
 
-# --- Streamable HTTP (exposes /streamable/mcp) ---
+# --- Streamable HTTP (publishes /streamable/mcp) ---
 streamable = FastMCP("streamable-demo")
 
 def say_hello(name: str) -> str:

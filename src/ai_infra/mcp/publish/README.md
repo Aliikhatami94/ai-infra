@@ -1,6 +1,6 @@
-# MCP Stdio Exposer
+# MCP Stdio Publisher
 
-Expose your **Python MCP stdio servers** as **npx-runner CLIs** so any agent can launch them without installing Python packages.
+Publish your **Python MCP stdio servers** as **npx-runner CLIs** so any agent can launch them without installing Python packages.
 
 ## Requirements
 
@@ -9,12 +9,12 @@ Expose your **Python MCP stdio servers** as **npx-runner CLIs** so any agent can
 - Your project depends on the package that provides the CLI entrypoint:
   ```toml
   [tool.poetry.scripts]
-  mcp-expose = "ai_infra.mcp.expose.cli:app"
+  mcp-publish = "ai_infra.mcp.publish.cli:app"
   
 ## Generate a shim
 
 ```bash
-poetry run mcp-expose add \
+poetry run mcp-publish add \
   --tool-name <TOOL_NAME> \
   --module <PY_MODULE> \
   --repo https://github.com/<OWNER>/<REPO>.git \
@@ -23,7 +23,7 @@ poetry run mcp-expose add \
   --package-name <NPM_PKG_NAME>
 ```
 
-* <TOOL_NAME>: CLI name exposed to users (e.g., auth-infra-mcp)
+* <TOOL_NAME>: CLI name published to users (e.g., auth-infra-mcp)
 * <PY_MODULE>: module with main() that starts your MCP stdio server (e.g., svc_infra.auth.mcp)
 * <OWNER>/<REPO>: GitHub owner/repo
 * <REF>: branch/tag/sha (e.g., main)
@@ -84,7 +84,7 @@ UVX_PATH=/abs/path/to/uvx npx --yes --package=github:<OWNER>/<REPO> <TOOL_NAME>
 ## Remove a shim
 
 ```bash
-poetry run mcp-expose remove \
+poetry run mcp-publish remove \
   --tool-name <TOOL_NAME> \
   --python-package-root <PY_PKG> \
   --delete-file

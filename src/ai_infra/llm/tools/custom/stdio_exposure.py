@@ -3,7 +3,7 @@ import re, stat
 from pathlib import Path, PurePosixPath
 from typing import Optional, Union, Iterable
 
-from ai_infra.mcp.expose.core import add_shim, remove_shim
+from ai_infra.mcp.publish.core import add_shim, remove_shim
 
 _GH_SSH   = re.compile(r"^git@github\.com:(?P<owner>[\w.\-]+)/(?P<repo>[\w.\-]+)(?:\.git)?$")
 _GH_HTTPS = re.compile(r"^https?://github\.com/(?P<owner>[\w.\-]+)/(?P<repo>[\w.\-]+)(?:\.git)?$")
@@ -43,20 +43,20 @@ def _coerce_bin_dir(bin_dir: Optional[str]) -> Path:
         return Path(bin_dir)
     return Path("mcp-shim") / "bin"
 
-def mcp_expose_add(
+def mcp_publish_add(
         tool_name: str,
         module: str,
         repo: str,
         ref: str = "main",
         package_json: str = "package.json",
         bin_dir: str = "mcp-shim/bin",
-        package_name: str = "mcp-stdio-expose",
+        package_name: str = "mcp-stdio-publish",
         force: bool = False,
         base_dir: Optional[str] = None,
         dry_run: bool = False,
 ) -> dict:
     """
-    Create or update an executable shim that exposes a Python MCP stdio server via Node's "bin" interface.
+    Create or update an executable shim that publishs a Python MCP stdio server via Node's "bin" interface.
 
     What it delivers
     - A Node.js shim file at <bin_dir>/<tool_name>.js that runs: uvx --from git+<repo>@<ref> python -m <module> --transport stdio <args>.
@@ -71,7 +71,7 @@ def mcp_expose_add(
     - The repo argument is normalized to an HTTPS GitHub URL ending with .git. Supported forms: owner/repo, github:owner/repo, SSH (git@github.com:...), or HTTPS.
 
     Important parameters
-    - tool_name: CLI name to expose (also the shim filename without extension).
+    - tool_name: CLI name to publish (also the shim filename without extension).
     - module: Python module run with `python -m <module>`; must be a non-empty dotted path and must speak MCP over stdio when given --transport stdio.
     - repo/ref: Git source of the MCP server; ref defaults to "main".
     - package_json: location of package.json to update or create.
@@ -110,7 +110,7 @@ def mcp_expose_add(
         dry_run=dry_run,
     )
 
-def mcp_expose_remove(
+def mcp_publish_remove(
         tool_name: str,
         package_json: str = "package.json",
         bin_dir: str = "mcp-shim/bin",
@@ -118,7 +118,7 @@ def mcp_expose_remove(
         base_dir: Optional[str] = None,
 ) -> dict:
     """
-    Remove the CLI exposure for a stdio MCP server created by mcp_expose_add.
+    Remove the CLI exposure for a stdio MCP server created by mcp_publish_add.
 
     What it does
     - Deletes the <tool_name> entry from package.json "bin" (if present).

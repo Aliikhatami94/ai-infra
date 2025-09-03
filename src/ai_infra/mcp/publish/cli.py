@@ -5,7 +5,7 @@ import json, typer
 
 from .core import add_shim, remove_shim, _ensure_executable
 
-app = typer.Typer(help="Expose (publish) MCP stdio servers via npx-compatible shims.")
+app = typer.Typer(help="publish (publish) MCP stdio servers via npx-compatible shims.")
 
 def _echo(obj, as_json: bool):
     if as_json:
@@ -15,13 +15,13 @@ def _echo(obj, as_json: bool):
 
 @app.command("add")
 def add_cmd(
-        tool_name: str = typer.Option(..., help="CLI name to expose (e.g. auth-infra-mcp)"),
+        tool_name: str = typer.Option(..., help="CLI name to publish (e.g. auth-infra-mcp)"),
         module: str = typer.Option(..., help="Python module to run (e.g. svc_infra.auth.mcp)"),
         repo: str = typer.Option(..., help="Git repo URL or GitHub shorthand (owner/repo, github:owner/repo, SSH, or HTTPS)"),
         ref: str = typer.Option("main", help="Git ref/branch/tag (default: main)"),
         package_json: Path = typer.Option(Path("package.json"), help="Path to root package.json"),
         bin_dir: Path = typer.Option(Path("mcp-shim") / "bin", help="Where to write shims (default: mcp-shim/bin)"),
-        package_name: str = typer.Option("mcp-stdio-expose", help="package.json:name if creating a new file"),
+        package_name: str = typer.Option("mcp-stdio-publish", help="package.json:name if creating a new file"),
         force: bool = typer.Option(False, help="Overwrite existing shim file if present"),
         base_dir: Optional[Path] = typer.Option(None, help="Write under this repo root (useful in sandboxed runners)"),
         dry_run: bool = typer.Option(False, help="Emit file contents without touching disk"),

@@ -1,10 +1,8 @@
-# tests/test_mcp_expose_core.py
 from pathlib import Path
 import os
 import stat
 import json
-import pytest
-from ai_infra.mcp.expose.core import add_shim, remove_shim, JS_TEMPLATE_UVX_MODULE
+from ai_infra.mcp.publish.core import add_shim, remove_shim
 
 def read_json(p: Path):
     return json.loads(p.read_text())
@@ -102,8 +100,8 @@ def test_normalize_repo_variants():
     assert _normalize_repo("https://github.com/aliikhatami94/svc-infra.git") == "https://github.com/aliikhatami94/svc-infra.git"
 
 def test_root_scoped_paths_add(tmp_path):
-    from ai_infra.llm.tools.custom.stdio_exposure import mcp_expose_add
-    res = mcp_expose_add(
+    from ai_infra.llm.tools.custom.stdio_exposure import mcp_publish_add
+    res = mcp_publish_add(
         tool_name="demo",
         module="pkg.mod.server",
         repo="github:owner/repo",
@@ -117,8 +115,8 @@ def test_root_scoped_paths_add(tmp_path):
     assert (tmp_path / "package.json").is_file()
 
 def test_root_scoped_paths_remove(tmp_path):
-    from ai_infra.llm.tools.custom.stdio_exposure import mcp_expose_add, mcp_expose_remove
-    mcp_expose_add(tool_name="demo", module="pkg.m", repo="owner/r", base_dir=str(tmp_path))
-    res = mcp_expose_remove(tool_name="demo", base_dir=str(tmp_path))
+    from ai_infra.llm.tools.custom.stdio_exposure import mcp_publish_add, mcp_publish_remove
+    mcp_publish_add(tool_name="demo", module="pkg.m", repo="owner/r", base_dir=str(tmp_path))
+    res = mcp_publish_remove(tool_name="demo", base_dir=str(tmp_path))
     assert res["status"] == "ok"
     # file deletion only if delete_file=True; mapping should be removed regardless
