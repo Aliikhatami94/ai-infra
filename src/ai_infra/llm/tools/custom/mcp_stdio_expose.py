@@ -56,15 +56,38 @@ def mcp_expose_add(
         dry_run: bool = False,
 ) -> dict:
     """
-    Create/update an npx-compatible shim for a Python MCP stdio server.
+    Create or update an executable shim that exposes a Python MCP stdio server via Node's "bin" interface.
 
-    Robust params:
-    - `repo` accepts owner/repo, github:owner/repo, SSH, or HTTPS and is normalized to HTTPS .git
-    - If pkg root omitted, we infer from `module` and use it if 'src/<pkg>' exists
-    - If both pkg root and bin_dir are provided, pkg root wins
+    What it delivers
+    - A Node.js shim file at <bin_dir>/<tool_name>.js that runs: uvx --from git+<repo>@<ref> python -m <module> --transport stdio <args>.
+    - A package.json "bin" mapping of <tool_name> -> relative path to that shim, so it can be executed via npx, npm, or a local node_modules/.bin path.
 
-    Read-only:
-    - Pass `base_dir` (writable root) or `dry_run=True` (emit files; no writes)
+    How it works
+    - The shim uses environment overrides at runtime:
+      - UVX_PATH: path to the uvx binary (default "uvx").
+      - SVC_INFRA_REPO: overrides the repo embedded in the shim.
+      - SVC_INFRA_REF: overrides the ref embedded in the shim.
+      - UVX_REFRESH: if set (any value), adds --refresh to uvx args.
+    - The repo argument is normalized to an HTTPS GitHub URL ending with .git. Supported forms: owner/repo, github:owner/repo, SSH (git@github.com:...), or HTTPS.
+
+    Important parameters
+    - tool_name: CLI name to expose (also the shim filename without extension).
+    - module: Python module run with `python -m <module>`; must be a non-empty dotted path and must speak MCP over stdio when given --transport stdio.
+    - repo/ref: Git source of the MCP server; ref defaults to "main".
+    - package_json: location of package.json to update or create.
+    - bin_dir: directory for the shim (default "mcp-shim/bin").
+    - package_name: used only if creating a new package.json.
+    - base_dir: optional root to resolve paths against; defaults to CWD.
+    - force: overwrite an existing shim file.
+    - dry_run: compute results and return emitted files without writing to disk.
+
+    Returns
+    - On success: { status: "ok", action: "created"|"updated"|"exists", tool_name, module, repo, ref, package_json, bin_path }.
+    - On dry run: { status: "dry_run", files: { <package_json>: "...", <shim_path>: "..." }, ... }.
+    - On error (e.g., read-only): { status: "error", error: <code>, message, suggestion? }.
+
+    Goal
+    - Make stdio-based MCP servers installable and runnable externally with a stable CLI (e.g., `npx <tool_name> ...`).
     """
     if not module or module.strip(". ") == "":
         return {"status": "error", "error": "invalid_module", "message": "module must be a non-empty dotted path"}
@@ -95,8 +118,26 @@ def mcp_expose_remove(
         base_dir: Optional[str] = None,
 ) -> dict:
     """
-    Remove the shim mapping from package.json and optionally delete the shim file.
-    If pkg root was used when adding, pass the same `python_package_root` (path accepted; will be cleaned).
+    Remove the CLI exposure for a stdio MCP server created by mcp_expose_add.
+
+    What it does
+    - Deletes the <tool_name> entry from package.json "bin" (if present).
+    - Optionally deletes the generated shim file at <bin_dir>/<tool_name>.js when delete_file=True.
+    - Paths are resolved relative to base_dir when provided; otherwise current working directory is used.
+
+    Parameters
+    - tool_name: CLI name whose mapping/shim should be removed.
+    - package_json: path to package.json to update.
+    - bin_dir: directory where the shim lives (default "mcp-shim/bin").
+    - delete_file: also unlink the shim file.
+    - base_dir: optional root to resolve paths against.
+
+    Returns
+    - { status: "ok", removed_from_package_json: bool, file_deleted: bool, shim_path, package_json }.
+    - On error: { status: "error", error: "os_error", message }.
+
+    Goal
+    - Cleanly retract the external CLI for a stdio MCP server created by this tool.
     """
     final_bin_dir = _coerce_bin_dir(bin_dir=bin_dir)
 
