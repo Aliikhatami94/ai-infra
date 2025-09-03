@@ -92,7 +92,7 @@ def test_read_only_base_dir_returns_error(tmp_path: Path):
     os.chmod(ro_dir, 0o755)
 
 def test_normalize_repo_variants():
-    from ai_infra.llm.tools.custom.stdio_exposure import _normalize_repo
+    from ai_infra.llm.tools.custom.stdio_publisher import _normalize_repo
     assert _normalize_repo("aliikhatami94/svc-infra") == "https://github.com/aliikhatami94/svc-infra.git"
     assert _normalize_repo("github:aliikhatami94/svc-infra") == "https://github.com/aliikhatami94/svc-infra.git"
     assert _normalize_repo("git@github.com:aliikhatami94/svc-infra.git") == "https://github.com/aliikhatami94/svc-infra.git"
@@ -100,7 +100,7 @@ def test_normalize_repo_variants():
     assert _normalize_repo("https://github.com/aliikhatami94/svc-infra.git") == "https://github.com/aliikhatami94/svc-infra.git"
 
 def test_root_scoped_paths_add(tmp_path):
-    from ai_infra.llm.tools.custom.stdio_exposure import mcp_publish_add
+    from ai_infra.llm.tools.custom.stdio_publisher import mcp_publish_add
     res = mcp_publish_add(
         tool_name="demo",
         module="pkg.mod.server",
@@ -115,7 +115,7 @@ def test_root_scoped_paths_add(tmp_path):
     assert (tmp_path / "package.json").is_file()
 
 def test_root_scoped_paths_remove(tmp_path):
-    from ai_infra.llm.tools.custom.stdio_exposure import mcp_publish_add, mcp_publish_remove
+    from ai_infra.llm.tools.custom.stdio_publisher import mcp_publish_add, mcp_publish_remove
     mcp_publish_add(tool_name="demo", module="pkg.m", repo="owner/r", base_dir=str(tmp_path))
     res = mcp_publish_remove(tool_name="demo", base_dir=str(tmp_path))
     assert res["status"] == "ok"

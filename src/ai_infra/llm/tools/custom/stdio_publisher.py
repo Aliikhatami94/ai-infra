@@ -3,7 +3,7 @@ import re, stat
 from pathlib import Path, PurePosixPath
 from typing import Optional, Union, Iterable
 
-from ai_infra.mcp.publish.core import add_shim, remove_shim
+from ai_infra.mcp.server.custom.publish.core import add_shim, remove_shim
 
 _GH_SSH   = re.compile(r"^git@github\.com:(?P<owner>[\w.\-]+)/(?P<repo>[\w.\-]+)(?:\.git)?$")
 _GH_HTTPS = re.compile(r"^https?://github\.com/(?P<owner>[\w.\-]+)/(?P<repo>[\w.\-]+)(?:\.git)?$")

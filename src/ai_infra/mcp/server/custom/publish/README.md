@@ -9,7 +9,7 @@ Publish your **Python MCP stdio servers** as **npx-runner CLIs** so any agent ca
 - Your project depends on the package that provides the CLI entrypoint:
   ```toml
   [tool.poetry.scripts]
-  mcp-publish = "ai_infra.mcp.publish.cli:app"
+  mcp-publish = "ai_infra.mcp.server.custom.publish.cli:app"
   
 ## Generate a shim
 

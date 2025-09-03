@@ -12,7 +12,7 @@ const args = [
   "--quiet",
   ...(process.env.UVX_REFRESH ? ["--refresh"] : []),
   "--from", SPEC,
-  "python", "-m", "ai_infra.mcp.publish.mcp",
+  "python", "-m", "ai_infra.mcp.server.custom.publish.mcp",
   "--transport", "stdio",
   ...process.argv.slice(2)
 ];
