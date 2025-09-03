@@ -222,6 +222,27 @@ python quickstart.py llm_agent_basic
 python quickstart.py mcp_discover
 ```
 
+## MCP server config examples
+
+Add entries like these to your Copilot MCP config (e.g., ~/.config/github-copilot/intellij/mcp.json):
+
+```json
+{
+  "servers": {
+    "stdio-publisher-mcp": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "--package=github:Aliikhatami94/ai-infra",
+        "stdio-publisher-mcp"
+      ]
+    }
+  }
+}
+```
+
+Tip:
+- If you want to pin a specific ref (branch, tag, commit), set AI_INFRA_REF in your environment before launching the IDE.
 
 ## Testing and quality
 
