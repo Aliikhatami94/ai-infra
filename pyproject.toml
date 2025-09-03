@@ -58,6 +58,10 @@ ruff = "^0.5.0"
 mypy = "^1.10.0"
 
 [tool.poetry.scripts]
+# MCP stdio server setup pointed to git repo
+mcp-stdio-expose = "ai_infra.mcp.expose.cli:app"
+
+# MCP custom servers
 project-management-mcp = "ai_infra.mcp.server.custom.proj_mgmt:main"
 cli-mcp = "ai_infra.mcp.server.custom.cli:main"
 

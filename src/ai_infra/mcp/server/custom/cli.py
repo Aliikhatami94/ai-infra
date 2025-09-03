@@ -8,3 +8,6 @@ mcp = mcp_from_functions(
 
 def main():
     mcp.run(transport="stdio")
+
+if __name__ == "__main__":
+    main()
