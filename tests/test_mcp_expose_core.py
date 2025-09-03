@@ -1,0 +1,95 @@
+# tests/test_mcp_expose_core.py
+from pathlib import Path
+import os
+import stat
+import json
+import pytest
+from ai_infra.mcp.expose.core import add_shim, remove_shim, JS_TEMPLATE_UVX_MODULE
+
+def read_json(p: Path):
+    return json.loads(p.read_text())
+
+def test_add_creates_package_json_and_shim(tmp_path: Path):
+    res = add_shim(
+        tool_name="demo-mcp",
+        module="pkg.mod.mcp",
+        repo="https://github.com/owner/repo.git",
+        base_dir=tmp_path,
+    )
+    assert res["status"] == "ok"
+    pkg = read_json(tmp_path / "package.json")
+    assert "bin" in pkg and "demo-mcp" in pkg["bin"]
+    shim = tmp_path / pkg["bin"]["demo-mcp"]
+    assert shim.exists()
+    # executable bit set
+    mode = shim.stat().st_mode
+    assert mode & stat.S_IXUSR
+
+def test_add_updates_existing_bin_map(tmp_path: Path):
+    # first write
+    add_shim(tool_name="a", module="m.a", repo="r", base_dir=tmp_path)
+    # add another
+    res = add_shim(tool_name="b", module="m.b", repo="r", base_dir=tmp_path)
+    assert res["status"] == "ok"
+    pkg = read_json(tmp_path / "package.json")
+    assert set(pkg["bin"].keys()) == {"a", "b"}
+
+def test_force_overwrite(tmp_path: Path):
+    res1 = add_shim(tool_name="x", module="m.x", repo="r", base_dir=tmp_path)
+    p = tmp_path / "src/mcp-shim/bin/x.js"
+    before = p.read_text()
+    res2 = add_shim(tool_name="x", module="m.x2", repo="r", base_dir=tmp_path, force=True)
+    after = p.read_text()
+    assert res1["status"] == "ok" and res2["status"] == "ok"
+    assert before != after  # overwritten with new module path
+
+def test_python_package_root_paths(tmp_path: Path):
+    res = add_shim(
+        tool_name="demo",
+        module="pkg.mod.m",
+        repo="r",
+        base_dir=tmp_path,
+        python_package_root="my_pkg",
+    )
+    pkg = read_json(tmp_path / "package.json")
+    rel = pkg["bin"]["demo"]
+    assert rel.startswith("src/my_pkg/mcp-shim/bin/")
+
+def test_remove_deletes_bin_entry_and_file(tmp_path: Path):
+    add_shim(tool_name="rmme", module="m", repo="r", base_dir=tmp_path)
+    res = remove_shim(
+        tool_name="rmme",
+        base_dir=tmp_path,
+        delete_file=True,
+    )
+    assert res["status"] == "ok"
+    pkg = read_json(tmp_path / "package.json")
+    assert "rmme" not in pkg.get("bin", {})
+    # file deleted
+    assert not (tmp_path / "src/mcp-shim/bin/rmme.js").exists()
+
+def test_dry_run_emits_files_without_writing(tmp_path: Path):
+    res = add_shim(
+        tool_name="dry",
+        module="m.dry",
+        repo="r",
+        base_dir=tmp_path,
+        dry_run=True,
+    )
+    assert res["status"] == "dry_run"
+    assert "files" in res
+    # nothing written
+    assert not (tmp_path / "package.json").exists()
+    assert not (tmp_path / "src/mcp-shim/bin/dry.js").exists()
+
+def test_read_only_base_dir_returns_error(tmp_path: Path):
+    # Make a read-only dir
+    ro_dir = tmp_path / "ro"
+    ro_dir.mkdir()
+    os.chmod(ro_dir, 0o555)  # r-x
+    res = add_shim(tool_name="cant", module="m", repo="r", base_dir=ro_dir)
+    assert res["status"] in {"error", "dry_run"}  # error expected
+    if res["status"] == "error":
+        assert res["error"] == "read_only_filesystem"
+    # Reset perms so tmp cleanup doesn't fail
+    os.chmod(ro_dir, 0o755)
