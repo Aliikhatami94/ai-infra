@@ -4,7 +4,7 @@ from ai_infra.mcp.server.tools import mcp_from_functions
 from ai_infra.llm.tools.custom.mcp_stdio_expose import mcp_expose_remove, mcp_expose_add
 
 mcp = mcp_from_functions(
-    name="mcp-stdio-expose",
+    name="expose-stdio-mcp",
     functions=[mcp_expose_add, mcp_expose_remove],
 )
 

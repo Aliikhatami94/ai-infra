@@ -1,8 +1,8 @@
 {
-  "name": "ai-infra-mcp",
+  "name": "ai-infra",
   "version": "0.0.0",
   "private": true,
   "bin": {
-    "mcp-stdio-expose": "mcp-shim/bin/mcp-stdio-expose.js"
+    "stdio-expose-mcp": "mcp-shim/bin/expose-stdio-mcp.js"
   }
 }
