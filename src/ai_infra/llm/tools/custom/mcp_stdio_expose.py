@@ -8,22 +8,29 @@ _GH_SSH = re.compile(r"^git@github\.com:(?P<owner>[\w.\-]+)/(?P<repo>[\w.\-]+)(?
 _GH_HTTPS = re.compile(r"^https?://github\.com/(?P<owner>[\w.\-]+)/(?P<repo>[\w.\-]+)(?:\.git)?$")
 _GH_SHORT = re.compile(r"^(?:github:)?(?P<owner>[\w.\-]+)/(?P<repo>[\w.\-]+)$")
 
+def _ensure_git_suffix(url: str) -> str:
+    return url if url.endswith(".git") else f"{url}.git"
+
 def _normalize_repo(repo: str) -> str:
-    """Accepts 'owner/repo', 'github:owner/repo', SSH, or HTTPS and returns full HTTPS .git URL."""
+    """Accepts owner/repo, github:owner/repo, SSH, or HTTPS and returns full HTTPS .git URL."""
     repo = repo.strip()
-    if "://" in repo:
-        m = _GH_HTTPS.match(repo)
-        if m:
-            return f"https://github.com/{m.group('owner')}/{m.group('repo')}.git"
-        return repo  # some other git URL; trust caller
-    if repo.startswith("git@github.com:"):
-        m = _GH_SSH.match(repo)
-        if m:
-            return f"https://github.com/{m.group('owner')}/{m.group('repo')}.git"
+
+    # HTTPS github.com
+    m = _GH_HTTPS.match(repo)
+    if m:
+        return _ensure_git_suffix(f"https://github.com/{m.group('owner')}/{m.group('repo')}")
+
+    # SSH github.com
+    m = _GH_SSH.match(repo)
+    if m:
+        return _ensure_git_suffix(f"https://github.com/{m.group('owner')}/{m.group('repo')}")
+
+    # Short github form
     m = _GH_SHORT.match(repo)
     if m:
-        return f"https://github.com/{m.group('owner')}/{m.group('repo')}.git"
-    # last resort: assume caller forgot protocol but passed something else
+        return _ensure_git_suffix(f"https://github.com/{m.group('owner')}/{m.group('repo')}")
+
+    # Other schemes/hosts: leave as-is
     return repo
 
 def _infer_pkg_root(module: str) -> Optional[str]:

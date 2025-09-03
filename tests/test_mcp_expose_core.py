@@ -93,3 +93,11 @@ def test_read_only_base_dir_returns_error(tmp_path: Path):
         assert res["error"] == "read_only_filesystem"
     # Reset perms so tmp cleanup doesn't fail
     os.chmod(ro_dir, 0o755)
+
+def test_normalize_repo_variants():
+    from ai_infra.llm.tools.custom.mcp_stdio_expose import _normalize_repo
+    assert _normalize_repo("aliikhatami94/svc-infra") == "https://github.com/aliikhatami94/svc-infra.git"
+    assert _normalize_repo("github:aliikhatami94/svc-infra") == "https://github.com/aliikhatami94/svc-infra.git"
+    assert _normalize_repo("git@github.com:aliikhatami94/svc-infra.git") == "https://github.com/aliikhatami94/svc-infra.git"
+    assert _normalize_repo("https://github.com/aliikhatami94/svc-infra") == "https://github.com/aliikhatami94/svc-infra.git"
+    assert _normalize_repo("https://github.com/aliikhatami94/svc-infra.git") == "https://github.com/aliikhatami94/svc-infra.git"
