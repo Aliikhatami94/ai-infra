@@ -41,16 +41,11 @@ def _resolve_paths(
         base_dir: Optional[Path],
         package_json: Path,
         bin_dir: Path,
-        python_package_root: Optional[str],
         tool_name: str,
 ) -> Tuple[Path, Path]:
-    # apply base dir if provided
-    if base_dir:
-        package_json = (base_dir / package_json).resolve()
-        bin_dir = (base_dir / bin_dir).resolve()
-    # honor python package root
-    if python_package_root:
-        bin_dir = (base_dir or Path.cwd()) / "src" / python_package_root / "mcp-shim" / "bin"
+    root = base_dir.resolve() if base_dir else Path.cwd()
+    package_json = (root / package_json).resolve()
+    bin_dir = (root / bin_dir).resolve()
     shim_path = bin_dir / f"{tool_name}.js"
     return package_json, shim_path
 
@@ -61,8 +56,7 @@ def add_shim(
         repo: str,
         ref: str = "main",
         package_json: Path = Path("package.json"),
-        bin_dir: Path = Path("src") / "mcp-shim" / "bin",
-        python_package_root: Optional[str] = None,
+        bin_dir: Path = Path("mcp-shim") / "bin",
         package_name: str = "mcp-shims",
         force: bool = False,
         base_dir: Optional[Path] = None,
@@ -73,7 +67,6 @@ def add_shim(
             base_dir=base_dir,
             package_json=package_json,
             bin_dir=bin_dir,
-            python_package_root=python_package_root,
             tool_name=tool_name,
         )
         js = JS_TEMPLATE_UVX_MODULE.format(repo=repo, ref=ref, py_module=module)
@@ -157,8 +150,7 @@ def remove_shim(
         *,
         tool_name: str,
         package_json: Path = Path("package.json"),
-        bin_dir: Path = Path("src") / "mcp-shim" / "bin",
-        python_package_root: Optional[str] = None,
+        bin_dir: Path = Path("mcp-shim") / "bin",
         delete_file: bool = False,
         base_dir: Optional[Path] = None,
 ) -> Dict:
@@ -167,7 +159,6 @@ def remove_shim(
             base_dir=base_dir,
             package_json=package_json,
             bin_dir=bin_dir,
-            python_package_root=python_package_root,
             tool_name=tool_name,
         )
 

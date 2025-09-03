@@ -36,7 +36,7 @@ def test_add_updates_existing_bin_map(tmp_path: Path):
 
 def test_force_overwrite(tmp_path: Path):
     res1 = add_shim(tool_name="x", module="m.x", repo="r", base_dir=tmp_path)
-    p = tmp_path / "src/mcp-shim/bin/x.js"
+    p = tmp_path / "mcp-shim/bin/x.js"
     before = p.read_text()
     res2 = add_shim(tool_name="x", module="m.x2", repo="r", base_dir=tmp_path, force=True)
     after = p.read_text()
@@ -49,11 +49,10 @@ def test_python_package_root_paths(tmp_path: Path):
         module="pkg.mod.m",
         repo="r",
         base_dir=tmp_path,
-        python_package_root="my_pkg",
     )
     pkg = read_json(tmp_path / "package.json")
     rel = pkg["bin"]["demo"]
-    assert rel.startswith("src/my_pkg/mcp-shim/bin/")
+    assert rel.startswith("mcp-shim/bin/")
 
 def test_remove_deletes_bin_entry_and_file(tmp_path: Path):
     add_shim(tool_name="rmme", module="m", repo="r", base_dir=tmp_path)
@@ -66,7 +65,7 @@ def test_remove_deletes_bin_entry_and_file(tmp_path: Path):
     pkg = read_json(tmp_path / "package.json")
     assert "rmme" not in pkg.get("bin", {})
     # file deleted
-    assert not (tmp_path / "src/mcp-shim/bin/rmme.js").exists()
+    assert not (tmp_path / "mcp-shim/bin/rmme.js").exists()
 
 def test_dry_run_emits_files_without_writing(tmp_path: Path):
     res = add_shim(
@@ -80,7 +79,7 @@ def test_dry_run_emits_files_without_writing(tmp_path: Path):
     assert "files" in res
     # nothing written
     assert not (tmp_path / "package.json").exists()
-    assert not (tmp_path / "src/mcp-shim/bin/dry.js").exists()
+    assert not (tmp_path / "mcp-shim/bin/dry.js").exists()
 
 def test_read_only_base_dir_returns_error(tmp_path: Path):
     # Make a read-only dir
@@ -101,3 +100,25 @@ def test_normalize_repo_variants():
     assert _normalize_repo("git@github.com:aliikhatami94/svc-infra.git") == "https://github.com/aliikhatami94/svc-infra.git"
     assert _normalize_repo("https://github.com/aliikhatami94/svc-infra") == "https://github.com/aliikhatami94/svc-infra.git"
     assert _normalize_repo("https://github.com/aliikhatami94/svc-infra.git") == "https://github.com/aliikhatami94/svc-infra.git"
+
+def test_root_scoped_paths_add(tmp_path):
+    from ai_infra.llm.tools.custom.mcp_stdio_expose import mcp_expose_add
+    res = mcp_expose_add(
+        tool_name="demo",
+        module="pkg.mod.server",
+        repo="github:owner/repo",
+        base_dir=str(tmp_path),
+        # no bin_dir -> default mcp-shim/bin
+        force=True,
+    )
+    assert res["status"] == "ok"
+    assert res["bin_path"] == "mcp-shim/bin/demo.js"
+    assert (tmp_path / "mcp-shim/bin/demo.js").is_file()
+    assert (tmp_path / "package.json").is_file()
+
+def test_root_scoped_paths_remove(tmp_path):
+    from ai_infra.llm.tools.custom.mcp_stdio_expose import mcp_expose_add, mcp_expose_remove
+    mcp_expose_add(tool_name="demo", module="pkg.m", repo="owner/r", base_dir=str(tmp_path))
+    res = mcp_expose_remove(tool_name="demo", base_dir=str(tmp_path))
+    assert res["status"] == "ok"
+    # file deletion only if delete_file=True; mapping should be removed regardless

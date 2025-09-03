@@ -38,12 +38,10 @@ def _clean_pkg_root(value: Optional[str]) -> Optional[str]:
     # keep only first segment (package name)
     return (cleaned.split("/", 1)[0] or None)
 
-def _coerce_bin_dir(bin_dir: Optional[str], python_package_root: Optional[str]) -> Path:
-    if python_package_root:
-        return Path("src") / python_package_root / "mcp-shim" / "bin"
+def _coerce_bin_dir(bin_dir: Optional[str]) -> Path:
     if bin_dir:
         return Path(bin_dir)
-    return Path("src") / "mcp-shim" / "bin"
+    return Path("mcp-shim") / "bin"
 
 def mcp_expose_add(
         tool_name: str,
@@ -51,8 +49,7 @@ def mcp_expose_add(
         repo: str,
         ref: str = "main",
         package_json: str = "package.json",
-        bin_dir: str = "src/mcp-shim/bin",
-        python_package_root: Optional[str] = None,
+        bin_dir: str = "mcp-shim/bin",
         package_name: str = "mcp-stdio-expose",
         force: bool = False,
         base_dir: Optional[str] = None,
@@ -63,7 +60,6 @@ def mcp_expose_add(
 
     Robust params:
     - `repo` accepts owner/repo, github:owner/repo, SSH, or HTTPS and is normalized to HTTPS .git
-    - `python_package_root` may be a path (e.g. 'src/pkg'); we clean it to just 'pkg'
     - If pkg root omitted, we infer from `module` and use it if 'src/<pkg>' exists
     - If both pkg root and bin_dir are provided, pkg root wins
 
@@ -75,17 +71,8 @@ def mcp_expose_add(
 
     repo_url = _normalize_repo(repo)
 
-    # 1) clean explicit python_package_root (path → package name)
-    cleaned_pkg_root = _clean_pkg_root(python_package_root)
-
-    # 2) if no explicit root, infer from module and prefer when src/<pkg> exists
-    if not cleaned_pkg_root:
-        inferred = _infer_pkg_root(module)
-        if inferred and (Path("src") / inferred).exists():
-            cleaned_pkg_root = inferred
-
     # 3) build bin dir with preference for cleaned/inferred pkg root
-    final_bin_dir = _coerce_bin_dir(bin_dir=bin_dir, python_package_root=cleaned_pkg_root)
+    final_bin_dir = _coerce_bin_dir(bin_dir=bin_dir)
 
     return add_shim(
         tool_name=tool_name,
@@ -94,7 +81,6 @@ def mcp_expose_add(
         ref=ref,
         package_json=Path(package_json),
         bin_dir=final_bin_dir,
-        python_package_root=cleaned_pkg_root,
         package_name=package_name,
         force=force,
         base_dir=Path(base_dir) if base_dir else None,
@@ -104,8 +90,7 @@ def mcp_expose_add(
 def mcp_expose_remove(
         tool_name: str,
         package_json: str = "package.json",
-        bin_dir: str = "src/mcp-shim/bin",
-        python_package_root: Optional[str] = None,
+        bin_dir: str = "mcp-shim/bin",
         delete_file: bool = False,
         base_dir: Optional[str] = None,
 ) -> dict:
@@ -113,14 +98,12 @@ def mcp_expose_remove(
     Remove the shim mapping from package.json and optionally delete the shim file.
     If pkg root was used when adding, pass the same `python_package_root` (path accepted; will be cleaned).
     """
-    cleaned_pkg_root = _clean_pkg_root(python_package_root)
-    final_bin_dir = _coerce_bin_dir(bin_dir=bin_dir, python_package_root=cleaned_pkg_root)
+    final_bin_dir = _coerce_bin_dir(bin_dir=bin_dir)
 
     return remove_shim(
         tool_name=tool_name,
         package_json=Path(package_json),
         bin_dir=final_bin_dir,
-        python_package_root=cleaned_pkg_root,
         delete_file=delete_file,
         base_dir=Path(base_dir) if base_dir else None,
     )
