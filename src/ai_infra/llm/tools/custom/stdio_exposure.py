@@ -1,8 +1,8 @@
-# ai_infra/llm/tools/custom/mcp_stdio_expose.py
 from __future__ import annotations
-import re
+import re, stat
 from pathlib import Path, PurePosixPath
-from typing import Optional
+from typing import Optional, Union, Iterable
+
 from ai_infra.mcp.expose.core import add_shim, remove_shim
 
 _GH_SSH   = re.compile(r"^git@github\.com:(?P<owner>[\w.\-]+)/(?P<repo>[\w.\-]+)(?:\.git)?$")
@@ -148,3 +148,27 @@ def mcp_expose_remove(
         delete_file=delete_file,
         base_dir=Path(base_dir) if base_dir else None,
     )
+
+def make_executable(targets: Union[str, Path, Iterable[Union[str, Path]]]) -> list[str]:
+    """
+    Ensure one or more files are marked executable (chmod +x equivalent).
+
+    Args:
+        targets: A path (string or Path) or iterable of paths.
+
+    Returns:
+        List of absolute paths that were updated (or confirmed executable).
+    """
+    if isinstance(targets, (str, Path)):
+        targets = [targets]
+
+    updated: list[str] = []
+    for t in targets:
+        p = Path(t).resolve()
+        if not p.exists():
+            raise FileNotFoundError(f"File does not exist: {p}")
+        # Add executable bits (owner, group, others)
+        mode = p.stat().st_mode
+        p.chmod(mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+        updated.append(str(p))
+    return updated

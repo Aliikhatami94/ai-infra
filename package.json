@@ -3,6 +3,6 @@
   "version": "0.0.0",
   "private": true,
   "bin": {
-    "expose-stdio-mcp": "mcp-shim/bin/expose-stdio-mcp.js"
+    "stdio-exposure-mcp": "mcp-shim/bin/stdio-exposure-mcp.js"
   }
 }
