@@ -2,7 +2,7 @@ from pathlib import Path
 import os
 import stat
 import json
-from ai_infra.mcp.publish.core import add_shim, remove_shim
+from ai_infra.mcp.server.custom.publish.core import add_shim, remove_shim
 
 def read_json(p: Path):
     return json.loads(p.read_text())
