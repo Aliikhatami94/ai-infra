@@ -172,3 +172,9 @@ def make_executable(targets: Union[str, Path, Iterable[Union[str, Path]]]) -> li
         p.chmod(mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
         updated.append(str(p))
     return updated
+
+__all__ = [
+    "mcp_publish_add",
+    "mcp_publish_remove",
+    "make_executable",
+]

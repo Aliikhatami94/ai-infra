@@ -252,3 +252,10 @@ async def file_write(
         raise ValueError(f"Unknown mode: {mode}")
 
     return await asyncio.to_thread(_write)
+
+__all__ = [
+    "project_scan",
+    "files_list",
+    "file_read",
+    "file_write",
+]
