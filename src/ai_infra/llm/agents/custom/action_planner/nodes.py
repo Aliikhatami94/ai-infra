@@ -48,7 +48,7 @@ async def analyze(state: PlannerState) -> PlannerState:
 async def draft_plan(state: PlannerState) -> PlannerState:
     """
     Produce a *general action plan* (steps can be reasoning, checks, asks, or tool calls).
-    Commands are not special: use the 'run_command' tool with a `command` arg.
+    Commands are not special: use the 'run_cli' tool with a `command` arg.
     Keep it concise. Use steps only if they add value.
     """
     base_sys = (
@@ -60,7 +60,7 @@ async def draft_plan(state: PlannerState) -> PlannerState:
         "- tool:   {kind:'tool', tool, args, rationale, title?}\n"
         "Rules:\n"
         "1) Prefer 3–7 steps for moderate/complex; fewer if simple.\n"
-        "2) Use the provided tools only. Shell commands must use tool 'run_command' with an exact `command` string.\n"
+        "2) Use the provided tools only. Shell commands must use tool 'run_cli' with an exact `command` string.\n"
         "3) Add 'assert' before risky/dangerous steps; include minimal 'on_fail_hint'.\n"
         "4) If configuration is missing, add 'ask' steps and/or include `questions`.\n"
         "5) Be terse; no fluff."

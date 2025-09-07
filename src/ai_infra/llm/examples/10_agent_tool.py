@@ -4,7 +4,7 @@ What you learn: constructing an agent and running a simple user prompt.
 """
 from ai_infra.llm import CoreAgent, Providers, Models
 
-from ai_infra.llm.tools.custom.cli import run_command
+from ai_infra.llm.tools.custom.cli import run_cli
 
 def main():
     agent = CoreAgent()
@@ -12,7 +12,7 @@ def main():
         messages=[{"role": "user", "content": "What is the current directory?"}],
         provider=Providers.openai,
         model_name=Models.openai.gpt_4o.value,
-        tools=[run_command],
+        tools=[run_cli],
         model_kwargs={"temperature": 0.7},
     )
     print("Response:\n", getattr(resp, "content", resp))

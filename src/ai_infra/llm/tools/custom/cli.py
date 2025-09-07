@@ -1,7 +1,7 @@
 import sys
 import asyncio
 
-async def run_command(command: str) -> str:
+async def run_cli(command: str) -> str:
     """
     Run a shell command asynchronously and return its stdout as a string.
     - Windows: PowerShell for better pipelines/globbing

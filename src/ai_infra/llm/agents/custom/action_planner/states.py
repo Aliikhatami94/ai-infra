@@ -22,7 +22,7 @@ class ReasonStep(BaseModel):
 class ToolStep(BaseModel):
     model_config = ConfigDict(extra="forbid")
     kind: Literal["tool"] = "tool"
-    tool: str                          # e.g. "run_command" | "file_read" | "project_scan"
+    tool: str                          # e.g. "run_cli" | "file_read" | "project_scan"
     args: Dict[str, Any] = Field(default_factory=dict)
     rationale: str                     # why this call is needed
     title: str | None = None
