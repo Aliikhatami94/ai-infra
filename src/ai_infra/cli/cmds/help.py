@@ -1,5 +1,5 @@
 _HELP = """\
-ai-infra — AI/MCP infrastructure CLI
+ai-infra — Infrastructure for all your AI needs
 
 How to run (pick what fits your workflow):
 

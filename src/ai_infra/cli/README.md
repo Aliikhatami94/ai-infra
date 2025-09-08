@@ -1,4 +1,4 @@
-# MCP Stdio Publisher CLI
+# CLI to publish MCP stdio servers as npx-runner CLIs
 
 Publish your **Python MCP stdio servers** as **npx-runner CLIs** so any agent can launch them without installing Python packages.
 
