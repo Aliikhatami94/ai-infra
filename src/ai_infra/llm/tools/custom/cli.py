@@ -44,12 +44,12 @@ async def run_cli(command: str) -> str:
         )
     return out.strip()
 
-async def cli_cmd_help(cli_prog) -> dict:
+async def cli_cmd_help(cli_prog: str) -> dict:
     root = prepare_env()
     text = await run_from_root(root, cli_prog, ["--help"])
     return {"ok": True, "action": "help", "project_root": str(root), "help": text}
 
-async def cli_subcmd_help(cli_prog, subcommand) -> dict:
+async def cli_subcmd_help(cli_prog: str, subcommand) -> dict:
     root = prepare_env()
     cmd = subcommand.value
     text = await run_from_root(root, cli_prog, [cmd, "--help"])

@@ -58,8 +58,7 @@ ruff = "^0.5.0"
 mypy = "^1.10.0"
 
 [tool.poetry.scripts]
-project-management-mcp = "ai_infra.mcp.server.custom.proj_mgmt:main"
-cli-mcp = "ai_infra.mcp.server.custom.cli:main"
+ai-infra = "ai_infra.cli:main"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

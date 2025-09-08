@@ -33,7 +33,7 @@ def _dump_json(p: Path, data: Dict) -> None:
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(data, indent=2) + "\n")
 
-def _ensure_executable(p: Path) -> None:
+def ensure_executable(p: Path) -> None:
     p.chmod(p.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
 def _resolve_paths(
@@ -113,7 +113,7 @@ def add_shim(
         if not shim_path.exists() or force:
             shim_path.parent.mkdir(parents=True, exist_ok=True)
             shim_path.write_text(js)
-            _ensure_executable(shim_path)
+            ensure_executable(shim_path)
             action = "created" if not force else "updated"
 
         pkg["bin"][tool_name] = rel_for_bin

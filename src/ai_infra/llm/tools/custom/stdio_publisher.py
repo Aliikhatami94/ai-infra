@@ -1,180 +1,198 @@
 from __future__ import annotations
-import re, stat
-from pathlib import Path, PurePosixPath
-from typing import Optional, Union, Iterable
+import errno, json, os, stat
+from pathlib import Path
+from typing import Dict, Optional, Tuple
 
-from ai_infra.mcp.server.custom.publish.core import add_shim, remove_shim
+JS_TEMPLATE_UVX_MODULE = """#!/usr/bin/env node
+const {{ spawn }} = require("child_process");
 
-_GH_SSH   = re.compile(r"^git@github\.com:(?P<owner>[\w.\-]+)/(?P<repo>[\w.\-]+)(?:\.git)?$")
-_GH_HTTPS = re.compile(r"^https?://github\.com/(?P<owner>[\w.\-]+)/(?P<repo>[\w.\-]+)(?:\.git)?$")
-_GH_SHORT = re.compile(r"^(?:github:)?(?P<owner>[\w.\-]+)/(?P<repo>[\w.\-]+)$")
+// Config from env with sane defaults
+const UVX  = process.env.UVX_PATH || "uvx";
+const REPO = process.env.SVC_INFRA_REPO || "{repo}";
+const REF  = process.env.SVC_INFRA_REF  || "{ref}";
+const SPEC = `git+${{REPO}}@${{REF}}`;
 
-def _ensure_git_suffix(url: str) -> str:
-    return url if url.endswith(".git") else f"{url}.git"
+// Run: uvx --from SPEC python -m <module> --transport stdio <passthrough-args>
+const args = [
+  "--quiet",
+  ...(process.env.UVX_REFRESH ? ["--refresh"] : []),
+  "--from", SPEC,
+  "python", "-m", "{py_module}",
+  "--transport", "stdio",
+  ...process.argv.slice(2)
+];
 
-def _normalize_repo(repo: str) -> str:
-    repo = repo.strip()
-    m = _GH_HTTPS.match(repo)
-    if m:
-        return _ensure_git_suffix(f"https://github.com/{m.group('owner')}/{m.group('repo')}")
-    m = _GH_SSH.match(repo)
-    if m:
-        return _ensure_git_suffix(f"https://github.com/{m.group('owner')}/{m.group('repo')}")
-    m = _GH_SHORT.match(repo)
-    if m:
-        return _ensure_git_suffix(f"https://github.com/{m.group('owner')}/{m.group('repo')}")
-    return repo  # non-GitHub or already normalized
+const child = spawn(UVX, args, {{ stdio: "inherit", shell: process.platform === "win32" }});
+child.on("exit", code => process.exit(code));
+"""
 
-def _infer_pkg_root(module: str) -> Optional[str]:
-    head = (module or "").split(".", 1)[0].strip()
-    return head or None
+def _load_json(p: Path) -> Dict:
+    return json.loads(p.read_text()) if p.exists() else {}
 
-def _clean_pkg_root(value: Optional[str]) -> Optional[str]:
-    if not value:
-        return None
-    cleaned = str(PurePosixPath(value)).lstrip("/")
-    if cleaned.startswith("src/"):
-        cleaned = cleaned[4:]
-    # keep only first segment (package name)
-    return (cleaned.split("/", 1)[0] or None)
+def _dump_json(p: Path, data: Dict) -> None:
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(data, indent=2) + "\n")
 
-def _coerce_bin_dir(bin_dir: Optional[str]) -> Path:
-    if bin_dir:
-        return Path(bin_dir)
-    return Path("mcp-shim") / "bin"
+def _resolve_paths(
+        *,
+        base_dir: Optional[Path],
+        package_json: Path,
+        bin_dir: Path,
+        tool_name: str,
+) -> Tuple[Path, Path]:
+    root = base_dir.resolve() if base_dir else Path.cwd()
+    package_json = (root / package_json).resolve()
+    bin_dir = (root / bin_dir).resolve()
+    shim_path = bin_dir / f"{tool_name}.js"
+    return package_json, shim_path
 
-def mcp_publish_add(
+def ensure_executable(p: Path) -> None:
+    p.chmod(p.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+
+def add_shim(
+        *,
         tool_name: str,
         module: str,
         repo: str,
         ref: str = "main",
-        package_json: str = "package.json",
-        bin_dir: str = "mcp-shim/bin",
-        package_name: str = "mcp-stdio-publish",
+        package_json: Path = Path("package.json"),
+        bin_dir: Path = Path("mcp-shim") / "bin",
+        package_name: str = "mcp-shims",
         force: bool = False,
-        base_dir: Optional[str] = None,
+        base_dir: Optional[Path] = None,
         dry_run: bool = False,
-) -> dict:
-    """
-    Create or update an executable shim that publishs a Python MCP stdio server via Node's "bin" interface.
+) -> Dict:
+    try:
+        package_json, shim_path = _resolve_paths(
+            base_dir=base_dir,
+            package_json=package_json,
+            bin_dir=bin_dir,
+            tool_name=tool_name,
+        )
+        js = JS_TEMPLATE_UVX_MODULE.format(repo=repo, ref=ref, py_module=module)
 
-    What it delivers
-    - A Node.js shim file at <bin_dir>/<tool_name>.js that runs: uvx --from git+<repo>@<ref> python -m <module> --transport stdio <args>.
-    - A package.json "bin" mapping of <tool_name> -> relative path to that shim, so it can be executed via npx, npm, or a local node_modules/.bin path.
+        # compute relative path for package.json -> "bin" map
+        root_dir = package_json.parent
+        try:
+            rel_for_bin = shim_path.relative_to(root_dir).as_posix()
+        except ValueError:
+            # fallback (different drives, etc.)
+            rel_for_bin = os.path.relpath(shim_path.as_posix(), root_dir.as_posix())
 
-    How it works
-    - The shim uses environment overrides at runtime:
-      - UVX_PATH: path to the uvx binary (default "uvx").
-      - SVC_INFRA_REPO: overrides the repo embedded in the shim.
-      - SVC_INFRA_REF: overrides the ref embedded in the shim.
-      - UVX_REFRESH: if set (any value), adds --refresh to uvx args.
-    - The repo argument is normalized to an HTTPS GitHub URL ending with .git. Supported forms: owner/repo, github:owner/repo, SSH (git@github.com:...), or HTTPS.
+        if dry_run:
+            pkg = _load_json(package_json)
+            if not pkg:
+                pkg = {"name": package_name, "version": "0.0.0", "private": True, "bin": {}}
+            if "bin" not in pkg or not isinstance(pkg["bin"], dict):
+                pkg["bin"] = {}
+            pkg["bin"][tool_name] = rel_for_bin
+            return {
+                "status": "dry_run",
+                "action": "emit",
+                "tool_name": tool_name,
+                "module": module,
+                "repo": repo,
+                "ref": ref,
+                "package_json": str(package_json),
+                "bin_path": rel_for_bin,
+                "files": {
+                    str(package_json): json.dumps(pkg, indent=2) + "\n",
+                    str(shim_path): js,
+                },
+                "hint": "Filesystem was not modified. Apply these changes in a writable workspace.",
+            }
 
-    Important parameters
-    - tool_name: CLI name to publish (also the shim filename without extension).
-    - module: Python module run with `python -m <module>`; must be a non-empty dotted path and must speak MCP over stdio when given --transport stdio.
-    - repo/ref: Git source of the MCP server; ref defaults to "main".
-    - package_json: location of package.json to update or create.
-    - bin_dir: directory for the shim (default "mcp-shim/bin").
-    - package_name: used only if creating a new package.json.
-    - base_dir: optional root to resolve paths against; defaults to CWD.
-    - force: overwrite an existing shim file.
-    - dry_run: compute results and return emitted files without writing to disk.
+        # Real writes
+        pkg = _load_json(package_json)
+        if not pkg:
+            pkg = {"name": package_name, "version": "0.0.0", "private": True, "bin": {}}
+        if "bin" not in pkg or not isinstance(pkg["bin"], dict):
+            pkg["bin"] = {}
 
-    Returns
-    - On success: { status: "ok", action: "created"|"updated"|"exists", tool_name, module, repo, ref, package_json, bin_path }.
-    - On dry run: { status: "dry_run", files: { <package_json>: "...", <shim_path>: "..." }, ... }.
-    - On error (e.g., read-only): { status: "error", error: <code>, message, suggestion? }.
+        action = "exists"
+        if not shim_path.exists() or force:
+            shim_path.parent.mkdir(parents=True, exist_ok=True)
+            shim_path.write_text(js)
+            ensure_executable(shim_path)
+            action = "created" if not force else "updated"
 
-    Goal
-    - Make stdio-based MCP servers installable and runnable externally with a stable CLI (e.g., `npx <tool_name> ...`).
-    """
-    if not module or module.strip(". ") == "":
-        return {"status": "error", "error": "invalid_module", "message": "module must be a non-empty dotted path"}
+        pkg["bin"][tool_name] = rel_for_bin
+        _dump_json(package_json, pkg)
 
-    repo_url = _normalize_repo(repo)
+        return {
+            "status": "ok",
+            "action": action,
+            "tool_name": tool_name,
+            "module": module,
+            "repo": repo,
+            "ref": ref,
+            "package_json": str(package_json),
+            "bin_path": rel_for_bin,
+        }
 
-    # 3) build bin dir with preference for cleaned/inferred pkg root
-    final_bin_dir = _coerce_bin_dir(bin_dir=bin_dir)
+    except OSError as e:
+        readonly = e.errno in (errno.EROFS, errno.EACCES)
+        return {
+            "status": "error",
+            "error": "read_only_filesystem" if readonly else "os_error",
+            "message": str(e),
+            "tool_name": tool_name,
+            "package_json": str(package_json),
+            "bin_dir": str(bin_dir),
+            "base_dir": str(base_dir) if base_dir else None,
+            "suggestion": (
+                "Pass a writable base_dir or set dry_run=True and apply emitted files in a writable repo."
+                if readonly else "Check paths/permissions."
+            ),
+        }
 
-    return add_shim(
-        tool_name=tool_name,
-        module=module,
-        repo=repo_url,
-        ref=ref,
-        package_json=Path(package_json),
-        bin_dir=final_bin_dir,
-        package_name=package_name,
-        force=force,
-        base_dir=Path(base_dir) if base_dir else None,
-        dry_run=dry_run,
-    )
-
-def mcp_publish_remove(
+def remove_shim(
+        *,
         tool_name: str,
-        package_json: str = "package.json",
-        bin_dir: str = "mcp-shim/bin",
+        package_json: Path = Path("package.json"),
+        bin_dir: Path = Path("mcp-shim") / "bin",
         delete_file: bool = False,
-        base_dir: Optional[str] = None,
-) -> dict:
-    """
-    Remove the CLI exposure for a stdio MCP server created by mcp_publish_add.
+        base_dir: Optional[Path] = None,
+) -> Dict:
+    try:
+        package_json, shim_path = _resolve_paths(
+            base_dir=base_dir,
+            package_json=package_json,
+            bin_dir=bin_dir,
+            tool_name=tool_name,
+        )
 
-    What it does
-    - Deletes the <tool_name> entry from package.json "bin" (if present).
-    - Optionally deletes the generated shim file at <bin_dir>/<tool_name>.js when delete_file=True.
-    - Paths are resolved relative to base_dir when provided; otherwise current working directory is used.
+        pkg = _load_json(package_json)
+        removed = False
+        if "bin" in pkg and tool_name in pkg["bin"]:
+            del pkg["bin"][tool_name]
+            _dump_json(package_json, pkg)
+            removed = True
 
-    Parameters
-    - tool_name: CLI name whose mapping/shim should be removed.
-    - package_json: path to package.json to update.
-    - bin_dir: directory where the shim lives (default "mcp-shim/bin").
-    - delete_file: also unlink the shim file.
-    - base_dir: optional root to resolve paths against.
+        file_deleted = False
+        if delete_file and shim_path.exists():
+            shim_path.unlink()
+            file_deleted = True
 
-    Returns
-    - { status: "ok", removed_from_package_json: bool, file_deleted: bool, shim_path, package_json }.
-    - On error: { status: "error", error: "os_error", message }.
+        return {
+            "status": "ok",
+            "removed_from_package_json": removed,
+            "file_deleted": file_deleted,
+            "shim_path": str(shim_path),
+            "package_json": str(package_json),
+        }
 
-    Goal
-    - Cleanly retract the external CLI for a stdio MCP server created by this tool.
-    """
-    final_bin_dir = _coerce_bin_dir(bin_dir=bin_dir)
-
-    return remove_shim(
-        tool_name=tool_name,
-        package_json=Path(package_json),
-        bin_dir=final_bin_dir,
-        delete_file=delete_file,
-        base_dir=Path(base_dir) if base_dir else None,
-    )
-
-def make_executable(targets: Union[str, Path, Iterable[Union[str, Path]]]) -> list[str]:
-    """
-    Ensure one or more files are marked executable (chmod +x equivalent).
-
-    Args:
-        targets: A path (string or Path) or iterable of paths.
-
-    Returns:
-        List of absolute paths that were updated (or confirmed executable).
-    """
-    if isinstance(targets, (str, Path)):
-        targets = [targets]
-
-    updated: list[str] = []
-    for t in targets:
-        p = Path(t).resolve()
-        if not p.exists():
-            raise FileNotFoundError(f"File does not exist: {p}")
-        # Add executable bits (owner, group, others)
-        mode = p.stat().st_mode
-        p.chmod(mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-        updated.append(str(p))
-    return updated
+    except OSError as e:
+        return {
+            "status": "error",
+            "error": "os_error",
+            "message": str(e),
+            "tool_name": tool_name,
+            "package_json": str(package_json),
+        }
 
 __all__ = [
-    "mcp_publish_add",
-    "mcp_publish_remove",
-    "make_executable",
+    "add_shim",
+    "remove_shim",
+    "ensure_executable",
 ]

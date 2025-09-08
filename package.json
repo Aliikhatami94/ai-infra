@@ -3,6 +3,6 @@
   "version": "0.0.0",
   "private": true,
   "bin": {
-    "stdio-publisher-mcp": "mcp-shim/bin/stdio-publisher-mcp.js"
+    "ai-infra-cli-mcp": "mcp-shim/bin/ai-infra-cli-mcp.js"
   }
 }

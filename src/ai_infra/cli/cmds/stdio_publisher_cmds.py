@@ -3,9 +3,11 @@ from pathlib import Path
 from typing import Optional
 import json, typer
 
-from .core import add_shim, remove_shim, ensure_executable
-
-app = typer.Typer(help="publish (publish) MCP stdio servers via npx-compatible shims.")
+from ai_infra.llm.tools.custom.stdio_publisher import (
+    add_shim,
+    remove_shim,
+    ensure_executable
+)
 
 def _echo(obj, as_json: bool):
     if as_json:
@@ -13,7 +15,7 @@ def _echo(obj, as_json: bool):
     else:
         typer.echo(obj)
 
-@app.command("add")
+
 def add_cmd(
         tool_name: str = typer.Option(..., help="CLI name to publish (e.g. auth-infra-mcp)"),
         module: str = typer.Option(..., help="Python module to run (e.g. svc_infra.auth.mcp)"),
@@ -28,6 +30,7 @@ def add_cmd(
         json_out: bool = typer.Option(True, help="Print machine-readable JSON (default: true)"),
 ):
     """
+    Add a CLI shim to package.json and create the shim file for mcp stdio publishing.
     Create/Update:
       - <base_dir>/package.json (adds/updates 'bin' entry)
       - <base_dir>/<bin_dir>/<tool_name>.js (uvx + python -m shim)
@@ -46,7 +49,7 @@ def add_cmd(
     )
     _echo(res, as_json=json_out)
 
-@app.command("remove")
+
 def remove_cmd(
         tool_name: str = typer.Option(..., help="CLI name to remove"),
         package_json: Path = typer.Option(Path("package.json")),
@@ -56,7 +59,11 @@ def remove_cmd(
         json_out: bool = typer.Option(True),
 ):
     """
-    Remove the bin mapping from package.json and optionally delete the shim file.
+    Remove a CLI shim from package.json and optionally delete the shim file for mcp stdio publishing.
+    Update:
+      - <base_dir>/package.json (removes 'bin' entry)
+    Optionally Delete:
+      - <base_dir>/<bin_dir>/<tool_name>.js
     """
     res = remove_shim(
         tool_name=tool_name,
@@ -67,19 +74,19 @@ def remove_cmd(
     )
     _echo(res, as_json=json_out)
 
-@app.command("chmod")
+
 def chmod_cmd(
         path: Path = typer.Argument(..., help="Shim file path (e.g. mcp-shim/bin/auth-infra-mcp.js)"),
         json_out: bool = typer.Option(True),
 ):
     """
-    Mark a single shim as executable (chmod +x).
+    Mark a specific .js file as executable (for example, after git clone).
     """
     ensure_executable(path)  # or call your public make_executable([path])
     res = {"status": "ok", "path": str(path.resolve()), "action": "executable_set"}
     _echo(res, as_json=json_out)
 
-@app.command("chmod-all")
+
 def chmod_all_cmd(
         bin_dir: Path = typer.Option(Path("mcp-shim") / "bin", help="Directory containing shim .js files"),
         json_out: bool = typer.Option(True),
@@ -96,5 +103,9 @@ def chmod_all_cmd(
     res = {"status": "ok", "bin_dir": str(bin_dir), "updated": updated}
     _echo(res, as_json=json_out)
 
-if __name__ == "__main__":
-    app()
+
+def register(app: typer.Typer) -> None:
+    app.command("add-publisher")(add_cmd)
+    app.command("remove-publisher")(remove_cmd)
+    app.command("chmod")(chmod_cmd)
+    app.command("chmod-all")(chmod_all_cmd)
