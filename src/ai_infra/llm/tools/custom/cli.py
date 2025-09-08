@@ -1,6 +1,9 @@
 import sys
 import asyncio
 
+from svc_infra.app.env import prepare_env
+from svc_infra.cli.foundation.runner import run_from_root
+
 async def run_cli(command: str) -> str:
     """
     Run a shell command asynchronously and return its stdout as a string.
@@ -40,3 +43,20 @@ async def run_cli(command: str) -> str:
             f"STDERR:\n{err}"
         )
     return out.strip()
+
+async def cli_cmd_help(cli_prog) -> dict:
+    root = prepare_env()
+    text = await run_from_root(root, cli_prog, ["--help"])
+    return {"ok": True, "action": "help", "project_root": str(root), "help": text}
+
+async def cli_subcmd_help(cli_prog, subcommand) -> dict:
+    root = prepare_env()
+    cmd = subcommand.value
+    text = await run_from_root(root, cli_prog, [cmd, "--help"])
+    return {
+        "ok": True,
+        "action": "subcommand_help",
+        "subcommand": cmd,
+        "project_root": str(root),
+        "help": text,
+    }
