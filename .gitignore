@@ -8,3 +8,7 @@ __pycache__/
 *.py[cod]
 .pypl-token
 .vscode/
+
+# Documentation
+.github/AGENTS.md
+.github/PLAN.md
