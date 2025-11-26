@@ -1,8 +1,8 @@
 import asyncio
 
-from ai_infra import Models, Providers
-from ai_infra.llm import CoreAgent
-from ai_infra.mcp.client.core import CoreMCPClient
+from ai_infra import Providers
+from ai_infra.llm import Agent
+from ai_infra.mcp.client.core import MCPClient
 
 cfg = [
     {
@@ -18,15 +18,15 @@ cfg = [
 
 
 async def main():
-    client = CoreMCPClient(cfg)
+    client = MCPClient(cfg)
     tools = await client.list_tools()
-    agent = CoreAgent()
+    agent = Agent()
     resp = await agent.arun_agent(
         messages=[
             {"role": "user", "content": "What is the capital of france? use wikipedia to find out."}
         ],
         provider=Providers.openai,
-        model_name=Models.openai.gpt_4o.value,
+        model_name="gpt-4o",
         tools=tools,
         model_kwargs={"temperature": 0.7},
     )

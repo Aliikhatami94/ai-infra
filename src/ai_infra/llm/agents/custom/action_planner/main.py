@@ -1,20 +1,20 @@
-from typing import Dict, Any, Literal
+from typing import Any, Dict, Literal
+
 from langgraph.graph import END, START
 
-from ai_infra import CoreGraph
+from ai_infra import Graph
 from ai_infra.graph import ConditionalEdge, Edge
-from ai_infra.llm.agents.custom.action_planner.states import PlannerState
+from ai_infra.llm import MODEL, PROVIDER
 from ai_infra.llm.agents.custom.action_planner.nodes import (
-    assess_complexity,
     analyze,
+    assess_complexity,
     draft_plan,
     present_for_hitl,
     replan,
 )
-from ai_infra.llm import PROVIDER, MODEL
+from ai_infra.llm.agents.custom.action_planner.states import PlannerState
 
-
-ActionPlannerGraph = CoreGraph(
+ActionPlannerGraph = Graph(
     state_type=PlannerState,
     node_definitions=[assess_complexity, analyze, draft_plan, present_for_hitl, replan],
     edges=[
@@ -29,10 +29,9 @@ ActionPlannerGraph = CoreGraph(
         ConditionalEdge(
             start="present_for_hitl",
             router_fn=lambda s: (
-                END if bool(s.get("awaiting_approval"))
-                else END if bool(s.get("approved"))
-                else END if bool(s.get("aborted"))
-                else "replan"
+                END
+                if bool(s.get("awaiting_approval"))
+                else END if bool(s.get("approved")) else END if bool(s.get("aborted")) else "replan"
             ),
             targets=["replan", END],
         ),
@@ -40,13 +39,14 @@ ActionPlannerGraph = CoreGraph(
     ],
 )
 
+
 async def run_action_planner(
-        *,
-        messages,
-        tools: list,
-        io_mode: Literal["terminal", "api"] = "terminal",
-        provider: str = PROVIDER,
-        model_name: str = MODEL,
+    *,
+    messages,
+    tools: list,
+    io_mode: Literal["terminal", "api"] = "terminal",
+    provider: str = PROVIDER,
+    model_name: str = MODEL,
 ) -> Dict[str, Any]:
     initial: PlannerState = {
         "messages": messages,

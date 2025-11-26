@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import difflib
 import traceback
-import warnings
 from contextlib import asynccontextmanager
 from dataclasses import asdict, is_dataclass
 from typing import Any, AsyncContextManager, Dict, List, Optional
@@ -483,22 +482,4 @@ class MCPClient:
         return result
 
 
-# Backward-compatible alias (deprecated)
-def _deprecated_alias(name: str, new_class: type) -> type:
-    """Create a deprecated alias that warns on instantiation."""
-
-    class DeprecatedAlias(new_class):
-        def __init__(self, *args, **kwargs):
-            warnings.warn(
-                f"{name} is deprecated, use {new_class.__name__} instead",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            super().__init__(*args, **kwargs)
-
-    DeprecatedAlias.__name__ = name
-    DeprecatedAlias.__qualname__ = name
-    return DeprecatedAlias
-
-
-CoreMCPClient = _deprecated_alias("CoreMCPClient", MCPClient)
+# NOTE: CoreMCPClient alias removed - use MCPClient directly

@@ -1,4 +1,3 @@
-import warnings
 from collections.abc import AsyncIterator, Iterator
 from typing import Any, Dict, Sequence, Union
 
@@ -228,22 +227,4 @@ class Graph:
         return self.graph.get_graph().draw_mermaid()
 
 
-# Backward-compatible alias (deprecated)
-def _deprecated_alias(name: str, new_class: type) -> type:
-    """Create a deprecated alias that warns on instantiation."""
-
-    class DeprecatedAlias(new_class):
-        def __init__(self, *args, **kwargs):
-            warnings.warn(
-                f"{name} is deprecated, use {new_class.__name__} instead",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            super().__init__(*args, **kwargs)
-
-    DeprecatedAlias.__name__ = name
-    DeprecatedAlias.__qualname__ = name
-    return DeprecatedAlias
-
-
-CoreGraph = _deprecated_alias("CoreGraph", Graph)
+# NOTE: CoreGraph alias removed - use Graph directly

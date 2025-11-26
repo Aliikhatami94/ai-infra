@@ -55,14 +55,14 @@ Below are tiny copy/paste snippets and how to run included examples.
 ### LLM: chat (sync)
 
 ```python
-from ai_infra.llm import CoreLLM, Providers, Models
+from ai_infra.llm import LLM, Providers
 
-llm = CoreLLM()
+llm = LLM()
 resp = llm.chat(
     user_msg="One fun fact about the moon?",
     system="You are concise.",
     provider=Providers.openai,
-    model_name=Models.openai.gpt_4o.value,
+    model_name="gpt-4o",
 )
 print(resp)
 ```
@@ -76,13 +76,13 @@ python -c "from ai_infra.llm.examples.02_llm_chat_basic import main; main()"
 ### LLM: agent (tools, sync)
 
 ```python
-from ai_infra.llm import CoreAgent, Providers, Models
+from ai_infra.llm import Agent, Providers
 
-agent = CoreAgent()
+agent = Agent()
 resp = agent.run_agent(
     messages=[{"role": "user", "content": "Introduce yourself in one sentence."}],
     provider=Providers.openai,
-    model_name=Models.openai.gpt_4o.value,
+    model_name="gpt-4o",
     model_kwargs={"temperature": 0.7},
 )
 print(getattr(resp, "content", resp))
@@ -98,14 +98,14 @@ python -c "from ai_infra.llm.examples.01_agent_basic import main; main()"
 
 ```python
 import asyncio
-from ai_infra.llm import CoreLLM, Providers, Models
+from ai_infra.llm import LLM, Providers
 
 async def demo():
-    llm = CoreLLM()
+    llm = LLM()
     async for token, meta in llm.stream_tokens(
         "Stream one short paragraph about Mars.",
         provider=Providers.openai,
-        model_name=Models.openai.gpt_4o.value,
+        model_name="gpt-4o",
     ):
         print(token, end="", flush=True)
 
@@ -121,7 +121,7 @@ See more examples in src/ai_infra/llm/examples:
 ```python
 from typing_extensions import TypedDict
 from langgraph.graph import END
-from ai_infra.graph.core import CoreGraph
+from ai_infra.graph.core import Graph
 from ai_infra.graph.models import Edge, ConditionalEdge
 
 class MyState(TypedDict):
@@ -135,7 +135,7 @@ def mul(s: MyState) -> MyState:
     s["value"] *= 2
     return s
 
-graph = CoreGraph(
+graph = Graph(
     state_type=MyState,
     node_definitions=[inc, mul],
     edges=[
@@ -162,10 +162,10 @@ See also: 02_graph_stream_values.py
 
 ```python
 import asyncio
-from ai_infra.mcp.client.core import CoreMCPClient
+from ai_infra.mcp.client.core import MCPClient
 
 async def main():
-    client = CoreMCPClient([
+    client = MCPClient([
         {"transport": "streamable_http", "url": "http://127.0.0.1:8000/api/mcp", "headers": {"Authorization": "Bearer $MCP_AUTH_TOKEN"}},
         # {"transport": "stdio", "command": "./your-mcp-server", "args": []},
         # {"transport": "sse", "url": "http://127.0.0.1:8001/sse"},
@@ -259,7 +259,7 @@ Tip: add a test_examples.py that imports and runs the example main() functions t
 ## Project layout
 
 - src/ai_infra/llm: core LLM and Agent APIs, providers, tools, and utils
-- src/ai_infra/graph: CoreGraph wrapper, typed models, and utilities
+- src/ai_infra/graph: Graph wrapper, typed models, and utilities
 - src/ai_infra/mcp: MCP client, examples, and server stubs
 - tests: add your unit/integration tests here
 
@@ -268,7 +268,7 @@ Tip: add a test_examples.py that imports and runs the example main() functions t
 
 - Providers: OpenAI, Anthropic, Google GenAI, xAI (via langchain providers)
 - Features include structured output, retries, fallbacks, streaming, and tool call controls
-- MCP doc generation (OpenMCP) is available via CoreMCPClient.get_openmcp()
+- MCP doc generation (OpenMCP) is available via MCPClient.get_openmcp()
 - Nice-to-haves: add a simple example runner module; more test coverage around examples and MCP flows
 
 

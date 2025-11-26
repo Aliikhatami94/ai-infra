@@ -3,7 +3,6 @@ from __future__ import annotations
 import contextlib
 import importlib
 import logging
-import warnings
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Iterable, Optional, Union
 
@@ -417,22 +416,4 @@ def import_object(module_path: str, *, attr: Optional[str] = None) -> Any:
     )
 
 
-# Backward-compatible alias (deprecated)
-def _deprecated_alias(name: str, new_class: type) -> type:
-    """Create a deprecated alias that warns on instantiation."""
-
-    class DeprecatedAlias(new_class):
-        def __init__(self, *args, **kwargs):
-            warnings.warn(
-                f"{name} is deprecated, use {new_class.__name__} instead",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            super().__init__(*args, **kwargs)
-
-    DeprecatedAlias.__name__ = name
-    DeprecatedAlias.__qualname__ = name
-    return DeprecatedAlias
-
-
-CoreMCPServer = _deprecated_alias("CoreMCPServer", MCPServer)
+# NOTE: CoreMCPServer alias removed - use MCPServer directly

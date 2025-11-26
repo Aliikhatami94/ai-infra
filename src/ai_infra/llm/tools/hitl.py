@@ -5,7 +5,7 @@ import asyncio
 """
 Centralized HITL + tool policy utilities.
 
-This module consolidates logic that previously lived ad‑hoc in CoreLLM / runtime_bind:
+This module consolidates logic that previously lived ad‑hoc in LLM / runtime_bind:
   - HITLConfig: stores callbacks and provides a .set API
   - maybe_await: safe sync resolver for (possibly) async callbacks
   - apply_output_gate: applies model output moderation / modification gate
@@ -16,11 +16,12 @@ This module consolidates logic that previously lived ad‑hoc in CoreLLM / runti
 None of these functions mutate global state; they are pure / side‑effect free
 (except logging) and can be composed by higher‑level orchestration code.
 """
-from typing import Any, Callable, Dict, List, Optional, Sequence
-import logging
 import inspect
+import logging
+from typing import Any, Callable, Dict, List, Optional, Sequence
 
-from langchain_core.tools import BaseTool, tool as lc_tool, StructuredTool  # type: ignore
+from langchain_core.tools import BaseTool
+from langchain_core.tools import tool as lc_tool  # type: ignore
 
 __all__ = [
     "HITLConfig",
@@ -45,13 +46,14 @@ class HITLConfig:
     on_tool_call(name: str, args: dict) -> decision dict or None
         decision: {action: pass|modify|block, args: {...}, replacement: any}
     """
+
     def __init__(
-            self,
-            *,
-            on_model_output: Optional[Callable[..., Any]] = None,
-            on_tool_call: Optional[Callable[..., Any]] = None,
-            on_model_output_async: Optional[Callable[..., Any]] = None,
-            on_tool_call_async: Optional[Callable[..., Any]] = None,
+        self,
+        *,
+        on_model_output: Optional[Callable[..., Any]] = None,
+        on_tool_call: Optional[Callable[..., Any]] = None,
+        on_model_output_async: Optional[Callable[..., Any]] = None,
+        on_tool_call_async: Optional[Callable[..., Any]] = None,
     ):
         self.on_model_output = on_model_output
         self.on_tool_call = on_tool_call
@@ -59,12 +61,12 @@ class HITLConfig:
         self.on_tool_call_async = on_tool_call_async
 
     def set(
-            self,
-            *,
-            on_model_output: Optional[Callable[..., Any]] = None,
-            on_tool_call: Optional[Callable[..., Any]] = None,
-            on_model_output_async: Optional[Callable[..., Any]] = None,
-            on_tool_call_async: Optional[Callable[..., Any]] = None,
+        self,
+        *,
+        on_model_output: Optional[Callable[..., Any]] = None,
+        on_tool_call: Optional[Callable[..., Any]] = None,
+        on_model_output_async: Optional[Callable[..., Any]] = None,
+        on_tool_call_async: Optional[Callable[..., Any]] = None,
     ):
         if on_model_output is not None:
             self.on_model_output = on_model_output
@@ -103,7 +105,9 @@ class _HITLWrappedTool(BaseTool):
     """Async-first wrapper around a BaseTool enforcing async execution."""
 
     def __init__(self, base: BaseTool, hitl: HITLConfig):
-        super().__init__(name=getattr(base, "name", "tool"), description=getattr(base, "description", "") or "")
+        super().__init__(
+            name=getattr(base, "name", "tool"), description=getattr(base, "description", "") or ""
+        )
         self._base = base
         self._hitl = hitl
         # preserve args schema if present
@@ -134,12 +138,11 @@ class _HITLWrappedTool(BaseTool):
         return await asyncio.to_thread(self._base.invoke, args_dict)
 
 
-
 # ---------- Async helper ----------
 def maybe_await(result: Any) -> Any:
     """Resolve an awaitable in a sync context safely.
 
-    Behavior mirrors CoreLLM._maybe_await:
+    Behavior mirrors LLM._maybe_await:
       - If result is not awaitable, return as-is.
       - If an event loop is running, log warning and return None (cannot block).
       - If coroutine / awaitable and no loop, run it to completion.
@@ -158,8 +161,10 @@ def maybe_await(result: Any) -> Any:
         )
         return None
     if not asyncio.iscoroutine(result):
+
         async def _wrap(awaitable):
             return await awaitable
+
         result = _wrap(result)
     return asyncio.run(result)
 
@@ -182,7 +187,11 @@ def apply_output_gate(ai_msg: Any, hitl: Optional[HITLConfig | Dict[str, Any]]) 
         decision = maybe_await(on_out(ai_msg))
         if isinstance(decision, dict) and decision.get("action") in ("modify", "block"):
             replacement = decision.get("replacement", "")
-            if isinstance(ai_msg, dict) and isinstance(ai_msg.get("messages"), list) and ai_msg["messages"]:
+            if (
+                isinstance(ai_msg, dict)
+                and isinstance(ai_msg.get("messages"), list)
+                and ai_msg["messages"]
+            ):
                 last_msg = ai_msg["messages"][-1]
                 if isinstance(last_msg, dict) and "content" in last_msg:
                     last_msg["content"] = replacement
@@ -193,10 +202,15 @@ def apply_output_gate(ai_msg: Any, hitl: Optional[HITLConfig | Dict[str, Any]]) 
             elif hasattr(ai_msg, "content"):
                 ai_msg.content = replacement  # type: ignore[attr-defined]
             else:
-                ai_msg = {"role": "ai", "content": replacement} if not isinstance(ai_msg, dict) else ai_msg
+                ai_msg = (
+                    {"role": "ai", "content": replacement}
+                    if not isinstance(ai_msg, dict)
+                    else ai_msg
+                )
     except Exception:  # pragma: no cover - defensive
         pass
     return ai_msg
+
 
 async def apply_output_gate_async(ai_msg: Any, hitl: Optional[HITLConfig]) -> Any:
     if not hitl:
@@ -206,7 +220,11 @@ async def apply_output_gate_async(ai_msg: Any, hitl: Optional[HITLConfig]) -> An
         if isinstance(decision, dict) and decision.get("action") in ("modify", "block"):
             replacement = decision.get("replacement", "")
             # mirror your existing mutation logic:
-            if isinstance(ai_msg, dict) and isinstance(ai_msg.get("messages"), list) and ai_msg["messages"]:
+            if (
+                isinstance(ai_msg, dict)
+                and isinstance(ai_msg.get("messages"), list)
+                and ai_msg["messages"]
+            ):
                 last_msg = ai_msg["messages"][-1]
                 if isinstance(last_msg, dict) and "content" in last_msg:
                     last_msg["content"] = replacement
@@ -217,7 +235,11 @@ async def apply_output_gate_async(ai_msg: Any, hitl: Optional[HITLConfig]) -> An
             elif hasattr(ai_msg, "content"):
                 ai_msg.content = replacement  # type: ignore
             else:
-                ai_msg = {"role": "ai", "content": replacement} if not isinstance(ai_msg, dict) else ai_msg
+                ai_msg = (
+                    {"role": "ai", "content": replacement}
+                    if not isinstance(ai_msg, dict)
+                    else ai_msg
+                )
     except Exception:
         pass
     return ai_msg
@@ -233,7 +255,9 @@ def wrap_tool_for_hitl(tool_obj: Any, hitl: Optional[HITLConfig]):
     if isinstance(tool_obj, BaseTool):
         base = tool_obj
     elif callable(tool_obj):
-        base = lc_tool(tool_obj)  # wraps function into a BaseTool (supports ainvoke when func is async)
+        base = lc_tool(
+            tool_obj
+        )  # wraps function into a BaseTool (supports ainvoke when func is async)
     else:
         return tool_obj
 
@@ -247,6 +271,7 @@ class ToolPolicy:
     Attributes:
         require_explicit (bool): If True, implicit use of global tools is forbidden.
     """
+
     def __init__(self, *, require_explicit: bool = False):
         self.require_explicit = require_explicit
 
@@ -283,4 +308,3 @@ def compute_effective_tools(
             len(global_tools),
         )
     return global_tools
-

@@ -682,5 +682,4 @@ def _deprecated_alias(name: str, new_class: type) -> type:
     return DeprecatedAlias
 
 
-CoreLLM = _deprecated_alias("CoreLLM", LLM)
-CoreAgent = _deprecated_alias("CoreAgent", Agent)
+# NOTE: CoreLLM and CoreAgent aliases removed - use LLM and Agent directly

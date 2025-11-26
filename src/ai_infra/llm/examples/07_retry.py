@@ -3,13 +3,15 @@ Usage: python -m quickstart.run llm_retry
 Shows configuring retries when the model/tool call may transiently fail.
 (This example will still succeed normally; adjust prompt or keys to test retries.)
 """
+
 import asyncio
-from ai_infra.llm import CoreAgent, Providers, Models
+
+from ai_infra.llm import Agent, Providers
 from ai_infra.llm.tools.tool_controls import no_tools
 
 
 def main():
-    agent = CoreAgent()
+    agent = Agent()
 
     async def _run():
         extra = {
@@ -19,7 +21,7 @@ def main():
         resp = await agent.arun_agent(
             messages=[{"role": "user", "content": "Say a short motivational quote."}],
             provider=Providers.openai,
-            model_name=Models.openai.gpt_4_1_mini.value,
+            model_name="gpt-4.1-mini",
             extra=extra,
         )
         print(getattr(resp, "content", resp))

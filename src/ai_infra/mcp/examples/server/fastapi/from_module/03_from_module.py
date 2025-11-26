@@ -1,8 +1,9 @@
 from fastapi import FastAPI
-from ai_infra.mcp.server.core import CoreMCPServer
+
+from ai_infra.mcp.server.core import MCPServer
 
 app = FastAPI()
-mcp_server = CoreMCPServer(strict=True)
+mcp_server = MCPServer(strict=True)
 
 # Case A: module exports a FastMCP named `mcp`
 mcp_server.add_from_module(
@@ -14,7 +15,7 @@ mcp_server.add_from_module(
 # Case B: module exports a prebuilt ASGI app named `app`
 mcp_server.add_from_module(
     "quickstarts.mcp.server.from_module.from_module_asgi:app",
-    "/mod-asgi",                  # transport ignored (already an ASGI app)
+    "/mod-asgi",  # transport ignored (already an ASGI app)
 )
 
 mcp_server.attach_to_fastapi(app)

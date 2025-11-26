@@ -1,4 +1,5 @@
-from ai_infra.mcp.client.core import CoreMCPClient
+from ai_infra.mcp.client.core import MCPClient
+
 
 async def main():
     cfg = [
@@ -11,10 +12,12 @@ async def main():
             "url": "http://0.0.0.0:8000/from-code-sse/sse",
         },
     ]
-    client = CoreMCPClient(cfg)
+    client = MCPClient(cfg)
     tools = await client.list_tools()
     print(tools)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     import asyncio
+
     asyncio.run(main())

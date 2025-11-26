@@ -2,8 +2,10 @@
 Usage: python -m quickstart.run llm_agent_stream
 Streams message chunks (mode = 'messages').
 """
+
 import asyncio
-from ai_infra.llm import CoreAgent, Providers, Models
+
+from ai_infra.llm import Agent, Providers
 
 
 def _print_stream(async_iter):
@@ -14,15 +16,16 @@ def _print_stream(async_iter):
             if content:
                 print(content, end="", flush=True)
         print("\n--- end stream ---")
+
     asyncio.run(_run())
 
 
 def main():
-    agent = CoreAgent()
+    agent = Agent()
     stream = agent.arun_agent_stream(
         messages=[{"role": "user", "content": "Write two short lines about Mars."}],
         provider=Providers.openai,
-        model_name=Models.openai.gpt_4_1_mini.value,
+        model_name="gpt-4.1-mini",
         model_kwargs={"temperature": 0.5},
         stream_mode="messages",
     )

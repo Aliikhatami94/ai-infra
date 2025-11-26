@@ -2,19 +2,21 @@
 Usage: python -m quickstart.run llm_chat_stream
 Shows collecting tokens from a streaming chat completion.
 """
+
 import asyncio
-from ai_infra.llm import CoreLLM, Providers, Models
+
+from ai_infra.llm import LLM, Providers
 
 
 def main():
-    llm = CoreLLM()
+    llm = LLM()
 
     async def _run():
         stream = llm.stream_tokens(
             user_msg="Explain quantum tunneling in 2 short sentences.",
             system="You are a concise educational assistant.",
             provider=Providers.openai,
-            model_name=Models.openai.gpt_4o.value,
+            model_name="gpt-4o",
         )
         collected = []
         async for token, meta in stream:

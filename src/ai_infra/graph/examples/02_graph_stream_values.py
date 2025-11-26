@@ -1,19 +1,24 @@
 """02_graph_stream_values: Stream only state value snapshots.
 Usage: python -m quickstart.run graph_stream_values
 """
+
 from typing_extensions import TypedDict
-from ai_infra.graph.core import CoreGraph
+
+from ai_infra.graph.core import Graph
 from ai_infra.graph.models import Edge
+
 
 class MyState(TypedDict):
     value: int
+
 
 def inc(state: MyState) -> MyState:
     state["value"] += 1
     return state
 
+
 def main():
-    graph = CoreGraph(
+    graph = Graph(
         state_type=MyState,
         node_definitions=[inc],
         edges=[Edge(start="inc", end="inc")],  # simple loop; rely on user to break (example)

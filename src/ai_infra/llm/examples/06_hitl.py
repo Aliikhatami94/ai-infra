@@ -3,13 +3,14 @@ Usage: python -m quickstart.run llm_hitl
 If HITL_MODE=interactive the script will prompt for each tool call.
 Otherwise it auto-approves tool execution.
 """
-import os
+
 from langchain_core.tools import tool
-from ai_infra.llm import CoreAgent, Providers, Models
+
+from ai_infra.llm import Agent, Providers
 
 
 def main():
-    agent = CoreAgent()
+    agent = Agent()
 
     @tool
     def get_weather(city: str) -> str:
@@ -20,10 +21,11 @@ def main():
     resp = agent.run_agent(
         messages=[{"role": "user", "content": "Use a tool to get weather for Tokyo."}],
         provider=Providers.openai,
-        model_name=Models.openai.gpt_4_1_mini.value,
+        model_name="gpt-4.1-mini",
         tools=[get_weather],
     )
     print(getattr(resp, "content", resp))
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

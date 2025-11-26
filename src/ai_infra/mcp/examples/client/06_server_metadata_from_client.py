@@ -1,4 +1,4 @@
-from ai_infra.mcp.client.core import CoreMCPClient
+from ai_infra.mcp.client.core import MCPClient
 
 cfg = [
     {
@@ -11,12 +11,13 @@ cfg = [
     },
 ]
 
-client = CoreMCPClient(cfg)
+client = MCPClient(cfg)
+
 
 async def main():
     # 1) Discover server names from their MCP handshake
     await client.discover()
-    print("Discovered:", client.server_names())   # e.g. ['demo-streamable']
+    print("Discovered:", client.server_names())  # e.g. ['demo-streamable']
 
     # 2) Use the discovered name to open a session
     name = client.server_names()[0]

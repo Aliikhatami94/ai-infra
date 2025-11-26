@@ -2,13 +2,15 @@
 Usage: python -m quickstart.run llm_tool_controls
 Demonstrates forcing a specific tool call and disabling parallel calls.
 """
+
 from langchain_core.tools import tool
-from ai_infra.llm import CoreAgent, Providers, Models
+
+from ai_infra.llm import Agent, Providers
 from ai_infra.llm.tools.tool_controls import ToolCallControls
 
 
 def main():
-    agent = CoreAgent()
+    agent = Agent()
 
     @tool
     def weather_a(city: str) -> str:
@@ -23,7 +25,7 @@ def main():
     resp = agent.run_agent(
         messages=[{"role": "user", "content": "What's the weather in Paris?"}],
         provider=Providers.openai,
-        model_name=Models.openai.gpt_4o.value,
+        model_name="gpt-4o",
         tools=[weather_a, weather_b],
         tool_controls=ToolCallControls(
             tool_choice={"name": "weather_b"},  # force specific tool

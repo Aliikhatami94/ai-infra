@@ -9,7 +9,6 @@ from .discovery import (
     list_models,
     list_providers,
 )
-from .models import Models
 from .providers import Providers
 
 __all__ = [
@@ -23,7 +22,6 @@ __all__ = [
     "list_configured_providers",
     "list_models",
     "list_providers",
-    # Static enums (backward compatibility)
-    "Models",
+    # Providers enum
     "Providers",
 ]
