@@ -1,7 +1,9 @@
 from typing import Any, Dict
 
 from ai_infra.llm.defaults import DEFAULT_MODELS
-from ai_infra.llm.utils import build_model_key, initialize_model, validate_provider
+
+from .model_init import build_model_key, initialize_model
+from .validation import validate_provider
 
 
 def _norm_key(s: str) -> str:

@@ -1,13 +1,22 @@
 from __future__ import annotations
 
 import logging
+import time
 import warnings
 from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple, Union
 
 from langchain_core.messages import BaseMessage
 from pydantic import BaseModel
 
+from ai_infra.llm.defaults import DEFAULT_MODELS
+from ai_infra.llm.providers.discovery import get_default_provider
 from ai_infra.llm.tools.tool_controls import ToolCallControls
+from ai_infra.llm.utils.logging_hooks import (
+    ErrorContext,
+    LoggingHooks,
+    RequestContext,
+    ResponseContext,
+)
 from ai_infra.llm.utils.runtime_bind import ModelRegistry
 from ai_infra.llm.utils.runtime_bind import make_agent_with_context as rb_make_agent_with_context
 from ai_infra.llm.utils.settings import ModelSettings
@@ -31,13 +40,16 @@ from .utils import sanitize_model_kwargs
 from .utils import with_retry as _with_retry_util
 
 
-class BaseLLMCore:
+class BaseLLM:
+    """Base class for LLM and Agent with shared configuration and utilities."""
+
     _logger = logging.getLogger(__name__)
 
     def __init__(self):
         self.registry = ModelRegistry()
         self.tools: List[Any] = []
         self._hitl = HITLConfig()
+        self._logging_hooks = LoggingHooks()
         self.require_explicit_tools: bool = False
 
     # shared configuration / policies
@@ -46,6 +58,49 @@ class BaseLLMCore:
 
     def require_tools_explicit(self, required: bool = True):
         self.require_explicit_tools = required
+
+    def set_logging_hooks(
+        self,
+        *,
+        on_request=None,
+        on_response=None,
+        on_error=None,
+        on_request_async=None,
+        on_response_async=None,
+        on_error_async=None,
+    ):
+        """Configure request/response logging hooks.
+
+        Args:
+            on_request: Callback(RequestContext) called before model invocation
+            on_response: Callback(ResponseContext) called after successful response
+            on_error: Callback(ErrorContext) called when an error occurs
+            on_request_async: Async version of on_request
+            on_response_async: Async version of on_response
+            on_error_async: Async version of on_error
+
+        Example:
+            ```python
+            import logging
+            logger = logging.getLogger(__name__)
+
+            llm = LLM()
+            llm.set_logging_hooks(
+                on_request=lambda ctx: logger.info("Request to %s/%s", ctx.provider, ctx.model_name),
+                on_response=lambda ctx: logger.info("Response in %.2fms", ctx.duration_ms),
+                on_error=lambda ctx: logger.error("Error: %s", ctx.error),
+            )
+            ```
+        """
+        self._logging_hooks.set(
+            on_request=on_request,
+            on_response=on_response,
+            on_error=on_error,
+            on_request_async=on_request_async,
+            on_response_async=on_response_async,
+            on_error_async=on_error_async,
+        )
+        return self
 
     def set_hitl(
         self,
@@ -84,6 +139,40 @@ class BaseLLMCore:
 
     def _get_or_create(self, provider: str, model_name: str, **kwargs):
         return self.registry.get_or_create(provider, model_name, **kwargs)
+
+    def get_model(
+        self,
+        provider: Optional[str] = None,
+        model_name: Optional[str] = None,
+        **model_kwargs,
+    ):
+        """
+        Get the underlying LangChain chat model for direct use.
+
+        Provides access to the raw LangChain model for advanced use cases
+        that require direct model interaction.
+
+        Args:
+            provider: Provider name (e.g., "openai", "anthropic"). Auto-detected if None.
+            model_name: Model name (e.g., "gpt-4o"). Uses provider default if None.
+            **model_kwargs: Additional kwargs passed to the model constructor.
+
+        Returns:
+            LangChain BaseChatModel instance.
+
+        Raises:
+            ValueError: If no provider is specified and none can be auto-detected.
+
+        Example:
+            >>> llm = LLM()
+            >>> model = llm.get_model()  # Auto-detect provider
+            >>> model = llm.get_model("anthropic", "claude-3-5-sonnet-latest")
+            >>> # Use LangChain model directly
+            >>> response = model.invoke([HumanMessage(content="Hello")])
+        """
+        # Resolve provider and model (auto-detect if not specified)
+        resolved_provider, resolved_model = self._resolve_provider_and_model(provider, model_name)
+        return self.registry.get_or_create(resolved_provider, resolved_model, **model_kwargs)
 
     def with_structured_output(
         self,
@@ -214,7 +303,7 @@ class BaseLLMCore:
             return validate_or_raise(schema, content)
 
 
-class LLM(BaseLLMCore):
+class LLM(BaseLLM):
     """Direct model convenience interface (no agent graph)."""
 
     # =========================================================================
@@ -321,6 +410,40 @@ class LLM(BaseLLMCore):
 
         return is_provider_configured(provider)
 
+    def _resolve_provider_and_model(
+        self,
+        provider: Optional[str],
+        model_name: Optional[str],
+    ) -> Tuple[str, str]:
+        """
+        Resolve provider and model, auto-detecting from environment if not specified.
+
+        Args:
+            provider: Provider name or None to auto-detect
+            model_name: Model name or None to use provider's default
+
+        Returns:
+            Tuple of (provider, model_name)
+
+        Raises:
+            ValueError: If no provider is specified and none can be auto-detected
+        """
+        # Auto-detect provider if not specified
+        if provider is None:
+            provider = get_default_provider()
+            if provider is None:
+                raise ValueError(
+                    "No LLM provider configured. Set one of these environment variables: "
+                    "OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY, or XAI_API_KEY. "
+                    "Or explicitly pass provider='openai' (etc.) to the method."
+                )
+
+        # Use default model for provider if not specified
+        if model_name is None:
+            model_name = DEFAULT_MODELS.get(provider, "gpt-4o-mini")
+
+        return provider, model_name
+
     # =========================================================================
     # Chat methods
     # =========================================================================
@@ -328,8 +451,8 @@ class LLM(BaseLLMCore):
     def chat(
         self,
         user_msg: str,
-        provider: str,
-        model_name: str,
+        provider: Optional[str] = None,
+        model_name: Optional[str] = None,
         system: Optional[str] = None,
         extra: Optional[Dict[str, Any]] = None,
         output_schema: Union[type[BaseModel], Dict[str, Any], None] = None,
@@ -340,47 +463,83 @@ class LLM(BaseLLMCore):
     ):
         sanitize_model_kwargs(model_kwargs)
 
-        # PROMPT method uses shared helper
-        if output_schema is not None and output_method == "prompt":
-            return self._prompt_structured_sync(
-                user_msg=user_msg,
-                system=system,
-                provider=provider,
-                model_name=model_name,
-                schema=output_schema,
-                extra=extra,
-                model_kwargs=model_kwargs,
-            )
+        # Resolve provider and model (auto-detect if not specified)
+        provider, model_name = self._resolve_provider_and_model(provider, model_name)
 
-        # otherwise: existing structured (json_mode/function_calling/json_schema) or plain
-        if output_schema is not None:
-            model = self.with_structured_output(
-                provider, model_name, output_schema, method=output_method, **model_kwargs
-            )
-        else:
-            model = self.set_model(provider, model_name, **model_kwargs)
-
-        messages = _make_messages(user_msg, system)
-
-        def _call():
-            return model.invoke(messages)
-
-        retry_cfg = (extra or {}).get("retry") if extra else None
-        res = _call() if not retry_cfg else self._run_with_retry_sync(_call, retry_cfg)
-
-        if output_schema is not None and is_pydantic_schema(output_schema):
-            return coerce_structured_result(output_schema, res)
+        # Create request context for logging hooks
+        request_ctx = RequestContext(
+            user_msg=user_msg,
+            system=system,
+            provider=provider,
+            model_name=model_name,
+            model_kwargs=model_kwargs,
+        )
+        self._logging_hooks.call_request_sync(request_ctx)
+        start_time = time.time()
 
         try:
-            return apply_output_gate(res, self._hitl)
-        except Exception:
-            return res
+            # PROMPT method uses shared helper
+            if output_schema is not None and output_method == "prompt":
+                res = self._prompt_structured_sync(
+                    user_msg=user_msg,
+                    system=system,
+                    provider=provider,
+                    model_name=model_name,
+                    schema=output_schema,
+                    extra=extra,
+                    model_kwargs=model_kwargs,
+                )
+            else:
+                # otherwise: existing structured (json_mode/function_calling/json_schema) or plain
+                if output_schema is not None:
+                    model = self.with_structured_output(
+                        provider, model_name, output_schema, method=output_method, **model_kwargs
+                    )
+                else:
+                    model = self.set_model(provider, model_name, **model_kwargs)
+
+                messages = _make_messages(user_msg, system)
+
+                def _call():
+                    return model.invoke(messages)
+
+                retry_cfg = (extra or {}).get("retry") if extra else None
+                res = _call() if not retry_cfg else self._run_with_retry_sync(_call, retry_cfg)
+
+            # Call response hook
+            duration_ms = (time.time() - start_time) * 1000
+            response_ctx = ResponseContext(
+                request=request_ctx,
+                response=res,
+                duration_ms=duration_ms,
+                token_usage=getattr(res, "usage_metadata", None),
+            )
+            self._logging_hooks.call_response_sync(response_ctx)
+
+            if output_schema is not None and is_pydantic_schema(output_schema):
+                return coerce_structured_result(output_schema, res)
+
+            try:
+                return apply_output_gate(res, self._hitl)
+            except Exception:
+                return res
+
+        except Exception as e:
+            # Call error hook
+            duration_ms = (time.time() - start_time) * 1000
+            error_ctx = ErrorContext(
+                request=request_ctx,
+                error=e,
+                duration_ms=duration_ms,
+            )
+            self._logging_hooks.call_error_sync(error_ctx)
+            raise
 
     async def achat(
         self,
         user_msg: str,
-        provider: str,
-        model_name: str,
+        provider: Optional[str] = None,
+        model_name: Optional[str] = None,
         system: Optional[str] = None,
         extra: Optional[Dict[str, Any]] = None,
         output_schema: Union[type[BaseModel], Dict[str, Any], None] = None,
@@ -391,45 +550,81 @@ class LLM(BaseLLMCore):
     ):
         sanitize_model_kwargs(model_kwargs)
 
-        if output_schema is not None and output_method == "prompt":
-            return await self._prompt_structured_async(
-                user_msg=user_msg,
-                system=system,
-                provider=provider,
-                model_name=model_name,
-                schema=output_schema,
-                extra=extra,
-                model_kwargs=model_kwargs,
-            )
+        # Resolve provider and model (auto-detect if not specified)
+        provider, model_name = self._resolve_provider_and_model(provider, model_name)
 
-        if output_schema is not None:
-            model = self.with_structured_output(
-                provider, model_name, output_schema, method=output_method, **model_kwargs
-            )
-        else:
-            model = self.set_model(provider, model_name, **model_kwargs)
-
-        messages = _make_messages(user_msg, system)
-
-        async def _call():
-            return await model.ainvoke(messages)
-
-        retry_cfg = (extra or {}).get("retry") if extra else None
-        res = await (_with_retry_util(_call, **retry_cfg) if retry_cfg else _call())
-
-        if output_schema is not None and is_pydantic_schema(output_schema):
-            return coerce_structured_result(output_schema, res)
+        # Create request context for logging hooks
+        request_ctx = RequestContext(
+            user_msg=user_msg,
+            system=system,
+            provider=provider,
+            model_name=model_name,
+            model_kwargs=model_kwargs,
+        )
+        await self._logging_hooks.call_request_async(request_ctx)
+        start_time = time.time()
 
         try:
-            return await apply_output_gate_async(res, self._hitl)
-        except Exception:
-            return res
+            if output_schema is not None and output_method == "prompt":
+                res = await self._prompt_structured_async(
+                    user_msg=user_msg,
+                    system=system,
+                    provider=provider,
+                    model_name=model_name,
+                    schema=output_schema,
+                    extra=extra,
+                    model_kwargs=model_kwargs,
+                )
+            else:
+                if output_schema is not None:
+                    model = self.with_structured_output(
+                        provider, model_name, output_schema, method=output_method, **model_kwargs
+                    )
+                else:
+                    model = self.set_model(provider, model_name, **model_kwargs)
+
+                messages = _make_messages(user_msg, system)
+
+                async def _call():
+                    return await model.ainvoke(messages)
+
+                retry_cfg = (extra or {}).get("retry") if extra else None
+                res = await (_with_retry_util(_call, **retry_cfg) if retry_cfg else _call())
+
+            # Call response hook
+            duration_ms = (time.time() - start_time) * 1000
+            response_ctx = ResponseContext(
+                request=request_ctx,
+                response=res,
+                duration_ms=duration_ms,
+                token_usage=getattr(res, "usage_metadata", None),
+            )
+            await self._logging_hooks.call_response_async(response_ctx)
+
+            if output_schema is not None and is_pydantic_schema(output_schema):
+                return coerce_structured_result(output_schema, res)
+
+            try:
+                return await apply_output_gate_async(res, self._hitl)
+            except Exception:
+                return res
+
+        except Exception as e:
+            # Call error hook
+            duration_ms = (time.time() - start_time) * 1000
+            error_ctx = ErrorContext(
+                request=request_ctx,
+                error=e,
+                duration_ms=duration_ms,
+            )
+            await self._logging_hooks.call_error_async(error_ctx)
+            raise
 
     async def stream_tokens(
         self,
         user_msg: str,
-        provider: str,
-        model_name: str,
+        provider: Optional[str] = None,
+        model_name: Optional[str] = None,
         system: Optional[str] = None,
         *,
         temperature: Optional[float] = None,
@@ -438,6 +633,10 @@ class LLM(BaseLLMCore):
         **model_kwargs,
     ):
         sanitize_model_kwargs(model_kwargs)
+
+        # Resolve provider and model (auto-detect if not specified)
+        provider, model_name = self._resolve_provider_and_model(provider, model_name)
+
         if temperature is not None:
             model_kwargs["temperature"] = temperature
         if top_p is not None:
@@ -456,7 +655,7 @@ class LLM(BaseLLMCore):
             yield text, meta
 
 
-class Agent(BaseLLMCore):
+class Agent(BaseLLM):
     """Agent-oriented interface (tool calling, streaming updates, fallbacks)."""
 
     def _make_agent_with_context(

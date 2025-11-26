@@ -127,6 +127,32 @@ def get_api_key(provider: str) -> Optional[str]:
     return None
 
 
+def get_default_provider() -> Optional[str]:
+    """
+    Auto-detect the default provider based on configured API keys.
+
+    Checks providers in priority order:
+    1. OpenAI (most common)
+    2. Anthropic
+    3. Google GenAI
+    4. xAI
+
+    Returns:
+        Provider name if one is configured, None otherwise.
+
+    Example:
+        >>> # With OPENAI_API_KEY set
+        >>> get_default_provider()
+        'openai'
+    """
+    # Priority order for auto-detection
+    priority_order = ["openai", "anthropic", "google_genai", "xai"]
+    for provider in priority_order:
+        if is_provider_configured(provider):
+            return provider
+    return None
+
+
 # -----------------------------------------------------------------------------
 # Per-provider model fetchers
 # -----------------------------------------------------------------------------
