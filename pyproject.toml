@@ -35,20 +35,20 @@ fastapi = "^0.116.1"
 pydantic = "^2.11"
 python-dotenv = "^1.1.1"
 
-# LangChain ecosystem
-langgraph = ">=0.6.4,<0.7.0"
-langchain = "^0.3.27"
-langchain-openai = "^0.3.29"
-langchain-xai = "^0.2.5"
-langchain-anthropic = "^0.3.18"
-langchain-google-genai = "^2.1.9"
-langchain-mcp-adapters = "^0.1.9"
+# LangChain ecosystem (v1)
+langgraph = "^1.0.0"
+langchain = "^1.0.0"
+langchain-openai = "^1.0.0"
+langchain-xai = "^1.0.0"
+langchain-anthropic = "^1.0.0"
+langchain-google-genai = "^3.0.0"
+langchain-mcp-adapters = "^0.1.14"
 langsmith = "^0.4.13"
 
 # MCP integration
 mcp = {extras = ["cli"], version = "^1.13.1"}
-langchain-mistralai = "^0.2.11"
-langchain-deepseek = "^0.1.4"
+langchain-mistralai = "^1.0.0"
+langchain-deepseek = "^1.0.0"
 svc-infra = "^0.1.16"
 pre-commit = "^4.3.0"
 
