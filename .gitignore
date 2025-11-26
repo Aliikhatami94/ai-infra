@@ -8,6 +8,7 @@ __pycache__/
 *.py[cod]
 .pypl-token
 .vscode/
+.venv/
 
 # Documentation
 .github/AGENTS.md
