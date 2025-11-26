@@ -217,6 +217,114 @@ class BaseLLMCore:
 class LLM(BaseLLMCore):
     """Direct model convenience interface (no agent graph)."""
 
+    # =========================================================================
+    # Discovery API - Static methods for provider/model discovery
+    # =========================================================================
+
+    @staticmethod
+    def list_providers() -> List[str]:
+        """
+        List all supported provider names.
+
+        Returns:
+            List of provider names: ["openai", "anthropic", "google_genai", "xai"]
+
+        Example:
+            >>> LLM.list_providers()
+            ['openai', 'anthropic', 'google_genai', 'xai']
+        """
+        from ai_infra.llm.providers.discovery import list_providers
+
+        return list_providers()
+
+    @staticmethod
+    def list_configured_providers() -> List[str]:
+        """
+        List providers that have API keys configured.
+
+        Returns:
+            List of provider names with configured API keys.
+
+        Example:
+            >>> LLM.list_configured_providers()
+            ['openai', 'anthropic']  # Only if these have API keys set
+        """
+        from ai_infra.llm.providers.discovery import list_configured_providers
+
+        return list_configured_providers()
+
+    @staticmethod
+    def list_models(provider: str, *, refresh: bool = False) -> List[str]:
+        """
+        List available models for a specific provider.
+
+        Fetches models dynamically from the provider's API.
+        Results are cached for 1 hour by default.
+
+        Args:
+            provider: Provider name (e.g., "openai", "anthropic")
+            refresh: Force refresh from API, bypassing cache
+
+        Returns:
+            List of model IDs available from the provider.
+
+        Raises:
+            ValueError: If provider is not supported.
+            RuntimeError: If provider is not configured (no API key).
+
+        Example:
+            >>> LLM.list_models("openai")
+            ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', ...]
+        """
+        from ai_infra.llm.providers.discovery import list_models
+
+        return list_models(provider, refresh=refresh)
+
+    @staticmethod
+    def list_all_models(*, refresh: bool = False) -> Dict[str, List[str]]:
+        """
+        List models for all configured providers.
+
+        Args:
+            refresh: Force refresh from API, bypassing cache
+
+        Returns:
+            Dict mapping provider name to list of model IDs.
+
+        Example:
+            >>> LLM.list_all_models()
+            {
+                'openai': ['gpt-4o', 'gpt-4o-mini', ...],
+                'anthropic': ['claude-sonnet-4-20250514', ...],
+            }
+        """
+        from ai_infra.llm.providers.discovery import list_all_models
+
+        return list_all_models(refresh=refresh)
+
+    @staticmethod
+    def is_provider_configured(provider: str) -> bool:
+        """
+        Check if a provider has its API key configured.
+
+        Args:
+            provider: Provider name (e.g., "openai", "anthropic")
+
+        Returns:
+            True if the provider's API key environment variable is set.
+
+        Example:
+            >>> LLM.is_provider_configured("openai")
+            True
+        """
+        from ai_infra.llm.providers.discovery import is_provider_configured
+
+        return is_provider_configured(provider)
+
+    # =========================================================================
+    # Chat methods
+    # =========================================================================
+
     def chat(
         self,
         user_msg: str,
