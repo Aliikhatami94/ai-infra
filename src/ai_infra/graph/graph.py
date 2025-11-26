@@ -1,50 +1,142 @@
 from collections.abc import AsyncIterator, Iterator
-from typing import Any, Dict, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 from langgraph.constants import END, START
 from langgraph.graph import StateGraph
 
-from ai_infra.graph.models import EdgeType, GraphStructure
+from ai_infra.graph.models import GraphStructure
 from ai_infra.graph.utils import (
-    build_edges,
+    build_edges_enhanced,
     make_hook,
     make_trace_fn,
     make_trace_wrapper,
     normalize_initial_state,
     normalize_node_definitions,
     normalize_stream_mode,
+    validate_state_against_schema,
     wrap_node,
 )
 
 
 class Graph:
+    """
+    Production-ready workflow graph with zero-config building.
+
+    Supports multiple initialization patterns:
+
+    1. Simple dict-based (GOAL: minimal boilerplate):
+       ```python
+       graph = Graph(
+           nodes={
+               "analyze": analyze_func,
+               "decide": decide_func,
+               "execute": execute_func,
+           },
+           edges=[
+               ("analyze", "decide"),
+               ("decide", "execute", lambda state: state["should_execute"]),
+           ],
+           entry="analyze",
+       )
+       ```
+
+    2. Any callable as node:
+       ```python
+       graph = Graph(nodes={
+           "func": my_function,
+           "lambda": lambda state: {"output": state["input"] * 2},
+           "method": my_instance.method,
+           "agent": my_agent.run,
+       })
+       ```
+
+    3. Full LangGraph power:
+       ```python
+       graph = Graph(
+           nodes={...},
+           edges=[...],
+           checkpointer=MemorySaver(),
+           interrupt_before=["dangerous_node"],
+           interrupt_after=["checkpoint_node"],
+       )
+       ```
+
+    4. Type-safe state:
+       ```python
+       class WorkflowState(TypedDict):
+           input: str
+           output: str
+
+       graph = Graph[WorkflowState](
+           nodes={...},
+           state_schema=WorkflowState,
+           validate_state=True,
+       )
+       ```
+    """
+
     def __init__(
         self,
         *,
-        state_type: type,
-        node_definitions: Union[Sequence, dict],
-        edges: Sequence[EdgeType],
+        # New simplified API
+        nodes: Optional[Union[Dict[str, Any], Sequence]] = None,
+        edges: Optional[Sequence] = None,
+        entry: Optional[str] = None,
+        state_schema: Optional[type] = None,
+        validate_state: bool = False,
+        # LangGraph power features
         checkpointer=None,
         store=None,
+        interrupt_before: Optional[List[str]] = None,
+        interrupt_after: Optional[List[str]] = None,
+        # Legacy API (backward compatible)
+        state_type: Optional[type] = None,
+        node_definitions: Optional[Union[Sequence, dict]] = None,
     ):
+        # Handle API aliases (new names preferred, legacy still works)
+        nodes = nodes or node_definitions
+        state_type = state_schema or state_type
+
+        if nodes is None:
+            raise ValueError("nodes (or node_definitions) is required")
+        if edges is None:
+            raise ValueError("edges is required")
+
+        # Default state_type to dict if not provided
+        if state_type is None:
+            state_type = dict
+
         if not (
             isinstance(state_type, type)
             and (issubclass(state_type, dict) or hasattr(state_type, "__annotations__"))
         ):
-            raise ValueError("state_type must be a TypedDict or dict subclass")
+            raise ValueError("state_schema must be a TypedDict or dict subclass")
         self.state_type = state_type
+        self._validate_state = validate_state
 
-        node_definitions = normalize_node_definitions(node_definitions)
-        self.node_definitions = list(node_definitions.items())
+        # Normalize node definitions
+        nodes = normalize_node_definitions(nodes)
+        self.node_definitions = list(nodes.items())
+        node_names = list(nodes.keys())
 
-        # centralize edge building/validation + START/END
-        regular_edges, conditional_edges = build_edges(list(node_definitions.keys()), edges)
+        # Build edges with enhanced tuple support (including conditional)
+        regular_edges, conditional_edges = build_edges_enhanced(node_names, edges, entry)
         self.edges = regular_edges
         self.conditional_edges = conditional_edges
 
+        # LangGraph features
         self._checkpointer = checkpointer
         self._store = store
-        self.graph = self._build_graph().compile(checkpointer=self._checkpointer, store=self._store)
+        self._interrupt_before = interrupt_before or []
+        self._interrupt_after = interrupt_after or []
+
+        # Build and compile graph
+        self.graph = self._build_graph().compile(
+            checkpointer=self._checkpointer,
+            store=self._store,
+            interrupt_before=self._interrupt_before or None,
+            interrupt_after=self._interrupt_after or None,
+        )
 
     def _build_graph(self, node_items=None, sync: bool = False) -> StateGraph:
         wf = StateGraph(self.state_type)
@@ -69,11 +161,19 @@ class Graph:
         **kwargs,
     ):
         initial_state = normalize_initial_state(initial_state, kwargs)
+
+        # Validate state if enabled
+        if self._validate_state and initial_state is not None:
+            validate_state_against_schema(initial_state, self.state_type)
+
         # fast path: no hooks → use cached compiled graph
         if not (on_enter or on_exit or trace):
             compiled = (
                 self._build_graph(sync=sync).compile(
-                    checkpointer=self._checkpointer, store=self._store
+                    checkpointer=self._checkpointer,
+                    store=self._store,
+                    interrupt_before=self._interrupt_before or None,
+                    interrupt_after=self._interrupt_after or None,
                 )
                 if sync
                 else self.graph
@@ -94,7 +194,10 @@ class Graph:
             for name, fn in self.node_definitions
         ]
         compiled = self._build_graph(node_items=patched_nodes, sync=sync).compile(
-            checkpointer=self._checkpointer, store=self._store
+            checkpointer=self._checkpointer,
+            store=self._store,
+            interrupt_before=self._interrupt_before or None,
+            interrupt_after=self._interrupt_after or None,
         )
         return compiled, initial_state, config
 

@@ -192,3 +192,136 @@ def build_edges(node_names: Sequence[str], edges: Sequence[Any]):
     validate_edges(regular_edges, all_nodes)
     validate_conditional_edges(conditional_edges, all_nodes)
     return regular_edges, conditional_edges
+
+
+def build_edges_enhanced(node_names: Sequence[str], edges: Sequence[Any], entry: str | None = None):
+    """
+    Enhanced edge building with tuple support for zero-config API.
+
+    Supports:
+    - Edge/ConditionalEdge objects (legacy)
+    - 2-tuples: ("a", "b") -> regular edge from a to b
+    - 3-tuples: ("a", "b", condition_fn) -> conditional edge
+
+    For 3-tuples, condition_fn should return a bool. True routes to "b", False to END.
+    For more complex routing, use ConditionalEdge directly.
+
+    If entry is provided, START will connect to that node.
+    Otherwise auto-detects entry from first edge or first node.
+    """
+    all_nodes = set(node_names)
+    regular_edges, conditional_edges = [], []
+
+    for edge in edges:
+        # Legacy Edge/ConditionalEdge objects
+        if isinstance(edge, Edge):
+            regular_edges.append((edge.start, edge.end))
+        elif isinstance(edge, ConditionalEdge):
+            for target in edge.targets:
+                if target not in all_nodes and target not in (START, END):
+                    raise ValueError(
+                        f"ConditionalEdge target '{target}' is not a known node or START/END"
+                    )
+            conditional_edges.append(
+                (
+                    edge.start,
+                    make_router_wrapper(edge.router_fn, edge.targets),
+                    {t: t for t in edge.targets},
+                )
+            )
+        # Tuple-based edges (new zero-config API)
+        elif isinstance(edge, tuple):
+            if len(edge) == 2:
+                # Regular edge: ("a", "b")
+                start, end = edge
+                regular_edges.append((start, end))
+            elif len(edge) == 3:
+                # Conditional edge: ("a", "b", condition_fn)
+                start, target, condition_fn = edge
+                if not callable(condition_fn):
+                    raise ValueError(
+                        f"Third element of edge tuple must be a callable, got {type(condition_fn)}"
+                    )
+                # For simple bool conditions, route to target or END
+                # Router returns string names, path_map maps string to string
+                targets = [target, END]
+                path_map = {target: target, END: END}
+
+                def make_condition_router(fn, tgt):
+                    def router(state):
+                        result = fn(state)
+                        return tgt if result else END
+
+                    return router
+
+                conditional_edges.append(
+                    (start, make_condition_router(condition_fn, target), path_map)
+                )
+            else:
+                raise ValueError(f"Edge tuple must have 2 or 3 elements, got {len(edge)}")
+        else:
+            raise ValueError(f"Unknown edge type: {edge}")
+
+    # Auto START edge
+    if entry:
+        if entry not in all_nodes:
+            raise ValueError(f"Entry node '{entry}' is not a known node")
+        if not any(s == START for s, _ in regular_edges):
+            regular_edges = [(START, entry), *regular_edges]
+    elif regular_edges and not any(s == START for s, _ in regular_edges):
+        regular_edges = [(START, regular_edges[0][0]), *regular_edges]
+    elif not regular_edges and node_names:
+        # No regular edges but we have nodes - connect START to first node
+        regular_edges = [(START, node_names[0])]
+
+    # Auto END edge
+    if regular_edges and not any(e == END for _, e in regular_edges):
+        # Find terminal nodes (nodes that don't have outgoing edges)
+        sources = {s for s, _ in regular_edges if s != START}
+        sources.update(s for s, _, _ in conditional_edges)
+        targets = {e for _, e in regular_edges if e != END}
+        terminal = sources - targets
+        if terminal:
+            last = list(terminal)[-1]
+            regular_edges.append((last, END))
+        elif regular_edges:
+            regular_edges.append((regular_edges[-1][1], END))
+
+    validate_edges(regular_edges, all_nodes)
+    validate_conditional_edges(conditional_edges, all_nodes)
+    return regular_edges, conditional_edges
+
+
+def validate_state_against_schema(state: dict, schema: type) -> None:
+    """
+    Validate state dict against a TypedDict schema at runtime.
+
+    Raises ValueError if required keys are missing or types don't match.
+    """
+    if schema is dict or not hasattr(schema, "__annotations__"):
+        return  # No schema to validate against
+
+    annotations = getattr(schema, "__annotations__", {})
+    required_keys = getattr(schema, "__required_keys__", set(annotations.keys()))
+
+    # Check for missing required keys
+    missing = required_keys - set(state.keys())
+    if missing:
+        raise ValueError(f"State missing required keys: {missing}")
+
+    # Type checking (basic)
+    for key, expected_type in annotations.items():
+        if key in state:
+            value = state[key]
+            # Skip None values for Optional types
+            if value is None:
+                continue
+            # Handle basic types
+            origin = getattr(expected_type, "__origin__", None)
+            if origin is None:
+                # Simple type like str, int, etc.
+                if expected_type is not type(None) and not isinstance(value, expected_type):
+                    raise ValueError(
+                        f"State key '{key}' has type {type(value).__name__}, "
+                        f"expected {expected_type.__name__}"
+                    )
