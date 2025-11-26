@@ -1,15 +1,18 @@
 from __future__ import annotations
 
-import httpx
 import contextlib
 import importlib
 import logging
+import warnings
 from pathlib import Path
-from typing import Any, Iterable, Optional, Union, Callable, Awaitable
+from typing import Any, Awaitable, Callable, Iterable, Optional, Union
+
+import httpx
+
+from ai_infra.mcp.server.openapi import _mcp_from_openapi
+from ai_infra.mcp.server.tools import ToolDef, ToolFn, mcp_from_functions
 
 from .models import MCPMount
-from ai_infra.mcp.server.openapi import _mcp_from_openapi
-from ai_infra.mcp.server.tools import mcp_from_functions, ToolDef, ToolFn
 
 try:
     from starlette.applications import Starlette
@@ -21,7 +24,9 @@ except Exception:
 log = logging.getLogger(__name__)
 
 
-class CoreMCPServer:
+class MCPServer:
+    """MCP Server for hosting one or more MCP endpoints."""
+
     def __init__(self, *, strict: bool = True, health_path: str = "/health") -> None:
         self._strict = strict
         self._health_path = health_path
@@ -29,20 +34,20 @@ class CoreMCPServer:
 
     # ---------- add / compose ----------
 
-    def add(self, *mounts: MCPMount) -> "CoreMCPServer":
+    def add(self, *mounts: MCPMount) -> "MCPServer":
         self._mounts.extend(mounts)
         return self
 
     def add_app(
-            self,
-            path: str,
-            app: Any,
-            *,
-            name: Optional[str] = None,
-            session_manager: Any | None = None,
-            require_manager: Optional[bool] = None,
-            async_cleanup: Optional[Callable[[], Awaitable[None]]] = None,  # NEW
-    ) -> "CoreMCPServer":
+        self,
+        path: str,
+        app: Any,
+        *,
+        name: Optional[str] = None,
+        session_manager: Any | None = None,
+        require_manager: Optional[bool] = None,
+        async_cleanup: Optional[Callable[[], Awaitable[None]]] = None,  # NEW
+    ) -> "MCPServer":
         m = MCPMount(
             path=normalize_mount(path),
             app=app,
@@ -52,21 +57,23 @@ class CoreMCPServer:
             async_cleanup=async_cleanup,  # NEW
         )
         if m.require_manager is None:
-            sm = m.session_manager or getattr(getattr(m.app, "state", None), "session_manager", None)
+            sm = m.session_manager or getattr(
+                getattr(m.app, "state", None), "session_manager", None
+            )
             m.require_manager = bool(sm)
         self._mounts.append(m)
         return self
 
     def add_fastmcp(
-            self,
-            mcp: Any,
-            path: str,
-            *,
-            transport: str = "streamable_http",
-            name: Optional[str] = None,
-            require_manager: Optional[bool] = None,
-            async_cleanup: Optional[Callable[[], Awaitable[None]]] = None,  # NEW
-    ) -> "CoreMCPServer":
+        self,
+        mcp: Any,
+        path: str,
+        *,
+        transport: str = "streamable_http",
+        name: Optional[str] = None,
+        require_manager: Optional[bool] = None,
+        async_cleanup: Optional[Callable[[], Awaitable[None]]] = None,  # NEW
+    ) -> "MCPServer":
         if transport == "streamable_http":
             sub_app = mcp.streamable_http_app()
             sm = getattr(mcp, "session_manager", None)
@@ -74,56 +81,76 @@ class CoreMCPServer:
                 setattr(sub_app.state, "session_manager", sm)
             if require_manager is None:
                 require_manager = True
-            return self.add_app(path, sub_app, name=name, session_manager=sm,
-                                require_manager=require_manager, async_cleanup=async_cleanup)
+            return self.add_app(
+                path,
+                sub_app,
+                name=name,
+                session_manager=sm,
+                require_manager=require_manager,
+                async_cleanup=async_cleanup,
+            )
 
         elif transport == "sse":
             sub_app = mcp.sse_app()
             if require_manager is None:
                 require_manager = False
-            return self.add_app(path, sub_app, name=name, session_manager=None,
-                                require_manager=require_manager, async_cleanup=async_cleanup)
+            return self.add_app(
+                path,
+                sub_app,
+                name=name,
+                session_manager=None,
+                require_manager=require_manager,
+                async_cleanup=async_cleanup,
+            )
 
         elif transport == "websocket":
             sub_app = mcp.websocket_app()
             if require_manager is None:
                 require_manager = False
-            return self.add_app(path, sub_app, name=name, session_manager=None,
-                                require_manager=require_manager, async_cleanup=async_cleanup)
+            return self.add_app(
+                path,
+                sub_app,
+                name=name,
+                session_manager=None,
+                require_manager=require_manager,
+                async_cleanup=async_cleanup,
+            )
 
         else:
             raise ValueError(f"Unknown transport: {transport}")
 
     def add_from_module(
-            self,
-            module_path: str,
-            path: str,
-            *,
-            attr: Optional[str] = None,
-            transport: Optional[str] = None,
-            name: Optional[str] = None,
-            require_manager: Optional[bool] = None,  # None = auto
-    ) -> "CoreMCPServer":
+        self,
+        module_path: str,
+        path: str,
+        *,
+        attr: Optional[str] = None,
+        transport: Optional[str] = None,
+        name: Optional[str] = None,
+        require_manager: Optional[bool] = None,  # None = auto
+    ) -> "MCPServer":
         obj = import_object(module_path, attr=attr)
         # If it's a FastMCP (has .streamable_http_app), respect transport given
         if transport and hasattr(obj, "streamable_http_app"):
-            return self.add_fastmcp(obj, path, transport=transport, name=name, require_manager=require_manager)
+            return self.add_fastmcp(
+                obj, path, transport=transport, name=name, require_manager=require_manager
+            )
         # Else assume it's an ASGI app
         return self.add_app(path, obj, name=name, require_manager=require_manager)
 
     def add_openapi(
-            self,
-            path: str,
-            spec: Union[dict, str, Path],
-            *,
-            transport: str = "streamable_http",
-            client: httpx.AsyncClient | None = None,
-            client_factory: Callable[[], httpx.AsyncClient] | None = None,
-            base_url: str | None = None,
-            name: str | None = None,
-            report_log: Optional[bool] = None,     # NEW: let callers force logging
-            strict_names: bool = False,            # NEW: propagate strict names
-    ) -> "CoreMCPServer":
+        self,
+        path: str,
+        spec: Union[dict, str, Path],
+        *,
+        transport: str = "streamable_http",
+        client: httpx.AsyncClient | None = None,
+        client_factory: Callable[[], httpx.AsyncClient] | None = None,
+        base_url: str | None = None,
+        name: str | None = None,
+        report_log: Optional[bool] = None,  # NEW: let callers force logging
+        strict_names: bool = False,  # NEW: propagate strict names
+    ) -> "MCPServer":
         res = _mcp_from_openapi(
             spec,
             client=client,
@@ -154,14 +181,14 @@ class CoreMCPServer:
         )
 
     def add_tools(
-            self,
-            path: str,
-            *,
-            tools: Iterable[Union[ToolFn, ToolDef]] | None,
-            name: Optional[str] = None,
-            transport: str = "streamable_http",
-            require_manager: Optional[bool] = None,  # None = auto
-    ) -> "CoreMCPServer":
+        self,
+        path: str,
+        *,
+        tools: Iterable[Union[ToolFn, ToolDef]] | None,
+        name: Optional[str] = None,
+        transport: str = "streamable_http",
+        require_manager: Optional[bool] = None,  # None = auto
+    ) -> "MCPServer":
         """
         Build a FastMCP server from in-code tools and mount it.
 
@@ -183,22 +210,22 @@ class CoreMCPServer:
         )
 
     def add_fastapi(
-            self,
-            path: str,
-            *,
-            app: Any | None = None,
-            base_url: str | None = None,
-            name: str | None = None,
-            transport: str = "streamable_http",
-            spec: dict | str | Path | None = None,
-            openapi_url: str = "/openapi.json",
-            client: httpx.AsyncClient | None = None,
-            client_factory: Callable[[], httpx.AsyncClient] | None = None,
-            headers: dict[str, str] | None = None,
-            timeout: float | httpx.Timeout | None = 30.0,
-            verify: bool | str | None = True,
-            auth: httpx.Auth | tuple[str, str] | None = None,
-    ) -> "CoreMCPServer":
+        self,
+        path: str,
+        *,
+        app: Any | None = None,
+        base_url: str | None = None,
+        name: str | None = None,
+        transport: str = "streamable_http",
+        spec: dict | str | Path | None = None,
+        openapi_url: str = "/openapi.json",
+        client: httpx.AsyncClient | None = None,
+        client_factory: Callable[[], httpx.AsyncClient] | None = None,
+        headers: dict[str, str] | None = None,
+        timeout: float | httpx.Timeout | None = 30.0,
+        verify: bool | str | None = True,
+        auth: httpx.Auth | tuple[str, str] | None = None,
+    ) -> "MCPServer":
         """
         Convert a FastAPI app (local) or a remote FastAPI service into an MCP server.
         """
@@ -210,11 +237,15 @@ class CoreMCPServer:
             resolved_spec = spec
         elif app is not None:
             if not hasattr(app, "openapi"):
-                raise TypeError("Provided `app` does not look like a FastAPI application (missing .openapi())")
+                raise TypeError(
+                    "Provided `app` does not look like a FastAPI application (missing .openapi())"
+                )
             resolved_spec = app.openapi()
         elif base_url:
             url = base_url.rstrip("/") + openapi_url
-            with httpx.Client(headers=headers, timeout=timeout, verify=verify, auth=auth) as sync_client:
+            with httpx.Client(
+                headers=headers, timeout=timeout, verify=verify, auth=auth
+            ) as sync_client:
                 resp = sync_client.get(url)
                 resp.raise_for_status()
                 resolved_spec = resp.json()
@@ -249,7 +280,9 @@ class CoreMCPServer:
             )
             own_client = True
         else:
-            raise ValueError("Unable to build AsyncClient: no `app`, no `base_url`, and no provided client.")
+            raise ValueError(
+                "Unable to build AsyncClient: no `app`, no `base_url`, and no provided client."
+            )
 
         # ---------- infer base_url ----------
         inferred_base = base_url
@@ -269,7 +302,7 @@ class CoreMCPServer:
             base_url=inferred_base,
         )
 
-        async_cleanup = (tools_client.aclose if own_client else None)
+        async_cleanup = tools_client.aclose if own_client else None
         resolved_name = name or (getattr(app, "title", None) if app is not None else None)
 
         return self.add_fastmcp(
@@ -291,7 +324,9 @@ class CoreMCPServer:
     def _iter_unique_session_managers(self) -> Iterable[tuple[str, Any]]:
         seen: set[int] = set()
         for m in self._mounts:
-            sm = m.session_manager or getattr(getattr(m.app, "state", None), "session_manager", None)
+            sm = m.session_manager or getattr(
+                getattr(m.app, "state", None), "session_manager", None
+            )
 
             # Skip when not required or when auto-mode found none
             if not m.require_manager:
@@ -346,16 +381,19 @@ class CoreMCPServer:
 
     def run_uvicorn(self, host: str = "0.0.0.0", port: int = 8000, log_level: str = "info"):
         import uvicorn
+
         uvicorn.run(self.build_asgi_root(), host=host, port=port, log_level=log_level)
 
 
 # ---------- utils ----------
+
 
 def normalize_mount(path: str) -> str:
     p = ("/" + path.strip("/")).rstrip("/")
     if p.endswith("/mcp"):
         p = p[:-4] or "/"
     return p or "/"
+
 
 def import_object(module_path: str, *, attr: Optional[str] = None) -> Any:
     if ":" in module_path and not attr:
@@ -377,3 +415,24 @@ def import_object(module_path: str, *, attr: Optional[str] = None) -> Any:
         f"No obvious object found in '{module_path}'. "
         "Provide attr explicitly (e.g., 'pkg.mod:mcp') or export 'mcp'/'app'."
     )
+
+
+# Backward-compatible alias (deprecated)
+def _deprecated_alias(name: str, new_class: type) -> type:
+    """Create a deprecated alias that warns on instantiation."""
+
+    class DeprecatedAlias(new_class):
+        def __init__(self, *args, **kwargs):
+            warnings.warn(
+                f"{name} is deprecated, use {new_class.__name__} instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            super().__init__(*args, **kwargs)
+
+    DeprecatedAlias.__name__ = name
+    DeprecatedAlias.__qualname__ = name
+    return DeprecatedAlias
+
+
+CoreMCPServer = _deprecated_alias("CoreMCPServer", MCPServer)

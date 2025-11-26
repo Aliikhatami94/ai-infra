@@ -2,28 +2,26 @@ from __future__ import annotations
 
 import difflib
 import traceback
-import json
-from typing import Dict, Any, List, AsyncContextManager, Optional
+import warnings
 from contextlib import asynccontextmanager
 from dataclasses import asdict, is_dataclass
+from typing import Any, AsyncContextManager, Dict, List, Optional
 
 from langchain_mcp_adapters.client import MultiServerMCPClient
-from langchain_mcp_adapters.sessions import (
-    StreamableHttpConnection, StdioConnection, SSEConnection
-)
-from langchain_mcp_adapters.tools import load_mcp_tools
-
+from langchain_mcp_adapters.sessions import SSEConnection, StdioConnection, StreamableHttpConnection
 from mcp import ClientSession, StdioServerParameters
+from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client
 from mcp.client.streamable_http import streamablehttp_client
-from mcp.client.sse import sse_client
 from pydantic import BaseModel
 
 from ai_infra.mcp.client.models import McpServerConfig
 
 
-class CoreMCPClient:
+class MCPClient:
     """
+    MCP Client for connecting to one or more MCP servers.
+
     Config = list[McpServerConfig-like dicts]. No names required.
     We discover server names from MCP initialize() and map them.
     """
@@ -37,7 +35,7 @@ class CoreMCPClient:
         ]
         self._by_name: Dict[str, McpServerConfig] = {}
         self._discovered: bool = False
-        self._errors: List[Dict[str, Any]] = []   # <-- NEW
+        self._errors: List[Dict[str, Any]] = []  # <-- NEW
 
     # ---------- helpers for doc generation (NEW) ----------
 
@@ -74,9 +72,9 @@ class CoreMCPClient:
     @staticmethod
     def _extract_server_info(init_result) -> Dict[str, Any] | None:
         info = (
-                getattr(init_result, "server_info", None)
-                or getattr(init_result, "serverInfo", None)
-                or getattr(init_result, "serverinfo", None)
+            getattr(init_result, "server_info", None)
+            or getattr(init_result, "serverInfo", None)
+            or getattr(init_result, "serverinfo", None)
         )
         if info is None:
             return None
@@ -128,6 +126,7 @@ class CoreMCPClient:
                         info = self._extract_server_info(init_result) or {}
                         session.mcp_server_info = info
                         yield session
+
             return ctx()
 
         if t == "streamable_http":
@@ -143,6 +142,7 @@ class CoreMCPClient:
                         info = self._extract_server_info(init_result) or {}
                         session.mcp_server_info = info
                         yield session
+
             return ctx()
 
         if t == "sse":
@@ -158,6 +158,7 @@ class CoreMCPClient:
                         info = self._extract_server_info(init_result) or {}
                         session.mcp_server_info = info
                         yield session
+
             return ctx()
 
         raise ValueError(f"Unknown transport: {t}")
@@ -189,28 +190,27 @@ class CoreMCPClient:
                     name_map[name] = cfg
             except Exception as e:
                 tb = "".join(traceback.format_exception(e))
-                self._errors.append({
-                    "config": {
-                        "transport": cfg.transport,
-                        "url": cfg.url,
-                        "command": cfg.command,
-                        "args": cfg.args,
-                    },
-                    "identity": ident,
-                    "error_type": type(e).__name__,
-                    "error": str(e),
-                    "traceback": tb,
-                })
+                self._errors.append(
+                    {
+                        "config": {
+                            "transport": cfg.transport,
+                            "url": cfg.url,
+                            "command": cfg.command,
+                            "args": cfg.args,
+                        },
+                        "identity": ident,
+                        "error_type": type(e).__name__,
+                        "error": str(e),
+                        "traceback": tb,
+                    }
+                )
                 failures.append(e)
 
         self._by_name = name_map
         self._discovered = True
 
         if strict and failures:
-            raise ExceptionGroup(
-                f"MCP discovery failed for {len(failures)} server(s)",
-                failures
-            )
+            raise ExceptionGroup(f"MCP discovery failed for {len(failures)} server(s)", failures)
 
         return name_map
 
@@ -221,7 +221,9 @@ class CoreMCPClient:
 
     def get_client(self, server_name: str) -> AsyncContextManager[ClientSession]:
         if server_name not in self._by_name:
-            suggestions = difflib.get_close_matches(server_name, self.server_names(), n=3, cutoff=0.5)
+            suggestions = difflib.get_close_matches(
+                server_name, self.server_names(), n=3, cutoff=0.5
+            )
             suggest_msg = f" Did you mean: {', '.join(suggestions)}?" if suggestions else ""
             known = ", ".join(self.server_names()) or "(none discovered yet)"
             raise ValueError(f"Unknown server '{server_name}'. Known: {known}.{suggest_msg}")
@@ -256,7 +258,9 @@ class CoreMCPClient:
                 raise ValueError(f"Unknown transport: {cfg.transport}")
         return MultiServerMCPClient(mapping)
 
-    async def call_tool(self, server_name: str, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+    async def call_tool(
+        self, server_name: str, tool_name: str, arguments: Dict[str, Any]
+    ) -> Dict[str, Any]:
         if not self._discovered:
             await self.discover()
         async with self.get_client(server_name) as session:
@@ -279,10 +283,10 @@ class CoreMCPClient:
         return await ms_client.get_prompt(server_name, prompt_name)
 
     async def get_openmcp(
-            self,
-            server_name: Optional[str] = None,
-            *,
-            schema_url: str = "https://meta.local/schemas/mcps-0.1.json",
+        self,
+        server_name: Optional[str] = None,
+        *,
+        schema_url: str = "https://meta.local/schemas/mcps-0.1.json",
     ) -> Dict[str, Any]:
         """
         Build an OpenAPI-like MCP Spec (MCPS) document for exactly one server.
@@ -309,6 +313,7 @@ class CoreMCPClient:
             if target not in self._by_name:
                 # mirror your get_client() UX
                 import difflib
+
                 suggestions = difflib.get_close_matches(target, names, n=3, cutoff=0.5)
                 suggest = f" Did you mean: {', '.join(suggestions)}?" if suggestions else ""
                 raise ValueError(f"Unknown server '{target}'. Known: {', '.join(names)}.{suggest}")
@@ -331,28 +336,34 @@ class CoreMCPClient:
             except Exception:
                 listed = []
             for t in listed:
-                tools.append({
-                    "name": getattr(t, "name", None),
-                    "description": self._safe_text(getattr(t, "description", None)),
-                    "args_schema": self._safe_schema(
-                        getattr(t, "inputSchema", None) or getattr(t, "args_schema", None)
-                    ),
-                    "output_schema": self._safe_schema(
-                        getattr(t, "outputSchema", None) or getattr(t, "output_schema", None)
-                    ),
-                    "examples": [],
-                })
+                tools.append(
+                    {
+                        "name": getattr(t, "name", None),
+                        "description": self._safe_text(getattr(t, "description", None)),
+                        "args_schema": self._safe_schema(
+                            getattr(t, "inputSchema", None) or getattr(t, "args_schema", None)
+                        ),
+                        "output_schema": self._safe_schema(
+                            getattr(t, "outputSchema", None) or getattr(t, "output_schema", None)
+                        ),
+                        "examples": [],
+                    }
+                )
 
             # prompts
             try:
                 pl = await session.list_prompts()
                 pl = getattr(pl, "prompts", pl) or []
                 for p in pl:
-                    prompts.append({
-                        "name": getattr(p, "name", None),
-                        "description": self._safe_text(getattr(p, "description", None)),
-                        "arguments_schema": self._safe_schema(getattr(p, "arguments_schema", None)),
-                    })
+                    prompts.append(
+                        {
+                            "name": getattr(p, "name", None),
+                            "description": self._safe_text(getattr(p, "description", None)),
+                            "arguments_schema": self._safe_schema(
+                                getattr(p, "arguments_schema", None)
+                            ),
+                        }
+                    )
             except Exception:
                 pass
 
@@ -361,13 +372,15 @@ class CoreMCPClient:
                 rl = await session.list_resources()
                 rl = getattr(rl, "resources", rl) or []
                 for r in rl:
-                    resources.append({
-                        "uri": getattr(r, "uri", None),
-                        "name": getattr(r, "name", None),
-                        "description": self._safe_text(getattr(r, "description", None)),
-                        "mime_type": getattr(r, "mimeType", None),
-                        "readable": True,
-                    })
+                    resources.append(
+                        {
+                            "uri": getattr(r, "uri", None),
+                            "name": getattr(r, "name", None),
+                            "description": self._safe_text(getattr(r, "description", None)),
+                            "mime_type": getattr(r, "mimeType", None),
+                            "readable": True,
+                        }
+                    )
             except Exception:
                 pass
 
@@ -377,18 +390,23 @@ class CoreMCPClient:
                 tl = getattr(tl, "resource_templates", tl) or tl or []
                 for tpl in tl:
                     vars_in = getattr(tpl, "variables", None) or []
-                    variables = [{
-                        "name": getattr(v, "name", None),
-                        "description": self._safe_text(getattr(v, "description", None)),
-                        "required": bool(getattr(v, "required", False)),
-                    } for v in vars_in]
-                    templates.append({
-                        "uri_template": getattr(tpl, "uriTemplate", None),
-                        "name": getattr(tpl, "name", None),
-                        "description": self._safe_text(getattr(tpl, "description", None)),
-                        "mime_type": getattr(tpl, "mimeType", None),
-                        "variables": variables,
-                    })
+                    variables = [
+                        {
+                            "name": getattr(v, "name", None),
+                            "description": self._safe_text(getattr(v, "description", None)),
+                            "required": bool(getattr(v, "required", False)),
+                        }
+                        for v in vars_in
+                    ]
+                    templates.append(
+                        {
+                            "uri_template": getattr(tpl, "uriTemplate", None),
+                            "name": getattr(tpl, "name", None),
+                            "description": self._safe_text(getattr(tpl, "description", None)),
+                            "mime_type": getattr(tpl, "mimeType", None),
+                            "variables": variables,
+                        }
+                    )
             except Exception:
                 pass
 
@@ -397,11 +415,13 @@ class CoreMCPClient:
                 base_roots = await session.list_roots()
                 base_roots = getattr(base_roots, "roots", base_roots) or []
                 for root in base_roots:
-                    roots.append({
-                        "uri": getattr(root, "uri", None),
-                        "name": getattr(root, "name", None),
-                        "description": self._safe_text(getattr(root, "description", None)),
-                    })
+                    roots.append(
+                        {
+                            "uri": getattr(root, "uri", None),
+                            "name": getattr(root, "name", None),
+                            "description": self._safe_text(getattr(root, "description", None)),
+                        }
+                    )
             except Exception:
                 pass
 
@@ -411,11 +431,7 @@ class CoreMCPClient:
         # top-level info entirely from initialize()
         title = server_info.get("title") or server_info.get("name") or target
         description = self._safe_text(server_info.get("description"))
-        version = (
-                server_info.get("version")
-                or server_info.get("semver")
-                or "0.1.0"
-        )
+        version = server_info.get("version") or server_info.get("semver") or "0.1.0"
 
         # capabilities: prefer server-declared; fall back to inference
         info_caps = server_info.get("capabilities") or {}
@@ -452,9 +468,9 @@ class CoreMCPClient:
         }
 
     async def list_openmcp(
-            self,
-            *,
-            schema_url: str = "https://meta.local/schemas/mcps-0.1.json",
+        self,
+        *,
+        schema_url: str = "https://meta.local/schemas/mcps-0.1.json",
     ) -> Dict[str, Dict[str, Any]]:
         """
         Return an MCPS doc per discovered server, keyed by server name.
@@ -465,3 +481,24 @@ class CoreMCPClient:
         for name in self.server_names():
             result[name] = await self.get_openmcp(server_name=name, schema_url=schema_url)
         return result
+
+
+# Backward-compatible alias (deprecated)
+def _deprecated_alias(name: str, new_class: type) -> type:
+    """Create a deprecated alias that warns on instantiation."""
+
+    class DeprecatedAlias(new_class):
+        def __init__(self, *args, **kwargs):
+            warnings.warn(
+                f"{name} is deprecated, use {new_class.__name__} instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            super().__init__(*args, **kwargs)
+
+    DeprecatedAlias.__name__ = name
+    DeprecatedAlias.__qualname__ = name
+    return DeprecatedAlias
+
+
+CoreMCPClient = _deprecated_alias("CoreMCPClient", MCPClient)

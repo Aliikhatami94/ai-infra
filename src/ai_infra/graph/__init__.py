@@ -1,8 +1,12 @@
-from ai_infra.graph.models import Edge, ConditionalEdge
-from ai_infra.graph.core import CoreGraph
+# Backward-compatible deprecated alias
+from ai_infra.graph.core import CoreGraph, Graph
+from ai_infra.graph.models import ConditionalEdge, Edge
 
 __all__ = [
-    "CoreGraph",
+    # New name (preferred)
+    "Graph",
     "Edge",
     "ConditionalEdge",
+    # Deprecated alias (backward compatibility)
+    "CoreGraph",
 ]

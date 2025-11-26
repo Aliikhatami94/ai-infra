@@ -1,32 +1,34 @@
 from __future__ import annotations
-from typing import List, Optional, Dict, Any, Tuple, Union, Sequence, Literal
+
 import logging
+import warnings
+from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple, Union
 
-from pydantic import BaseModel
 from langchain_core.messages import BaseMessage
+from pydantic import BaseModel
 
-from ai_infra.llm.utils.settings import ModelSettings
-from ai_infra.llm.utils.runtime_bind import ModelRegistry, make_agent_with_context as rb_make_agent_with_context
 from ai_infra.llm.tools.tool_controls import ToolCallControls
-from .tools import apply_output_gate, wrap_tool_for_hitl, HITLConfig, apply_output_gate_async
-from .utils import (
-    sanitize_model_kwargs,
-    with_retry as _with_retry_util,
-    run_with_fallbacks as _run_fallbacks_util,
-    arun_with_fallbacks as _arun_fallbacks_util,
-    is_valid_response as _is_valid_response,
-    merge_overrides as _merge_overrides,
-    make_messages as _make_messages,
-)
+from ai_infra.llm.utils.runtime_bind import ModelRegistry
+from ai_infra.llm.utils.runtime_bind import make_agent_with_context as rb_make_agent_with_context
+from ai_infra.llm.utils.settings import ModelSettings
 from ai_infra.llm.utils.structured import (
     build_structured_messages,
+    coerce_from_text_or_fragment,
+    coerce_structured_result,
+    is_pydantic_schema,
     structured_mode_call_async,
     structured_mode_call_sync,
     validate_or_raise,
-    is_pydantic_schema,
-    coerce_from_text_or_fragment,
-    coerce_structured_result,
 )
+
+from .tools import HITLConfig, apply_output_gate, apply_output_gate_async, wrap_tool_for_hitl
+from .utils import arun_with_fallbacks as _arun_fallbacks_util
+from .utils import is_valid_response as _is_valid_response
+from .utils import make_messages as _make_messages
+from .utils import merge_overrides as _merge_overrides
+from .utils import run_with_fallbacks as _run_fallbacks_util
+from .utils import sanitize_model_kwargs
+from .utils import with_retry as _with_retry_util
 
 
 class BaseLLMCore:
@@ -46,12 +48,12 @@ class BaseLLMCore:
         self.require_explicit_tools = required
 
     def set_hitl(
-            self,
-            *,
-            on_model_output=None,
-            on_tool_call=None,
-            on_model_output_async=None,
-            on_tool_call_async=None,
+        self,
+        *,
+        on_model_output=None,
+        on_tool_call=None,
+        on_model_output_async=None,
+        on_tool_call_async=None,
     ):
         self._hitl.set(
             on_model_output=on_model_output,
@@ -73,6 +75,7 @@ class BaseLLMCore:
             if ans.startswith("y"):
                 return {"action": "pass"}
             return {"action": "block", "replacement": "[blocked by user]"}
+
         return gate
 
     # model registry
@@ -83,49 +86,60 @@ class BaseLLMCore:
         return self.registry.get_or_create(provider, model_name, **kwargs)
 
     def with_structured_output(
-            self,
-            provider: str,
-            model_name: str,
-            schema: Union[type[BaseModel], Dict[str, Any]],
-            *,
-            method: Literal["json_schema", "json_mode", "function_calling"] | None = "json_mode",
-            **model_kwargs,
+        self,
+        provider: str,
+        model_name: str,
+        schema: Union[type[BaseModel], Dict[str, Any]],
+        *,
+        method: Literal["json_schema", "json_mode", "function_calling"] | None = "json_mode",
+        **model_kwargs,
     ):
         model = self.registry.get_or_create(provider, model_name, **model_kwargs)
         try:
             # Pass method through if provided (LangChain 0.3 supports this)
-            return model.with_structured_output(schema, **({} if method is None else {"method": method}))
+            return model.with_structured_output(
+                schema, **({} if method is None else {"method": method})
+            )
         except Exception as e:  # pragma: no cover
             self._logger.warning(
-                "[CoreLLM] Structured output unavailable; provider=%s model=%s schema=%s error=%s",
-                provider, model_name, getattr(schema, "__name__", type(schema)), e, exc_info=True,
+                "[LLM] Structured output unavailable; provider=%s model=%s schema=%s error=%s",
+                provider,
+                model_name,
+                getattr(schema, "__name__", type(schema)),
+                e,
+                exc_info=True,
             )
             return model
 
     def _run_with_retry_sync(self, fn, retry_cfg):
         import asyncio
+
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
             loop = None
         if loop and loop.is_running():
-            self._logger.warning("[CoreLLM] chat() retry config ignored due to running loop; use achat().")
+            self._logger.warning(
+                "[LLM] chat() retry config ignored due to running loop; use achat()."
+            )
             return fn()
+
         async def _acall():
             return fn()
+
         return asyncio.run(_with_retry_util(_acall, **retry_cfg))
 
     # ========== PROMPT method helpers (shared by chat/achat) ==========
     def _prompt_structured_sync(
-            self,
-            *,
-            user_msg: str,
-            system: Optional[str],
-            provider: str,
-            model_name: str,
-            schema: Union[type[BaseModel], Dict[str, Any]],
-            extra: Optional[Dict[str, Any]],
-            model_kwargs: Dict[str, Any],
+        self,
+        *,
+        user_msg: str,
+        system: Optional[str],
+        provider: str,
+        model_name: str,
+        schema: Union[type[BaseModel], Dict[str, Any]],
+        extra: Optional[Dict[str, Any]],
+        model_kwargs: Dict[str, Any],
     ) -> BaseModel:
         model = self.set_model(provider, model_name, **model_kwargs)
         messages: List[BaseMessage] = build_structured_messages(
@@ -158,15 +172,15 @@ class BaseLLMCore:
             return validate_or_raise(schema, content)
 
     async def _prompt_structured_async(
-            self,
-            *,
-            user_msg: str,
-            system: Optional[str],
-            provider: str,
-            model_name: str,
-            schema: Union[type[BaseModel], Dict[str, Any]],
-            extra: Optional[Dict[str, Any]],
-            model_kwargs: Dict[str, Any],
+        self,
+        *,
+        user_msg: str,
+        system: Optional[str],
+        provider: str,
+        model_name: str,
+        schema: Union[type[BaseModel], Dict[str, Any]],
+        extra: Optional[Dict[str, Any]],
+        model_kwargs: Dict[str, Any],
     ) -> BaseModel:
         """Async variant of prompt-only structured output with robust JSON fallback."""
         model = self.set_model(provider, model_name, **model_kwargs)
@@ -200,19 +214,21 @@ class BaseLLMCore:
             return validate_or_raise(schema, content)
 
 
-class CoreLLM(BaseLLMCore):
+class LLM(BaseLLMCore):
     """Direct model convenience interface (no agent graph)."""
 
     def chat(
-            self,
-            user_msg: str,
-            provider: str,
-            model_name: str,
-            system: Optional[str] = None,
-            extra: Optional[Dict[str, Any]] = None,
-            output_schema: Union[type[BaseModel], Dict[str, Any], None] = None,
-            output_method: Literal["json_schema", "json_mode", "function_calling", "prompt"] | None = "prompt",
-            **model_kwargs,
+        self,
+        user_msg: str,
+        provider: str,
+        model_name: str,
+        system: Optional[str] = None,
+        extra: Optional[Dict[str, Any]] = None,
+        output_schema: Union[type[BaseModel], Dict[str, Any], None] = None,
+        output_method: (
+            Literal["json_schema", "json_mode", "function_calling", "prompt"] | None
+        ) = "prompt",
+        **model_kwargs,
     ):
         sanitize_model_kwargs(model_kwargs)
 
@@ -237,6 +253,7 @@ class CoreLLM(BaseLLMCore):
             model = self.set_model(provider, model_name, **model_kwargs)
 
         messages = _make_messages(user_msg, system)
+
         def _call():
             return model.invoke(messages)
 
@@ -252,15 +269,17 @@ class CoreLLM(BaseLLMCore):
             return res
 
     async def achat(
-            self,
-            user_msg: str,
-            provider: str,
-            model_name: str,
-            system: Optional[str] = None,
-            extra: Optional[Dict[str, Any]] = None,
-            output_schema: Union[type[BaseModel], Dict[str, Any], None] = None,
-            output_method: Literal["json_schema", "json_mode", "function_calling", "prompt"] | None = "prompt",
-            **model_kwargs,
+        self,
+        user_msg: str,
+        provider: str,
+        model_name: str,
+        system: Optional[str] = None,
+        extra: Optional[Dict[str, Any]] = None,
+        output_schema: Union[type[BaseModel], Dict[str, Any], None] = None,
+        output_method: (
+            Literal["json_schema", "json_mode", "function_calling", "prompt"] | None
+        ) = "prompt",
+        **model_kwargs,
     ):
         sanitize_model_kwargs(model_kwargs)
 
@@ -283,6 +302,7 @@ class CoreLLM(BaseLLMCore):
             model = self.set_model(provider, model_name, **model_kwargs)
 
         messages = _make_messages(user_msg, system)
+
         async def _call():
             return await model.ainvoke(messages)
 
@@ -298,16 +318,16 @@ class CoreLLM(BaseLLMCore):
             return res
 
     async def stream_tokens(
-            self,
-            user_msg: str,
-            provider: str,
-            model_name: str,
-            system: Optional[str] = None,
-            *,
-            temperature: Optional[float] = None,
-            top_p: Optional[float] = None,
-            max_tokens: Optional[int] = None,
-            **model_kwargs,
+        self,
+        user_msg: str,
+        provider: str,
+        model_name: str,
+        system: Optional[str] = None,
+        *,
+        temperature: Optional[float] = None,
+        top_p: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+        **model_kwargs,
     ):
         sanitize_model_kwargs(model_kwargs)
         if temperature is not None:
@@ -328,17 +348,17 @@ class CoreLLM(BaseLLMCore):
             yield text, meta
 
 
-class CoreAgent(BaseLLMCore):
+class Agent(BaseLLMCore):
     """Agent-oriented interface (tool calling, streaming updates, fallbacks)."""
 
     def _make_agent_with_context(
-            self,
-            provider: str,
-            model_name: str = None,
-            tools: Optional[List[Any]] = None,
-            extra: Optional[Dict[str, Any]] = None,
-            model_kwargs: Optional[Dict[str, Any]] = None,
-            tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,
+        self,
+        provider: str,
+        model_name: str = None,
+        tools: Optional[List[Any]] = None,
+        extra: Optional[Dict[str, Any]] = None,
+        model_kwargs: Optional[Dict[str, Any]] = None,
+        tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,
     ) -> Tuple[Any, ModelSettings]:
         return rb_make_agent_with_context(
             self.registry,
@@ -352,24 +372,31 @@ class CoreAgent(BaseLLMCore):
             global_tools=self.tools,
             # Only provide a wrapper if HITL tool callback is active
             hitl_tool_wrapper=(
-                (lambda t: wrap_tool_for_hitl(t, self._hitl)) if (self._hitl.on_tool_call or self._hitl.on_tool_call_async) else None),
+                (lambda t: wrap_tool_for_hitl(t, self._hitl))
+                if (self._hitl.on_tool_call or self._hitl.on_tool_call_async)
+                else None
+            ),
             logger=self._logger,
         )
 
     async def arun_agent(
-            self,
-            messages: List[Dict[str, Any]],
-            provider: str,
-            model_name: str = None,
-            tools: Optional[List[Any]] = None,
-            extra: Optional[Dict[str, Any]] = None,
-            model_kwargs: Optional[Dict[str, Any]] = None,
-            tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,
-            config: Optional[Dict[str, Any]] = None
+        self,
+        messages: List[Dict[str, Any]],
+        provider: str,
+        model_name: str = None,
+        tools: Optional[List[Any]] = None,
+        extra: Optional[Dict[str, Any]] = None,
+        model_kwargs: Optional[Dict[str, Any]] = None,
+        tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,
+        config: Optional[Dict[str, Any]] = None,
     ) -> Any:
-        agent, context = self._make_agent_with_context(provider, model_name, tools, extra, model_kwargs, tool_controls)
+        agent, context = self._make_agent_with_context(
+            provider, model_name, tools, extra, model_kwargs, tool_controls
+        )
+
         async def _call():
             return await agent.ainvoke({"messages": messages}, context=context, config=config)
+
         retry_cfg = (extra or {}).get("retry") if extra else None
         if retry_cfg:
             res = await _with_retry_util(_call, **retry_cfg)
@@ -379,50 +406,48 @@ class CoreAgent(BaseLLMCore):
         return ai_msg
 
     def run_agent(
-            self,
-            messages: List[Dict[str, Any]],
-            provider: str,
-            model_name: str = None,
-            tools: Optional[List[Any]] = None,
-            extra: Optional[Dict[str, Any]] = None,
-            model_kwargs: Optional[Dict[str, Any]] = None,
-            tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,
-            config: Optional[Dict[str, Any]] = None
+        self,
+        messages: List[Dict[str, Any]],
+        provider: str,
+        model_name: str = None,
+        tools: Optional[List[Any]] = None,
+        extra: Optional[Dict[str, Any]] = None,
+        model_kwargs: Optional[Dict[str, Any]] = None,
+        tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,
+        config: Optional[Dict[str, Any]] = None,
     ) -> Any:
-        agent, context = self._make_agent_with_context(provider, model_name, tools, extra, model_kwargs, tool_controls)
+        agent, context = self._make_agent_with_context(
+            provider, model_name, tools, extra, model_kwargs, tool_controls
+        )
         res = agent.invoke({"messages": messages}, context=context, config=config)
         ai_msg = apply_output_gate(res, self._hitl)
         return ai_msg
 
     async def arun_agent_stream(
-            self,
-            messages: List[Dict[str, Any]],
-            provider: str,
-            model_name: str = None,
-            tools: Optional[List[Any]] = None,
-            extra: Optional[Dict[str, Any]] = None,
-            model_kwargs: Optional[Dict[str, Any]] = None,
-            stream_mode: Union[str, Sequence[str]] = ("updates", "values"),
-            tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,
-            config: Optional[Dict[str, Any]] = None
+        self,
+        messages: List[Dict[str, Any]],
+        provider: str,
+        model_name: str = None,
+        tools: Optional[List[Any]] = None,
+        extra: Optional[Dict[str, Any]] = None,
+        model_kwargs: Optional[Dict[str, Any]] = None,
+        stream_mode: Union[str, Sequence[str]] = ("updates", "values"),
+        tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,
+        config: Optional[Dict[str, Any]] = None,
     ):
-        agent, context = self._make_agent_with_context(provider, model_name, tools, extra, model_kwargs, tool_controls)
+        agent, context = self._make_agent_with_context(
+            provider, model_name, tools, extra, model_kwargs, tool_controls
+        )
         modes = [stream_mode] if isinstance(stream_mode, str) else list(stream_mode)
         if modes == ["messages"]:
             async for token, meta in agent.astream(
-                    {"messages": messages},
-                    context=context,
-                    config=config,
-                    stream_mode="messages"
+                {"messages": messages}, context=context, config=config, stream_mode="messages"
             ):
                 yield token, meta
             return
         last_values = None
         async for mode, chunk in agent.astream(
-                {"messages": messages},
-                context=context,
-                config=config,
-                stream_mode=modes
+            {"messages": messages}, context=context, config=config, stream_mode=modes
         ):
             if mode == "values":
                 last_values = chunk
@@ -434,47 +459,47 @@ class CoreAgent(BaseLLMCore):
             yield "values", gated_values
 
     async def astream_agent_tokens(
-            self,
-            messages: List[Dict[str, Any]],
-            provider: str,
-            model_name: str = None,
-            tools: Optional[List[Any]] = None,
-            extra: Optional[Dict[str, Any]] = None,
-            model_kwargs: Optional[Dict[str, Any]] = None,
-            tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,
-            config: Optional[Dict[str, Any]] = None,
+        self,
+        messages: List[Dict[str, Any]],
+        provider: str,
+        model_name: str = None,
+        tools: Optional[List[Any]] = None,
+        extra: Optional[Dict[str, Any]] = None,
+        model_kwargs: Optional[Dict[str, Any]] = None,
+        tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,
+        config: Optional[Dict[str, Any]] = None,
     ):
         agent, context = self._make_agent_with_context(
             provider, model_name, tools, extra, model_kwargs, tool_controls
         )
         async for token, meta in agent.astream(
-                {"messages": messages},
-                context=context,
-                config=config,
-                stream_mode="messages",
+            {"messages": messages},
+            context=context,
+            config=config,
+            stream_mode="messages",
         ):
             yield token, meta
 
     def agent(
-            self,
-            provider: str,
-            model_name: str = None,
-            tools: Optional[List[Any]] = None,
-            extra: Optional[Dict[str, Any]] = None,
-            model_kwargs: Optional[Dict[str, Any]] = None,
+        self,
+        provider: str,
+        model_name: str = None,
+        tools: Optional[List[Any]] = None,
+        extra: Optional[Dict[str, Any]] = None,
+        model_kwargs: Optional[Dict[str, Any]] = None,
     ):
         return self._make_agent_with_context(provider, model_name, tools, extra, model_kwargs)
 
     # ---------- fallbacks (sync) ----------
     def run_with_fallbacks(
-            self,
-            messages: List[Dict[str, Any]],
-            candidates: List[Tuple[str, str]],
-            tools: Optional[List[Any]] = None,
-            extra: Optional[Dict[str, Any]] = None,
-            model_kwargs: Optional[Dict[str, Any]] = None,
-            tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,
-            config: Optional[Dict[str, Any]] = None,
+        self,
+        messages: List[Dict[str, Any]],
+        candidates: List[Tuple[str, str]],
+        tools: Optional[List[Any]] = None,
+        extra: Optional[Dict[str, Any]] = None,
+        model_kwargs: Optional[Dict[str, Any]] = None,
+        tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,
+        config: Optional[Dict[str, Any]] = None,
     ):
         def _run_single(provider: str, model_name: str, overrides: Dict[str, Any]):
             eff_extra, eff_model_kwargs, eff_tools, eff_tool_controls = _merge_overrides(
@@ -500,14 +525,14 @@ class CoreAgent(BaseLLMCore):
 
     # ---------- fallbacks (async) ----------
     async def arun_with_fallbacks(
-            self,
-            messages: List[Dict[str, Any]],
-            candidates: List[Tuple[str, str]],
-            tools: Optional[List[Any]] = None,
-            extra: Optional[Dict[str, Any]] = None,
-            model_kwargs: Optional[Dict[str, Any]] = None,
-            tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,
-            config: Optional[Dict[str, Any]] = None,
+        self,
+        messages: List[Dict[str, Any]],
+        candidates: List[Tuple[str, str]],
+        tools: Optional[List[Any]] = None,
+        extra: Optional[Dict[str, Any]] = None,
+        model_kwargs: Optional[Dict[str, Any]] = None,
+        tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,
+        config: Optional[Dict[str, Any]] = None,
     ):
         async def _run_single(provider: str, model_name: str, overrides: Dict[str, Any]):
             eff_extra, eff_model_kwargs, eff_tools, eff_tool_controls = _merge_overrides(
@@ -529,3 +554,25 @@ class CoreAgent(BaseLLMCore):
             run_single_async=_run_single,
             validate=_is_valid_response,
         )
+
+
+# Backward-compatible aliases (deprecated)
+def _deprecated_alias(name: str, new_class: type) -> type:
+    """Create a deprecated alias that warns on instantiation."""
+
+    class DeprecatedAlias(new_class):
+        def __init__(self, *args, **kwargs):
+            warnings.warn(
+                f"{name} is deprecated, use {new_class.__name__} instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            super().__init__(*args, **kwargs)
+
+    DeprecatedAlias.__name__ = name
+    DeprecatedAlias.__qualname__ = name
+    return DeprecatedAlias
+
+
+CoreLLM = _deprecated_alias("CoreLLM", LLM)
+CoreAgent = _deprecated_alias("CoreAgent", Agent)
