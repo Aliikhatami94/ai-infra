@@ -12,13 +12,16 @@ This module consolidates logic that previously lived ad‑hoc in LLM / runtime_b
   - wrap_tool_for_hitl: wraps a tool with pre‑execution HITL policy
   - ToolPolicy: configuration holder for tool selection policy
   - compute_effective_tools: merges per‑call tools with global tools under policy
+  - ToolExecutionConfig: configuration for tool execution (errors, timeouts, validation)
+  - wrap_tool_with_execution_config: wraps tools with error/timeout/validation handling
 
 None of these functions mutate global state; they are pure / side‑effect free
 (except logging) and can be composed by higher‑level orchestration code.
 """
 import inspect
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence
+from dataclasses import dataclass
+from typing import Any, Callable, Dict, List, Literal, Optional, Sequence
 
 from langchain_core.tools import BaseTool
 from langchain_core.tools import tool as lc_tool  # type: ignore
@@ -31,6 +34,11 @@ __all__ = [
     "wrap_tool_for_hitl",
     "ToolPolicy",
     "compute_effective_tools",
+    "ToolExecutionConfig",
+    "ToolExecutionError",
+    "ToolTimeoutError",
+    "ToolValidationError",
+    "wrap_tool_with_execution_config",
 ]
 
 logger = logging.getLogger(__name__)
@@ -308,3 +316,278 @@ def compute_effective_tools(
             len(global_tools),
         )
     return global_tools
+
+
+# ---------- Tool Execution Configuration ----------
+@dataclass
+class ToolExecutionConfig:
+    """Configuration for tool execution behavior.
+
+    Attributes:
+        on_error: How to handle tool execution errors.
+            - "return_error": Return error message to agent (default, allows recovery)
+            - "retry": Retry the tool call up to max_retries times
+            - "abort": Re-raise the exception and stop execution
+        max_retries: Maximum retry attempts when on_error="retry" (default 1)
+        timeout: Timeout in seconds per tool call (None = no timeout)
+        validate_results: Validate tool results match expected return type annotations
+        on_timeout: How to handle timeouts.
+            - "return_error": Return timeout message to agent (default)
+            - "abort": Re-raise TimeoutError
+
+    Example:
+        ```python
+        # Allow agent to recover from errors
+        config = ToolExecutionConfig(on_error="return_error")
+
+        # Retry on failure with 30s timeout
+        config = ToolExecutionConfig(
+            on_error="retry",
+            max_retries=2,
+            timeout=30,
+        )
+
+        # Strict mode: fail fast
+        config = ToolExecutionConfig(
+            on_error="abort",
+            validate_results=True,
+        )
+        ```
+    """
+
+    on_error: Literal["return_error", "retry", "abort"] = "return_error"
+    max_retries: int = 1
+    timeout: Optional[float] = None
+    validate_results: bool = False
+    on_timeout: Literal["return_error", "abort"] = "return_error"
+
+    def __post_init__(self):
+        if self.max_retries < 0:
+            raise ValueError("max_retries must be >= 0")
+        if self.timeout is not None and self.timeout <= 0:
+            raise ValueError("timeout must be > 0")
+
+
+class ToolExecutionError(Exception):
+    """Exception raised when a tool execution fails."""
+
+    def __init__(self, tool_name: str, original_error: Exception, message: str):
+        self.tool_name = tool_name
+        self.original_error = original_error
+        super().__init__(message)
+
+
+class ToolTimeoutError(ToolExecutionError):
+    """Exception raised when a tool execution times out."""
+
+    def __init__(self, tool_name: str, timeout: float):
+        super().__init__(
+            tool_name=tool_name,
+            original_error=TimeoutError(f"Tool '{tool_name}' timed out after {timeout}s"),
+            message=f"Tool '{tool_name}' timed out after {timeout}s",
+        )
+
+
+class ToolValidationError(ToolExecutionError):
+    """Exception raised when tool result validation fails."""
+
+    def __init__(self, tool_name: str, expected_type: type, actual_value: Any):
+        super().__init__(
+            tool_name=tool_name,
+            original_error=TypeError(
+                f"Tool '{tool_name}' returned {type(actual_value).__name__}, expected {expected_type.__name__}"
+            ),
+            message=f"Tool '{tool_name}' returned {type(actual_value).__name__}, expected {expected_type.__name__}",
+        )
+
+
+class _ExecutionConfigWrappedTool(BaseTool):
+    """Wraps a BaseTool with error handling, timeout, and validation."""
+
+    def __init__(
+        self,
+        base: BaseTool,
+        config: ToolExecutionConfig,
+        expected_return_type: Optional[type] = None,
+    ):
+        super().__init__(
+            name=getattr(base, "name", "tool"),
+            description=getattr(base, "description", "") or "",
+        )
+        self._base = base
+        self._config = config
+        self._expected_return_type = expected_return_type
+        # Preserve args schema if present
+        if hasattr(base, "args_schema") and base.args_schema is not None:
+            self.args_schema = base.args_schema  # type: ignore[attr-defined]
+
+    def _validate_result(self, result: Any) -> None:
+        """Validate the result matches expected type."""
+        if not self._config.validate_results or self._expected_return_type is None:
+            return
+        # Skip validation for None returns when expected type allows it
+        if result is None:
+            return
+        # Check type (basic isinstance check)
+        if not isinstance(result, self._expected_return_type):
+            raise ToolValidationError(self.name, self._expected_return_type, result)
+
+    def _format_error(self, error: Exception) -> str:
+        """Format error for returning to agent."""
+        return f"[Tool Error: {self.name}] {type(error).__name__}: {str(error)}"
+
+    def _run(self, *args, **kwargs) -> Any:
+        """Sync execution with error handling and retry."""
+        config = self._config
+        last_error: Optional[Exception] = None
+        attempts = config.max_retries + 1 if config.on_error == "retry" else 1
+
+        for attempt in range(attempts):
+            try:
+                # Execute with optional timeout
+                if config.timeout is not None:
+                    import queue
+                    import threading
+
+                    result_queue: queue.Queue[Any] = queue.Queue()
+                    error_queue: queue.Queue[Exception] = queue.Queue()
+
+                    def run_with_timeout():
+                        try:
+                            res = self._base.invoke(kwargs or {})
+                            result_queue.put(res)
+                        except Exception as e:
+                            error_queue.put(e)
+
+                    thread = threading.Thread(target=run_with_timeout)
+                    thread.start()
+                    thread.join(timeout=config.timeout)
+
+                    if thread.is_alive():
+                        # Timeout occurred
+                        if config.on_timeout == "abort":
+                            raise ToolTimeoutError(self.name, config.timeout)
+                        return f"[Tool Timeout: {self.name}] Execution timed out after {config.timeout}s"
+
+                    if not error_queue.empty():
+                        raise error_queue.get()
+                    result = result_queue.get()
+                else:
+                    result = self._base.invoke(kwargs or {})
+
+                # Validate result
+                self._validate_result(result)
+                return result
+
+            except (ToolTimeoutError, ToolValidationError):
+                raise  # Don't retry these
+            except Exception as e:
+                last_error = e
+                if attempt < attempts - 1:
+                    continue  # Retry
+                # Out of retries
+                if config.on_error == "abort":
+                    raise ToolExecutionError(self.name, e, f"Tool '{self.name}' failed: {e}") from e
+                return self._format_error(e)
+
+        # Shouldn't reach here, but just in case
+        if last_error:
+            return self._format_error(last_error)
+        return "[Tool Error] Unknown error occurred"
+
+    async def _arun(self, *args, **kwargs) -> Any:
+        """Async execution with error handling, timeout, and retry."""
+        config = self._config
+        last_error: Optional[Exception] = None
+        attempts = config.max_retries + 1 if config.on_error == "retry" else 1
+
+        for attempt in range(attempts):
+            try:
+                # Execute with optional timeout
+                if config.timeout is not None:
+                    try:
+                        if hasattr(self._base, "ainvoke"):
+                            result = await asyncio.wait_for(
+                                self._base.ainvoke(kwargs or {}),
+                                timeout=config.timeout,
+                            )
+                        else:
+                            result = await asyncio.wait_for(
+                                asyncio.to_thread(self._base.invoke, kwargs or {}),
+                                timeout=config.timeout,
+                            )
+                    except asyncio.TimeoutError:
+                        if config.on_timeout == "abort":
+                            raise ToolTimeoutError(self.name, config.timeout)
+                        return f"[Tool Timeout: {self.name}] Execution timed out after {config.timeout}s"
+                else:
+                    if hasattr(self._base, "ainvoke"):
+                        result = await self._base.ainvoke(kwargs or {})
+                    else:
+                        result = await asyncio.to_thread(self._base.invoke, kwargs or {})
+
+                # Validate result
+                self._validate_result(result)
+                return result
+
+            except (ToolTimeoutError, ToolValidationError):
+                raise  # Don't retry these
+            except Exception as e:
+                last_error = e
+                if attempt < attempts - 1:
+                    continue  # Retry
+                # Out of retries
+                if config.on_error == "abort":
+                    raise ToolExecutionError(self.name, e, f"Tool '{self.name}' failed: {e}") from e
+                return self._format_error(e)
+
+        # Shouldn't reach here
+        if last_error:
+            return self._format_error(last_error)
+        return "[Tool Error] Unknown error occurred"
+
+
+def wrap_tool_with_execution_config(
+    tool_obj: Any,
+    config: Optional[ToolExecutionConfig],
+    *,
+    expected_return_type: Optional[type] = None,
+) -> Any:
+    """Wrap a tool with execution configuration (error handling, timeout, validation).
+
+    Args:
+        tool_obj: The tool to wrap (BaseTool, function, or callable)
+        config: Execution configuration. If None, returns tool unchanged.
+        expected_return_type: Expected return type for validation (extracted from annotations if possible)
+
+    Returns:
+        Wrapped tool with execution config, or original if config is None
+
+    Example:
+        ```python
+        from ai_infra.llm.tools import ToolExecutionConfig, wrap_tool_with_execution_config
+
+        config = ToolExecutionConfig(
+            on_error="return_error",
+            timeout=30,
+            validate_results=True,
+        )
+
+        wrapped_tool = wrap_tool_with_execution_config(my_tool, config)
+        ```
+    """
+    if not config:
+        return tool_obj
+
+    # Normalize to BaseTool
+    if isinstance(tool_obj, BaseTool):
+        base = tool_obj
+    elif callable(tool_obj):
+        base = lc_tool(tool_obj)
+        # Try to extract return type from function annotations
+        if expected_return_type is None and hasattr(tool_obj, "__annotations__"):
+            expected_return_type = tool_obj.__annotations__.get("return")
+    else:
+        return tool_obj
+
+    return _ExecutionConfigWrappedTool(base, config, expected_return_type)

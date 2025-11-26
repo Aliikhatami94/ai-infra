@@ -30,7 +30,14 @@ from ai_infra.llm.utils.structured import (
     validate_or_raise,
 )
 
-from .tools import HITLConfig, apply_output_gate, apply_output_gate_async, wrap_tool_for_hitl
+from .tools import (
+    HITLConfig,
+    ToolExecutionConfig,
+    apply_output_gate,
+    apply_output_gate_async,
+    wrap_tool_for_hitl,
+    wrap_tool_with_execution_config,
+)
 from .utils import arun_with_fallbacks as _arun_fallbacks_util
 from .utils import is_valid_response as _is_valid_response
 from .utils import make_messages as _make_messages
@@ -656,7 +663,194 @@ class LLM(BaseLLM):
 
 
 class Agent(BaseLLM):
-    """Agent-oriented interface (tool calling, streaming updates, fallbacks)."""
+    """Agent-oriented interface (tool calling, streaming updates, fallbacks).
+
+    The Agent class provides a simple API for running LLM agents with tools.
+    Tools can be plain Python functions, LangChain tools, or MCP tools.
+
+    Example:
+        ```python
+        def get_weather(city: str) -> str:
+            '''Get weather for a city.'''
+            return f"Weather in {city}: Sunny, 72°F"
+
+        # Simple usage with tools
+        agent = Agent(tools=[get_weather])
+        result = agent.run("What's the weather in NYC?")
+
+        # With explicit provider
+        agent = Agent(tools=[get_weather], provider="anthropic")
+        result = await agent.arun("What's the weather in NYC?")
+
+        # With error handling and timeout
+        agent = Agent(
+            tools=[risky_tool],
+            on_tool_error="return_error",  # Agent sees error, can recover
+            tool_timeout=30,               # 30 second timeout per tool
+        )
+        ```
+    """
+
+    def __init__(
+        self,
+        tools: Optional[List[Any]] = None,
+        provider: Optional[str] = None,
+        model_name: Optional[str] = None,
+        *,
+        on_tool_error: Literal["return_error", "retry", "abort"] = "return_error",
+        tool_timeout: Optional[float] = None,
+        validate_tool_results: bool = False,
+        max_tool_retries: int = 1,
+        **model_kwargs,
+    ):
+        """Initialize an Agent with optional tools and provider settings.
+
+        Args:
+            tools: List of tools (functions, LangChain tools, or MCP tools)
+            provider: LLM provider (auto-detected if None)
+            model_name: Model name (uses provider default if None)
+            on_tool_error: How to handle tool execution errors:
+                - "return_error": Return error message to agent (default, allows recovery)
+                - "retry": Retry the tool call up to max_tool_retries times
+                - "abort": Re-raise the exception and stop execution
+            tool_timeout: Timeout in seconds per tool call (None = no timeout)
+            validate_tool_results: Validate tool results match return type annotations
+            max_tool_retries: Max retry attempts when on_tool_error="retry" (default 1)
+            **model_kwargs: Additional kwargs passed to the model
+        """
+        super().__init__()
+        self._default_provider = provider
+        self._default_model_name = model_name
+        self._default_model_kwargs = model_kwargs
+        self._tool_execution_config = ToolExecutionConfig(
+            on_error=on_tool_error,
+            max_retries=max_tool_retries,
+            timeout=tool_timeout,
+            validate_results=validate_tool_results,
+        )
+        if tools:
+            self.set_global_tools(tools)
+
+    def run(
+        self,
+        prompt: str,
+        *,
+        provider: Optional[str] = None,
+        model_name: Optional[str] = None,
+        tools: Optional[List[Any]] = None,
+        system: Optional[str] = None,
+        **model_kwargs,
+    ) -> str:
+        """Run the agent with a simple prompt and return the response.
+
+        Args:
+            prompt: User prompt/message
+            provider: Override provider (uses default if None)
+            model_name: Override model (uses default if None)
+            tools: Override tools (uses global tools if None)
+            system: Optional system message
+            **model_kwargs: Additional model kwargs
+
+        Returns:
+            The agent's final text response
+
+        Example:
+            ```python
+            agent = Agent(tools=[get_weather])
+            result = agent.run("What's the weather in NYC?")
+            print(result)  # "The weather in NYC is Sunny, 72°F"
+            ```
+        """
+        # Resolve provider and model
+        eff_provider = provider or self._default_provider
+        eff_model = model_name or self._default_model_name
+        eff_provider, eff_model = self._resolve_provider_and_model(eff_provider, eff_model)
+
+        # Merge model kwargs
+        eff_kwargs = {**self._default_model_kwargs, **model_kwargs}
+
+        # Build messages
+        messages: List[Dict[str, Any]] = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+
+        # Run agent
+        result = self.run_agent(
+            messages=messages,
+            provider=eff_provider,
+            model_name=eff_model,
+            tools=tools,
+            model_kwargs=eff_kwargs,
+        )
+
+        # Extract text content from result
+        if hasattr(result, "get") and "messages" in result:
+            # LangGraph agent output format
+            msgs = result["messages"]
+            if msgs:
+                last_msg = msgs[-1]
+                return getattr(last_msg, "content", str(last_msg))
+        if hasattr(result, "content"):
+            return result.content
+        return str(result)
+
+    async def arun(
+        self,
+        prompt: str,
+        *,
+        provider: Optional[str] = None,
+        model_name: Optional[str] = None,
+        tools: Optional[List[Any]] = None,
+        system: Optional[str] = None,
+        **model_kwargs,
+    ) -> str:
+        """Async version of run().
+
+        Args:
+            prompt: User prompt/message
+            provider: Override provider (uses default if None)
+            model_name: Override model (uses default if None)
+            tools: Override tools (uses global tools if None)
+            system: Optional system message
+            **model_kwargs: Additional model kwargs
+
+        Returns:
+            The agent's final text response
+        """
+        # Resolve provider and model
+        eff_provider = provider or self._default_provider
+        eff_model = model_name or self._default_model_name
+        eff_provider, eff_model = self._resolve_provider_and_model(eff_provider, eff_model)
+
+        # Merge model kwargs
+        eff_kwargs = {**self._default_model_kwargs, **model_kwargs}
+
+        # Build messages
+        messages: List[Dict[str, Any]] = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+
+        # Run agent
+        result = await self.arun_agent(
+            messages=messages,
+            provider=eff_provider,
+            model_name=eff_model,
+            tools=tools,
+            model_kwargs=eff_kwargs,
+        )
+
+        # Extract text content from result
+        if hasattr(result, "get") and "messages" in result:
+            # LangGraph agent output format
+            msgs = result["messages"]
+            if msgs:
+                last_msg = msgs[-1]
+                return getattr(last_msg, "content", str(last_msg))
+        if hasattr(result, "content"):
+            return result.content
+        return str(result)
 
     def _make_agent_with_context(
         self,
@@ -667,6 +861,15 @@ class Agent(BaseLLM):
         model_kwargs: Optional[Dict[str, Any]] = None,
         tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,
     ) -> Tuple[Any, ModelSettings]:
+        # Build a composite tool wrapper that applies both execution config and HITL
+        def _wrap_tool(t: Any) -> Any:
+            # First apply execution config (error handling, timeout, validation)
+            wrapped = wrap_tool_with_execution_config(t, self._tool_execution_config)
+            # Then apply HITL if configured
+            if self._hitl.on_tool_call or self._hitl.on_tool_call_async:
+                wrapped = wrap_tool_for_hitl(wrapped, self._hitl)
+            return wrapped
+
         return rb_make_agent_with_context(
             self.registry,
             provider=provider,
@@ -677,12 +880,8 @@ class Agent(BaseLLM):
             tool_controls=tool_controls,
             require_explicit_tools=self.require_explicit_tools,
             global_tools=self.tools,
-            # Only provide a wrapper if HITL tool callback is active
-            hitl_tool_wrapper=(
-                (lambda t: wrap_tool_for_hitl(t, self._hitl))
-                if (self._hitl.on_tool_call or self._hitl.on_tool_call_async)
-                else None
-            ),
+            # Apply both execution config and HITL wrappers
+            hitl_tool_wrapper=_wrap_tool,
             logger=self._logger,
         )
 
