@@ -1,3 +1,77 @@
-from ai_infra.llm.tools.hitl import *
-from ai_infra.llm.tools.tool_controls import *
+from ai_infra.llm.tools.approval import (
+    ApprovalHandler,
+    ApprovalRequest,
+    ApprovalResponse,
+    ApprovalRule,
+    AsyncApprovalHandler,
+    AsyncOutputReviewer,
+    MultiApprovalRequest,
+    OutputReviewer,
+    OutputReviewRequest,
+    OutputReviewResponse,
+    auto_approve_handler,
+    auto_reject_handler,
+    console_approval_handler,
+    create_rule_based_handler,
+    create_selective_handler,
+)
+from ai_infra.llm.tools.events import ApprovalEvent, ApprovalEvents
+from ai_infra.llm.tools.hitl import (
+    ApprovalConfig,
+    HITLConfig,
+    ToolExecutionConfig,
+    ToolExecutionError,
+    ToolPolicy,
+    ToolTimeoutError,
+    ToolValidationError,
+    apply_output_gate,
+    apply_output_gate_async,
+    compute_effective_tools,
+    maybe_await,
+    wrap_tool_for_approval,
+    wrap_tool_for_hitl,
+    wrap_tool_with_execution_config,
+)
+from ai_infra.llm.tools.tool_controls import ToolCallControls
 from ai_infra.llm.tools.tools import tools_from_functions
+
+__all__ = [
+    # Approval
+    "ApprovalHandler",
+    "ApprovalRequest",
+    "ApprovalResponse",
+    "ApprovalRule",
+    "AsyncApprovalHandler",
+    "AsyncOutputReviewer",
+    "MultiApprovalRequest",
+    "OutputReviewRequest",
+    "OutputReviewResponse",
+    "OutputReviewer",
+    "auto_approve_handler",
+    "auto_reject_handler",
+    "console_approval_handler",
+    "create_rule_based_handler",
+    "create_selective_handler",
+    # Events
+    "ApprovalEvent",
+    "ApprovalEvents",
+    # HITL
+    "ApprovalConfig",
+    "HITLConfig",
+    "ToolExecutionConfig",
+    "ToolExecutionError",
+    "ToolPolicy",
+    "ToolTimeoutError",
+    "ToolValidationError",
+    "apply_output_gate",
+    "apply_output_gate_async",
+    "compute_effective_tools",
+    "maybe_await",
+    "wrap_tool_for_approval",
+    "wrap_tool_for_hitl",
+    "wrap_tool_with_execution_config",
+    # Tool controls
+    "ToolCallControls",
+    # Tools
+    "tools_from_functions",
+]

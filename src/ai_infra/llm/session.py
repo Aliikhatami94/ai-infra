@@ -1,0 +1,493 @@
+"""Session management for agent state persistence and pause/resume.
+
+This module provides a simple API for:
+1. Persisting agent conversations across requests (short-term memory)
+2. Pausing agent execution and resuming later (HITL workflows)
+3. Cross-session memory (long-term memory)
+
+Example - Simple conversation memory:
+    ```python
+    from ai_infra.llm import Agent
+    from ai_infra.llm.session import memory, Session
+
+    # In-memory session (for dev/testing)
+    agent = Agent(tools=[...], session=memory())
+
+    # Run with session ID
+    result = agent.run("Hi, I'm Bob", session_id="user-123")
+    result = agent.run("What's my name?", session_id="user-123")  # Remembers "Bob"
+    ```
+
+Example - Persistent sessions with Postgres:
+    ```python
+    from ai_infra.llm.session import postgres
+
+    # Production: use Postgres
+    agent = Agent(
+        tools=[...],
+        session=postgres("postgresql://..."),
+    )
+    ```
+
+Example - Pause and resume:
+    ```python
+    from ai_infra.llm import Agent
+    from ai_infra.llm.session import memory
+
+    agent = Agent(
+        tools=[dangerous_tool],
+        session=memory(),
+        pause_before=["dangerous_tool"],  # Pause before this tool
+    )
+
+    # Run until pause
+    result = agent.run("Delete file.txt", session_id="task-1")
+
+    if result.paused:
+        # Agent is paused, waiting for approval
+        print(f"Waiting for: {result.pending_action}")
+
+        # Later, resume with approval
+        result = agent.resume(
+            session_id="task-1",
+            approved=True,
+        )
+    ```
+"""
+
+from __future__ import annotations
+
+import uuid
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Literal, Optional, Protocol
+
+from pydantic import BaseModel
+
+# =============================================================================
+# Session Result Models
+# =============================================================================
+
+
+class PendingAction(BaseModel):
+    """Information about a paused action waiting for approval."""
+
+    id: str
+    """Unique ID for this pending action."""
+
+    action_type: Literal["tool_call", "output_review"]
+    """Type of action waiting."""
+
+    tool_name: Optional[str] = None
+    """Tool name if action_type is tool_call."""
+
+    args: Dict[str, Any] = {}
+    """Arguments for the tool call."""
+
+    context: Dict[str, Any] = {}
+    """Additional context."""
+
+    message: Optional[str] = None
+    """Human-readable description of what's pending."""
+
+
+class SessionResult(BaseModel):
+    """Result from an agent run with session support."""
+
+    content: str
+    """The agent's response content."""
+
+    paused: bool = False
+    """Whether the agent is paused waiting for input."""
+
+    pending_action: Optional[PendingAction] = None
+    """Details about pending action if paused."""
+
+    session_id: str
+    """The session ID used for this run."""
+
+    messages: List[Any] = []
+    """Full message history."""
+
+
+class ResumeDecision(BaseModel):
+    """Decision for resuming a paused agent."""
+
+    approved: bool = True
+    """Whether to approve the pending action."""
+
+    modified_args: Optional[Dict[str, Any]] = None
+    """Modified arguments (if approved with changes)."""
+
+    reason: Optional[str] = None
+    """Reason for decision."""
+
+
+# =============================================================================
+# Session Storage Protocol
+# =============================================================================
+
+
+class SessionStorage(Protocol):
+    """Protocol for session storage backends.
+
+    Implementations must provide both sync and async methods.
+    The simplest implementation is in-memory (for dev/testing).
+    Production should use Postgres or Redis.
+    """
+
+    def get_checkpointer(self) -> Any:
+        """Get the LangGraph checkpointer instance."""
+        ...
+
+    def get_store(self) -> Optional[Any]:
+        """Get the LangGraph store instance (for cross-session memory)."""
+        ...
+
+
+# =============================================================================
+# Built-in Storage Backends
+# =============================================================================
+
+
+class MemoryStorage:
+    """In-memory session storage for development and testing.
+
+    State is lost when the process exits. Use for:
+    - Local development
+    - Unit tests
+    - Prototyping
+
+    Example:
+        ```python
+        from ai_infra.llm.session import memory
+
+        agent = Agent(tools=[...], session=memory())
+        ```
+    """
+
+    def __init__(self):
+        from langgraph.checkpoint.memory import MemorySaver
+
+        self._checkpointer = MemorySaver()
+        self._store = None  # Could add InMemoryStore for long-term memory
+
+    def get_checkpointer(self) -> Any:
+        return self._checkpointer
+
+    def get_store(self) -> Optional[Any]:
+        return self._store
+
+
+class PostgresStorage:
+    """PostgreSQL session storage for production.
+
+    Persists state across process restarts. Use for:
+    - Production deployments
+    - Multi-instance apps
+    - Long-running conversations
+
+    Example:
+        ```python
+        from ai_infra.llm.session import postgres
+
+        agent = Agent(
+            tools=[...],
+            session=postgres("postgresql://user:pass@host:5432/db"),
+        )
+        ```
+
+    Note:
+        Requires `langgraph-checkpoint-postgres` package:
+        `pip install langgraph-checkpoint-postgres`
+    """
+
+    def __init__(
+        self,
+        connection_string: str,
+        *,
+        pool_size: int = 5,
+        enable_store: bool = False,
+    ):
+        """Initialize Postgres storage.
+
+        Args:
+            connection_string: PostgreSQL connection string
+            pool_size: Connection pool size
+            enable_store: Enable cross-session memory store
+        """
+        try:
+            from langgraph.checkpoint.postgres import PostgresSaver  # noqa: F401
+        except ImportError as e:
+            raise ImportError(
+                "PostgreSQL storage requires 'langgraph-checkpoint-postgres'. "
+                "Install with: pip install langgraph-checkpoint-postgres"
+            ) from e
+
+        self._connection_string = connection_string
+        self._pool_size = pool_size
+        self._enable_store = enable_store
+        self._checkpointer = None
+        self._store = None
+        self._initialized = False
+
+    def _ensure_initialized(self):
+        """Lazily initialize connections."""
+        if self._initialized:
+            return
+
+        from langgraph.checkpoint.postgres import PostgresSaver
+
+        self._checkpointer = PostgresSaver.from_conn_string(
+            self._connection_string,
+        )
+        # Call setup to create tables if needed
+        self._checkpointer.setup()
+
+        if self._enable_store:
+            try:
+                from langgraph.store.postgres import PostgresStore
+
+                self._store = PostgresStore.from_conn_string(self._connection_string)
+                self._store.setup()
+            except ImportError:
+                pass  # Store not available
+
+        self._initialized = True
+
+    def get_checkpointer(self) -> Any:
+        self._ensure_initialized()
+        return self._checkpointer
+
+    def get_store(self) -> Optional[Any]:
+        self._ensure_initialized()
+        return self._store
+
+
+class SQLiteStorage:
+    """SQLite session storage for single-instance deployments.
+
+    Persists state to a local file. Use for:
+    - Desktop applications
+    - Single-server deployments
+    - Offline-capable apps
+
+    Example:
+        ```python
+        from ai_infra.llm.session import sqlite
+
+        agent = Agent(
+            tools=[...],
+            session=sqlite("./agent_sessions.db"),
+        )
+        ```
+
+    Note:
+        Requires `langgraph-checkpoint-sqlite` package:
+        `pip install langgraph-checkpoint-sqlite`
+    """
+
+    def __init__(self, path: str = ":memory:"):
+        """Initialize SQLite storage.
+
+        Args:
+            path: Path to SQLite database file, or ":memory:" for in-memory
+        """
+        try:
+            from langgraph.checkpoint.sqlite import SqliteSaver
+        except ImportError as e:
+            raise ImportError(
+                "SQLite storage requires 'langgraph-checkpoint-sqlite'. "
+                "Install with: pip install langgraph-checkpoint-sqlite"
+            ) from e
+
+        import sqlite3
+
+        self._conn = sqlite3.connect(path, check_same_thread=False)
+        self._checkpointer = SqliteSaver(self._conn)
+        self._store = None
+
+    def get_checkpointer(self) -> Any:
+        return self._checkpointer
+
+    def get_store(self) -> Optional[Any]:
+        return self._store
+
+
+# =============================================================================
+# Convenience Factory Functions
+# =============================================================================
+
+
+def memory() -> MemoryStorage:
+    """Create an in-memory session storage.
+
+    Use for development, testing, and prototyping.
+    State is lost when the process exits.
+
+    Returns:
+        MemoryStorage instance
+
+    Example:
+        ```python
+        from ai_infra.llm.session import memory
+
+        agent = Agent(tools=[...], session=memory())
+        result = agent.run("Hello", session_id="user-123")
+        ```
+    """
+    return MemoryStorage()
+
+
+def postgres(
+    connection_string: str,
+    *,
+    pool_size: int = 5,
+    enable_store: bool = False,
+) -> PostgresStorage:
+    """Create a PostgreSQL session storage.
+
+    Use for production deployments with persistence.
+
+    Args:
+        connection_string: PostgreSQL connection string
+        pool_size: Connection pool size
+        enable_store: Enable cross-session memory store
+
+    Returns:
+        PostgresStorage instance
+
+    Example:
+        ```python
+        from ai_infra.llm.session import postgres
+
+        agent = Agent(
+            tools=[...],
+            session=postgres("postgresql://user:pass@host:5432/db"),
+        )
+        ```
+    """
+    return PostgresStorage(
+        connection_string,
+        pool_size=pool_size,
+        enable_store=enable_store,
+    )
+
+
+def sqlite(path: str = ":memory:") -> SQLiteStorage:
+    """Create a SQLite session storage.
+
+    Use for single-instance deployments or desktop apps.
+
+    Args:
+        path: Path to SQLite database file, or ":memory:" for in-memory
+
+    Returns:
+        SQLiteStorage instance
+
+    Example:
+        ```python
+        from ai_infra.llm.session import sqlite
+
+        agent = Agent(
+            tools=[...],
+            session=sqlite("./sessions.db"),
+        )
+        ```
+    """
+    return SQLiteStorage(path)
+
+
+# =============================================================================
+# Session Configuration
+# =============================================================================
+
+
+@dataclass
+class SessionConfig:
+    """Configuration for session-aware agent execution.
+
+    This is used internally by the Agent class to manage sessions.
+    """
+
+    storage: SessionStorage
+    """Storage backend for session state."""
+
+    pause_before: List[str] = field(default_factory=list)
+    """Tool names to pause before executing."""
+
+    pause_after: List[str] = field(default_factory=list)
+    """Tool names to pause after executing."""
+
+    def get_config(self, session_id: str) -> Dict[str, Any]:
+        """Get LangGraph config for a session.
+
+        Args:
+            session_id: Unique session identifier
+
+        Returns:
+            Config dict with thread_id for LangGraph
+        """
+        return {"configurable": {"thread_id": session_id}}
+
+
+# =============================================================================
+# Session State Utilities
+# =============================================================================
+
+
+def generate_session_id() -> str:
+    """Generate a unique session ID.
+
+    Returns:
+        UUID string for use as session_id
+    """
+    return str(uuid.uuid4())
+
+
+def is_paused(result: Any) -> bool:
+    """Check if an agent result indicates a paused state.
+
+    Args:
+        result: Result from agent.run() or agent.arun()
+
+    Returns:
+        True if agent is paused waiting for input
+    """
+    if isinstance(result, SessionResult):
+        return result.paused
+
+    # Check for LangGraph interrupt indicator
+    if isinstance(result, dict) and "__interrupt__" in result:
+        return True
+
+    return False
+
+
+def get_pending_action(result: Any) -> Optional[PendingAction]:
+    """Extract pending action from a paused result.
+
+    Args:
+        result: Result from agent.run() or agent.arun()
+
+    Returns:
+        PendingAction if paused, None otherwise
+    """
+    if isinstance(result, SessionResult):
+        return result.pending_action
+
+    # Parse LangGraph interrupt
+    if isinstance(result, dict) and "__interrupt__" in result:
+        interrupt_data = result["__interrupt__"]
+        if interrupt_data:
+            first = interrupt_data[0]
+            value = getattr(first, "value", first) if hasattr(first, "value") else first
+            if isinstance(value, dict):
+                return PendingAction(
+                    id=value.get("id", str(uuid.uuid4())),
+                    action_type=value.get("action_type", "tool_call"),
+                    tool_name=value.get("tool_name"),
+                    args=value.get("args", {}),
+                    context=value.get("context", {}),
+                    message=value.get("message"),
+                )
+    return None

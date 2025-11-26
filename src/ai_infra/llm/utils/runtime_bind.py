@@ -78,6 +78,11 @@ def make_agent_with_context(
     global_tools: Optional[List[Any]] = None,
     hitl_tool_wrapper=None,
     logger: Optional[logging.Logger] = None,
+    # Session/checkpoint config
+    checkpointer: Optional[Any] = None,
+    store: Optional[Any] = None,
+    interrupt_before: Optional[List[str]] = None,
+    interrupt_after: Optional[List[str]] = None,
 ) -> Tuple[Any, ModelSettings]:
     """Construct an agent (LangGraph ReAct) and its runtime context.
 
@@ -87,6 +92,28 @@ def make_agent_with_context(
       - implicit global tools policy
       - HITL tool wrapping
       - agent graph creation with deferred model binding
+      - session persistence via checkpointer
+      - pause/resume via interrupt_before/after
+
+    Args:
+        registry: Model registry for lazy model creation
+        provider: LLM provider name
+        model_name: Model name (or None for provider default)
+        tools: Tools to bind (overrides global_tools if provided)
+        extra: Additional context (tool_controls, model_kwargs, etc.)
+        model_kwargs: Kwargs passed to model creation
+        tool_controls: Tool calling controls (tool_choice, parallel_tool_calls)
+        require_explicit_tools: If True, error when using implicit global tools
+        global_tools: Default tools when none specified
+        hitl_tool_wrapper: Function to wrap tools for HITL
+        logger: Logger for debug messages
+        checkpointer: LangGraph checkpointer for session persistence
+        store: LangGraph store for cross-session memory
+        interrupt_before: Tool names to pause before executing
+        interrupt_after: Tool names to pause after executing
+
+    Returns:
+        Tuple of (compiled agent, ModelSettings context)
     """
     model_kwargs = model_kwargs or {}
     effective_model = registry.resolve_model_name(provider, model_name)
@@ -139,7 +166,15 @@ def make_agent_with_context(
     def _selector(state, rt: Runtime[ModelSettings]):
         return bind_model_with_tools(state, rt, registry, global_tools=context.tools)
 
-    agent = create_react_agent(model=_selector, tools=effective_tools)
+    # Build agent with optional session/interrupt config
+    agent = create_react_agent(
+        model=_selector,
+        tools=effective_tools,
+        checkpointer=checkpointer,
+        store=store,
+        interrupt_before=interrupt_before,
+        interrupt_after=interrupt_after,
+    )
     return agent, context
 
 

@@ -1,15 +1,12 @@
-from __future__ import annotations
-
-import asyncio
-
-"""
-Centralized HITL + tool policy utilities.
+"""Centralized HITL + tool policy utilities.
 
 This module consolidates logic that previously lived ad‑hoc in LLM / runtime_bind:
-  - HITLConfig: stores callbacks and provides a .set API
+  - HITLConfig: stores callbacks and provides a .set API (legacy)
+  - ApprovalConfig: new approval-based HITL configuration
   - maybe_await: safe sync resolver for (possibly) async callbacks
   - apply_output_gate: applies model output moderation / modification gate
   - wrap_tool_for_hitl: wraps a tool with pre‑execution HITL policy
+  - wrap_tool_for_approval: wraps a tool with approval workflow
   - ToolPolicy: configuration holder for tool selection policy
   - compute_effective_tools: merges per‑call tools with global tools under policy
   - ToolExecutionConfig: configuration for tool execution (errors, timeouts, validation)
@@ -18,22 +15,47 @@ This module consolidates logic that previously lived ad‑hoc in LLM / runtime_b
 None of these functions mutate global state; they are pure / side‑effect free
 (except logging) and can be composed by higher‑level orchestration code.
 """
+
+from __future__ import annotations
+
+import asyncio
 import inspect
 import logging
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Literal, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, Optional, Sequence, Union
 
 from langchain_core.tools import BaseTool
 from langchain_core.tools import tool as lc_tool  # type: ignore
 
+from .approval import (
+    ApprovalHandler,
+    ApprovalRequest,
+    ApprovalResponse,
+    AsyncApprovalHandler,
+    AsyncOutputReviewer,
+    OutputReviewer,
+    OutputReviewRequest,
+    OutputReviewResponse,
+    console_approval_handler,
+)
+
+if TYPE_CHECKING:
+    from .events import ApprovalEvents
+
 __all__ = [
+    # Legacy HITL
     "HITLConfig",
     "maybe_await",
     "apply_output_gate",
     "apply_output_gate_async",
     "wrap_tool_for_hitl",
+    # New approval-based HITL
+    "ApprovalConfig",
+    "wrap_tool_for_approval",
+    # Tool policy
     "ToolPolicy",
     "compute_effective_tools",
+    # Tool execution config
     "ToolExecutionConfig",
     "ToolExecutionError",
     "ToolTimeoutError",
@@ -144,6 +166,253 @@ class _HITLWrappedTool(BaseTool):
             return await self._base.ainvoke(args_dict)
         # fallback: run sync tool in a thread
         return await asyncio.to_thread(self._base.invoke, args_dict)
+
+
+# ---------- New Approval-based HITL ----------
+@dataclass
+class ApprovalConfig:
+    """Configuration for approval-based HITL.
+
+    This is the recommended way to configure HITL for new code.
+    It uses structured ApprovalRequest/ApprovalResponse models.
+
+    Attributes:
+        approval_handler: Sync handler for tool approval requests
+        approval_handler_async: Async handler for tool approval requests
+        output_reviewer: Sync handler for output review
+        output_reviewer_async: Async handler for output review
+        require_approval: Tools that require approval:
+            - True: All tools need approval
+            - List[str]: Only specified tools need approval
+            - Callable[[str, dict], bool]: Function that decides based on tool name and args
+        auto_approve: If True, auto-approve all requests (for testing)
+
+    Example (Console):
+        ```python
+        config = ApprovalConfig(require_approval=True)
+        # Uses console_approval_handler by default
+        ```
+
+    Example (Web App):
+        ```python
+        async def my_handler(req: ApprovalRequest) -> ApprovalResponse:
+            # Send to frontend, wait for response
+            ...
+
+        config = ApprovalConfig(approval_handler_async=my_handler)
+        ```
+
+    Example (Selective Approval):
+        ```python
+        config = ApprovalConfig(
+            require_approval=["dangerous_tool", "delete_file"],
+        )
+        ```
+
+    Example (Conditional Approval):
+        ```python
+        def needs_approval(tool_name: str, args: dict) -> bool:
+            # Only need approval for large amounts
+            if tool_name == "transfer_money":
+                return args.get("amount", 0) > 1000
+            return False
+
+        config = ApprovalConfig(require_approval=needs_approval)
+        ```
+
+    Example (With Event Hooks):
+        ```python
+        from ai_infra.llm.tools.events import ApprovalEvents
+
+        def on_request(req: ApprovalRequest):
+            logger.info(f"Approval requested for {req.tool_name}")
+
+        config = ApprovalConfig(
+            require_approval=True,
+            events=ApprovalEvents(
+                on_requested=on_request,
+            ),
+        )
+        ```
+    """
+
+    approval_handler: Optional[ApprovalHandler] = None
+    approval_handler_async: Optional[AsyncApprovalHandler] = None
+    output_reviewer: Optional[OutputReviewer] = None
+    output_reviewer_async: Optional[AsyncOutputReviewer] = None
+    require_approval: Union[bool, List[str], Callable[[str, Dict[str, Any]], bool]] = False
+    auto_approve: bool = False
+    events: Optional["ApprovalEvents"] = None  # Event hooks for observability
+
+    def __post_init__(self):
+        # If require_approval is True but no handler, use console
+        if self.require_approval and not self.approval_handler and not self.approval_handler_async:
+            if not self.auto_approve:
+                self.approval_handler = console_approval_handler
+
+    def needs_approval(self, tool_name: str, args: Optional[Dict[str, Any]] = None) -> bool:
+        """Check if a tool needs approval.
+
+        Args:
+            tool_name: Name of the tool being called
+            args: Arguments being passed to the tool (used for conditional approval)
+
+        Returns:
+            True if approval is required, False otherwise
+        """
+        if self.auto_approve:
+            return False
+        if callable(self.require_approval):
+            # Dynamic approval based on tool name and args
+            return self.require_approval(tool_name, args or {})
+        if isinstance(self.require_approval, bool):
+            return self.require_approval
+        if isinstance(self.require_approval, list):
+            return tool_name in self.require_approval
+        return False
+
+    async def request_approval(self, request: ApprovalRequest) -> ApprovalResponse:
+        """Request approval for a tool call."""
+        if self.auto_approve:
+            return ApprovalResponse.approve(reason="Auto-approved", approver="auto")
+
+        if self.approval_handler_async:
+            result = self.approval_handler_async(request)
+            if inspect.isawaitable(result):
+                return await result
+            return result  # type: ignore
+        elif self.approval_handler:
+            return await asyncio.to_thread(self.approval_handler, request)
+        else:
+            # No handler, auto-approve
+            return ApprovalResponse.approve(reason="No handler configured", approver="auto")
+
+    async def review_output(self, request: OutputReviewRequest) -> OutputReviewResponse:
+        """Review model output."""
+        if self.output_reviewer_async:
+            result = self.output_reviewer_async(request)
+            if inspect.isawaitable(result):
+                return await result
+            return result  # type: ignore
+        elif self.output_reviewer:
+            return await asyncio.to_thread(self.output_reviewer, request)
+        else:
+            return OutputReviewResponse.allow()
+
+
+class _ApprovalWrappedTool(BaseTool):
+    """Wraps a tool with approval workflow using ApprovalRequest/Response models."""
+
+    def __init__(self, base: BaseTool, config: ApprovalConfig):
+        super().__init__(
+            name=getattr(base, "name", "tool"),
+            description=getattr(base, "description", "") or "",
+        )
+        self._base = base
+        self._config = config
+        # Preserve args schema if present
+        if hasattr(base, "args_schema") and base.args_schema is not None:
+            self.args_schema = base.args_schema  # type: ignore[attr-defined]
+
+    def _run(self, *args, **kwargs):  # type: ignore[override]
+        raise NotImplementedError("Approval-wrapped tools are async-only. Use ainvoke/_arun.")
+
+    async def _arun(self, *args, **kwargs):  # type: ignore[override]
+        from .events import ApprovalEvent
+
+        args_dict = dict(kwargs) if kwargs else {}
+        events = self._config.events
+
+        # Check if this tool needs approval (pass args for conditional approval)
+        if not self._config.needs_approval(self.name, args_dict):
+            # No approval needed, execute directly
+            if hasattr(self._base, "ainvoke"):
+                return await self._base.ainvoke(args_dict)
+            return await asyncio.to_thread(self._base.invoke, args_dict)
+
+        # Create approval request
+        request = ApprovalRequest(
+            tool_name=self.name,
+            args=args_dict,
+        )
+
+        # Emit approval requested event
+        if events:
+            event = ApprovalEvent.requested(
+                tool_name=self.name,
+                args=args_dict,
+            )
+            await events.emit_async(event)
+
+        # Request approval
+        response = await self._config.request_approval(request)
+
+        # Emit approval response event
+        if events:
+            if response.approved:
+                if response.modified_args:
+                    event = ApprovalEvent.modified(
+                        tool_name=self.name,
+                        args=args_dict,
+                        approver=response.approver,
+                        reason=response.reason,
+                        modified_args=response.modified_args,
+                    )
+                else:
+                    event = ApprovalEvent.granted(
+                        tool_name=self.name,
+                        args=args_dict,
+                        approver=response.approver,
+                        reason=response.reason,
+                    )
+            else:
+                event = ApprovalEvent.denied(
+                    tool_name=self.name,
+                    args=args_dict,
+                    approver=response.approver,
+                    reason=response.reason,
+                )
+            await events.emit_async(event)
+
+        if not response.approved:
+            reason = response.reason or "Rejected by reviewer"
+            return f"[Tool call rejected: {reason}]"
+
+        # Use modified args if provided
+        if response.modified_args is not None:
+            args_dict = response.modified_args
+
+        # Execute the tool
+        if hasattr(self._base, "ainvoke"):
+            return await self._base.ainvoke(args_dict)
+        return await asyncio.to_thread(self._base.invoke, args_dict)
+
+
+def wrap_tool_for_approval(
+    tool_obj: Any,
+    config: Optional[ApprovalConfig],
+) -> Any:
+    """Wrap a tool with approval workflow.
+
+    Args:
+        tool_obj: The tool to wrap (BaseTool, function, or callable)
+        config: Approval configuration. If None, returns tool unchanged.
+
+    Returns:
+        Wrapped tool with approval workflow, or original if config is None
+    """
+    if not config:
+        return tool_obj
+
+    # Normalize to BaseTool
+    if isinstance(tool_obj, BaseTool):
+        base = tool_obj
+    elif callable(tool_obj):
+        base = lc_tool(tool_obj)
+    else:
+        return tool_obj
+
+    return _ApprovalWrappedTool(base, config)
 
 
 # ---------- Async helper ----------
