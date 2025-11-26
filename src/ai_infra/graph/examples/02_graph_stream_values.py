@@ -4,7 +4,7 @@ Usage: python -m quickstart.run graph_stream_values
 
 from typing_extensions import TypedDict
 
-from ai_infra.graph.core import Graph
+from ai_infra.graph import Graph
 from ai_infra.graph.models import Edge
 
 

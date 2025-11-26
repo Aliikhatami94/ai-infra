@@ -5,7 +5,7 @@ Usage: python -m quickstart.run graph_basic
 from langgraph.graph import END
 from typing_extensions import TypedDict
 
-from ai_infra.graph.core import Graph
+from ai_infra.graph import Graph
 from ai_infra.graph.models import ConditionalEdge, Edge
 
 MAX_VALUE = 40

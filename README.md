@@ -121,7 +121,7 @@ See more examples in src/ai_infra/llm/examples:
 ```python
 from typing_extensions import TypedDict
 from langgraph.graph import END
-from ai_infra.graph.core import Graph
+from ai_infra.graph import Graph
 from ai_infra.graph.models import Edge, ConditionalEdge
 
 class MyState(TypedDict):
