@@ -53,6 +53,27 @@ pre-commit = "^4.3.0"
 # Raw provider SDKs for models.list() discovery
 google-genai = "^1.0.0"
 
+# Retriever backends (optional)
+numpy = "^1.24.0"
+langchain-text-splitters = "^0.3.8"
+
+[tool.poetry.extras]
+# Retriever storage backends
+postgres = ["pgvector", "psycopg2-binary"]
+sqlite = ["sqlite-vss"]
+chroma = ["chromadb"]
+pinecone = ["pinecone-client"]
+qdrant = ["qdrant-client"]
+faiss = ["faiss-cpu"]
+# File loaders
+pdf = ["pypdf"]
+docx = ["python-docx"]
+html = ["beautifulsoup4"]
+csv = ["pandas"]
+# All retriever dependencies
+retriever = ["pypdf", "python-docx", "beautifulsoup4", "pandas"]
+retriever-all = ["pgvector", "psycopg2-binary", "chromadb", "pypdf", "python-docx", "beautifulsoup4", "pandas"]
+
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.0"
 pytest-asyncio = "^0.23.0"
