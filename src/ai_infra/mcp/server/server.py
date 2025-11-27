@@ -147,9 +147,68 @@ class MCPServer:
         client_factory: Callable[[], httpx.AsyncClient] | None = None,
         base_url: str | None = None,
         name: str | None = None,
-        report_log: Optional[bool] = None,  # NEW: let callers force logging
-        strict_names: bool = False,  # NEW: propagate strict names
+        report_log: Optional[bool] = None,
+        strict_names: bool = False,
+        # Filtering options
+        tool_prefix: Optional[str] = None,
+        include_paths: Optional[list[str]] = None,
+        exclude_paths: Optional[list[str]] = None,
+        include_methods: Optional[list[str]] = None,
+        exclude_methods: Optional[list[str]] = None,
+        include_tags: Optional[list[str]] = None,
+        exclude_tags: Optional[list[str]] = None,
+        include_operations: Optional[list[str]] = None,
+        exclude_operations: Optional[list[str]] = None,
+        tool_name_fn: Optional[Callable[[str, str, dict], str]] = None,
+        tool_description_fn: Optional[Callable[[dict], str]] = None,
+        # Authentication
+        auth: Any = None,
+        endpoint_auth: Optional[dict[str, Any]] = None,
     ) -> "MCPServer":
+        """Add OpenAPI spec as MCP tools.
+
+        Args:
+            path: Mount path for the MCP server
+            spec: OpenAPI spec (URL, file path, or dict)
+            transport: Transport type (streamable_http, sse, websocket)
+            client: Existing httpx client
+            client_factory: Factory for httpx client
+            base_url: Override base URL for all requests
+            name: Name for the MCP server
+            report_log: Log build report
+            strict_names: Raise on duplicate tool names
+
+            # Filtering
+            tool_prefix: Prefix all tool names
+            include_paths: Only include paths matching these globs
+            exclude_paths: Exclude paths matching these globs
+            include_methods: Only include these HTTP methods
+            exclude_methods: Exclude these HTTP methods
+            include_tags: Only include operations with these tags
+            exclude_tags: Exclude operations with these tags
+            include_operations: Only include these operationIds
+            exclude_operations: Exclude these operationIds
+            tool_name_fn: Custom function(method, path, op) -> name
+            tool_description_fn: Custom function(op) -> description
+
+            # Authentication
+            auth: Auth config (dict for headers, tuple for basic, str for bearer)
+            endpoint_auth: Per-endpoint auth overrides (pattern -> auth)
+
+        Example:
+            # Zero-config
+            server.add_openapi("/github", "https://api.github.com/openapi.json")
+
+            # With filtering and auth
+            server.add_openapi(
+                "/github",
+                "https://api.github.com/openapi.json",
+                tool_prefix="github",
+                include_paths=["/repos/*", "/users/*"],
+                exclude_methods=["DELETE"],
+                auth={"Authorization": "Bearer ghp_xxx"},
+            )
+        """
         res = _mcp_from_openapi(
             spec,
             client=client,
@@ -157,6 +216,19 @@ class MCPServer:
             base_url=base_url,
             strict_names=strict_names,
             report_log=report_log,
+            tool_prefix=tool_prefix,
+            include_paths=include_paths,
+            exclude_paths=exclude_paths,
+            include_methods=include_methods,
+            exclude_methods=exclude_methods,
+            include_tags=include_tags,
+            exclude_tags=exclude_tags,
+            include_operations=include_operations,
+            exclude_operations=exclude_operations,
+            tool_name_fn=tool_name_fn,
+            tool_description_fn=tool_description_fn,
+            auth=auth,
+            endpoint_auth=endpoint_auth,
         )
         # back-compat unpack (2 or 3 items)
         if isinstance(res, tuple) and len(res) == 3:
