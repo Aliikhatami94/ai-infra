@@ -140,6 +140,24 @@ class OpenAPIOptions:
     auth: Optional[AuthConfig] = None
     endpoint_auth: Optional[Dict[str, Any]] = None  # Pattern -> AuthConfig
 
+    # Request configuration
+    timeout: Optional[float] = None  # Request timeout in seconds (default: 30)
+    retries: int = 0  # Number of retries on transient failures
+
+    # Rate limiting
+    rate_limit: Optional[float] = None  # Max requests per second (None = unlimited)
+    rate_limit_retry: bool = True  # Retry on 429 Too Many Requests
+    rate_limit_max_retries: int = 3  # Max retries on 429
+
+    # Caching & Performance
+    cache_ttl: Optional[float] = None  # Cache TTL in seconds (None = no caching)
+    cache_methods: Optional[List[str]] = None  # Methods to cache (default: ["GET"])
+    dedupe_requests: bool = False  # Deduplicate concurrent identical requests
+
+    # Pagination
+    auto_paginate: bool = False  # Automatically fetch all pages
+    max_pages: int = 10  # Maximum pages to fetch when auto-paginating
+
     def should_include_operation(
         self,
         path: str,

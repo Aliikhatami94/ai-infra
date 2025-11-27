@@ -1,3 +1,11 @@
+from .error_handler import (
+    extract_retry_after,
+    get_supported_kwargs,
+    translate_provider_error,
+    validate_kwargs,
+    with_error_handling,
+    with_error_handling_async,
+)
 from .fallbacks import (
     Candidate,
     FallbackError,
@@ -15,6 +23,13 @@ from .settings import ModelSettings
 from .validation import validate_provider
 
 __all__ = [
+    # error_handler
+    "extract_retry_after",
+    "get_supported_kwargs",
+    "translate_provider_error",
+    "validate_kwargs",
+    "with_error_handling",
+    "with_error_handling_async",
     # fallbacks
     "Candidate",
     "FallbackError",

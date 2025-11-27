@@ -697,3 +697,295 @@ class TestOpenAPIOptions:
 
         name = options.get_tool_name("getUser", "GET", "/users", {})
         assert name == "api_get_op"
+
+
+# =============================================================================
+# 3.5.8: Caching & Performance Tests
+# =============================================================================
+
+
+class TestResponseCache:
+    """Test 3.5.8: Response caching functionality."""
+
+    def test_cache_set_and_get(self):
+        """Cache stores and retrieves values."""
+        from ai_infra.mcp.server.openapi.runtime import ResponseCache
+
+        cache = ResponseCache(ttl=60)
+        key = cache.make_key("GET", "/users/1", {"page": 1})
+
+        cache.set(key, {"status": 200, "data": "test"})
+        result = cache.get(key)
+
+        assert result == {"status": 200, "data": "test"}
+
+    def test_cache_ttl_expiry(self):
+        """Cache entries expire after TTL."""
+        import time
+
+        from ai_infra.mcp.server.openapi.runtime import ResponseCache
+
+        cache = ResponseCache(ttl=0.1)  # 100ms TTL
+        key = cache.make_key("GET", "/users", {})
+
+        cache.set(key, {"data": "test"})
+        assert cache.get(key) == {"data": "test"}
+
+        time.sleep(0.15)  # Wait for expiry
+        assert cache.get(key) is None
+
+    def test_cache_should_cache_methods(self):
+        """Cache respects allowed methods."""
+        from ai_infra.mcp.server.openapi.runtime import ResponseCache
+
+        cache = ResponseCache(ttl=60, methods=["GET", "HEAD"])
+
+        assert cache.should_cache("GET") is True
+        assert cache.should_cache("get") is True  # Case insensitive
+        assert cache.should_cache("HEAD") is True
+        assert cache.should_cache("POST") is False
+        assert cache.should_cache("DELETE") is False
+
+    def test_cache_key_consistency(self):
+        """Same inputs produce same cache key."""
+        from ai_infra.mcp.server.openapi.runtime import ResponseCache
+
+        cache = ResponseCache(ttl=60)
+
+        key1 = cache.make_key("GET", "/users", {"page": 1, "limit": 10})
+        key2 = cache.make_key("GET", "/users", {"limit": 10, "page": 1})  # Different order
+
+        assert key1 == key2  # Same params, same key
+
+    def test_cache_key_uniqueness(self):
+        """Different inputs produce different cache keys."""
+        from ai_infra.mcp.server.openapi.runtime import ResponseCache
+
+        cache = ResponseCache(ttl=60)
+
+        key1 = cache.make_key("GET", "/users/1", {})
+        key2 = cache.make_key("GET", "/users/2", {})
+        key3 = cache.make_key("POST", "/users/1", {})
+
+        assert key1 != key2
+        assert key1 != key3
+
+    def test_cache_max_size_eviction(self):
+        """Cache evicts oldest entries when at max size."""
+        from ai_infra.mcp.server.openapi.runtime import ResponseCache
+
+        cache = ResponseCache(ttl=60, max_size=10)
+
+        # Fill cache
+        for i in range(15):
+            key = cache.make_key("GET", f"/item/{i}", {})
+            cache.set(key, {"id": i})
+
+        # Should have evicted some entries
+        assert len(cache) <= 10
+
+    def test_cache_clear(self):
+        """Cache can be cleared."""
+        from ai_infra.mcp.server.openapi.runtime import ResponseCache
+
+        cache = ResponseCache(ttl=60)
+        key = cache.make_key("GET", "/users", {})
+        cache.set(key, {"data": "test"})
+
+        cache.clear()
+
+        assert len(cache) == 0
+        assert cache.get(key) is None
+
+    def test_openapi_options_cache_settings(self):
+        """OpenAPIOptions includes cache settings."""
+        options = OpenAPIOptions(
+            cache_ttl=300,
+            cache_methods=["GET", "HEAD"],
+        )
+
+        assert options.cache_ttl == 300
+        assert options.cache_methods == ["GET", "HEAD"]
+
+    def test_openapi_options_defaults(self):
+        """OpenAPIOptions has sensible cache defaults."""
+        options = OpenAPIOptions()
+
+        assert options.cache_ttl is None  # No caching by default
+        assert options.cache_methods is None  # Will default to GET when used
+
+
+# =============================================================================
+# Rate Limiter Tests
+# =============================================================================
+
+
+class TestRateLimiter:
+    """Test rate limiting functionality."""
+
+    def test_rate_limiter_try_acquire(self):
+        """Rate limiter allows requests within limit."""
+        from ai_infra.mcp.server.openapi.runtime import RateLimiter
+
+        limiter = RateLimiter(rate=10, burst=10)
+
+        # Should allow first 10 requests
+        for _ in range(10):
+            assert limiter.try_acquire() is True
+
+        # 11th request should be rate limited
+        assert limiter.try_acquire() is False
+
+    def test_rate_limiter_refill(self):
+        """Rate limiter refills tokens over time."""
+        import time
+
+        from ai_infra.mcp.server.openapi.runtime import RateLimiter
+
+        limiter = RateLimiter(rate=10, burst=2)
+
+        # Use up all tokens
+        assert limiter.try_acquire() is True
+        assert limiter.try_acquire() is True
+        assert limiter.try_acquire() is False
+
+        # Wait for refill (100ms = 1 token at 10/s)
+        time.sleep(0.15)
+
+        # Should have ~1 token now
+        assert limiter.try_acquire() is True
+
+    @pytest.mark.asyncio
+    async def test_rate_limiter_acquire_async(self):
+        """Rate limiter async acquire blocks when needed."""
+        from ai_infra.mcp.server.openapi.runtime import RateLimiter
+
+        limiter = RateLimiter(rate=100, burst=2)
+
+        # Should complete quickly
+        await limiter.acquire()
+        await limiter.acquire()
+
+
+class TestRequestDeduplicator:
+    """Test request deduplication."""
+
+    @pytest.mark.asyncio
+    async def test_deduplicator_single_request(self):
+        """Single request executes normally."""
+        from ai_infra.mcp.server.openapi.runtime import RequestDeduplicator
+
+        dedup = RequestDeduplicator()
+        call_count = 0
+
+        async def fn():
+            nonlocal call_count
+            call_count += 1
+            return "result"
+
+        result = await dedup.execute("key1", fn)
+
+        assert result == "result"
+        assert call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_deduplicator_different_keys(self):
+        """Different keys execute independently."""
+        from ai_infra.mcp.server.openapi.runtime import RequestDeduplicator
+
+        dedup = RequestDeduplicator()
+        call_count = 0
+
+        async def fn():
+            nonlocal call_count
+            call_count += 1
+            return call_count
+
+        result1 = await dedup.execute("key1", fn)
+        result2 = await dedup.execute("key2", fn)
+
+        assert result1 == 1
+        assert result2 == 2
+
+
+# =============================================================================
+# OpenAPIOptions Performance Settings Tests
+# =============================================================================
+
+
+class TestOpenAPIOptionsPerformance:
+    """Test OpenAPIOptions performance settings."""
+
+    def test_rate_limit_options(self):
+        """Rate limit options are set correctly."""
+        options = OpenAPIOptions(
+            rate_limit=10,
+            rate_limit_retry=True,
+            rate_limit_max_retries=5,
+        )
+
+        assert options.rate_limit == 10
+        assert options.rate_limit_retry is True
+        assert options.rate_limit_max_retries == 5
+
+    def test_dedupe_options(self):
+        """Deduplication option is set correctly."""
+        options = OpenAPIOptions(dedupe_requests=True)
+
+        assert options.dedupe_requests is True
+
+    def test_pagination_options(self):
+        """Pagination options are set correctly."""
+        options = OpenAPIOptions(
+            auto_paginate=True,
+            max_pages=20,
+        )
+
+        assert options.auto_paginate is True
+        assert options.max_pages == 20
+
+    def test_default_performance_options(self):
+        """Default performance options are sensible."""
+        options = OpenAPIOptions()
+
+        assert options.rate_limit is None
+        assert options.rate_limit_retry is True
+        assert options.rate_limit_max_retries == 3
+        assert options.dedupe_requests is False
+        assert options.auto_paginate is False
+        assert options.max_pages == 10
+
+
+# =============================================================================
+# OpenMCP Spec Generation Tests
+# =============================================================================
+
+
+class TestOpenMCPSpec:
+    """Test OpenMCP spec generation."""
+
+    def test_get_openmcp_empty_server(self):
+        """Empty server returns valid spec structure."""
+        from ai_infra.mcp.server.server import MCPServer
+
+        server = MCPServer()
+        spec = server.get_openmcp()
+
+        assert spec["openmcp"] == "1.0.0"
+        assert "info" in spec
+        assert "servers" in spec
+        assert "tools" in spec
+        assert isinstance(spec["tools"], list)
+        assert isinstance(spec["servers"], list)
+
+    def test_get_openmcp_with_mounts(self, simple_spec):
+        """Server with mounts includes tool info."""
+        from ai_infra.mcp.server.server import MCPServer
+
+        server = MCPServer()
+        server.add_openapi("/api", simple_spec)
+
+        spec = server.get_openmcp()
+
+        assert len(spec["servers"]) == 1
+        assert spec["servers"][0]["path"] == "/api"

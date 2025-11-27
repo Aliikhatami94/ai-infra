@@ -31,6 +31,7 @@ from ai_infra.llm.tools import (
 )
 from ai_infra.llm.tools.approval import ApprovalHandler, AsyncApprovalHandler
 from ai_infra.llm.tools.tool_controls import ToolCallControls
+from ai_infra.llm.utils.error_handler import translate_provider_error
 from ai_infra.llm.utils.runtime_bind import make_agent_with_context as rb_make_agent_with_context
 
 from .utils import arun_with_fallbacks as _arun_fallbacks_util
@@ -586,11 +587,15 @@ class Agent(BaseLLM):
         async def _call():
             return await agent.ainvoke({"messages": messages}, context=context, config=config)
 
-        retry_cfg = (extra or {}).get("retry") if extra else None
-        if retry_cfg:
-            res = await _with_retry_util(_call, **retry_cfg)
-        else:
-            res = await _call()
+        try:
+            retry_cfg = (extra or {}).get("retry") if extra else None
+            if retry_cfg:
+                res = await _with_retry_util(_call, **retry_cfg)
+            else:
+                res = await _call()
+        except Exception as e:
+            # Translate provider errors to ai-infra errors
+            raise translate_provider_error(e, provider=provider, model=model_name) from e
         ai_msg = await apply_output_gate_async(res, self._hitl)
         return ai_msg
 
@@ -608,7 +613,11 @@ class Agent(BaseLLM):
         agent, context = self._make_agent_with_context(
             provider, model_name, tools, extra, model_kwargs, tool_controls
         )
-        res = agent.invoke({"messages": messages}, context=context, config=config)
+        try:
+            res = agent.invoke({"messages": messages}, context=context, config=config)
+        except Exception as e:
+            # Translate provider errors to ai-infra errors
+            raise translate_provider_error(e, provider=provider, model=model_name) from e
         ai_msg = apply_output_gate(res, self._hitl)
         return ai_msg
 

@@ -13,6 +13,7 @@ from pydantic import BaseModel
 
 from ai_infra.llm.base import BaseLLM
 from ai_infra.llm.tools import apply_output_gate, apply_output_gate_async
+from ai_infra.llm.utils.error_handler import translate_provider_error
 from ai_infra.llm.utils.logging_hooks import ErrorContext, RequestContext, ResponseContext
 from ai_infra.llm.utils.structured import coerce_structured_result, is_pydantic_schema
 
@@ -266,7 +267,8 @@ class LLM(BaseLLM):
                 duration_ms=duration_ms,
             )
             self._logging_hooks.call_error_sync(error_ctx)
-            raise
+            # Translate provider error to ai-infra error
+            raise translate_provider_error(e, provider=provider, model=model_name) from e
 
     async def achat(
         self,
@@ -366,7 +368,8 @@ class LLM(BaseLLM):
                 duration_ms=duration_ms,
             )
             await self._logging_hooks.call_error_async(error_ctx)
-            raise
+            # Translate provider error to ai-infra error
+            raise translate_provider_error(e, provider=provider, model=model_name) from e
 
     async def stream_tokens(
         self,

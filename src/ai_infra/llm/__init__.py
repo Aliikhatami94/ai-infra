@@ -29,6 +29,11 @@ from ai_infra.llm.tools import (
     create_selective_handler,
     tools_from_functions,
 )
+from ai_infra.llm.utils.error_handler import (
+    get_supported_kwargs,
+    translate_provider_error,
+    validate_kwargs,
+)
 from ai_infra.llm.utils.logging_hooks import (
     ErrorContext,
     LoggingHooks,
@@ -46,6 +51,10 @@ __all__ = [
     "PROVIDER",
     "MODEL",
     "tools_from_functions",
+    # Error handling
+    "translate_provider_error",
+    "get_supported_kwargs",
+    "validate_kwargs",
     # Logging hooks
     "LoggingHooks",
     "RequestContext",

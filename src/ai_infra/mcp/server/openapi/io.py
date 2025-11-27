@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Union
+from typing import Optional, Union
 
 import yaml
 
@@ -53,26 +53,81 @@ def load_openapi(source: Union[str, Path, dict]) -> OpenAPISpec:
     return _parse_openapi_string(source_str)
 
 
-def _fetch_openapi_url(url: str) -> OpenAPISpec:
-    """Fetch OpenAPI spec from a URL."""
+def _fetch_openapi_url(
+    url: str,
+    *,
+    timeout: float = 30.0,
+    retries: int = 0,
+) -> OpenAPISpec:
+    """Fetch OpenAPI spec from a URL.
+
+    Args:
+        url: URL to fetch
+        timeout: Request timeout in seconds
+        retries: Number of retries on failure
+
+    Raises:
+        OpenAPINetworkError: On network or HTTP errors
+        OpenAPIParseError: On parse errors
+    """
     import httpx
 
-    with httpx.Client(timeout=30.0, follow_redirects=True) as client:
-        resp = client.get(url)
-        resp.raise_for_status()
+    # Import error classes (avoid circular import)
+    from .builder import OpenAPINetworkError, OpenAPIParseError
 
-        content_type = resp.headers.get("content-type", "")
+    last_error: Optional[Exception] = None
+    attempts = retries + 1
 
-        # Try JSON first
-        if "json" in content_type or url.endswith(".json"):
-            return resp.json()
+    for attempt in range(attempts):
+        try:
+            with httpx.Client(timeout=timeout, follow_redirects=True) as client:
+                resp = client.get(url)
 
-        # Try YAML
-        if "yaml" in content_type or url.endswith((".yaml", ".yml")):
-            return yaml.safe_load(resp.text)
+                if resp.status_code >= 400:
+                    raise OpenAPINetworkError(
+                        f"HTTP {resp.status_code}: {resp.reason_phrase}",
+                        url=url,
+                        status_code=resp.status_code,
+                    )
 
-        # Auto-detect from content
-        return _parse_openapi_string(resp.text)
+                content_type = resp.headers.get("content-type", "")
+
+                # Try JSON first
+                if "json" in content_type or url.endswith(".json"):
+                    try:
+                        return resp.json()
+                    except json.JSONDecodeError as e:
+                        raise OpenAPIParseError(f"Invalid JSON: {e}") from e
+
+                # Try YAML
+                if "yaml" in content_type or url.endswith((".yaml", ".yml")):
+                    try:
+                        return yaml.safe_load(resp.text)
+                    except yaml.YAMLError as e:
+                        raise OpenAPIParseError(f"Invalid YAML: {e}") from e
+
+                # Auto-detect from content
+                return _parse_openapi_string(resp.text)
+
+        except httpx.TimeoutException as e:
+            last_error = OpenAPINetworkError(f"Request timeout: {e}", url=url)
+            if attempt < attempts - 1:
+                continue
+        except httpx.ConnectError as e:
+            last_error = OpenAPINetworkError(f"Connection error: {e}", url=url)
+            if attempt < attempts - 1:
+                continue
+        except httpx.HTTPError as e:
+            last_error = OpenAPINetworkError(f"HTTP error: {e}", url=url)
+            if attempt < attempts - 1:
+                continue
+        except (OpenAPINetworkError, OpenAPIParseError):
+            raise
+
+    if last_error:
+        raise last_error
+
+    raise OpenAPINetworkError("Unknown error fetching URL", url=url)
 
 
 def _load_openapi_file(path: Path) -> OpenAPISpec:

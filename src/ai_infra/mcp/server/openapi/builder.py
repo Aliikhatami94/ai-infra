@@ -19,11 +19,47 @@ from .runtime import (
     merge_parameters,
     op_tool_name,
     pick_effective_base_url_with_source,
+    serialize_query_param,
     split_params,
 )
 
-__all__ = ["_mcp_from_openapi", "OpenAPIOptions", "AuthConfig"]
+__all__ = ["_mcp_from_openapi", "OpenAPIOptions", "AuthConfig", "OpenAPIError"]
 log = logging.getLogger(__name__)
+
+
+# ---------------------- Error Classes ----------------------
+
+
+class OpenAPIError(Exception):
+    """Base error for OpenAPI→MCP conversion errors."""
+
+    pass
+
+
+class OpenAPIParseError(OpenAPIError):
+    """Error parsing OpenAPI specification."""
+
+    def __init__(self, message: str, errors: Optional[List[str]] = None):
+        super().__init__(message)
+        self.errors = errors or []
+
+
+class OpenAPINetworkError(OpenAPIError):
+    """Error fetching OpenAPI specification from URL."""
+
+    def __init__(self, message: str, url: str, status_code: Optional[int] = None):
+        super().__init__(message)
+        self.url = url
+        self.status_code = status_code
+
+
+class OpenAPIValidationError(OpenAPIError):
+    """Error validating OpenAPI specification."""
+
+    def __init__(self, message: str, path: Optional[str] = None):
+        super().__init__(message)
+        self.path = path
+
 
 # ---------------------- Diagnostics logging ----------------------
 
@@ -505,6 +541,14 @@ def _register_operation_tool(
     report: BuildReport,
     base_url_source: str,
     auth_config: Optional[AuthConfig] = None,
+    # Performance options
+    rate_limiter: Optional[Any] = None,  # RateLimiter
+    cache: Optional[Any] = None,  # ResponseCache
+    deduplicator: Optional[Any] = None,  # RequestDeduplicator
+    rate_limit_retry: bool = True,
+    rate_limit_max_retries: int = 3,
+    auto_paginate: bool = False,
+    max_pages: int = 10,
 ) -> None:
     warnings: List[str] = []
     InputModel = _build_input_model(op_ctx, path_item={}, op=op, spec=spec)
@@ -632,10 +676,16 @@ def _register_operation_tool(
         headers: Dict[str, str] = {}
         cookies: Dict[str, str] = {}
 
+        # Handle query params with style/explode for arrays
         for p in op_ctx.query_params:
             pname = p.get("name")
             if pname in payload:
-                query[pname] = payload.pop(pname)
+                value = payload.pop(pname)
+                style = p.get("style")
+                explode = p.get("explode")
+                # Use serialize_query_param for proper array handling
+                serialized = serialize_query_param(pname, value, style=style, explode=explode)
+                query.update(serialized)
             elif p.get("required"):
                 errors.append(f"Missing required query param: {pname}")
 
@@ -706,19 +756,85 @@ def _register_operation_tool(
             payload.pop(k, None)
 
         full_url = f"{url_base}{url_path}"
-        resp = await client.request(
-            op_ctx.method,
-            full_url,
-            params=query or None,
-            headers=headers or None,
-            cookies=cookies or None,
-            json=json_body,
-            data=data,
-            files=files,
-        )
+
+        # Check cache first (for safe methods)
+        cache_key = None
+        if cache and cache.should_cache(op_ctx.method):
+            cache_key = cache.make_key(op_ctx.method, full_url, query)
+            cached = cache.get(cache_key)
+            if cached is not None:
+                return OutputModel.model_validate(cached)
+
+        # Apply rate limiting
+        if rate_limiter:
+            await rate_limiter.acquire()
+
+        # Define the actual request function
+        async def _do_request():
+            import asyncio
+
+            retries_left = rate_limit_max_retries if rate_limit_retry else 0
+            last_resp = None
+
+            while True:
+                try:
+                    resp = await client.request(
+                        op_ctx.method,
+                        full_url,
+                        params=query or None,
+                        headers=headers or None,
+                        cookies=cookies or None,
+                        json=json_body,
+                        data=data,
+                        files=files,
+                    )
+                    last_resp = resp
+
+                    # Handle rate limiting (429)
+                    if resp.status_code == 429 and retries_left > 0:
+                        retries_left -= 1
+                        # Try to get retry-after header
+                        retry_after = resp.headers.get("retry-after", "1")
+                        try:
+                            wait_time = float(retry_after)
+                        except ValueError:
+                            wait_time = 1.0
+                        await asyncio.sleep(min(wait_time, 30))  # Cap at 30s
+                        continue
+
+                    return resp
+
+                except httpx.TimeoutException as e:
+                    return {"error": f"Request timeout: {e}"}
+                except httpx.ConnectError as e:
+                    return {"error": f"Connection error: {e}"}
+                except httpx.HTTPError as e:
+                    return {"error": f"HTTP error: {e}"}
+
+            return last_resp
+
+        # Use deduplicator if enabled
+        if deduplicator:
+            dedup_key = cache_key or f"{op_ctx.method}:{full_url}:{query}"
+            resp = await deduplicator.execute(dedup_key, _do_request)
+        else:
+            resp = await _do_request()
+
+        # Handle error dict from _do_request
+        if isinstance(resp, dict) and "error" in resp:
+            return OutputModel.model_validate(
+                {
+                    "status": 0,
+                    "headers": {},
+                    "url": full_url,
+                    "method": op_ctx.method,
+                    "json": None,
+                    "text": resp["error"],
+                }
+            )
 
         content_type = resp.headers.get("content-type", "")
-        out = {
+        out: Dict[str, Any] = {
             "status": resp.status_code,
             "headers": dict(resp.headers),
             "url": str(resp.request.url),
@@ -726,16 +842,89 @@ def _register_operation_tool(
             "json": None,
             "text": None,
         }
+
+        # Parse response based on content type
         if "application/json" in content_type:
             try:
-                out["json"] = resp.json()
+                json_data = resp.json()
+                out["json"] = json_data
+
+                # Auto-pagination for JSON responses
+                if auto_paginate and op_ctx.method.upper() == "GET":
+                    all_items = []
+                    current_data = json_data
+                    pages_fetched = 1
+
+                    # Detect if response is paginated (has items/data array + next link)
+                    items_key = None
+                    for key in ("items", "data", "results", "records"):
+                        if isinstance(current_data, dict) and key in current_data:
+                            if isinstance(current_data[key], list):
+                                items_key = key
+                                break
+
+                    if items_key:
+                        all_items.extend(current_data[items_key])
+
+                        while pages_fetched < max_pages:
+                            # Look for next page link
+                            next_url = None
+                            if isinstance(current_data, dict):
+                                # Common pagination patterns
+                                next_url = (
+                                    current_data.get("next")
+                                    or current_data.get("next_page")
+                                    or current_data.get("nextPage")
+                                    or (current_data.get("links", {}) or {}).get("next")
+                                    or (current_data.get("_links", {}) or {})
+                                    .get("next", {})
+                                    .get("href")
+                                )
+
+                            if not next_url:
+                                break
+
+                            # Fetch next page
+                            try:
+                                if rate_limiter:
+                                    await rate_limiter.acquire()
+                                next_resp = await client.get(next_url, headers=headers)
+                                if next_resp.status_code != 200:
+                                    break
+                                current_data = next_resp.json()
+                                if items_key in current_data:
+                                    all_items.extend(current_data[items_key])
+                                pages_fetched += 1
+                            except Exception:
+                                break
+
+                        # Replace items with all collected items
+                        if pages_fetched > 1:
+                            out["json"][items_key] = all_items
+                            out["json"]["_paginated"] = True
+                            out["json"]["_pages_fetched"] = pages_fetched
+
             except Exception:
                 out["text"] = resp.text
+        elif "text/" in content_type:
+            out["text"] = resp.text
+        elif "application/xml" in content_type or "text/xml" in content_type:
+            out["text"] = resp.text
+        elif "application/octet-stream" in content_type:
+            # Binary data - encode as base64
+            import base64 as b64
+
+            out["text"] = b64.b64encode(resp.content).decode("ascii")
         else:
+            # Try JSON first, fall back to text
             try:
                 out["json"] = resp.json()
             except Exception:
                 out["text"] = resp.text
+
+        # Store in cache if applicable
+        if cache_key and cache and resp.status_code < 400:
+            cache.set(cache_key, out)
 
         return OutputModel.model_validate(out)
 
@@ -869,6 +1058,29 @@ def _mcp_from_openapi(
     total_ops = 0
     filtered_ops = 0
 
+    # Create performance objects based on options
+    rate_limiter = None
+    cache = None
+    deduplicator = None
+
+    if options.rate_limit:
+        from .runtime import RateLimiter
+
+        rate_limiter = RateLimiter(rate=options.rate_limit)
+
+    if options.cache_ttl:
+        from .runtime import ResponseCache
+
+        cache = ResponseCache(
+            ttl=options.cache_ttl,
+            methods=options.cache_methods or ["GET"],
+        )
+
+    if options.dedupe_requests:
+        from .runtime import RequestDeduplicator
+
+        deduplicator = RequestDeduplicator()
+
     for path, path_item in paths.items():
         if not isinstance(path_item, dict):
             report.warnings.append(f"Path item is not an object: {path}")
@@ -923,6 +1135,14 @@ def _mcp_from_openapi(
                     report=report,
                     base_url_source=source,
                     auth_config=path_auth,
+                    # Performance options
+                    rate_limiter=rate_limiter,
+                    cache=cache,
+                    deduplicator=deduplicator,
+                    rate_limit_retry=options.rate_limit_retry,
+                    rate_limit_max_retries=options.rate_limit_max_retries,
+                    auto_paginate=options.auto_paginate,
+                    max_pages=options.max_pages,
                 )
                 report.registered_tools += 1
             except Exception as e:

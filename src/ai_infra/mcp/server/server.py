@@ -435,6 +435,104 @@ class MCPServer:
         self.mount_all(app)
         app.router.lifespan_context = self.lifespan
 
+    # ---------- discovery ----------
+
+    def get_openmcp(self) -> dict:
+        """Generate OpenMCP specification for this server.
+
+        Returns an OpenAPI-like spec describing all MCP tools available
+        on this server, which clients can use for discovery.
+
+        Returns:
+            Dict with OpenMCP specification
+
+        Example:
+            mcp = MCPServer(name="my-tools")
+            mcp.add_openapi("/api", "https://api.example.com/openapi.json")
+
+            spec = mcp.get_openmcp()
+            # {
+            #     "openmcp": "1.0.0",
+            #     "info": {"title": "my-tools", ...},
+            #     "servers": [...],
+            #     "tools": [...]
+            # }
+        """
+        tools = []
+        servers = []
+
+        for mount in self._mounts:
+            # Try to get tools from the mounted app
+            app = mount.app
+            mcp_obj = getattr(getattr(app, "state", None), "mcp", None) or app
+
+            # Get tools from FastMCP
+            if hasattr(mcp_obj, "_tool_manager"):
+                tool_manager = mcp_obj._tool_manager
+                if hasattr(tool_manager, "_tools"):
+                    for name, tool in tool_manager._tools.items():
+                        tool_spec = {
+                            "name": name,
+                            "description": getattr(tool, "description", None) or "",
+                            "path": mount.path,
+                        }
+
+                        # Try to get input schema
+                        if hasattr(tool, "parameters"):
+                            tool_spec["inputSchema"] = tool.parameters
+                        elif hasattr(tool, "fn"):
+                            fn = tool.fn
+                            hints = getattr(fn, "__annotations__", {})
+                            if hints:
+                                # Extract from type hints
+                                params = {}
+                                for pname, ptype in hints.items():
+                                    if pname == "return":
+                                        continue
+                                    params[pname] = {"type": _py_type_to_json(ptype)}
+                                if params:
+                                    tool_spec["inputSchema"] = {
+                                        "type": "object",
+                                        "properties": params,
+                                    }
+
+                        tools.append(tool_spec)
+
+            # Get build report from OpenAPI
+            report = getattr(mcp_obj, "openapi_build_report", None)
+            if report and hasattr(report, "ops"):
+                for op in report.ops:
+                    if op.tool_name not in [t["name"] for t in tools]:
+                        tools.append(
+                            {
+                                "name": op.tool_name,
+                                "description": f"{op.method.upper()} {op.path}",
+                                "path": mount.path,
+                                "method": op.method,
+                                "apiPath": op.path,
+                                "baseUrl": op.base_url,
+                            }
+                        )
+
+            servers.append(
+                {
+                    "path": mount.path,
+                    "name": mount.name or mount.path,
+                    "transport": "streamable_http",  # default
+                }
+            )
+
+        return {
+            "openmcp": "1.0.0",
+            "info": {
+                "title": "MCP Server",
+                "version": "1.0.0",
+                "description": f"MCP server with {len(tools)} tools across {len(servers)} endpoints",
+            },
+            "servers": servers,
+            "tools": tools,
+        }
+
     # ---------- standalone root ----------
 
     def build_asgi_root(self) -> Any:
@@ -486,6 +584,26 @@ def import_object(module_path: str, *, attr: Optional[str] = None) -> Any:
         f"No obvious object found in '{module_path}'. "
         "Provide attr explicitly (e.g., 'pkg.mod:mcp') or export 'mcp'/'app'."
     )
+
+
+def _py_type_to_json(py_type: Any) -> str:
+    """Convert Python type to JSON Schema type."""
+    if py_type is None:
+        return "null"
+
+    type_name = getattr(py_type, "__name__", str(py_type))
+
+    type_map = {
+        "str": "string",
+        "int": "integer",
+        "float": "number",
+        "bool": "boolean",
+        "list": "array",
+        "dict": "object",
+        "NoneType": "null",
+    }
+
+    return type_map.get(type_name, "string")
 
 
 # NOTE: CoreMCPServer alias removed - use MCPServer directly
