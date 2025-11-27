@@ -7,6 +7,8 @@ if not os.environ.get("AI_INFRA_ENV_LOADED"):
     os.environ["AI_INFRA_ENV_LOADED"] = "1"
 
 from ai_infra.callbacks import CallbackManager, Callbacks
+from ai_infra.embeddings import Embeddings, VectorStore
+from ai_infra.embeddings.vectorstore import Document, SearchResult
 
 # Cross-cutting concerns
 from ai_infra.errors import (
@@ -42,6 +44,11 @@ __all__ = [
     "MCPClient",
     "Providers",
     "mcp_from_functions",
+    # Embeddings
+    "Embeddings",
+    "VectorStore",
+    "Document",
+    "SearchResult",
     # Errors
     "AIInfraError",
     "ProviderError",
