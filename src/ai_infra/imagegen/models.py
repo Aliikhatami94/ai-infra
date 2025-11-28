@@ -78,7 +78,7 @@ class GeneratedImage:
 # Default models per provider
 DEFAULT_MODELS = {
     ImageGenProvider.OPENAI: "dall-e-3",
-    ImageGenProvider.GOOGLE: "imagen-3.0-generate-002",
+    ImageGenProvider.GOOGLE: "gemini-2.5-flash-image",  # Gemini multimodal (more accessible)
     ImageGenProvider.STABILITY: "stable-diffusion-xl-1024-v1-0",
     ImageGenProvider.REPLICATE: "black-forest-labs/flux-schnell",
 }
@@ -87,8 +87,14 @@ DEFAULT_MODELS = {
 AVAILABLE_MODELS = {
     ImageGenProvider.OPENAI: ["dall-e-2", "dall-e-3"],
     ImageGenProvider.GOOGLE: [
+        # Gemini multimodal image generation (uses generate_content API)
+        "gemini-2.5-flash-image",
+        "gemini-2.0-flash-exp-image-generation",
+        "gemini-3-pro-image-preview",  # Nano Banana Pro
+        # Imagen models (uses generate_images API, requires billing)
         "imagen-3.0-generate-002",
-        "imagen-4.0-generate-001",  # Nano Banana Pro
+        "imagen-4.0-generate-001",
+        "imagen-4.0-fast-generate-001",
     ],
     ImageGenProvider.STABILITY: [
         "stable-diffusion-xl-1024-v1-0",
@@ -99,4 +105,12 @@ AVAILABLE_MODELS = {
         "black-forest-labs/flux-dev",
         "stability-ai/sdxl",
     ],
+}
+
+# Gemini models use generate_content API, Imagen models use generate_images API
+GEMINI_IMAGE_MODELS = {
+    "gemini-2.5-flash-image",
+    "gemini-2.0-flash-exp-image-generation",
+    "gemini-2.5-flash-image-preview",
+    "gemini-3-pro-image-preview",  # Nano Banana Pro
 }

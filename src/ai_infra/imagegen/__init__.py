@@ -2,7 +2,7 @@
 
 Supports multiple providers:
 - OpenAI (DALL-E 2, DALL-E 3)
-- Google (Imagen 3, Imagen 4 / Nano Banana Pro)
+- Google (Gemini 2.5 Flash Image, Imagen 3, Imagen 4 / Nano Banana Pro)
 - Stability AI (Stable Diffusion)
 - Replicate (SDXL, Flux, etc.)
 
@@ -16,8 +16,8 @@ Example:
     # Generate an image
     images = gen.generate("A sunset over mountains")
 
-    # With specific provider
-    gen = ImageGen(provider="google", model="imagen-4.0-generate-001")
+    # With specific provider (default is gemini-2.5-flash-image)
+    gen = ImageGen(provider="google")
     images = gen.generate("A futuristic city", size="1024x1024", n=2)
     ```
 """

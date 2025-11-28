@@ -307,6 +307,12 @@ class ImageGen:
             self._client = genai.Client(api_key=self._api_key)
         return self._client
 
+    def _is_gemini_model(self) -> bool:
+        """Check if current model is a Gemini multimodal model."""
+        from .models import GEMINI_IMAGE_MODELS
+
+        return self._model in GEMINI_IMAGE_MODELS or self._model.startswith("gemini-")
+
     def _generate_google(
         self,
         prompt: str,
@@ -315,18 +321,66 @@ class ImageGen:
         n: int,
         **kwargs: Any,
     ) -> List[GeneratedImage]:
-        """Generate images using Google Imagen."""
+        """Generate images using Google (Gemini or Imagen)."""
         client = self._get_google_client()
 
-        # Parse size
-        width, height = map(int, size.split("x"))
+        if self._is_gemini_model():
+            # Use generate_content API for Gemini models
+            return self._generate_google_gemini(client, prompt, n=n, **kwargs)
+        else:
+            # Use generate_images API for Imagen models
+            return self._generate_google_imagen(client, prompt, size=size, n=n, **kwargs)
 
+    def _generate_google_gemini(
+        self,
+        client: Any,
+        prompt: str,
+        *,
+        n: int,
+        **kwargs: Any,
+    ) -> List[GeneratedImage]:
+        """Generate images using Gemini multimodal API."""
+        from google.genai import types
+
+        results = []
+        for _ in range(n):
+            response = client.models.generate_content(
+                model=self._model,
+                contents=f"Generate an image: {prompt}",
+                config=types.GenerateContentConfig(
+                    response_modalities=["IMAGE"],
+                ),
+            )
+
+            for part in response.candidates[0].content.parts:
+                if hasattr(part, "inline_data") and part.inline_data:
+                    results.append(
+                        GeneratedImage(
+                            data=part.inline_data.data,
+                            model=self._model,
+                            provider=ImageGenProvider.GOOGLE,
+                        )
+                    )
+                    break
+
+        return results
+
+    def _generate_google_imagen(
+        self,
+        client: Any,
+        prompt: str,
+        *,
+        size: str,
+        n: int,
+        **kwargs: Any,
+    ) -> List[GeneratedImage]:
+        """Generate images using Google Imagen API."""
         response = client.models.generate_images(
             model=self._model,
             prompt=prompt,
             config={
-                "number_of_images": n,
-                "output_options": {"mime_type": "image/png"},
+                "numberOfImages": n,
+                "outputMimeType": "image/png",
                 **kwargs,
             },
         )
@@ -348,20 +402,68 @@ class ImageGen:
         n: int,
         **kwargs: Any,
     ) -> List[GeneratedImage]:
-        """Async generate images using Google Imagen."""
+        """Async generate images using Google (Gemini or Imagen)."""
         from google import genai
 
         client = genai.Client(api_key=self._api_key)
 
-        # Parse size
-        width, height = map(int, size.split("x"))
+        if self._is_gemini_model():
+            # Use generate_content API for Gemini models
+            return await self._agenerate_google_gemini(client, prompt, n=n, **kwargs)
+        else:
+            # Use generate_images API for Imagen models
+            return await self._agenerate_google_imagen(client, prompt, size=size, n=n, **kwargs)
 
+    async def _agenerate_google_gemini(
+        self,
+        client: Any,
+        prompt: str,
+        *,
+        n: int,
+        **kwargs: Any,
+    ) -> List[GeneratedImage]:
+        """Async generate images using Gemini multimodal API."""
+        from google.genai import types
+
+        results = []
+        for _ in range(n):
+            response = await client.aio.models.generate_content(
+                model=self._model,
+                contents=f"Generate an image: {prompt}",
+                config=types.GenerateContentConfig(
+                    response_modalities=["IMAGE"],
+                ),
+            )
+
+            for part in response.candidates[0].content.parts:
+                if hasattr(part, "inline_data") and part.inline_data:
+                    results.append(
+                        GeneratedImage(
+                            data=part.inline_data.data,
+                            model=self._model,
+                            provider=ImageGenProvider.GOOGLE,
+                        )
+                    )
+                    break
+
+        return results
+
+    async def _agenerate_google_imagen(
+        self,
+        client: Any,
+        prompt: str,
+        *,
+        size: str,
+        n: int,
+        **kwargs: Any,
+    ) -> List[GeneratedImage]:
+        """Async generate images using Google Imagen API."""
         response = await client.aio.models.generate_images(
             model=self._model,
             prompt=prompt,
             config={
-                "number_of_images": n,
-                "output_options": {"mime_type": "image/png"},
+                "numberOfImages": n,
+                "outputMimeType": "image/png",
                 **kwargs,
             },
         )
