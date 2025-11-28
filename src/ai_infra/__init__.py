@@ -25,7 +25,7 @@ from ai_infra.llm.providers import Providers
 from ai_infra.logging import configure_logging, get_logger
 from ai_infra.mcp import MCPClient, MCPServer
 from ai_infra.mcp.server.tools import mcp_from_functions
-from ai_infra.retriever import Retriever
+from ai_infra.retriever import Retriever, create_retriever_tool, create_retriever_tool_async
 from ai_infra.tracing import TracingCallbacks, configure_tracing, get_tracer, trace
 
 # Validation
@@ -52,6 +52,8 @@ __all__ = [
     "SearchResult",
     # Retriever
     "Retriever",
+    "create_retriever_tool",
+    "create_retriever_tool_async",
     # Errors
     "AIInfraError",
     "ProviderError",

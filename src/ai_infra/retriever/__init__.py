@@ -48,8 +48,11 @@ Example - Production config:
 
 from ai_infra.retriever.models import SearchResult
 from ai_infra.retriever.retriever import Retriever
+from ai_infra.retriever.tool import create_retriever_tool, create_retriever_tool_async
 
 __all__ = [
     "Retriever",
     "SearchResult",
+    "create_retriever_tool",
+    "create_retriever_tool_async",
 ]
