@@ -1,17 +1,33 @@
 from __future__ import annotations
-import re, json, os
+
+import json
+import os
+import re
+from contextvars import ContextVar
 from pathlib import Path
-from typing import Iterable, Sequence, Union
+from typing import Iterable, Optional, Sequence, Union
 
 # ---------- Repo root & sandbox ----------
 
 _ROOT_SIGNALS = (
-    "pyproject.toml","package.json","pom.xml","build.gradle","build.gradle.kts",
-    ".git","Makefile","Justfile","Taskfile.yml","Taskfile.yaml",
-    "Dockerfile","docker-compose.yml","compose.yml",
+    "pyproject.toml",
+    "package.json",
+    "pom.xml",
+    "build.gradle",
+    "build.gradle.kts",
+    ".git",
+    "Makefile",
+    "Justfile",
+    "Taskfile.yml",
+    "Taskfile.yaml",
+    "Dockerfile",
+    "docker-compose.yml",
+    "compose.yml",
 )
 
+
 def _find_repo_root(start: Path) -> Path:
+    """Walk up from start until we find a project marker file."""
     cur = start.resolve()
     while True:
         if any((cur / s).exists() for s in _ROOT_SIGNALS):
@@ -20,27 +36,85 @@ def _find_repo_root(start: Path) -> Path:
             return start.resolve()
         cur = cur.parent
 
-_REPO_ROOT = Path(os.getenv("REPO_ROOT", os.getcwd())).resolve()
+
+# Default: auto-detect from env var or cwd
+_DEFAULT_ROOT = Path(os.getenv("REPO_ROOT", os.getcwd())).resolve()
+
+# Context variable for per-request/per-agent workspace override
+_workspace_root: ContextVar[Optional[Path]] = ContextVar("workspace_root", default=None)
+
+
+def set_workspace_root(path: Union[str, Path, None]) -> None:
+    """Set an explicit workspace root for the current context.
+
+    Use this to sandbox tools to a specific directory instead of
+    auto-detecting the repo root.
+
+    Args:
+        path: The workspace directory to sandbox to.
+              Pass None to reset to auto-detection mode.
+
+    Example:
+        # Repo-sandboxed (default): auto-detects project root
+        await file_read("src/main.py")
+
+        # Workspace-sandboxed: explicit directory
+        set_workspace_root("/tmp/agent-workspace")
+        await file_read("input.txt")  # reads /tmp/agent-workspace/input.txt
+
+        # Reset to auto-detection
+        set_workspace_root(None)
+    """
+    if path is None:
+        _workspace_root.set(None)
+    else:
+        _workspace_root.set(Path(path).resolve())
+
+
+def get_workspace_root() -> Path:
+    """Get the current workspace root (explicit or auto-detected)."""
+    override = _workspace_root.get()
+    if override is not None:
+        return override
+    return _DEFAULT_ROOT
+
+
+# Backward compatibility alias
+_REPO_ROOT = _DEFAULT_ROOT
+
 
 class ToolException(RuntimeError):
     pass
 
+
 _CWD_PROC_PREFIXES = ("/proc/self/cwd",)  # extend if you need more shims later
+
 
 def _normalize_user_path(p: Path) -> Path:
     s = str(p)
     for pref in _CWD_PROC_PREFIXES:
         if s == pref or s.startswith(pref + "/"):
-            tail = s[len(pref):].lstrip("/")
+            tail = s[len(pref) :].lstrip("/")
             return (Path(os.getcwd()).resolve() / tail).resolve()
     return p
 
-def _confine(path: Union[str, Path]) -> Path:
+
+def _confine(path: Union[str, Path], *, workspace: Optional[Path] = None) -> Path:
     """
-    Map user-supplied path to a real path under _REPO_ROOT, handling proc/symlink cwd.
-    Raises ToolException if it escapes the repo root.
+    Map user-supplied path to a real path under the workspace root.
+
+    Args:
+        path: User-supplied path (relative or absolute)
+        workspace: Optional explicit workspace root. If None, uses
+                   get_workspace_root() (context var or default).
+
+    Returns:
+        Resolved absolute path guaranteed to be under the workspace root.
+
+    Raises:
+        ToolException: If path escapes the workspace root.
     """
-    root = _REPO_ROOT.resolve()
+    root = (workspace or get_workspace_root()).resolve()
     p = _normalize_user_path(Path(path))
 
     # Make path absolute under root when relative; always resolve to realpath
@@ -53,21 +127,40 @@ def _confine(path: Union[str, Path]) -> Path:
         # Will raise ValueError if p is not under root
         p.relative_to(root)
     except Exception:
-        raise ToolException(f"Path escapes repo root: {p}")
+        raise ToolException(f"Path escapes workspace root: {p}")
 
     return p
+
 
 def _shim_cwd(path: str) -> str:
     if path.startswith("/proc/self/cwd"):
         return str(Path(os.getcwd()).resolve() / path.replace("/proc/self/cwd/", "", 1))
     return path
 
+
 # ---------- Utils ----------
 
 _IGNORED_DIRS = {
-    ".git",".hg",".svn",".idea",".vscode","node_modules",".venv","venv",".tox",
-    "dist","build","__pycache__",".pytest_cache",".mypy_cache",".next",".turbo",".cache",".gradle",
+    ".git",
+    ".hg",
+    ".svn",
+    ".idea",
+    ".vscode",
+    "node_modules",
+    ".venv",
+    "venv",
+    ".tox",
+    "dist",
+    "build",
+    "__pycache__",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".next",
+    ".turbo",
+    ".cache",
+    ".gradle",
 }
+
 
 def _is_text_bytes(b: bytes) -> bool:
     if not b:
@@ -83,6 +176,7 @@ def _is_text_bytes(b: bytes) -> bool:
     except Exception:
         return False
 
+
 def _read_small(path: Path, max_bytes: int) -> tuple[str | bytes, bool]:
     data = path.read_bytes()
     truncated = len(data) > max_bytes > 0
@@ -91,9 +185,8 @@ def _read_small(path: Path, max_bytes: int) -> tuple[str | bytes, bool]:
     is_text = _is_text_bytes(data)
     return (data.decode("utf-8", errors="replace") if is_text else data, truncated)
 
-def _walk(
-        root: Path, max_depth: int, exclude_globs: Sequence[str] | None
-) -> Iterable[Path]:
+
+def _walk(root: Path, max_depth: int, exclude_globs: Sequence[str] | None) -> Iterable[Path]:
     root = root.resolve()
     if max_depth < 0:
         return
@@ -113,14 +206,17 @@ def _walk(
         except Exception:
             continue
 
-def _tree(
-        root: Path, max_depth: int, max_entries_per_dir: int = 80
-) -> str:
+
+def _tree(root: Path, max_depth: int, max_entries_per_dir: int = 80) -> str:
     lines: list[str] = []
+
     def walk(d: Path, prefix: str, depth: int):
         try:
-            entries = [p for p in sorted(d.iterdir(), key=lambda x:(not x.is_dir(), x.name.lower()))
-                       if p.name not in _IGNORED_DIRS]
+            entries = [
+                p
+                for p in sorted(d.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower()))
+                if p.name not in _IGNORED_DIRS
+            ]
         except Exception:
             return
         shown = 0
@@ -136,9 +232,11 @@ def _tree(
             if p.is_dir() and depth > 0:
                 child_prefix = f"{prefix}{'    ' if i == n else '│   '}"
                 walk(p, child_prefix, depth - 1)
+
     lines.append(root.name + "/")
     walk(root, "", max_depth)
     return "\n".join(lines)
+
 
 def _detect_tasks(root: Path) -> dict[str, list[str]]:
     out: dict[str, list[str]] = {}
@@ -171,8 +269,11 @@ def _detect_tasks(root: Path) -> dict[str, list[str]]:
     if pp.exists():
         try:
             import tomllib
+
             data = tomllib.loads(pp.read_text(errors="ignore"))
-            scr = list(sorted(((data.get("tool") or {}).get("poetry") or {}).get("scripts", {}).keys()))
+            scr = list(
+                sorted(((data.get("tool") or {}).get("poetry") or {}).get("scripts", {}).keys())
+            )
             if scr:
                 out["poetry"] = scr[:30]
         except Exception:
