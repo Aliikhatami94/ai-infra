@@ -20,6 +20,7 @@ from ai_infra.errors import (
     ValidationError,
 )
 from ai_infra.graph import Graph
+from ai_infra.imagegen import GeneratedImage, ImageGen, ImageGenProvider
 from ai_infra.llm import LLM, Agent
 from ai_infra.llm.providers import Providers
 from ai_infra.llm.tools.custom.retriever import create_retriever_tool, create_retriever_tool_async
@@ -78,4 +79,8 @@ __all__ = [
     "validate_output",
     "validate_provider",
     "validate_temperature",
+    # Image Generation
+    "ImageGen",
+    "GeneratedImage",
+    "ImageGenProvider",
 ]

@@ -1,0 +1,716 @@
+"""Main ImageGen class with provider-agnostic API."""
+
+from __future__ import annotations
+
+import base64
+import os
+from typing import Any, List, Literal, Optional, Union
+
+from ai_infra.imagegen.models import (
+    AVAILABLE_MODELS,
+    DEFAULT_MODELS,
+    GeneratedImage,
+    ImageGenProvider,
+)
+
+
+class ImageGen:
+    """Provider-agnostic image generation.
+
+    Supports OpenAI (DALL-E), Google (Imagen), Stability AI, and Replicate.
+    Auto-detects provider from environment variables if not specified.
+
+    Example:
+        ```python
+        # Zero-config: auto-detects from env vars
+        gen = ImageGen()
+        images = gen.generate("A sunset over mountains")
+
+        # Explicit provider and model
+        gen = ImageGen(provider="google", model="imagen-4.0-generate-001")
+        images = gen.generate("A futuristic city", n=2)
+
+        # Save generated image
+        images[0].save("output.png")
+        ```
+
+    Environment Variables:
+        - OPENAI_API_KEY: For OpenAI DALL-E
+        - GOOGLE_API_KEY or GEMINI_API_KEY: For Google Imagen
+        - STABILITY_API_KEY: For Stability AI
+        - REPLICATE_API_TOKEN: For Replicate
+    """
+
+    def __init__(
+        self,
+        provider: Optional[str] = None,
+        model: Optional[str] = None,
+        api_key: Optional[str] = None,
+        **kwargs: Any,
+    ) -> None:
+        """Initialize ImageGen.
+
+        Args:
+            provider: Provider name ("openai", "google", "stability", "replicate").
+                     Auto-detected from env vars if not specified.
+            model: Model name. Uses provider default if not specified.
+            api_key: API key. Uses env var if not specified.
+            **kwargs: Additional provider-specific options.
+        """
+        self._provider, self._api_key = self._resolve_provider_and_key(provider, api_key)
+        self._model = model or DEFAULT_MODELS.get(self._provider)
+        self._kwargs = kwargs
+        self._client: Any = None
+
+    @property
+    def provider(self) -> ImageGenProvider:
+        """Get the current provider."""
+        return self._provider
+
+    @property
+    def model(self) -> Optional[str]:
+        """Get the current model."""
+        return self._model
+
+    def _resolve_provider_and_key(
+        self,
+        provider: Optional[str],
+        api_key: Optional[str],
+    ) -> tuple[ImageGenProvider, str]:
+        """Resolve provider and API key from args or environment."""
+
+        if provider is not None:
+            # Explicit provider
+            p = ImageGenProvider(provider.lower())
+            key = api_key or self._get_env_key(p)
+            if not key:
+                raise ValueError(f"No API key found for provider '{provider}'")
+            return p, key
+
+        # Auto-detect from environment
+        providers_and_keys = [
+            (ImageGenProvider.OPENAI, os.getenv("OPENAI_API_KEY")),
+            (ImageGenProvider.GOOGLE, os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")),
+            (ImageGenProvider.STABILITY, os.getenv("STABILITY_API_KEY")),
+            (ImageGenProvider.REPLICATE, os.getenv("REPLICATE_API_TOKEN")),
+        ]
+
+        for p, key in providers_and_keys:
+            if key:
+                return p, key
+
+        raise ValueError(
+            "No API key found. Set one of: OPENAI_API_KEY, GOOGLE_API_KEY, "
+            "STABILITY_API_KEY, or REPLICATE_API_TOKEN"
+        )
+
+    def _get_env_key(self, provider: ImageGenProvider) -> Optional[str]:
+        """Get the environment variable key for a provider."""
+        if provider == ImageGenProvider.OPENAI:
+            return os.getenv("OPENAI_API_KEY")
+        elif provider == ImageGenProvider.GOOGLE:
+            return os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
+        elif provider == ImageGenProvider.STABILITY:
+            return os.getenv("STABILITY_API_KEY")
+        elif provider == ImageGenProvider.REPLICATE:
+            return os.getenv("REPLICATE_API_TOKEN")
+        return None
+
+    def generate(
+        self,
+        prompt: str,
+        *,
+        size: str = "1024x1024",
+        n: int = 1,
+        quality: Literal["standard", "hd"] = "standard",
+        style: Optional[Literal["vivid", "natural"]] = None,
+        **kwargs: Any,
+    ) -> List[GeneratedImage]:
+        """Generate images from a text prompt.
+
+        Args:
+            prompt: Text description of the image to generate.
+            size: Image size (e.g., "1024x1024", "1792x1024").
+            n: Number of images to generate.
+            quality: Image quality ("standard" or "hd"). OpenAI only.
+            style: Image style ("vivid" or "natural"). OpenAI DALL-E 3 only.
+            **kwargs: Additional provider-specific options.
+
+        Returns:
+            List of GeneratedImage objects.
+
+        Example:
+            ```python
+            images = gen.generate(
+                "A cat wearing a hat",
+                size="1024x1024",
+                n=2,
+                quality="hd",
+            )
+            for img in images:
+                print(img.url)
+            ```
+        """
+        if self._provider == ImageGenProvider.OPENAI:
+            return self._generate_openai(
+                prompt, size=size, n=n, quality=quality, style=style, **kwargs
+            )
+        elif self._provider == ImageGenProvider.GOOGLE:
+            return self._generate_google(prompt, size=size, n=n, **kwargs)
+        elif self._provider == ImageGenProvider.STABILITY:
+            return self._generate_stability(prompt, size=size, n=n, **kwargs)
+        elif self._provider == ImageGenProvider.REPLICATE:
+            return self._generate_replicate(prompt, size=size, n=n, **kwargs)
+        else:
+            raise ValueError(f"Unknown provider: {self._provider}")
+
+    async def agenerate(
+        self,
+        prompt: str,
+        *,
+        size: str = "1024x1024",
+        n: int = 1,
+        quality: Literal["standard", "hd"] = "standard",
+        style: Optional[Literal["vivid", "natural"]] = None,
+        **kwargs: Any,
+    ) -> List[GeneratedImage]:
+        """Async version of generate().
+
+        Args:
+            prompt: Text description of the image to generate.
+            size: Image size (e.g., "1024x1024", "1792x1024").
+            n: Number of images to generate.
+            quality: Image quality ("standard" or "hd"). OpenAI only.
+            style: Image style ("vivid" or "natural"). OpenAI DALL-E 3 only.
+            **kwargs: Additional provider-specific options.
+
+        Returns:
+            List of GeneratedImage objects.
+        """
+        if self._provider == ImageGenProvider.OPENAI:
+            return await self._agenerate_openai(
+                prompt, size=size, n=n, quality=quality, style=style, **kwargs
+            )
+        elif self._provider == ImageGenProvider.GOOGLE:
+            return await self._agenerate_google(prompt, size=size, n=n, **kwargs)
+        elif self._provider == ImageGenProvider.STABILITY:
+            return await self._agenerate_stability(prompt, size=size, n=n, **kwargs)
+        elif self._provider == ImageGenProvider.REPLICATE:
+            return await self._agenerate_replicate(prompt, size=size, n=n, **kwargs)
+        else:
+            raise ValueError(f"Unknown provider: {self._provider}")
+
+    # -------------------------------------------------------------------------
+    # OpenAI Implementation
+    # -------------------------------------------------------------------------
+
+    def _get_openai_client(self) -> Any:
+        """Get or create OpenAI client."""
+        if self._client is None:
+            from openai import OpenAI
+
+            self._client = OpenAI(api_key=self._api_key)
+        return self._client
+
+    def _generate_openai(
+        self,
+        prompt: str,
+        *,
+        size: str,
+        n: int,
+        quality: str,
+        style: Optional[str],
+        **kwargs: Any,
+    ) -> List[GeneratedImage]:
+        """Generate images using OpenAI DALL-E."""
+        client = self._get_openai_client()
+
+        params: dict[str, Any] = {
+            "model": self._model,
+            "prompt": prompt,
+            "size": size,
+            "n": n,
+            "response_format": "url",
+        }
+
+        # DALL-E 3 specific options
+        if self._model == "dall-e-3":
+            params["quality"] = quality
+            if style:
+                params["style"] = style
+
+        params.update(kwargs)
+
+        response = client.images.generate(**params)
+
+        return [
+            GeneratedImage(
+                url=img.url,
+                revised_prompt=getattr(img, "revised_prompt", None),
+                model=self._model,
+                provider=ImageGenProvider.OPENAI,
+            )
+            for img in response.data
+        ]
+
+    async def _agenerate_openai(
+        self,
+        prompt: str,
+        *,
+        size: str,
+        n: int,
+        quality: str,
+        style: Optional[str],
+        **kwargs: Any,
+    ) -> List[GeneratedImage]:
+        """Async generate images using OpenAI DALL-E."""
+        from openai import AsyncOpenAI
+
+        client = AsyncOpenAI(api_key=self._api_key)
+
+        params: dict[str, Any] = {
+            "model": self._model,
+            "prompt": prompt,
+            "size": size,
+            "n": n,
+            "response_format": "url",
+        }
+
+        if self._model == "dall-e-3":
+            params["quality"] = quality
+            if style:
+                params["style"] = style
+
+        params.update(kwargs)
+
+        response = await client.images.generate(**params)
+
+        return [
+            GeneratedImage(
+                url=img.url,
+                revised_prompt=getattr(img, "revised_prompt", None),
+                model=self._model,
+                provider=ImageGenProvider.OPENAI,
+            )
+            for img in response.data
+        ]
+
+    # -------------------------------------------------------------------------
+    # Google Implementation
+    # -------------------------------------------------------------------------
+
+    def _get_google_client(self) -> Any:
+        """Get or create Google GenAI client."""
+        if self._client is None:
+            from google import genai
+
+            self._client = genai.Client(api_key=self._api_key)
+        return self._client
+
+    def _generate_google(
+        self,
+        prompt: str,
+        *,
+        size: str,
+        n: int,
+        **kwargs: Any,
+    ) -> List[GeneratedImage]:
+        """Generate images using Google Imagen."""
+        client = self._get_google_client()
+
+        # Parse size
+        width, height = map(int, size.split("x"))
+
+        response = client.models.generate_images(
+            model=self._model,
+            prompt=prompt,
+            config={
+                "number_of_images": n,
+                "output_options": {"mime_type": "image/png"},
+                **kwargs,
+            },
+        )
+
+        return [
+            GeneratedImage(
+                data=base64.b64decode(img.image.image_bytes) if hasattr(img, "image") else None,
+                model=self._model,
+                provider=ImageGenProvider.GOOGLE,
+            )
+            for img in response.generated_images
+        ]
+
+    async def _agenerate_google(
+        self,
+        prompt: str,
+        *,
+        size: str,
+        n: int,
+        **kwargs: Any,
+    ) -> List[GeneratedImage]:
+        """Async generate images using Google Imagen."""
+        from google import genai
+
+        client = genai.Client(api_key=self._api_key)
+
+        # Parse size
+        width, height = map(int, size.split("x"))
+
+        response = await client.aio.models.generate_images(
+            model=self._model,
+            prompt=prompt,
+            config={
+                "number_of_images": n,
+                "output_options": {"mime_type": "image/png"},
+                **kwargs,
+            },
+        )
+
+        return [
+            GeneratedImage(
+                data=base64.b64decode(img.image.image_bytes) if hasattr(img, "image") else None,
+                model=self._model,
+                provider=ImageGenProvider.GOOGLE,
+            )
+            for img in response.generated_images
+        ]
+
+    # -------------------------------------------------------------------------
+    # Stability AI Implementation
+    # -------------------------------------------------------------------------
+
+    def _generate_stability(
+        self,
+        prompt: str,
+        *,
+        size: str,
+        n: int,
+        **kwargs: Any,
+    ) -> List[GeneratedImage]:
+        """Generate images using Stability AI."""
+        import httpx
+
+        width, height = map(int, size.split("x"))
+
+        response = httpx.post(
+            f"https://api.stability.ai/v1/generation/{self._model}/text-to-image",
+            headers={
+                "Authorization": f"Bearer {self._api_key}",
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
+            json={
+                "text_prompts": [{"text": prompt, "weight": 1.0}],
+                "width": width,
+                "height": height,
+                "samples": n,
+                **kwargs,
+            },
+            timeout=120.0,
+        )
+        response.raise_for_status()
+        data = response.json()
+
+        return [
+            GeneratedImage(
+                data=base64.b64decode(artifact["base64"]),
+                model=self._model,
+                provider=ImageGenProvider.STABILITY,
+                metadata={"seed": artifact.get("seed")},
+            )
+            for artifact in data.get("artifacts", [])
+        ]
+
+    async def _agenerate_stability(
+        self,
+        prompt: str,
+        *,
+        size: str,
+        n: int,
+        **kwargs: Any,
+    ) -> List[GeneratedImage]:
+        """Async generate images using Stability AI."""
+        import httpx
+
+        width, height = map(int, size.split("x"))
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"https://api.stability.ai/v1/generation/{self._model}/text-to-image",
+                headers={
+                    "Authorization": f"Bearer {self._api_key}",
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                },
+                json={
+                    "text_prompts": [{"text": prompt, "weight": 1.0}],
+                    "width": width,
+                    "height": height,
+                    "samples": n,
+                    **kwargs,
+                },
+                timeout=120.0,
+            )
+            response.raise_for_status()
+            data = response.json()
+
+        return [
+            GeneratedImage(
+                data=base64.b64decode(artifact["base64"]),
+                model=self._model,
+                provider=ImageGenProvider.STABILITY,
+                metadata={"seed": artifact.get("seed")},
+            )
+            for artifact in data.get("artifacts", [])
+        ]
+
+    # -------------------------------------------------------------------------
+    # Replicate Implementation
+    # -------------------------------------------------------------------------
+
+    def _generate_replicate(
+        self,
+        prompt: str,
+        *,
+        size: str,
+        n: int,
+        **kwargs: Any,
+    ) -> List[GeneratedImage]:
+        """Generate images using Replicate."""
+        import replicate
+
+        width, height = map(int, size.split("x"))
+
+        # Run the model
+        output = replicate.run(
+            self._model,
+            input={
+                "prompt": prompt,
+                "width": width,
+                "height": height,
+                "num_outputs": n,
+                **kwargs,
+            },
+        )
+
+        # Output is typically a list of URLs
+        if isinstance(output, list):
+            return [
+                GeneratedImage(
+                    url=str(url),
+                    model=self._model,
+                    provider=ImageGenProvider.REPLICATE,
+                )
+                for url in output
+            ]
+        else:
+            return [
+                GeneratedImage(
+                    url=str(output),
+                    model=self._model,
+                    provider=ImageGenProvider.REPLICATE,
+                )
+            ]
+
+    async def _agenerate_replicate(
+        self,
+        prompt: str,
+        *,
+        size: str,
+        n: int,
+        **kwargs: Any,
+    ) -> List[GeneratedImage]:
+        """Async generate images using Replicate."""
+        import replicate
+
+        width, height = map(int, size.split("x"))
+
+        # Replicate's async API
+        output = await replicate.async_run(
+            self._model,
+            input={
+                "prompt": prompt,
+                "width": width,
+                "height": height,
+                "num_outputs": n,
+                **kwargs,
+            },
+        )
+
+        if isinstance(output, list):
+            return [
+                GeneratedImage(
+                    url=str(url),
+                    model=self._model,
+                    provider=ImageGenProvider.REPLICATE,
+                )
+                for url in output
+            ]
+        else:
+            return [
+                GeneratedImage(
+                    url=str(output),
+                    model=self._model,
+                    provider=ImageGenProvider.REPLICATE,
+                )
+            ]
+
+    # -------------------------------------------------------------------------
+    # Edit and Variations (OpenAI-specific)
+    # -------------------------------------------------------------------------
+
+    def edit(
+        self,
+        image: Union[str, bytes],
+        prompt: str,
+        *,
+        mask: Optional[Union[str, bytes]] = None,
+        size: str = "1024x1024",
+        n: int = 1,
+        **kwargs: Any,
+    ) -> List[GeneratedImage]:
+        """Edit an existing image based on a prompt.
+
+        Note: Currently only supported by OpenAI (DALL-E 2).
+
+        Args:
+            image: Path to image file or image bytes.
+            prompt: Description of the edit to make.
+            mask: Optional mask image (transparent areas will be edited).
+            size: Output image size.
+            n: Number of variations to generate.
+            **kwargs: Additional options.
+
+        Returns:
+            List of GeneratedImage objects.
+        """
+        if self._provider != ImageGenProvider.OPENAI:
+            raise NotImplementedError(f"edit() not supported for {self._provider}")
+
+        client = self._get_openai_client()
+
+        # Handle image input
+        if isinstance(image, str):
+            image_file = open(image, "rb")
+        else:
+            import io
+
+            image_file = io.BytesIO(image)
+            image_file.name = "image.png"
+
+        # Handle mask input
+        mask_file = None
+        if mask is not None:
+            if isinstance(mask, str):
+                mask_file = open(mask, "rb")
+            else:
+                import io
+
+                mask_file = io.BytesIO(mask)
+                mask_file.name = "mask.png"
+
+        try:
+            params: dict[str, Any] = {
+                "model": "dall-e-2",  # Only DALL-E 2 supports edits
+                "image": image_file,
+                "prompt": prompt,
+                "size": size,
+                "n": n,
+            }
+            if mask_file:
+                params["mask"] = mask_file
+            params.update(kwargs)
+
+            response = client.images.edit(**params)
+
+            return [
+                GeneratedImage(
+                    url=img.url,
+                    model="dall-e-2",
+                    provider=ImageGenProvider.OPENAI,
+                )
+                for img in response.data
+            ]
+        finally:
+            if isinstance(image, str):
+                image_file.close()
+            if mask is not None and isinstance(mask, str):
+                mask_file.close()
+
+    def variations(
+        self,
+        image: Union[str, bytes],
+        *,
+        size: str = "1024x1024",
+        n: int = 1,
+        **kwargs: Any,
+    ) -> List[GeneratedImage]:
+        """Generate variations of an existing image.
+
+        Note: Currently only supported by OpenAI (DALL-E 2).
+
+        Args:
+            image: Path to image file or image bytes.
+            size: Output image size.
+            n: Number of variations to generate.
+            **kwargs: Additional options.
+
+        Returns:
+            List of GeneratedImage objects.
+        """
+        if self._provider != ImageGenProvider.OPENAI:
+            raise NotImplementedError(f"variations() not supported for {self._provider}")
+
+        client = self._get_openai_client()
+
+        # Handle image input
+        if isinstance(image, str):
+            image_file = open(image, "rb")
+        else:
+            import io
+
+            image_file = io.BytesIO(image)
+            image_file.name = "image.png"
+
+        try:
+            response = client.images.create_variation(
+                model="dall-e-2",  # Only DALL-E 2 supports variations
+                image=image_file,
+                size=size,
+                n=n,
+                **kwargs,
+            )
+
+            return [
+                GeneratedImage(
+                    url=img.url,
+                    model="dall-e-2",
+                    provider=ImageGenProvider.OPENAI,
+                )
+                for img in response.data
+            ]
+        finally:
+            if isinstance(image, str):
+                image_file.close()
+
+    # -------------------------------------------------------------------------
+    # Utility Methods
+    # -------------------------------------------------------------------------
+
+    @staticmethod
+    def list_providers() -> List[str]:
+        """List all available providers."""
+        return [p.value for p in ImageGenProvider]
+
+    @staticmethod
+    def list_models(provider: str) -> List[str]:
+        """List available models for a provider.
+
+        Args:
+            provider: Provider name.
+
+        Returns:
+            List of model names.
+        """
+        p = ImageGenProvider(provider.lower())
+        return AVAILABLE_MODELS.get(p, [])

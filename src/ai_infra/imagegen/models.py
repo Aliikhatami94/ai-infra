@@ -1,0 +1,102 @@
+"""Models and types for image generation."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from enum import StrEnum
+from typing import Optional
+
+
+class ImageGenProvider(StrEnum):
+    """Supported image generation providers."""
+
+    OPENAI = "openai"
+    GOOGLE = "google"
+    STABILITY = "stability"
+    REPLICATE = "replicate"
+
+
+@dataclass
+class GeneratedImage:
+    """Represents a generated image.
+
+    Attributes:
+        data: Image data as bytes, or None if URL-only.
+        url: URL to the image (for providers that return URLs).
+        revised_prompt: The prompt as revised by the model (if applicable).
+        model: The model used to generate the image.
+        provider: The provider that generated the image.
+        metadata: Additional provider-specific metadata.
+    """
+
+    data: Optional[bytes] = None
+    url: Optional[str] = None
+    revised_prompt: Optional[str] = None
+    model: Optional[str] = None
+    provider: Optional[ImageGenProvider] = None
+    metadata: dict = field(default_factory=dict)
+
+    def save(self, path: str) -> None:
+        """Save the image to a file.
+
+        Args:
+            path: File path to save to.
+
+        Raises:
+            ValueError: If no image data is available.
+        """
+        if self.data is None:
+            raise ValueError("No image data available. Try fetching from URL first.")
+
+        with open(path, "wb") as f:
+            f.write(self.data)
+
+    async def fetch(self) -> bytes:
+        """Fetch image data from URL if not already loaded.
+
+        Returns:
+            Image data as bytes.
+
+        Raises:
+            ValueError: If no URL is available.
+        """
+        if self.data is not None:
+            return self.data
+
+        if self.url is None:
+            raise ValueError("No URL available to fetch image from.")
+
+        import httpx
+
+        async with httpx.AsyncClient() as client:
+            response = await client.get(self.url)
+            response.raise_for_status()
+            self.data = response.content
+            return self.data
+
+
+# Default models per provider
+DEFAULT_MODELS = {
+    ImageGenProvider.OPENAI: "dall-e-3",
+    ImageGenProvider.GOOGLE: "imagen-3.0-generate-002",
+    ImageGenProvider.STABILITY: "stable-diffusion-xl-1024-v1-0",
+    ImageGenProvider.REPLICATE: "black-forest-labs/flux-schnell",
+}
+
+# Available models per provider
+AVAILABLE_MODELS = {
+    ImageGenProvider.OPENAI: ["dall-e-2", "dall-e-3"],
+    ImageGenProvider.GOOGLE: [
+        "imagen-3.0-generate-002",
+        "imagen-4.0-generate-001",  # Nano Banana Pro
+    ],
+    ImageGenProvider.STABILITY: [
+        "stable-diffusion-xl-1024-v1-0",
+        "stable-diffusion-v1-6",
+    ],
+    ImageGenProvider.REPLICATE: [
+        "black-forest-labs/flux-schnell",
+        "black-forest-labs/flux-dev",
+        "stability-ai/sdxl",
+    ],
+}
