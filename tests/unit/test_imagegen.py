@@ -188,16 +188,26 @@ class TestGenerateGoogle:
 
     def test_generate_returns_images(self, mock_env_google: None) -> None:
         """Test that Google generate returns images."""
-        gen = ImageGen()
+        gen = ImageGen(provider="google")  # Default model is gemini-2.5-flash-image
 
-        mock_img = MagicMock()
-        mock_img.image.image_bytes = "aW1hZ2VkYXRh"  # base64 encoded "imagedata"
+        # Create properly structured mock for Gemini generate_content API
+        mock_inline_data = MagicMock()
+        mock_inline_data.data = b"imagedata"
+
+        mock_part = MagicMock()
+        mock_part.inline_data = mock_inline_data
+
+        mock_content = MagicMock()
+        mock_content.parts = [mock_part]
+
+        mock_candidate = MagicMock()
+        mock_candidate.content = mock_content
 
         mock_response = MagicMock()
-        mock_response.generated_images = [mock_img]
+        mock_response.candidates = [mock_candidate]
 
         with patch.object(gen, "_get_google_client") as mock_client:
-            mock_client.return_value.models.generate_images.return_value = mock_response
+            mock_client.return_value.models.generate_content.return_value = mock_response
 
             images = gen.generate("A mountain landscape")
 

@@ -178,6 +178,7 @@ class LLM(BaseLLM):
         output_method: (
             Literal["json_schema", "json_mode", "function_calling", "prompt"] | None
         ) = "prompt",
+        images: Optional[List[Any]] = None,
         **model_kwargs,
     ):
         """Send a chat message and get a response.
@@ -190,6 +191,7 @@ class LLM(BaseLLM):
             extra: Extra options (e.g., {"retry": {"max_attempts": 3}})
             output_schema: Pydantic model for structured output
             output_method: How to extract structured output
+            images: Optional list of images (URLs, bytes, or file paths) for vision
             **model_kwargs: Additional model kwargs
 
         Returns:
@@ -232,7 +234,7 @@ class LLM(BaseLLM):
                 else:
                     model = self.set_model(provider, model_name, **model_kwargs)
 
-                messages = _make_messages(user_msg, system)
+                messages = _make_messages(user_msg, system, images=images, provider=provider)
 
                 def _call():
                     return model.invoke(messages)
@@ -281,6 +283,7 @@ class LLM(BaseLLM):
         output_method: (
             Literal["json_schema", "json_mode", "function_calling", "prompt"] | None
         ) = "prompt",
+        images: Optional[List[Any]] = None,
         **model_kwargs,
     ):
         """Async version of chat().
@@ -293,6 +296,7 @@ class LLM(BaseLLM):
             extra: Extra options (e.g., {"retry": {"max_attempts": 3}})
             output_schema: Pydantic model for structured output
             output_method: How to extract structured output
+            images: Optional list of images (URLs, bytes, or file paths) for vision
             **model_kwargs: Additional model kwargs
 
         Returns:
@@ -333,7 +337,7 @@ class LLM(BaseLLM):
                 else:
                     model = self.set_model(provider, model_name, **model_kwargs)
 
-                messages = _make_messages(user_msg, system)
+                messages = _make_messages(user_msg, system, images=images, provider=provider)
 
                 async def _call():
                     return await model.ainvoke(messages)
@@ -381,6 +385,7 @@ class LLM(BaseLLM):
         temperature: Optional[float] = None,
         top_p: Optional[float] = None,
         max_tokens: Optional[int] = None,
+        images: Optional[List[Any]] = None,
         **model_kwargs,
     ):
         """Stream tokens from the model.
@@ -393,6 +398,7 @@ class LLM(BaseLLM):
             temperature: Sampling temperature
             top_p: Top-p sampling
             max_tokens: Maximum tokens to generate
+            images: Optional list of images (URLs, bytes, or file paths) for vision
             **model_kwargs: Additional model kwargs
 
         Yields:
@@ -410,7 +416,7 @@ class LLM(BaseLLM):
         if max_tokens is not None:
             model_kwargs["max_tokens"] = max_tokens
         model = self.set_model(provider, model_name, **model_kwargs)
-        messages = _make_messages(user_msg, system)
+        messages = _make_messages(user_msg, system, images=images, provider=provider)
         async for event in model.astream(messages):
             text = getattr(event, "content", None)
             if text is None:
