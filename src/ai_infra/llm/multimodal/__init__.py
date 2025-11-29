@@ -56,6 +56,14 @@ Example - STT:
     ```
 """
 
+from ai_infra.llm.multimodal.audio import AudioInput as AudioInputType
+from ai_infra.llm.multimodal.audio import (
+    build_audio_content,
+    create_audio_message,
+    encode_audio,
+    encode_audio_for_google,
+    encode_audio_for_openai,
+)
 from ai_infra.llm.multimodal.models import (
     AudioFormat,
     AudioSegment,
@@ -87,6 +95,13 @@ __all__ = [
     "encode_image_for_anthropic",
     "encode_image_for_google",
     "make_vision_message",
+    # Audio - New API
+    "create_audio_message",
+    "build_audio_content",
+    "encode_audio",
+    "encode_audio_for_openai",
+    "encode_audio_for_google",
+    "AudioInputType",
     # TTS
     "TTS",
     # STT

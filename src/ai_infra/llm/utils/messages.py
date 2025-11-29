@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 ImageInput = Union[str, bytes, Path]
+AudioInput = Union[str, bytes, Path]
 
 
 def make_messages(
@@ -11,6 +12,7 @@ def make_messages(
     system: Optional[str] = None,
     extras: Optional[List[Dict[str, Any]]] = None,
     images: Optional[List[ImageInput]] = None,
+    audio: Optional[AudioInput] = None,
     provider: Optional[str] = None,  # Kept for backwards compatibility, but ignored
 ):
     """Create a list of messages for LLM chat.
@@ -20,6 +22,7 @@ def make_messages(
         system: Optional system message.
         extras: Optional additional messages.
         images: Optional list of images (URLs, bytes, or file paths).
+        audio: Optional audio input (URL, bytes, or file path).
         provider: Deprecated - no longer needed. Kept for backwards compatibility.
 
     Returns:
@@ -29,11 +32,25 @@ def make_messages(
     if system:
         msgs.append({"role": "system", "content": system})
 
-    # Handle images in user message
-    if images:
-        from ai_infra.llm.multimodal.vision import build_vision_content
+    # Handle multimodal content in user message
+    if images or audio:
+        content: List[Dict[str, Any]] = [{"type": "text", "text": user}]
 
-        content = build_vision_content(user, images)
+        # Add images
+        if images:
+            from ai_infra.llm.multimodal.vision import build_vision_content
+
+            # build_vision_content returns list including text, we just want image blocks
+            vision_content = build_vision_content("", images)
+            # Skip the empty text block and get just image blocks
+            content.extend([c for c in vision_content if c.get("type") != "text"])
+
+        # Add audio
+        if audio:
+            from ai_infra.llm.multimodal.audio import encode_audio
+
+            content.append(encode_audio(audio))
+
         msgs.append({"role": "user", "content": content})
     else:
         msgs.append({"role": "user", "content": user})

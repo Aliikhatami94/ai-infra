@@ -179,6 +179,7 @@ class LLM(BaseLLM):
             Literal["json_schema", "json_mode", "function_calling", "prompt"] | None
         ) = "prompt",
         images: Optional[List[Any]] = None,
+        audio: Optional[Any] = None,
         **model_kwargs,
     ):
         """Send a chat message and get a response.
@@ -192,6 +193,7 @@ class LLM(BaseLLM):
             output_schema: Pydantic model for structured output
             output_method: How to extract structured output
             images: Optional list of images (URLs, bytes, or file paths) for vision
+            audio: Optional audio input (URL, bytes, or file path) for audio understanding
             **model_kwargs: Additional model kwargs
 
         Returns:
@@ -234,7 +236,9 @@ class LLM(BaseLLM):
                 else:
                     model = self.set_model(provider, model_name, **model_kwargs)
 
-                messages = _make_messages(user_msg, system, images=images, provider=provider)
+                messages = _make_messages(
+                    user_msg, system, images=images, audio=audio, provider=provider
+                )
 
                 def _call():
                     return model.invoke(messages)
@@ -284,6 +288,7 @@ class LLM(BaseLLM):
             Literal["json_schema", "json_mode", "function_calling", "prompt"] | None
         ) = "prompt",
         images: Optional[List[Any]] = None,
+        audio: Optional[Any] = None,
         **model_kwargs,
     ):
         """Async version of chat().
@@ -297,6 +302,7 @@ class LLM(BaseLLM):
             output_schema: Pydantic model for structured output
             output_method: How to extract structured output
             images: Optional list of images (URLs, bytes, or file paths) for vision
+            audio: Optional audio input (URL, bytes, or file path) for audio understanding
             **model_kwargs: Additional model kwargs
 
         Returns:
@@ -337,7 +343,9 @@ class LLM(BaseLLM):
                 else:
                     model = self.set_model(provider, model_name, **model_kwargs)
 
-                messages = _make_messages(user_msg, system, images=images, provider=provider)
+                messages = _make_messages(
+                    user_msg, system, images=images, audio=audio, provider=provider
+                )
 
                 async def _call():
                     return await model.ainvoke(messages)
