@@ -21,7 +21,17 @@ from ai_infra.errors import (
 )
 from ai_infra.graph import Graph
 from ai_infra.imagegen import GeneratedImage, ImageGen, ImageGenProvider
-from ai_infra.llm import LLM, Agent
+from ai_infra.llm import (
+    LLM,
+    STT,
+    TTS,
+    Agent,
+    AudioFormat,
+    AudioOutput,
+    AudioResponse,
+    TranscriptionResult,
+    Voice,
+)
 from ai_infra.llm.providers import Providers
 from ai_infra.llm.tools.custom.retriever import create_retriever_tool, create_retriever_tool_async
 from ai_infra.logging import configure_logging, get_logger
@@ -47,6 +57,14 @@ __all__ = [
     "MCPClient",
     "Providers",
     "mcp_from_functions",
+    # Multimodal (TTS, STT, Audio)
+    "TTS",
+    "STT",
+    "AudioFormat",
+    "AudioOutput",
+    "AudioResponse",
+    "TranscriptionResult",
+    "Voice",
     # Embeddings
     "Embeddings",
     "VectorStore",

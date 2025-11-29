@@ -180,6 +180,7 @@ class LLM(BaseLLM):
         ) = "prompt",
         images: Optional[List[Any]] = None,
         audio: Optional[Any] = None,
+        audio_output: Optional[Any] = None,
         **model_kwargs,
     ):
         """Send a chat message and get a response.
@@ -194,12 +195,25 @@ class LLM(BaseLLM):
             output_method: How to extract structured output
             images: Optional list of images (URLs, bytes, or file paths) for vision
             audio: Optional audio input (URL, bytes, or file path) for audio understanding
+            audio_output: Optional AudioOutput config to get audio response from model
             **model_kwargs: Additional model kwargs
 
         Returns:
             Response message or structured output if output_schema provided
         """
         sanitize_model_kwargs(model_kwargs)
+
+        # Resolve provider and model (auto-detect if not specified)
+        provider, model_name = self._resolve_provider_and_model(provider, model_name)
+
+        # If audio_output is requested, merge modalities into model_kwargs
+        if audio_output is not None:
+            from ai_infra.llm.multimodal.audio_output import AudioOutput
+
+            if isinstance(audio_output, AudioOutput):
+                model_kwargs.update(audio_output.to_openai_modalities())
+            elif isinstance(audio_output, dict):
+                model_kwargs.update(audio_output)
 
         # Resolve provider and model (auto-detect if not specified)
         provider, model_name = self._resolve_provider_and_model(provider, model_name)
@@ -289,6 +303,7 @@ class LLM(BaseLLM):
         ) = "prompt",
         images: Optional[List[Any]] = None,
         audio: Optional[Any] = None,
+        audio_output: Optional[Any] = None,
         **model_kwargs,
     ):
         """Async version of chat().
@@ -303,12 +318,25 @@ class LLM(BaseLLM):
             output_method: How to extract structured output
             images: Optional list of images (URLs, bytes, or file paths) for vision
             audio: Optional audio input (URL, bytes, or file path) for audio understanding
+            audio_output: Optional AudioOutput config to get audio response from model
             **model_kwargs: Additional model kwargs
 
         Returns:
             Response message or structured output if output_schema provided
         """
         sanitize_model_kwargs(model_kwargs)
+
+        # Resolve provider and model (auto-detect if not specified)
+        provider, model_name = self._resolve_provider_and_model(provider, model_name)
+
+        # If audio_output is requested, merge modalities into model_kwargs
+        if audio_output is not None:
+            from ai_infra.llm.multimodal.audio_output import AudioOutput
+
+            if isinstance(audio_output, AudioOutput):
+                model_kwargs.update(audio_output.to_openai_modalities())
+            elif isinstance(audio_output, dict):
+                model_kwargs.update(audio_output)
 
         # Resolve provider and model (auto-detect if not specified)
         provider, model_name = self._resolve_provider_and_model(provider, model_name)

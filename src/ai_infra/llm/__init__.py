@@ -2,6 +2,15 @@ from ai_infra.llm.agent import Agent
 from ai_infra.llm.base import BaseLLM
 from ai_infra.llm.defaults import MODEL, PROVIDER
 from ai_infra.llm.llm import LLM
+from ai_infra.llm.multimodal import (
+    STT,
+    TTS,
+    AudioFormat,
+    AudioOutput,
+    AudioResponse,
+    TranscriptionResult,
+    Voice,
+)
 from ai_infra.llm.providers import Providers
 from ai_infra.llm.session import (
     PendingAction,
@@ -51,6 +60,14 @@ __all__ = [
     "PROVIDER",
     "MODEL",
     "tools_from_functions",
+    # Multimodal
+    "TTS",
+    "STT",
+    "AudioFormat",
+    "AudioOutput",
+    "AudioResponse",
+    "TranscriptionResult",
+    "Voice",
     # Error handling
     "translate_provider_error",
     "get_supported_kwargs",

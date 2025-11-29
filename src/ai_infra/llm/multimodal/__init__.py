@@ -64,6 +64,17 @@ from ai_infra.llm.multimodal.audio import (
     encode_audio_for_google,
     encode_audio_for_openai,
 )
+from ai_infra.llm.multimodal.audio_output import (
+    AUDIO_MODELS,
+    AudioOutput,
+    AudioOutputFormat,
+    AudioResponse,
+    AudioVoice,
+    get_audio_model,
+    is_audio_model,
+    list_audio_voices,
+    parse_audio_response,
+)
 from ai_infra.llm.multimodal.models import (
     AudioFormat,
     AudioSegment,
@@ -95,13 +106,23 @@ __all__ = [
     "encode_image_for_anthropic",
     "encode_image_for_google",
     "make_vision_message",
-    # Audio - New API
+    # Audio Input - New API
     "create_audio_message",
     "build_audio_content",
     "encode_audio",
     "encode_audio_for_openai",
     "encode_audio_for_google",
     "AudioInputType",
+    # Audio Output - New API
+    "AudioOutput",
+    "AudioResponse",
+    "AudioVoice",
+    "AudioOutputFormat",
+    "parse_audio_response",
+    "list_audio_voices",
+    "get_audio_model",
+    "is_audio_model",
+    "AUDIO_MODELS",
     # TTS
     "TTS",
     # STT

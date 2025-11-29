@@ -15,6 +15,7 @@ from ai_infra.llm.tools.approval import (
     create_rule_based_handler,
     create_selective_handler,
 )
+from ai_infra.llm.tools.custom.multimodal import analyze_image, generate_image, transcribe_audio
 from ai_infra.llm.tools.events import ApprovalEvent, ApprovalEvents
 from ai_infra.llm.tools.hitl import (
     ApprovalConfig,
@@ -74,4 +75,8 @@ __all__ = [
     "ToolCallControls",
     # Tools
     "tools_from_functions",
+    # Multimodal tools
+    "transcribe_audio",
+    "analyze_image",
+    "generate_image",
 ]
