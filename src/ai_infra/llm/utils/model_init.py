@@ -1,20 +1,41 @@
 from __future__ import annotations
+
 import os
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, List, Optional
+
 from langchain.chat_models import init_chat_model
+
 
 def build_model_key(provider: str, model_name: str) -> str:
     return f"{provider}:{model_name}"
 
+
 def initialize_model(key: str, provider: str, **kwargs):
-    """Initialize a chat model with the provider's API key."""
+    """Initialize a chat model with the provider's API key.
+
+    Args:
+        key: The model key in format "provider:model_name"
+        provider: The provider name (openai, anthropic, etc.)
+        **kwargs: Additional kwargs to pass to init_chat_model
+    """
+    # Extract model name from key (format: "provider:model_name")
+    model_name = key.split(":", 1)[1] if ":" in key else key
+
+    # Remove any conflicting kwargs before passing to init_chat_model
+    kwargs.pop("model", None)
+    kwargs.pop("model_provider", None)
+
     return init_chat_model(
-        key,
+        model_name,
+        model_provider=provider,
         api_key=os.environ.get(f"{provider.upper()}_API_KEY"),
-        **kwargs
+        **kwargs,
     )
 
-def sanitize_model_kwargs(model_kwargs: Dict[str, Any], banned: Optional[List[str]] = None) -> Dict[str, Any]:
+
+def sanitize_model_kwargs(
+    model_kwargs: Dict[str, Any], banned: Optional[List[str]] = None
+) -> Dict[str, Any]:
     """Remove agent/tool-only kwargs from a model kwargs dict (mutates input)."""
     if not model_kwargs:
         return model_kwargs

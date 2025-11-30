@@ -314,6 +314,10 @@ class Agent(BaseLLM):
         self._context_schema = context_schema
         self._use_longterm_memory = use_longterm_memory
 
+        # Persona support (set by from_persona)
+        self._tool_filter: Optional[Callable[[str], bool]] = None
+        self._persona: Optional[Any] = None  # Persona object if loaded
+
         # Set up approval config
         self._approval_config: Optional[ApprovalConfig] = None
         if require_approval or approval_handler:
@@ -340,6 +344,148 @@ class Agent(BaseLLM):
 
         if tools:
             self.set_global_tools(tools)
+
+    @classmethod
+    def from_persona(
+        cls,
+        path: Optional[str] = None,
+        *,
+        persona: Optional[Any] = None,
+        name: Optional[str] = None,
+        prompt: Optional[str] = None,
+        allowed_tools: Optional[List[str]] = None,
+        deny: Optional[List[str]] = None,
+        approve: Optional[List[str]] = None,
+        **kwargs,
+    ) -> "Agent":
+        """
+        Create an Agent from a persona configuration.
+
+        Personas define agent behavior, allowed tools, and safety constraints
+        in a declarative format. Load from YAML files or configure inline.
+
+        Args:
+            path: Path to YAML persona file. If provided, loads configuration
+                from file. File fields can be overridden by other arguments.
+            persona: Pre-built Persona object. Alternative to path.
+            name: Persona name (for logging/debugging)
+            prompt: System prompt defining agent behavior
+            allowed_tools: List of allowed tool names (whitelist). If provided,
+                only these tools are available to the agent.
+            deny: List of denied tool names (blacklist). These tools
+                are blocked even if passed to the agent.
+            approve: List of tools requiring human approval before execution.
+                Maps to Agent's require_approval parameter.
+            **kwargs: Additional Agent kwargs (provider, model_name, tools, etc.)
+                The 'tools' kwarg passes actual tool objects to the Agent.
+
+        Returns:
+            Configured Agent instance
+
+        Example - From YAML file:
+            ```python
+            # personas/analyst.yaml:
+            # name: analyst
+            # prompt: You are a data analyst...
+            # tools: [query_database, create_chart]
+            # deny: [delete_record, drop_table]
+            # approve: [send_email]
+            # temperature: 0.3
+
+            agent = Agent.from_persona("personas/analyst.yaml")
+            ```
+
+        Example - Inline configuration:
+            ```python
+            agent = Agent.from_persona(
+                name="analyst",
+                prompt="You are a data analyst. Be precise and data-driven.",
+                allowed_tools=["query_database", "create_chart"],
+                deny=["delete_record", "drop_table"],
+                approve=["send_email"],
+                temperature=0.3,
+            )
+            ```
+
+        Example - With Persona object and tools:
+            ```python
+            persona = Persona(name="db-admin", prompt="You manage databases.")
+            tools = tools_from_models(User, Product)
+            agent = Agent.from_persona(persona=persona, tools=tools)
+            ```
+        """
+        from ai_infra.llm.personas import Persona as PersonaCls
+        from ai_infra.llm.personas import build_tool_filter
+
+        # Load persona from object, file, or build from kwargs
+        if persona is not None:
+            # Use the provided Persona object
+            # Apply any overrides
+            if name:
+                persona.name = name
+            if prompt:
+                persona.prompt = prompt
+            if allowed_tools:
+                persona.tools = allowed_tools
+            if deny:
+                persona.deny = deny
+            if approve:
+                persona.approve = approve
+        elif path:
+            persona = PersonaCls.from_yaml(path)
+            # Override with explicit arguments
+            if name:
+                persona.name = name
+            if prompt:
+                persona.prompt = prompt
+            if allowed_tools:
+                persona.tools = allowed_tools
+            if deny:
+                persona.deny = deny
+            if approve:
+                persona.approve = approve
+        else:
+            persona = PersonaCls(
+                name=name or "custom",
+                prompt=prompt or "",
+                tools=allowed_tools,
+                deny=deny,
+                approve=approve,
+            )
+
+        # Build tool filter function
+        tool_filter = build_tool_filter(persona.tools, persona.deny)
+
+        # Extract persona's provider/model overrides
+        agent_kwargs = {}
+        if persona.provider:
+            agent_kwargs["provider"] = persona.provider
+        if persona.model_name:
+            agent_kwargs["model_name"] = persona.model_name
+        if persona.temperature is not None:
+            agent_kwargs["temperature"] = persona.temperature
+        if persona.max_tokens is not None:
+            agent_kwargs["max_tokens"] = persona.max_tokens
+
+        # Merge with caller-provided kwargs (caller takes precedence)
+        agent_kwargs.update(kwargs)
+
+        # Set up approval for persona.approve tools
+        if persona.approve:
+            agent_kwargs["require_approval"] = persona.approve
+
+        # Create agent with system prompt
+        agent = cls(
+            system=persona.prompt,
+            name=persona.name,
+            **agent_kwargs,
+        )
+
+        # Store tool filter for runtime filtering
+        agent._tool_filter = tool_filter
+        agent._persona = persona
+
+        return agent
 
     def run(
         self,
@@ -858,21 +1004,8 @@ class Agent(BaseLLM):
         # Resolve provider and model
         eff_provider, eff_model = self._resolve_provider_and_model(provider, model_name)
 
-        # Get model from registry
-        model_info = self.registry.get(eff_provider)
-        if not model_info:
-            raise ValueError(f"Unknown provider: {eff_provider}")
-
-        chat_model_cls = model_info.get("chat_model")
-        if not chat_model_cls:
-            raise ValueError(f"Provider {eff_provider} does not support chat models")
-
-        # Build model kwargs
-        model_kwargs = {**self._default_model_kwargs}
-        if eff_model:
-            model_kwargs["model"] = eff_model
-
-        return chat_model_cls(**model_kwargs)
+        # Get or create model from registry (same as get_model())
+        return self.registry.get_or_create(eff_provider, eff_model, **self._default_model_kwargs)
 
     async def arun_agent(
         self,

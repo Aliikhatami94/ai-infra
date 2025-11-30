@@ -37,7 +37,9 @@ from ai_infra.llm.tools.custom.retriever import create_retriever_tool, create_re
 from ai_infra.logging import configure_logging, get_logger
 from ai_infra.mcp import MCPClient, MCPServer
 from ai_infra.mcp.server.tools import mcp_from_functions
+from ai_infra.replay import replay
 from ai_infra.retriever import Retriever
+from ai_infra.tools import progress, tools_from_models
 from ai_infra.tracing import TracingCallbacks, configure_tracing, get_tracer, trace
 
 # Validation
@@ -101,4 +103,8 @@ __all__ = [
     "ImageGen",
     "GeneratedImage",
     "ImageGenProvider",
+    # Phase 4.7 - Zero Friction Integrations
+    "tools_from_models",
+    "replay",
+    "progress",
 ]
