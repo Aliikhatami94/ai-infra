@@ -33,7 +33,7 @@ Example:
 
 from ai_infra.replay.recorder import WorkflowRecorder, WorkflowStep
 from ai_infra.replay.replay import ReplayResult, replay
-from ai_infra.replay.storage import MemoryStorage, Storage
+from ai_infra.replay.storage import MemoryStorage, SQLiteStorage, Storage
 
 __all__ = [
     "replay",
@@ -42,4 +42,5 @@ __all__ = [
     "WorkflowStep",
     "Storage",
     "MemoryStorage",
+    "SQLiteStorage",
 ]
