@@ -297,3 +297,95 @@ class TestPaginationConfig:
         # Check that max is set in JSON schema
         schema = list_tool.args_schema.model_json_schema()
         assert schema["properties"]["limit"]["maximum"] == 500
+
+
+class TestToolsFromModelsSql:
+    """Tests for tools_from_models_sql with svc-infra integration."""
+
+    def test_import_available(self):
+        """Verify tools_from_models_sql is importable."""
+        from ai_infra.tools.schema_tools import tools_from_models_sql
+
+        assert callable(tools_from_models_sql)
+
+    def test_top_level_import(self):
+        """Verify it's exported from ai_infra top level."""
+        from ai_infra import tools_from_models_sql
+
+        assert callable(tools_from_models_sql)
+
+    @pytest.mark.asyncio
+    async def test_generates_tools_with_mock_session(self):
+        """Test tool generation with a mock session."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        from ai_infra.tools.schema_tools import tools_from_models_sql
+
+        # Create mock session
+        mock_session = MagicMock()
+
+        # Create tools - this should work even without real DB
+        tools = tools_from_models_sql(User, session=mock_session)
+
+        # Should generate 5 CRUD tools
+        assert len(tools) == 5
+
+        tool_names = [t.name for t in tools]
+        assert "get_user" in tool_names
+        assert "list_users" in tool_names
+        assert "create_user" in tool_names
+        assert "update_user" in tool_names
+        assert "delete_user" in tool_names
+
+    def test_read_only_mode(self):
+        """Test read_only generates only get/list tools."""
+        from unittest.mock import MagicMock
+
+        from ai_infra.tools.schema_tools import tools_from_models_sql
+
+        mock_session = MagicMock()
+        tools = tools_from_models_sql(User, session=mock_session, read_only=True)
+
+        assert len(tools) == 2
+        tool_names = [t.name for t in tools]
+        assert "get_user" in tool_names
+        assert "list_users" in tool_names
+        assert "create_user" not in tool_names
+
+    def test_specific_operations(self):
+        """Test specific operations filter."""
+        from unittest.mock import MagicMock
+
+        from ai_infra.tools.schema_tools import tools_from_models_sql
+
+        mock_session = MagicMock()
+        tools = tools_from_models_sql(User, session=mock_session, operations=["get", "create"])
+
+        assert len(tools) == 2
+        tool_names = [t.name for t in tools]
+        assert "get_user" in tool_names
+        assert "create_user" in tool_names
+
+    def test_soft_delete_passed_through(self):
+        """Test soft_delete parameter is accepted."""
+        from unittest.mock import MagicMock
+
+        from ai_infra.tools.schema_tools import tools_from_models_sql
+
+        mock_session = MagicMock()
+
+        # Should not raise
+        tools = tools_from_models_sql(User, session=mock_session, soft_delete=True)
+        assert len(tools) == 5
+
+    def test_custom_id_attr(self):
+        """Test custom id_attr parameter."""
+        from unittest.mock import MagicMock
+
+        from ai_infra.tools.schema_tools import tools_from_models_sql
+
+        mock_session = MagicMock()
+
+        # Should not raise with custom id_attr
+        tools = tools_from_models_sql(User, session=mock_session, id_attr="user_id")
+        assert len(tools) == 5

@@ -1,29 +1,55 @@
 """
 Schema-to-Tools: Automatically generate CRUD tools from SQLAlchemy/Pydantic models.
 
-This module provides `tools_from_models()` which generates get, list, create, update,
-and delete tools from database models.
+This module provides two ways to generate CRUD tools:
 
-Example:
+1. **tools_from_models()** - Flexible, bring-your-own executor
+2. **tools_from_models_sql()** - Zero-config with svc-infra SqlRepository (RECOMMENDED)
+
+Quick Start (Recommended):
     ```python
-    from sqlalchemy.orm import DeclarativeBase
+    from ai_infra import Agent, tools_from_models_sql
+    from svc_infra.api.fastapi.db.sql.session import get_session
+
+    async with get_session() as session:
+        tools = tools_from_models_sql(User, Product, session=session)
+        agent = Agent(tools=tools)
+        result = await agent.arun("Create a user named Alice")
+    ```
+
+Quick Start (Custom Executor):
+    ```python
     from ai_infra import Agent, tools_from_models
 
-    class Base(DeclarativeBase):
-        pass
+    # With custom execution logic
+    def my_executor(operation, model, **kwargs):
+        if operation == "get":
+            return db.query(model).get(kwargs["id"])
+        # ... handle other operations
 
-    class User(Base):
-        __tablename__ = "users"
-        id: Mapped[int] = mapped_column(primary_key=True)
-        name: Mapped[str]
-        email: Mapped[str]
-
-    # Generate CRUD tools
-    tools = tools_from_models(User)
-    # Creates: get_user, list_users, create_user, update_user, delete_user
-
+    tools = tools_from_models(User, executor=my_executor)
     agent = Agent(tools=tools)
     ```
+
+FastAPI Integration:
+    ```python
+    from fastapi import Depends
+    from svc_infra.api.fastapi.db.sql.session import SqlSessionDep
+
+    @app.post("/chat")
+    async def chat(message: str, session: SqlSessionDep):
+        tools = tools_from_models_sql(User, Order, session=session)
+        agent = Agent(tools=tools)
+        return await agent.arun(message)
+    ```
+
+Generated Tools:
+    For a model named `User`, generates:
+    - get_user(id) - Retrieve by ID
+    - list_users(limit, offset) - List with pagination
+    - create_user(**fields) - Create new record
+    - update_user(id, **fields) - Update existing record
+    - delete_user(id) - Delete/soft-delete record
 """
 
 from __future__ import annotations
@@ -476,3 +502,180 @@ def tools_from_models(
             all_tools.append(tool.to_langchain_tool())
 
     return all_tools
+
+
+def tools_from_models_sql(
+    *models: type,
+    session: Any,
+    read_only: bool = False,
+    operations: Sequence[str] | None = None,
+    name_pattern: str = "{action}_{model}",
+    default_limit: int = 20,
+    max_limit: int = 100,
+    soft_delete: bool = False,
+    id_attr: str = "id",
+) -> list[Callable[..., Any]]:
+    """
+    Generate CRUD tools from SQLAlchemy models with automatic database execution.
+
+    This is the **recommended** way to generate tools for database models. It uses
+    svc-infra's SqlRepository for production-ready async CRUD operations with:
+    - Automatic session management
+    - Soft-delete support
+    - Proper error handling
+    - Type-safe operations
+
+    Args:
+        *models: One or more SQLAlchemy model classes
+        session: AsyncSession from SQLAlchemy (use svc-infra's get_session())
+        read_only: If True, only generate get/list tools
+        operations: Specific operations to generate (get, list, create, update, delete)
+        name_pattern: Pattern for tool names. Use {action} and {model} placeholders
+        default_limit: Default page size for list operations
+        max_limit: Maximum page size for list operations
+        soft_delete: If True, delete operations set deleted_at instead of removing
+        id_attr: Name of the ID column (default: "id")
+
+    Returns:
+        List of callable tools ready for use with Agent
+
+    Example - Basic usage:
+        ```python
+        from ai_infra import Agent, tools_from_models_sql
+        from svc_infra.api.fastapi.db.sql.session import get_session
+
+        async with get_session() as session:
+            tools = tools_from_models_sql(User, Product, session=session)
+            agent = Agent(tools=tools)
+            result = await agent.arun("List all users")
+        ```
+
+    Example - FastAPI endpoint:
+        ```python
+        from fastapi import Depends
+        from svc_infra.api.fastapi.db.sql.session import SqlSessionDep
+
+        @app.post("/chat")
+        async def chat(message: str, session: SqlSessionDep):
+            tools = tools_from_models_sql(User, Order, session=session)
+            agent = Agent(tools=tools)
+            return await agent.arun(message)
+        ```
+
+    Example - Read-only with soft-delete:
+        ```python
+        tools = tools_from_models_sql(
+            User,
+            session=session,
+            read_only=True,
+            soft_delete=True,
+        )
+        ```
+
+    Note:
+        Requires svc-infra package (included as ai-infra dependency).
+        For custom execution logic, use `tools_from_models()` with an executor.
+    """
+    try:
+        from svc_infra.db.sql.repository import SqlRepository
+    except ImportError as e:
+        raise ImportError(
+            "tools_from_models_sql requires svc-infra. " "Install with: pip install svc-infra"
+        ) from e
+
+    # Cache repositories per model for efficiency
+    _repos: dict[type, SqlRepository] = {}
+
+    def _get_repo(model: type) -> SqlRepository:
+        if model not in _repos:
+            _repos[model] = SqlRepository(
+                model=model,
+                id_attr=id_attr,
+                soft_delete=soft_delete,
+            )
+        return _repos[model]
+
+    async def async_executor(operation: str, model: type, **kwargs: Any) -> Any:
+        """Execute CRUD operation using svc-infra SqlRepository."""
+        repo = _get_repo(model)
+
+        if operation == "get":
+            result = await repo.get(session, kwargs["id"])
+            if result is None:
+                return {"error": f"Not found: id={kwargs['id']}"}
+            return _model_to_dict(result)
+
+        elif operation == "list":
+            limit = min(kwargs.get("limit", default_limit), max_limit)
+            offset = kwargs.get("offset", 0)
+            results = await repo.list(session, limit=limit, offset=offset)
+            return [_model_to_dict(r) for r in results]
+
+        elif operation == "create":
+            # Remove operation metadata from kwargs
+            create_data = {k: v for k, v in kwargs.items() if k not in ("limit", "offset")}
+            result = await repo.create(session, create_data)
+            return _model_to_dict(result)
+
+        elif operation == "update":
+            id_value = kwargs.pop("id")
+            update_data = {k: v for k, v in kwargs.items() if k not in ("limit", "offset")}
+            result = await repo.update(session, id_value, update_data)
+            if result is None:
+                return {"error": f"Not found: id={id_value}"}
+            return _model_to_dict(result)
+
+        elif operation == "delete":
+            success = await repo.delete(session, kwargs["id"])
+            return {"success": success, "id": kwargs["id"]}
+
+        else:
+            return {"error": f"Unknown operation: {operation}"}
+
+    # Sync wrapper for LangChain tools (they expect sync functions)
+    def sync_executor(operation: str, model: type, **kwargs: Any) -> Any:
+        """Sync wrapper that runs async executor."""
+        import asyncio
+
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop and loop.is_running():
+            # Inside async context - use thread pool
+            import concurrent.futures
+
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                future = pool.submit(asyncio.run, async_executor(operation, model, **kwargs))
+                return future.result()
+        else:
+            # No running loop - run directly
+            return asyncio.run(async_executor(operation, model, **kwargs))
+
+    return tools_from_models(
+        *models,
+        executor=sync_executor,
+        read_only=read_only,
+        operations=operations,
+        name_pattern=name_pattern,
+        default_limit=default_limit,
+        max_limit=max_limit,
+    )
+
+
+def _model_to_dict(obj: Any) -> dict[str, Any]:
+    """Convert SQLAlchemy model instance to dictionary."""
+    if hasattr(obj, "__table__"):
+        # SQLAlchemy model
+        return {c.name: getattr(obj, c.name) for c in obj.__table__.columns}
+    elif hasattr(obj, "model_dump"):
+        # Pydantic v2
+        return obj.model_dump()
+    elif hasattr(obj, "dict"):
+        # Pydantic v1
+        return obj.dict()
+    elif hasattr(obj, "__dict__"):
+        return {k: v for k, v in obj.__dict__.items() if not k.startswith("_")}
+    else:
+        return {"value": str(obj)}
