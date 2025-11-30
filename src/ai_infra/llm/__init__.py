@@ -1,4 +1,10 @@
-from ai_infra.llm.agent import Agent
+from ai_infra.llm.agent import (
+    Agent,
+    CompiledSubAgent,
+    FilesystemMiddleware,
+    SubAgent,
+    SubAgentMiddleware,
+)
 from ai_infra.llm.base import BaseLLM
 from ai_infra.llm.defaults import MODEL, PROVIDER
 from ai_infra.llm.llm import LLM
@@ -102,4 +108,9 @@ __all__ = [
     "postgres",
     "sqlite",
     "generate_session_id",
+    # DeepAgents types
+    "SubAgent",
+    "CompiledSubAgent",
+    "SubAgentMiddleware",
+    "FilesystemMiddleware",
 ]

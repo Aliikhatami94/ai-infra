@@ -1,14 +1,15 @@
 """Agent class for tool-using LLM agents.
 
 This module provides the Agent class for running LLM agents with tools,
-including support for sessions, human-in-the-loop approval, and streaming.
+including support for sessions, human-in-the-loop approval, streaming,
+and DeepAgents mode for autonomous multi-step task execution.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Callable, Dict, List, Literal, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, List, Literal, Optional, Sequence, Tuple, Type, Union
 
 from ai_infra.llm.base import BaseLLM
 from ai_infra.llm.session import (
@@ -39,6 +40,64 @@ from .utils import is_valid_response as _is_valid_response
 from .utils import merge_overrides as _merge_overrides
 from .utils import run_with_fallbacks as _run_fallbacks_util
 from .utils import with_retry as _with_retry_util
+
+# =============================================================================
+# DeepAgents Types (re-exported for convenience)
+# =============================================================================
+
+try:
+    from deepagents import CompiledSubAgent, FilesystemMiddleware, SubAgent, SubAgentMiddleware
+    from deepagents import create_deep_agent as _create_deep_agent
+    from langchain.agents.middleware.types import AgentMiddleware
+
+    _HAS_DEEPAGENTS = True
+except ImportError:
+    _HAS_DEEPAGENTS = False
+
+    # Define placeholders when deepagents is not installed
+    def _missing_deepagents(*args, **kwargs):
+        raise ImportError(
+            "DeepAgents requires 'deepagents' package. " "Install with: pip install deepagents"
+        )
+
+    class SubAgent(dict):  # type: ignore[no-redef]
+        """Placeholder for SubAgent when deepagents is not installed."""
+
+        def __init__(self, *args, **kwargs):
+            _missing_deepagents()
+
+    class CompiledSubAgent:  # type: ignore[no-redef]
+        """Placeholder for CompiledSubAgent when deepagents is not installed."""
+
+        def __init__(self, *args, **kwargs):
+            _missing_deepagents()
+
+    class SubAgentMiddleware:  # type: ignore[no-redef]
+        """Placeholder for SubAgentMiddleware when deepagents is not installed."""
+
+        def __init__(self, *args, **kwargs):
+            _missing_deepagents()
+
+    class FilesystemMiddleware:  # type: ignore[no-redef]
+        """Placeholder for FilesystemMiddleware when deepagents is not installed."""
+
+        def __init__(self, *args, **kwargs):
+            _missing_deepagents()
+
+    AgentMiddleware = Any  # type: ignore[misc, assignment]
+
+    def _create_deep_agent(*args, **kwargs):
+        _missing_deepagents()
+
+
+# Export DeepAgent types
+__all__ = [
+    "Agent",
+    "SubAgent",
+    "CompiledSubAgent",
+    "SubAgentMiddleware",
+    "FilesystemMiddleware",
+]
 
 
 class Agent(BaseLLM):
@@ -110,6 +169,40 @@ class Agent(BaseLLM):
             require_approval=True,  # Console prompt for approval
         )
         ```
+
+    Example - DeepAgents mode (autonomous multi-step tasks):
+        ```python
+        from ai_infra.llm import Agent
+        from ai_infra.llm.session import memory
+
+        # Define specialized agents
+        researcher = Agent(
+            name="researcher",
+            description="Searches and analyzes code",
+            system="You are a code research assistant.",
+            tools=[search_codebase],
+        )
+
+        writer = Agent(
+            name="writer",
+            description="Writes and edits documentation",
+            system="You are a technical writer.",
+        )
+
+        # Create a deep agent that can delegate to subagents
+        agent = Agent(
+            deep=True,
+            session=memory(),
+            subagents=[researcher, writer],  # Agents auto-convert to subagents
+        )
+
+        # The agent can now autonomously:
+        # - Read/write/edit files
+        # - Execute shell commands
+        # - Delegate to subagents
+        # - Maintain todo lists
+        result = agent.run("Refactor the auth module to use JWT tokens")
+        ```
     """
 
     _logger = logging.getLogger(__name__)
@@ -120,6 +213,10 @@ class Agent(BaseLLM):
         provider: Optional[str] = None,
         model_name: Optional[str] = None,
         *,
+        # Agent identity (used when this Agent is passed as a subagent)
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        system: Optional[str] = None,
         # Tool execution config
         on_tool_error: Literal["return_error", "retry", "abort"] = "return_error",
         tool_timeout: Optional[float] = None,
@@ -132,6 +229,13 @@ class Agent(BaseLLM):
         session: Optional[SessionStorage] = None,
         pause_before: Optional[List[str]] = None,
         pause_after: Optional[List[str]] = None,
+        # DeepAgents mode (autonomous multi-step task execution)
+        deep: bool = False,
+        subagents: Optional[List[Union["Agent", "SubAgent"]]] = None,
+        middleware: Optional[Sequence["AgentMiddleware"]] = None,
+        response_format: Optional[Any] = None,
+        context_schema: Optional[Type[Any]] = None,
+        use_longterm_memory: bool = False,
         **model_kwargs,
     ):
         """Initialize an Agent with optional tools and provider settings.
@@ -140,6 +244,11 @@ class Agent(BaseLLM):
             tools: List of tools (functions, LangChain tools, or MCP tools)
             provider: LLM provider (auto-detected if None)
             model_name: Model name (uses provider default if None)
+
+            Agent Identity (for use as subagent):
+                name: Agent name (required when used as a subagent)
+                description: What this agent does (used by parent to decide delegation)
+                system: System prompt / instructions for this agent
 
             Tool Execution:
                 on_tool_error: How to handle tool execution errors:
@@ -168,9 +277,25 @@ class Agent(BaseLLM):
                     The agent will return a SessionResult with paused=True.
                 pause_after: Tool names to pause after executing (requires session).
 
+            DeepAgents Mode (autonomous multi-step tasks):
+                deep: Enable DeepAgents mode for autonomous task execution.
+                    When True, the agent has built-in tools for file operations
+                    (ls, read_file, write_file, edit_file, glob, grep, execute),
+                    todo management, and subagent orchestration.
+                subagents: List of agents for delegation. Can be Agent instances
+                    (automatically converted) or SubAgent dicts. Agent instances
+                    must have name and description set.
+                middleware: Additional middleware to apply to the deep agent.
+                response_format: Structured output format for agent responses.
+                context_schema: Schema for the deep agent context.
+                use_longterm_memory: Enable long-term memory (requires session with store).
+
             **model_kwargs: Additional kwargs passed to the model
         """
         super().__init__()
+        self._name = name
+        self._description = description
+        self._system = system
         self._default_provider = provider
         self._default_model_name = model_name
         self._default_model_kwargs = model_kwargs
@@ -180,6 +305,14 @@ class Agent(BaseLLM):
             timeout=tool_timeout,
             validate_results=validate_tool_results,
         )
+
+        # DeepAgents mode config
+        self._deep = deep
+        self._subagents = self._convert_subagents(subagents) if subagents else None
+        self._middleware = middleware
+        self._response_format = response_format
+        self._context_schema = context_schema
+        self._use_longterm_memory = use_longterm_memory
 
         # Set up approval config
         self._approval_config: Optional[ApprovalConfig] = None
@@ -258,27 +391,40 @@ class Agent(BaseLLM):
         # Merge model kwargs
         eff_kwargs = {**self._default_model_kwargs, **model_kwargs}
 
-        # Build messages
-        messages: List[Dict[str, Any]] = []
-        if system:
-            messages.append({"role": "system", "content": system})
-        messages.append({"role": "user", "content": prompt})
-
         # Get config for session
         config = None
         eff_session_id = session_id or generate_session_id()
         if self._session_config:
             config = self._session_config.get_config(eff_session_id)
 
-        # Run agent
-        result = self.run_agent(
-            messages=messages,
-            provider=eff_provider,
-            model_name=eff_model,
-            tools=tools,
-            model_kwargs=eff_kwargs,
-            config=config,
-        )
+        # Use DeepAgent if deep=True
+        if self._deep:
+            deep_agent = self._build_deep_agent(
+                provider=eff_provider,
+                model_name=eff_model,
+                tools=tools,
+                system=system,
+            )
+            result = deep_agent.invoke(
+                {"messages": [{"role": "user", "content": prompt}]},
+                config=config,
+            )
+        else:
+            # Build messages
+            messages: List[Dict[str, Any]] = []
+            if system:
+                messages.append({"role": "system", "content": system})
+            messages.append({"role": "user", "content": prompt})
+
+            # Run agent
+            result = self.run_agent(
+                messages=messages,
+                provider=eff_provider,
+                model_name=eff_model,
+                tools=tools,
+                model_kwargs=eff_kwargs,
+                config=config,
+            )
 
         # If session is configured, return SessionResult
         if self._session_config:
@@ -298,6 +444,53 @@ class Agent(BaseLLM):
         if hasattr(result, "content"):
             return result.content
         return str(result)
+
+    def _convert_subagents(self, subagents: List[Union["Agent", Any]]) -> List[Any]:
+        """Convert Agent instances to SubAgent format.
+
+        This allows users to pass Agent instances directly to the subagents
+        parameter, and they will be automatically converted to the SubAgent
+        format expected by deepagents.
+
+        Args:
+            subagents: List of Agent instances or SubAgent dicts
+
+        Returns:
+            List of SubAgent dicts
+        """
+        converted = []
+        for agent in subagents:
+            if isinstance(agent, Agent):
+                # Convert Agent to SubAgent format
+                if not agent._name:
+                    raise ValueError(
+                        "Agent used as subagent must have 'name' set. "
+                        "Example: Agent(name='researcher', description='...', ...)"
+                    )
+                if not agent._description:
+                    raise ValueError(
+                        "Agent used as subagent must have 'description' set. "
+                        "Example: Agent(name='researcher', description='Researches topics', ...)"
+                    )
+
+                subagent_dict: Dict[str, Any] = {
+                    "name": agent._name,
+                    "description": agent._description,
+                    "system_prompt": agent._system or "",
+                    "tools": list(agent.tools) if agent.tools else [],
+                }
+
+                # Add optional model if specified
+                if agent._default_provider or agent._default_model_name:
+                    # Build model string or pass model kwargs
+                    if agent._default_model_name:
+                        subagent_dict["model"] = agent._default_model_name
+
+                converted.append(subagent_dict)
+            else:
+                # Already a SubAgent dict, pass through
+                converted.append(agent)
+        return converted
 
     def _make_session_result(self, result: Any, session_id: str) -> SessionResult:
         """Convert agent result to SessionResult."""
@@ -357,27 +550,40 @@ class Agent(BaseLLM):
         # Merge model kwargs
         eff_kwargs = {**self._default_model_kwargs, **model_kwargs}
 
-        # Build messages
-        messages: List[Dict[str, Any]] = []
-        if system:
-            messages.append({"role": "system", "content": system})
-        messages.append({"role": "user", "content": prompt})
-
         # Get config for session
         config = None
         eff_session_id = session_id or generate_session_id()
         if self._session_config:
             config = self._session_config.get_config(eff_session_id)
 
-        # Run agent
-        result = await self.arun_agent(
-            messages=messages,
-            provider=eff_provider,
-            model_name=eff_model,
-            tools=tools,
-            model_kwargs=eff_kwargs,
-            config=config,
-        )
+        # Use DeepAgent if deep=True
+        if self._deep:
+            deep_agent = self._build_deep_agent(
+                provider=eff_provider,
+                model_name=eff_model,
+                tools=tools,
+                system=system,
+            )
+            result = await deep_agent.ainvoke(
+                {"messages": [{"role": "user", "content": prompt}]},
+                config=config,
+            )
+        else:
+            # Build messages
+            messages: List[Dict[str, Any]] = []
+            if system:
+                messages.append({"role": "system", "content": system})
+            messages.append({"role": "user", "content": prompt})
+
+            # Run agent
+            result = await self.arun_agent(
+                messages=messages,
+                provider=eff_provider,
+                model_name=eff_model,
+                tools=tools,
+                model_kwargs=eff_kwargs,
+                config=config,
+            )
 
         # If session is configured, return SessionResult
         if self._session_config:
@@ -568,6 +774,105 @@ class Agent(BaseLLM):
             interrupt_before=interrupt_before,
             interrupt_after=interrupt_after,
         )
+
+    def _build_deep_agent(
+        self,
+        provider: str,
+        model_name: Optional[str] = None,
+        tools: Optional[List[Any]] = None,
+        system: Optional[str] = None,
+    ) -> Any:
+        """Build a DeepAgents agent for autonomous multi-step task execution.
+
+        This method creates a deep agent using LangChain's deepagents package,
+        which provides built-in file tools (ls, read, write, edit, glob, grep, execute),
+        todo management, and subagent orchestration.
+
+        Args:
+            provider: LLM provider
+            model_name: Model name
+            tools: Additional tools (added to built-in deep agent tools)
+            system: System prompt / additional instructions
+
+        Returns:
+            Compiled DeepAgent graph
+        """
+        try:
+            from deepagents import create_deep_agent
+        except ImportError as e:
+            raise ImportError(
+                "DeepAgents mode requires 'deepagents' package. "
+                "Install with: pip install deepagents"
+            ) from e
+
+        # Get model instance from registry
+        model = self._get_model_for_deep_agent(provider, model_name)
+
+        # Extract session config
+        checkpointer = None
+        store = None
+        interrupt_on = None
+        if self._session_config:
+            checkpointer = self._session_config.storage.get_checkpointer()
+            store = self._session_config.storage.get_store()
+            # Convert pause_before/pause_after to interrupt_on dict
+            if self._session_config.pause_before or self._session_config.pause_after:
+                interrupt_on = {}
+                for tool_name in self._session_config.pause_before or []:
+                    interrupt_on[tool_name] = {"before": True}
+                for tool_name in self._session_config.pause_after or []:
+                    if tool_name in interrupt_on:
+                        interrupt_on[tool_name]["after"] = True
+                    else:
+                        interrupt_on[tool_name] = {"after": True}
+
+        # Merge global tools with provided tools
+        all_tools = list(self.tools) if self.tools else []
+        if tools:
+            all_tools.extend(tools)
+
+        return create_deep_agent(
+            model=model,
+            tools=all_tools if all_tools else None,
+            system_prompt=system,
+            middleware=tuple(self._middleware) if self._middleware else (),
+            subagents=self._subagents,
+            response_format=self._response_format,
+            context_schema=self._context_schema,
+            checkpointer=checkpointer,
+            store=store,
+            use_longterm_memory=self._use_longterm_memory,
+            interrupt_on=interrupt_on,
+        )
+
+    def _get_model_for_deep_agent(self, provider: str, model_name: Optional[str] = None) -> Any:
+        """Get a LangChain chat model instance for deep agent.
+
+        Args:
+            provider: LLM provider
+            model_name: Model name
+
+        Returns:
+            BaseChatModel instance
+        """
+        # Resolve provider and model
+        eff_provider, eff_model = self._resolve_provider_and_model(provider, model_name)
+
+        # Get model from registry
+        model_info = self.registry.get(eff_provider)
+        if not model_info:
+            raise ValueError(f"Unknown provider: {eff_provider}")
+
+        chat_model_cls = model_info.get("chat_model")
+        if not chat_model_cls:
+            raise ValueError(f"Provider {eff_provider} does not support chat models")
+
+        # Build model kwargs
+        model_kwargs = {**self._default_model_kwargs}
+        if eff_model:
+            model_kwargs["model"] = eff_model
+
+        return chat_model_cls(**model_kwargs)
 
     async def arun_agent(
         self,
