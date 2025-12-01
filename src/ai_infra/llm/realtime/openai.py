@@ -48,18 +48,43 @@ from ai_infra.llm.realtime.models import (
     VoiceSession,
 )
 from ai_infra.llm.realtime.voice import RealtimeVoice
+from ai_infra.providers import ProviderCapability, ProviderRegistry
 
 logger = logging.getLogger(__name__)
 
 # OpenAI Realtime API configuration
 OPENAI_REALTIME_URL = "wss://api.openai.com/v1/realtime"
-OPENAI_REALTIME_MODELS = [
-    "gpt-4o-realtime-preview",
-    "gpt-4o-realtime-preview-2024-10-01",
-    "gpt-4o-realtime-preview-2024-12-17",
-]
-OPENAI_REALTIME_VOICES = ["alloy", "ash", "ballad", "coral", "echo", "sage", "shimmer", "verse"]
-DEFAULT_MODEL = "gpt-4o-realtime-preview"
+
+
+def _get_openai_realtime_config():
+    """Get OpenAI realtime config from registry."""
+    config = ProviderRegistry.get("openai")
+    if config:
+        return config.get_capability(ProviderCapability.REALTIME)
+    return None
+
+
+# Get models and voices from registry (with fallbacks)
+_realtime_cap = _get_openai_realtime_config()
+OPENAI_REALTIME_MODELS = (
+    _realtime_cap.models
+    if _realtime_cap and _realtime_cap.models
+    else [
+        "gpt-4o-realtime-preview",
+        "gpt-4o-realtime-preview-2024-10-01",
+        "gpt-4o-realtime-preview-2024-12-17",
+    ]
+)
+OPENAI_REALTIME_VOICES = (
+    _realtime_cap.voices
+    if _realtime_cap and _realtime_cap.voices
+    else ["alloy", "ash", "ballad", "coral", "echo", "sage", "shimmer", "verse"]
+)
+DEFAULT_MODEL = (
+    _realtime_cap.default_model
+    if _realtime_cap and _realtime_cap.default_model
+    else "gpt-4o-realtime-preview"
+)
 
 
 class OpenAIVoiceSession(VoiceSession):

@@ -10,42 +10,47 @@ import asyncio
 import os
 from typing import Any
 
-# Provider configuration
-_PROVIDER_CONFIG: dict[str, dict[str, Any]] = {
-    "openai": {
-        "env_key": "OPENAI_API_KEY",
-        "default_model": "text-embedding-3-small",
-        "package": "langchain_openai",
-        "class": "OpenAIEmbeddings",
-    },
-    "google": {
-        "env_key": "GOOGLE_API_KEY",
-        "default_model": "models/text-embedding-004",
-        "package": "langchain_google_genai",
-        "class": "GoogleGenerativeAIEmbeddings",
-    },
-    "voyage": {
-        "env_key": "VOYAGE_API_KEY",
-        "default_model": "voyage-3",
-        "package": "langchain_voyageai",
-        "class": "VoyageAIEmbeddings",
-    },
-    "cohere": {
-        "env_key": "COHERE_API_KEY",
-        "default_model": "embed-english-v3.0",
-        "package": "langchain_cohere",
-        "class": "CohereEmbeddings",
-    },
-    "anthropic": {
-        # Anthropic recommends Voyage AI for embeddings
-        "env_key": "VOYAGE_API_KEY",
-        "default_model": "voyage-3",
-        "package": "langchain_voyageai",
-        "class": "VoyageAIEmbeddings",
-    },
+from ai_infra.providers import ProviderCapability, ProviderRegistry
+
+# LangChain package/class mappings (implementation detail, not config)
+_LANGCHAIN_MAPPINGS: dict[str, dict[str, str]] = {
+    "openai": {"package": "langchain_openai", "class": "OpenAIEmbeddings"},
+    "google_genai": {"package": "langchain_google_genai", "class": "GoogleGenerativeAIEmbeddings"},
+    "voyage": {"package": "langchain_voyageai", "class": "VoyageAIEmbeddings"},
+    "cohere": {"package": "langchain_cohere", "class": "CohereEmbeddings"},
 }
 
-_PROVIDER_PRIORITY = ["openai", "voyage", "anthropic", "google", "cohere"]
+# Provider aliases for backwards compatibility
+_PROVIDER_ALIASES: dict[str, str] = {
+    "google": "google_genai",
+    "anthropic": "voyage",  # Anthropic recommends Voyage AI for embeddings
+}
+
+# Provider priority for auto-detection
+_PROVIDER_PRIORITY = ["openai", "voyage", "google_genai", "cohere"]
+
+
+def _get_provider_config() -> dict[str, dict[str, Any]]:
+    """Build provider config from registry (for backwards compat)."""
+    config = {}
+    for name in ProviderRegistry.list_for_capability(ProviderCapability.EMBEDDINGS):
+        provider = ProviderRegistry.get(name)
+        if provider and name in _LANGCHAIN_MAPPINGS:
+            cap = provider.get_capability(ProviderCapability.EMBEDDINGS)
+            config[name] = {
+                "env_key": provider.env_var,
+                "default_model": cap.default_model if cap else None,
+                **_LANGCHAIN_MAPPINGS[name],
+            }
+    # Add aliases
+    for alias, target in _PROVIDER_ALIASES.items():
+        if target in config:
+            config[alias] = config[target].copy()
+    return config
+
+
+# Legacy constant for backwards compatibility
+_PROVIDER_CONFIG = _get_provider_config()
 
 
 class Embeddings:
@@ -125,12 +130,20 @@ class Embeddings:
         if provider is None:
             provider = self._get_available_provider()
             if provider is None:
+                # Get env vars from registry for error message
+                env_vars = set()
+                for name in ProviderRegistry.list_for_capability(ProviderCapability.EMBEDDINGS):
+                    p = ProviderRegistry.get(name)
+                    if p:
+                        env_vars.add(p.env_var)
                 raise ValueError(
-                    "No embedding provider available. Set one of: "
-                    + ", ".join(_PROVIDER_CONFIG[p]["env_key"] for p in _PROVIDER_CONFIG)
+                    "No embedding provider available. Set one of: " + ", ".join(sorted(env_vars))
                 )
 
         provider = provider.lower()
+        # Resolve aliases
+        provider = _PROVIDER_ALIASES.get(provider, provider)
+
         if provider not in _PROVIDER_CONFIG:
             raise ValueError(
                 f"Unknown provider: {provider}. " f"Available: {', '.join(_PROVIDER_CONFIG.keys())}"
@@ -146,9 +159,9 @@ class Embeddings:
 
     def _get_available_provider(self) -> str | None:
         """Find first available provider from environment."""
+        # Use registry for provider discovery
         for provider_name in _PROVIDER_PRIORITY:
-            env_key = _PROVIDER_CONFIG[provider_name]["env_key"]
-            if os.environ.get(env_key):
+            if ProviderRegistry.is_configured(provider_name):
                 return provider_name
         return None
 

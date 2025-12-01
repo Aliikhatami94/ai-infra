@@ -44,6 +44,7 @@ from .models import (
     RealtimeConnectionError,
     RealtimeError,
     ToolCallRequest,
+    ToolDefinition,
     TranscriptDelta,
     VADMode,
     VoiceSession,
@@ -75,6 +76,7 @@ __all__ = [
     "AudioChunk",
     "TranscriptDelta",
     "ToolCallRequest",
+    "ToolDefinition",
     "VoiceSession",
     # Errors
     "RealtimeError",

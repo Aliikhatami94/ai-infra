@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import base64
-import os
 from typing import Any, List, Literal, Optional, Union
 
 from ai_infra.imagegen.models import (
@@ -12,6 +11,11 @@ from ai_infra.imagegen.models import (
     GeneratedImage,
     ImageGenProvider,
 )
+from ai_infra.providers import ProviderCapability, ProviderRegistry
+
+# Provider aliases for backwards compatibility
+_PROVIDER_ALIASES = {"google": "google_genai"}
+_REVERSE_ALIASES = {"google_genai": "google"}
 
 
 class ImageGen:
@@ -58,7 +62,7 @@ class ImageGen:
             **kwargs: Additional provider-specific options.
         """
         self._provider, self._api_key = self._resolve_provider_and_key(provider, api_key)
-        self._model = model or DEFAULT_MODELS.get(self._provider)
+        self._model = model or self._get_default_model(self._provider)
         self._kwargs = kwargs
         self._client: Any = None
 
@@ -71,6 +75,22 @@ class ImageGen:
     def model(self) -> Optional[str]:
         """Get the current model."""
         return self._model
+
+    def _get_default_model(self, provider: ImageGenProvider) -> Optional[str]:
+        """Get default model for provider from registry."""
+        # Map provider enum to registry name
+        registry_name = provider.value
+        if registry_name == "google":
+            registry_name = "google_genai"
+
+        config = ProviderRegistry.get(registry_name)
+        if config:
+            cap = config.get_capability(ProviderCapability.IMAGEGEN)
+            if cap and cap.default_model:
+                return cap.default_model
+
+        # Fallback to legacy constant
+        return DEFAULT_MODELS.get(provider)
 
     def _resolve_provider_and_key(
         self,
@@ -87,17 +107,16 @@ class ImageGen:
                 raise ValueError(f"No API key found for provider '{provider}'")
             return p, key
 
-        # Auto-detect from environment
-        providers_and_keys = [
-            (ImageGenProvider.OPENAI, os.getenv("OPENAI_API_KEY")),
-            (ImageGenProvider.GOOGLE, os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")),
-            (ImageGenProvider.STABILITY, os.getenv("STABILITY_API_KEY")),
-            (ImageGenProvider.REPLICATE, os.getenv("REPLICATE_API_TOKEN")),
-        ]
-
-        for p, key in providers_and_keys:
-            if key:
-                return p, key
+        # Auto-detect from registry
+        # Provider priority order
+        priority = ["openai", "google_genai", "stability", "replicate"]
+        for name in priority:
+            if ProviderRegistry.is_configured(name):
+                # Map to ImageGenProvider enum
+                enum_name = _REVERSE_ALIASES.get(name, name)
+                key = ProviderRegistry.get_api_key(name)
+                if key:
+                    return ImageGenProvider(enum_name), key
 
         raise ValueError(
             "No API key found. Set one of: OPENAI_API_KEY, GOOGLE_API_KEY, "
@@ -106,15 +125,12 @@ class ImageGen:
 
     def _get_env_key(self, provider: ImageGenProvider) -> Optional[str]:
         """Get the environment variable key for a provider."""
-        if provider == ImageGenProvider.OPENAI:
-            return os.getenv("OPENAI_API_KEY")
-        elif provider == ImageGenProvider.GOOGLE:
-            return os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
-        elif provider == ImageGenProvider.STABILITY:
-            return os.getenv("STABILITY_API_KEY")
-        elif provider == ImageGenProvider.REPLICATE:
-            return os.getenv("REPLICATE_API_TOKEN")
-        return None
+        # Map to registry name
+        registry_name = provider.value
+        if registry_name == "google":
+            registry_name = "google_genai"
+
+        return ProviderRegistry.get_api_key(registry_name)
 
     def generate(
         self,

@@ -48,18 +48,42 @@ from ai_infra.llm.realtime.models import (
     VoiceSession,
 )
 from ai_infra.llm.realtime.voice import RealtimeVoice
+from ai_infra.providers import ProviderCapability, ProviderRegistry
 
 logger = logging.getLogger(__name__)
 
 # Gemini Live API configuration
 GEMINI_LIVE_URL = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent"
-GEMINI_LIVE_MODELS = [
-    "gemini-2.0-flash-exp",
-    "gemini-2.0-flash-thinking-exp",
-]
-# Gemini voices
-GEMINI_VOICES = ["Puck", "Charon", "Kore", "Fenrir", "Aoede"]
-DEFAULT_MODEL = "gemini-2.0-flash-exp"
+
+
+def _get_gemini_realtime_config():
+    """Get Gemini realtime config from registry."""
+    config = ProviderRegistry.get("google_genai")
+    if config:
+        return config.get_capability(ProviderCapability.REALTIME)
+    return None
+
+
+# Get models and voices from registry (with fallbacks)
+_realtime_cap = _get_gemini_realtime_config()
+GEMINI_LIVE_MODELS = (
+    _realtime_cap.models
+    if _realtime_cap and _realtime_cap.models
+    else [
+        "gemini-2.0-flash-exp",
+        "gemini-2.0-flash-thinking-exp",
+    ]
+)
+GEMINI_VOICES = (
+    _realtime_cap.voices
+    if _realtime_cap and _realtime_cap.voices
+    else ["Puck", "Charon", "Kore", "Fenrir", "Aoede"]
+)
+DEFAULT_MODEL = (
+    _realtime_cap.default_model
+    if _realtime_cap and _realtime_cap.default_model
+    else "gemini-2.0-flash-exp"
+)
 
 
 class GeminiVoiceSession(VoiceSession):

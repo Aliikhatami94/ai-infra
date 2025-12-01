@@ -44,6 +44,18 @@ from ai_infra.llm.tools.custom.retriever import create_retriever_tool, create_re
 from ai_infra.logging import configure_logging, get_logger
 from ai_infra.mcp import MCPClient, MCPServer
 from ai_infra.mcp.server.tools import mcp_from_functions
+
+# Provider Registry (Phase 4.11)
+from ai_infra.providers import (
+    CapabilityConfig,
+    ProviderCapability,
+    ProviderConfig,
+    ProviderRegistry,
+    get_provider,
+    is_provider_configured,
+    list_providers,
+    list_providers_for_capability,
+)
 from ai_infra.replay import MemoryStorage, SQLiteStorage, WorkflowRecorder, replay
 from ai_infra.retriever import Retriever
 from ai_infra.tools import (
@@ -72,6 +84,15 @@ __all__ = [
     "MCPClient",
     "Providers",
     "mcp_from_functions",
+    # Provider Registry (Phase 4.11)
+    "ProviderRegistry",
+    "ProviderCapability",
+    "ProviderConfig",
+    "CapabilityConfig",
+    "get_provider",
+    "list_providers",
+    "list_providers_for_capability",
+    "is_provider_configured",
     # Multimodal (TTS, STT, Audio)
     "TTS",
     "STT",

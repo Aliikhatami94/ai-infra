@@ -36,60 +36,73 @@ from pathlib import Path
 from typing import AsyncIterator, Iterator, List, Optional, Union
 
 from ai_infra.llm.multimodal.models import AudioFormat, TTSProvider, Voice
+from ai_infra.providers import ProviderCapability, ProviderRegistry
 
-# Provider priority for auto-detection
+# Provider aliases for backwards compatibility
+_PROVIDER_ALIASES = {"google": "google_genai"}
+
+
+def _get_default_voice(provider: str) -> str:
+    """Get default voice for provider from registry."""
+    # Resolve alias
+    name = _PROVIDER_ALIASES.get(provider, provider)
+    config = ProviderRegistry.get(name)
+    if config:
+        cap = config.get_capability(ProviderCapability.TTS)
+        if cap and cap.default_voice:
+            return cap.default_voice
+    # Fallback defaults
+    return {"openai": "alloy", "elevenlabs": "Rachel", "google": "en-US-Standard-C"}.get(
+        provider, "default"
+    )
+
+
+def _get_default_model(provider: str) -> str:
+    """Get default model for provider from registry."""
+    # Resolve alias
+    name = _PROVIDER_ALIASES.get(provider, provider)
+    config = ProviderRegistry.get(name)
+    if config:
+        cap = config.get_capability(ProviderCapability.TTS)
+        if cap and cap.default_model:
+            return cap.default_model
+    # Fallback defaults
+    return {"openai": "tts-1", "elevenlabs": "eleven_monolingual_v1", "google": "standard"}.get(
+        provider, "default"
+    )
+
+
+def _detect_tts_provider() -> str:
+    """Detect available TTS provider from environment using registry."""
+    # Priority order for TTS providers
+    priority = ["openai", "elevenlabs", "google_genai"]
+    for name in priority:
+        if ProviderRegistry.is_configured(name):
+            # Return user-facing name (without _genai suffix)
+            return "google" if name == "google_genai" else name
+    raise ValueError(
+        "No TTS provider configured. Set OPENAI_API_KEY, ELEVEN_API_KEY, "
+        "or GOOGLE_APPLICATION_CREDENTIALS."
+    )
+
+
+# Legacy constants (for backwards compatibility)
 TTS_PROVIDER_PRIORITY = ["openai", "elevenlabs", "google"]
-
-# OpenAI TTS voices
-OPENAI_VOICES = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"]
+OPENAI_VOICES = ProviderRegistry.get("openai")
+if OPENAI_VOICES:
+    _cap = OPENAI_VOICES.get_capability(ProviderCapability.TTS)
+    OPENAI_VOICES = _cap.voices if _cap else ["alloy", "echo", "fable", "onyx", "nova", "shimmer"]
+else:
+    OPENAI_VOICES = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"]
 OPENAI_MODELS = ["tts-1", "tts-1-hd"]
 
 # ElevenLabs default voices (can be extended via API)
-ELEVENLABS_DEFAULT_VOICES = [
-    "Rachel",
-    "Drew",
-    "Clyde",
-    "Paul",
-    "Domi",
-    "Dave",
-    "Fin",
-    "Sarah",
-    "Antoni",
-    "Thomas",
-    "Charlie",
-    "George",
-    "Emily",
-    "Elli",
-    "Callum",
-    "Patrick",
-    "Harry",
-    "Liam",
-    "Dorothy",
-    "Josh",
-    "Arnold",
-    "Charlotte",
-    "Matilda",
-    "Matthew",
-    "James",
-    "Joseph",
-    "Jeremy",
-    "Michael",
-    "Ethan",
-    "Gigi",
-    "Freya",
-    "Grace",
-    "Daniel",
-    "Lily",
-    "Serena",
-    "Adam",
-    "Nicole",
-    "Bill",
-    "Jessie",
-    "Sam",
-    "Glinda",
-    "Giovanni",
-    "Mimi",
-]
+_elevenlabs_config = ProviderRegistry.get("elevenlabs")
+if _elevenlabs_config:
+    _cap = _elevenlabs_config.get_capability(ProviderCapability.TTS)
+    ELEVENLABS_DEFAULT_VOICES = _cap.voices if _cap and _cap.voices else []
+else:
+    ELEVENLABS_DEFAULT_VOICES = ["Rachel", "Drew", "Clyde", "Paul", "Domi", "Dave"]
 
 
 class TTS:
@@ -115,44 +128,25 @@ class TTS:
             model: Model name (provider-specific). Uses default if None.
             api_key: API key (uses environment variable if None).
         """
-        self._provider = provider or self._detect_provider()
-        self._voice = voice or self._default_voice(self._provider)
-        self._model = model or self._default_model(self._provider)
+        self._provider = provider or _detect_tts_provider()
+        self._voice = voice or _get_default_voice(self._provider)
+        self._model = model or _get_default_model(self._provider)
         self._api_key = api_key
 
     @staticmethod
     def _detect_provider() -> str:
         """Detect available TTS provider from environment."""
-        if os.environ.get("OPENAI_API_KEY"):
-            return "openai"
-        if os.environ.get("ELEVEN_API_KEY") or os.environ.get("ELEVENLABS_API_KEY"):
-            return "elevenlabs"
-        if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") or os.environ.get("GOOGLE_API_KEY"):
-            return "google"
-        raise ValueError(
-            "No TTS provider configured. Set OPENAI_API_KEY, ELEVEN_API_KEY, "
-            "or GOOGLE_APPLICATION_CREDENTIALS."
-        )
+        return _detect_tts_provider()
 
     @staticmethod
     def _default_voice(provider: str) -> str:
         """Get default voice for provider."""
-        defaults = {
-            "openai": "alloy",
-            "elevenlabs": "Rachel",
-            "google": "en-US-Standard-C",
-        }
-        return defaults.get(provider, "default")
+        return _get_default_voice(provider)
 
     @staticmethod
     def _default_model(provider: str) -> str:
         """Get default model for provider."""
-        defaults = {
-            "openai": "tts-1",
-            "elevenlabs": "eleven_monolingual_v1",
-            "google": "standard",
-        }
-        return defaults.get(provider, "default")
+        return _get_default_model(provider)
 
     @property
     def provider(self) -> str:

@@ -4,6 +4,10 @@ Dynamic model and provider discovery for ai-infra.
 This module provides functions to discover available providers and models
 at runtime by querying the provider APIs directly.
 
+NOTE: This module now uses the centralized provider registry at
+`ai_infra.providers`. The constants and functions here are maintained
+for backwards compatibility but delegate to the registry.
+
 Usage:
     from ai_infra.llm.providers.discovery import (
         list_providers,
@@ -26,14 +30,43 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import time
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from ai_infra.providers import ProviderCapability, ProviderRegistry
+
 log = logging.getLogger(__name__)
 
-# Provider configuration - primary env var for each provider
+# =============================================================================
+# DEPRECATED: These constants are maintained for backwards compatibility.
+# Use ai_infra.providers.ProviderRegistry instead.
+# =============================================================================
+
+
+# Provider configuration - now sourced from registry
+# Kept for backwards compatibility with code that imports these directly
+def _get_provider_env_vars() -> Dict[str, str]:
+    """Get provider env vars from registry (backwards compat)."""
+    result = {}
+    for name in ProviderRegistry.list_for_capability(ProviderCapability.CHAT):
+        config = ProviderRegistry.get(name)
+        if config:
+            result[name] = config.env_var
+    return result
+
+
+def _get_provider_alt_env_vars() -> Dict[str, List[str]]:
+    """Get alternative env vars from registry (backwards compat)."""
+    result = {}
+    for name in ProviderRegistry.list_for_capability(ProviderCapability.CHAT):
+        config = ProviderRegistry.get(name)
+        if config and config.alt_env_vars:
+            result[name] = config.alt_env_vars
+    return result
+
+
+# Backwards compatibility - these are now computed from registry
 PROVIDER_ENV_VARS: Dict[str, str] = {
     "openai": "OPENAI_API_KEY",
     "anthropic": "ANTHROPIC_API_KEY",
@@ -41,12 +74,11 @@ PROVIDER_ENV_VARS: Dict[str, str] = {
     "xai": "XAI_API_KEY",
 }
 
-# Alternative env vars (checked if primary is not set)
 PROVIDER_ALT_ENV_VARS: Dict[str, List[str]] = {
     "google_genai": ["GOOGLE_API_KEY", "GOOGLE_GENAI_API_KEY"],
 }
 
-SUPPORTED_PROVIDERS: List[str] = list(PROVIDER_ENV_VARS.keys())
+SUPPORTED_PROVIDERS: List[str] = ["openai", "anthropic", "google_genai", "xai"]
 
 # Cache configuration
 CACHE_DIR = Path.home() / ".cache" / "ai-infra"
@@ -56,12 +88,12 @@ CACHE_TTL_SECONDS = 3600  # 1 hour
 
 def list_providers() -> List[str]:
     """
-    List all supported provider names.
+    List all supported provider names for CHAT capability.
 
     Returns:
         List of provider names: ["openai", "anthropic", "google_genai", "xai"]
     """
-    return SUPPORTED_PROVIDERS.copy()
+    return ProviderRegistry.list_for_capability(ProviderCapability.CHAT)
 
 
 def list_configured_providers() -> List[str]:
@@ -71,7 +103,7 @@ def list_configured_providers() -> List[str]:
     Returns:
         List of provider names that have their API key env var set.
     """
-    return [p for p in SUPPORTED_PROVIDERS if is_provider_configured(p)]
+    return ProviderRegistry.list_configured_for_capability(ProviderCapability.CHAT)
 
 
 def is_provider_configured(provider: str) -> bool:
@@ -87,19 +119,11 @@ def is_provider_configured(provider: str) -> bool:
     Raises:
         ValueError: If provider is not supported.
     """
-    if provider not in PROVIDER_ENV_VARS:
-        raise ValueError(
-            f"Unknown provider: {provider}. " f"Supported: {', '.join(SUPPORTED_PROVIDERS)}"
-        )
-    # Check primary env var
-    env_var = PROVIDER_ENV_VARS[provider]
-    if os.environ.get(env_var):
-        return True
-    # Check alternative env vars
-    for alt_var in PROVIDER_ALT_ENV_VARS.get(provider, []):
-        if os.environ.get(alt_var):
-            return True
-    return False
+    config = ProviderRegistry.get(provider)
+    if not config:
+        supported = ProviderRegistry.list_for_capability(ProviderCapability.CHAT)
+        raise ValueError(f"Unknown provider: {provider}. Supported: {', '.join(supported)}")
+    return ProviderRegistry.is_configured(provider)
 
 
 def get_api_key(provider: str) -> Optional[str]:
@@ -112,19 +136,7 @@ def get_api_key(provider: str) -> Optional[str]:
     Returns:
         API key string or None if not configured.
     """
-    if provider not in PROVIDER_ENV_VARS:
-        return None
-    # Check primary env var
-    env_var = PROVIDER_ENV_VARS[provider]
-    key = os.environ.get(env_var)
-    if key:
-        return key
-    # Check alternative env vars
-    for alt_var in PROVIDER_ALT_ENV_VARS.get(provider, []):
-        key = os.environ.get(alt_var)
-        if key:
-            return key
-    return None
+    return ProviderRegistry.get_api_key(provider)
 
 
 def get_default_provider() -> Optional[str]:
@@ -147,10 +159,9 @@ def get_default_provider() -> Optional[str]:
     """
     # Priority order for auto-detection
     priority_order = ["openai", "anthropic", "google_genai", "xai"]
-    for provider in priority_order:
-        if is_provider_configured(provider):
-            return provider
-    return None
+    return ProviderRegistry.get_default_for_capability(
+        ProviderCapability.CHAT, priority=priority_order
+    )
 
 
 # -----------------------------------------------------------------------------

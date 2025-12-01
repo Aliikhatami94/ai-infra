@@ -28,25 +28,45 @@ Usage:
 from __future__ import annotations
 
 import logging
-import os
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from ai_infra.imagegen.models import AVAILABLE_MODELS, ImageGenProvider
+from ai_infra.providers import ProviderCapability, ProviderRegistry
 
 log = logging.getLogger(__name__)
 
-# Supported providers
-SUPPORTED_PROVIDERS = [p.value for p in ImageGenProvider]
+# Provider aliases for backwards compatibility
+_PROVIDER_ALIASES = {"google": "google_genai"}
+_REVERSE_ALIASES = {"google_genai": "google"}
 
-# Environment variables for each provider
-PROVIDER_ENV_VARS = {
-    "openai": "OPENAI_API_KEY",
-    "google": "GOOGLE_API_KEY",
-    "stability": "STABILITY_API_KEY",
-    "replicate": "REPLICATE_API_TOKEN",
-}
+
+# Get supported providers from registry
+def _get_supported_providers() -> List[str]:
+    """Get imagegen providers from registry."""
+    providers = ProviderRegistry.list_for_capability(ProviderCapability.IMAGEGEN)
+    # Map back to user-facing names
+    return [_REVERSE_ALIASES.get(p, p) for p in providers]
+
+
+# Legacy constants (built from registry)
+SUPPORTED_PROVIDERS = _get_supported_providers()
+
+
+# Environment variables for each provider (from registry)
+def _build_provider_env_vars() -> Dict[str, str]:
+    """Build PROVIDER_ENV_VARS dict from registry."""
+    result = {}
+    for name in ProviderRegistry.list_for_capability(ProviderCapability.IMAGEGEN):
+        config = ProviderRegistry.get(name)
+        if config:
+            # Use user-facing name
+            user_name = _REVERSE_ALIASES.get(name, name)
+            result[user_name] = config.env_var
+    return result
+
+
+PROVIDER_ENV_VARS = _build_provider_env_vars()
 
 # Cache settings
 CACHE_TTL = 3600  # 1 hour
@@ -59,7 +79,7 @@ def list_providers() -> List[str]:
     Returns:
         List of provider names.
     """
-    return SUPPORTED_PROVIDERS.copy()
+    return _get_supported_providers()
 
 
 def is_provider_configured(provider: str) -> bool:
@@ -71,18 +91,9 @@ def is_provider_configured(provider: str) -> bool:
     Returns:
         True if the provider has an API key set.
     """
-    if provider not in SUPPORTED_PROVIDERS:
-        return False
-
-    env_var = PROVIDER_ENV_VARS.get(provider)
-    if not env_var:
-        return False
-
-    # Google can use either GOOGLE_API_KEY or GEMINI_API_KEY
-    if provider == "google":
-        return bool(os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY"))
-
-    return bool(os.getenv(env_var))
+    # Map to registry name
+    registry_name = _PROVIDER_ALIASES.get(provider, provider)
+    return ProviderRegistry.is_configured(registry_name)
 
 
 def get_api_key(provider: str) -> Optional[str]:
@@ -94,10 +105,9 @@ def get_api_key(provider: str) -> Optional[str]:
     Returns:
         API key if configured, None otherwise.
     """
-    if provider == "google":
-        return os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
-    env_var = PROVIDER_ENV_VARS.get(provider)
-    return os.getenv(env_var) if env_var else None
+    # Map to registry name
+    registry_name = _PROVIDER_ALIASES.get(provider, provider)
+    return ProviderRegistry.get_api_key(registry_name)
 
 
 def list_configured_providers() -> List[str]:
@@ -106,7 +116,7 @@ def list_configured_providers() -> List[str]:
     Returns:
         List of configured provider names.
     """
-    return [p for p in SUPPORTED_PROVIDERS if is_provider_configured(p)]
+    return [p for p in list_providers() if is_provider_configured(p)]
 
 
 def list_models(provider: str) -> List[str]:
@@ -121,13 +131,17 @@ def list_models(provider: str) -> List[str]:
     Raises:
         ValueError: If provider is not supported.
     """
-    if provider not in SUPPORTED_PROVIDERS:
-        raise ValueError(
-            f"Unknown provider: {provider}. Supported: {', '.join(SUPPORTED_PROVIDERS)}"
-        )
+    # Map to registry name
+    registry_name = _PROVIDER_ALIASES.get(provider, provider)
+    config = ProviderRegistry.get(registry_name)
+    if not config:
+        raise ValueError(f"Unknown provider: {provider}. Supported: {', '.join(list_providers())}")
 
-    p = ImageGenProvider(provider.lower())
-    return AVAILABLE_MODELS.get(p, [])
+    cap = config.get_capability(ProviderCapability.IMAGEGEN)
+    if not cap:
+        raise ValueError(f"Provider {provider} does not support image generation")
+
+    return cap.models or []
 
 
 # -----------------------------------------------------------------------------

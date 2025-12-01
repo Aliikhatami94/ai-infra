@@ -29,6 +29,7 @@ def mock_env_openai(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test-openai-key")
     monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("GOOGLE_GENAI_API_KEY", raising=False)
     monkeypatch.delenv("STABILITY_API_KEY", raising=False)
     monkeypatch.delenv("REPLICATE_API_TOKEN", raising=False)
 
@@ -39,6 +40,7 @@ def mock_env_google(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.setenv("GOOGLE_API_KEY", "test-google-key")
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("GOOGLE_GENAI_API_KEY", raising=False)
     monkeypatch.delenv("STABILITY_API_KEY", raising=False)
     monkeypatch.delenv("REPLICATE_API_TOKEN", raising=False)
 
@@ -49,6 +51,7 @@ def mock_env_stability(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("GOOGLE_GENAI_API_KEY", raising=False)
     monkeypatch.setenv("STABILITY_API_KEY", "test-stability-key")
     monkeypatch.delenv("REPLICATE_API_TOKEN", raising=False)
 
@@ -59,6 +62,7 @@ def mock_env_replicate(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("GOOGLE_GENAI_API_KEY", raising=False)
     monkeypatch.delenv("STABILITY_API_KEY", raising=False)
     monkeypatch.setenv("REPLICATE_API_TOKEN", "test-replicate-token")
 
@@ -68,6 +72,10 @@ def mock_env_none(monkeypatch: pytest.MonkeyPatch) -> None:
     """Set up environment with no API keys."""
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("GOOGLE_GENAI_API_KEY", raising=False)
+    monkeypatch.delenv("STABILITY_API_KEY", raising=False)
+    monkeypatch.delenv("REPLICATE_API_TOKEN", raising=False)
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("STABILITY_API_KEY", raising=False)
     monkeypatch.delenv("REPLICATE_API_TOKEN", raising=False)

@@ -38,6 +38,14 @@ from .models import (
     TranscriptDelta,
 )
 
+# Import provider registry for configuration checks
+try:
+    from ai_infra.providers import ProviderCapability, ProviderRegistry
+
+    _HAS_PROVIDER_REGISTRY = True
+except ImportError:
+    _HAS_PROVIDER_REGISTRY = False
+
 if TYPE_CHECKING:
     pass  # Reserved for future type-only imports
 
@@ -226,6 +234,19 @@ class RealtimeVoice:
             List of provider names that have valid configuration.
         """
         configured = []
+
+        # Use central registry if available
+        if _HAS_PROVIDER_REGISTRY:
+            realtime_providers = ProviderRegistry.list_for_capability(ProviderCapability.REALTIME)
+            for name in realtime_providers:
+                if ProviderRegistry.is_configured(name):
+                    # Map registry names to local provider names
+                    local_name = "gemini" if name == "google_genai" else name
+                    if local_name in cls._providers:
+                        configured.append(local_name)
+            return configured
+
+        # Fallback to checking each provider class
         for name, provider_class in cls._providers.items():
             try:
                 if provider_class.is_configured():

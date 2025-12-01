@@ -35,8 +35,42 @@ from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Union
 
 from ai_infra.llm.multimodal.models import STTProvider, TranscriptionResult, TranscriptionSegment
+from ai_infra.providers import ProviderCapability, ProviderRegistry
 
-# Provider priority for auto-detection
+# Provider aliases for backwards compatibility
+_PROVIDER_ALIASES = {"google": "google_genai"}
+
+
+def _get_default_model(provider: str) -> str:
+    """Get default model for provider from registry."""
+    # Resolve alias
+    name = _PROVIDER_ALIASES.get(provider, provider)
+    config = ProviderRegistry.get(name)
+    if config:
+        cap = config.get_capability(ProviderCapability.STT)
+        if cap and cap.default_model:
+            return cap.default_model
+    # Fallback defaults
+    return {"openai": "whisper-1", "deepgram": "nova-2", "google": "default"}.get(
+        provider, "default"
+    )
+
+
+def _detect_stt_provider() -> str:
+    """Detect available STT provider from environment using registry."""
+    # Priority order for STT providers
+    priority = ["openai", "deepgram", "google_genai"]
+    for name in priority:
+        if ProviderRegistry.is_configured(name):
+            # Return user-facing name (without _genai suffix)
+            return "google" if name == "google_genai" else name
+    raise ValueError(
+        "No STT provider configured. Set OPENAI_API_KEY, DEEPGRAM_API_KEY, "
+        "or GOOGLE_APPLICATION_CREDENTIALS."
+    )
+
+
+# Provider priority for auto-detection (legacy constant)
 STT_PROVIDER_PRIORITY = ["openai", "deepgram", "google"]
 
 
@@ -63,34 +97,20 @@ class STT:
             language: Language code (e.g., "en", "es"). Auto-detect if None.
             api_key: API key (uses environment variable if None).
         """
-        self._provider = provider or self._detect_provider()
-        self._model = model or self._default_model(self._provider)
+        self._provider = provider or _detect_stt_provider()
+        self._model = model or _get_default_model(self._provider)
         self._language = language
         self._api_key = api_key
 
     @staticmethod
     def _detect_provider() -> str:
         """Detect available STT provider from environment."""
-        if os.environ.get("OPENAI_API_KEY"):
-            return "openai"
-        if os.environ.get("DEEPGRAM_API_KEY"):
-            return "deepgram"
-        if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") or os.environ.get("GOOGLE_API_KEY"):
-            return "google"
-        raise ValueError(
-            "No STT provider configured. Set OPENAI_API_KEY, DEEPGRAM_API_KEY, "
-            "or GOOGLE_APPLICATION_CREDENTIALS."
-        )
+        return _detect_stt_provider()
 
     @staticmethod
     def _default_model(provider: str) -> str:
         """Get default model for provider."""
-        defaults = {
-            "openai": "whisper-1",
-            "deepgram": "nova-2",
-            "google": "default",
-        }
-        return defaults.get(provider, "default")
+        return _get_default_model(provider)
 
     @property
     def provider(self) -> str:

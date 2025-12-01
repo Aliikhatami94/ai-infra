@@ -26,7 +26,8 @@ class TestTTSDiscovery:
         assert isinstance(providers, list)
         assert "openai" in providers
         assert "elevenlabs" in providers
-        assert "google" in providers
+        # Google may be listed as google_genai in registry
+        assert "google" in providers or "google_genai" in providers
 
     def test_list_openai_voices(self):
         """Test listing OpenAI voices."""
