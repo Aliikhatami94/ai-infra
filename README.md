@@ -1,277 +1,159 @@
 # ai-infra
 
-Infrastructure for efficient and scalable AI applications: clean LLM interfaces, composable graphs, and MCP client/server utilities. Batteries-included quickstarts help you ship fast.
+> **Production-ready Python SDK for building AI applications with LLMs, agents, and multimodal capabilities.**
 
-- LLM: simple chat, agents with tools, streaming, retries, structured output, HITL hooks
-- Graph: small-to-large workflows using LangGraph with typed state and tracing
-- MCP: multi-server client, tool discovery, OpenMCP (OpenAPI-like) doc generation
+ai-infra provides clean interfaces for chat, agents, embeddings, voice, and image generation across 10+ providers—all with zero-config defaults.
 
+## ✨ Features
 
-## Install
+- **LLM**: Chat, structured output, streaming, retries, multi-turn conversations
+- **Agents**: Tool calling, human-in-the-loop, provider fallbacks, autonomous deep mode
+- **Graph**: LangGraph workflows with typed state and conditional branching
+- **Embeddings & RAG**: Vector storage, document retrieval, multiple backends
+- **Multimodal**: Text-to-speech, speech-to-text, vision, realtime voice
+- **Image Generation**: DALL-E, Imagen, Stability AI, Replicate
+- **MCP**: Model Context Protocol client/server, OpenAPI→MCP conversion
 
-- Python: 3.11 – 3.13
-- Package manager: Poetry (recommended) or pip
+## 🚀 Quick Start
 
-Using Poetry (dev):
+**5 lines to your first chat:**
+
+```python
+from ai_infra import LLM
+
+llm = LLM()  # Auto-detects configured provider
+response = llm.chat("What is the capital of France?")
+print(response)
+```
+
+**With tools (agent):**
+
+```python
+from ai_infra import Agent
+
+def get_weather(city: str) -> str:
+    """Get weather for a city."""
+    return f"Weather in {city}: 72°F, sunny"
+
+agent = Agent(tools=[get_weather])
+result = agent.run("What's the weather in Tokyo?")
+print(result)
+```
+
+## 📦 Installation
+
+**Python**: 3.11 – 3.13
 
 ```bash
+# Using pip
+pip install ai-infra
+
+# Using Poetry (development)
 poetry install
 poetry shell
 ```
 
-Using pip (library use):
+## 🔑 Provider Setup
+
+Set API keys for the providers you want to use:
 
 ```bash
-pip install ai-infra
-```
-
-
-## Configure providers (env)
-
-Create a .env (or export in your shell) with any providers you plan to use.
-
-```bash
-# OpenAI
-export OPENAI_API_KEY=...
-# Anthropic
-export ANTHROPIC_API_KEY=...
-# Google Generative AI
+# Required: At least one chat provider
+export OPENAI_API_KEY=sk-...
+export ANTHROPIC_API_KEY=sk-ant-...
 export GOOGLE_API_KEY=...
-# xAI
 export XAI_API_KEY=...
+
+# Optional: Specialized providers
+export ELEVENLABS_API_KEY=...     # TTS
+export DEEPGRAM_API_KEY=...       # STT
+export STABILITY_API_KEY=...      # Image generation
+export REPLICATE_API_TOKEN=...    # Image generation
+export VOYAGE_API_KEY=...         # Embeddings
+export COHERE_API_KEY=...         # Embeddings
 ```
 
-Optional: MCP HTTP headers for servers you call through the client.
+## 🔌 Supported Providers
+
+| Provider | Chat | Embeddings | TTS | STT | ImageGen | Realtime |
+|----------|:----:|:----------:|:---:|:---:|:--------:|:--------:|
+| OpenAI | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Anthropic | ✅ | - | - | - | - | - |
+| Google | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| xAI | ✅ | - | - | - | - | - |
+| ElevenLabs | - | - | ✅ | - | - | - |
+| Deepgram | - | - | - | ✅ | - | - |
+| Stability | - | - | - | - | ✅ | - |
+| Replicate | - | - | - | - | ✅ | - |
+| Voyage | - | ✅ | - | - | - | - |
+| Cohere | - | ✅ | - | - | - | - |
+
+## 📚 Documentation
+
+Full documentation is in the [`docs/`](docs/) folder:
+
+| Section | Description |
+|---------|-------------|
+| [Getting Started](docs/getting-started.md) | Installation, API keys, first example |
+| [Core Modules](docs/core/) | LLM, Agent, Graph, Providers |
+| [Multimodal](docs/multimodal/) | TTS, STT, Vision, Realtime Voice |
+| [Embeddings & RAG](docs/embeddings/) | Embeddings, VectorStore, Retriever |
+| [Tools](docs/tools/) | Schema tools, progress streaming |
+| [MCP](docs/mcp/) | Model Context Protocol client/server |
+| [Advanced Features](docs/features/) | Personas, Replay, Workspace, Deep Agent |
+| [Image Generation](docs/imagegen/) | DALL-E, Imagen, Stability, Replicate |
+| [Infrastructure](docs/infrastructure/) | Errors, Logging, Tracing, Callbacks |
+| [CLI Reference](docs/cli.md) | Command-line interface |
+
+## 📁 Module Overview
+
+| Module | Description |
+|--------|-------------|
+| `ai_infra.llm` | LLM chat, agents, structured output, streaming |
+| `ai_infra.graph` | LangGraph workflows with typed state |
+| `ai_infra.mcp` | MCP client/server, OpenAPI→MCP conversion |
+| `ai_infra.embeddings` | Text embeddings across providers |
+| `ai_infra.retriever` | RAG with multiple vector store backends |
+| `ai_infra.imagegen` | Image generation (DALL-E, Stability, etc.) |
+| `ai_infra.providers` | Centralized provider registry |
+
+## 🧪 Examples
+
+See the [`examples/`](examples/) folder for runnable scripts:
 
 ```bash
-export MCP_AUTH_TOKEN=...
-```
-
-
-## Quickstarts
-
-Below are tiny copy/paste snippets and how to run included examples.
-
-### LLM: chat (sync)
-
-```python
-from ai_infra.llm import LLM, Providers
-
-llm = LLM()
-resp = llm.chat(
-    user_msg="One fun fact about the moon?",
-    system="You are concise.",
-    provider=Providers.openai,
-    model_name="gpt-4o",
-)
-print(resp)
-```
-
-Run the included example (calls a main() function):
-
-```bash
+# LLM chat
 python -c "from ai_infra.llm.examples.02_llm_chat_basic import main; main()"
-```
 
-### LLM: agent (tools, sync)
-
-```python
-from ai_infra.llm import Agent, Providers
-
-agent = Agent()
-resp = agent.run_agent(
-    messages=[{"role": "user", "content": "Introduce yourself in one sentence."}],
-    provider=Providers.openai,
-    model_name="gpt-4o",
-    model_kwargs={"temperature": 0.7},
-)
-print(getattr(resp, "content", resp))
-```
-
-Run the included example:
-
-```bash
+# Agent with tools
 python -c "from ai_infra.llm.examples.01_agent_basic import main; main()"
-```
 
-### LLM: token streaming (async)
-
-```python
-import asyncio
-from ai_infra.llm import LLM, Providers
-
-async def demo():
-    llm = LLM()
-    async for token, meta in llm.stream_tokens(
-        "Stream one short paragraph about Mars.",
-        provider=Providers.openai,
-        model_name="gpt-4o",
-    ):
-        print(token, end="", flush=True)
-
-asyncio.run(demo())
-```
-
-See more examples in src/ai_infra/llm/examples:
-- 03_structured_output.py, 04_agent_stream.py, 05_tool_controls.py, 06_hitl.py, 07_retry.py, 08_agent_stream_tokens.py, 09_chat_stream.py
-
-
-### Graph: minimal state machine
-
-```python
-from typing_extensions import TypedDict
-from langgraph.graph import END
-from ai_infra.graph import Graph
-from ai_infra.graph.models import Edge, ConditionalEdge
-
-class MyState(TypedDict):
-    value: int
-
-def inc(s: MyState) -> MyState:
-    s["value"] += 1
-    return s
-
-def mul(s: MyState) -> MyState:
-    s["value"] *= 2
-    return s
-
-graph = Graph(
-    state_type=MyState,
-    node_definitions=[inc, mul],
-    edges=[
-        Edge(start="inc", end="mul"),
-        ConditionalEdge(
-            start="mul", router_fn=lambda s: "inc" if s["value"] < 40 else END, targets=["inc", END]
-        ),
-    ],
-)
-
-print(graph.run({"value": 1}))
-```
-
-Run the included example:
-
-```bash
+# Graph workflow
 python -c "from ai_infra.graph.examples.01_graph_basic import main; main()"
-```
 
-See also: 02_graph_stream_values.py
-
-
-### MCP: multi-server client
-
-```python
-import asyncio
-from ai_infra.mcp.client.core import MCPClient
-
-async def main():
-    client = MCPClient([
-        {"transport": "streamable_http", "url": "http://127.0.0.1:8000/api/mcp", "headers": {"Authorization": "Bearer $MCP_AUTH_TOKEN"}},
-        # {"transport": "stdio", "command": "./your-mcp-server", "args": []},
-        # {"transport": "sse", "url": "http://127.0.0.1:8001/sse"},
-    ])
-
-    await client.discover()
-    tools = await client.list_tools()
-    print("Discovered tools:", tools)
-
-    docs = await client.get_openmcp()  # or client.get_openmcp("your_server_name")
-    print("OpenMCP doc keys:", list(docs.keys()))
-
-asyncio.run(main())
-```
-
-Run the included example:
-
-```bash
+# MCP client
 python -m ai_infra.mcp.examples.01_mcps
 ```
 
-
-## Running all quickstarts
-
-If you prefer a single runner command, add a tiny script like this locally:
-
-```python
-# quickstart.py
-import sys
-
-M = {
-    "llm_agent_basic": "ai_infra.llm.examples.01_agent_basic:main",
-    "llm_chat_basic": "ai_infra.llm.examples.02_llm_chat_basic:main",
-    "graph_basic": "ai_infra.graph.examples.01_graph_basic:main",
-    "mcp_discover": "ai_infra.mcp.examples.01_mcps:__main__",
-}
-
-if __name__ == "__main__":
-    key = sys.argv[1]
-    mod, _, func = M[key].partition(":")
-    if func == "__main__":
-        import runpy; runpy.run_module(mod, run_name="__main__")
-    else:
-        mod = __import__(mod, fromlist=[func])
-        getattr(mod, func)()
-```
-
-Run:
+## 🛠️ Development
 
 ```bash
-python quickstart.py llm_chat_basic
-python quickstart.py graph_basic
-python quickstart.py llm_agent_basic
-python quickstart.py mcp_discover
+# Install dev dependencies
+poetry install
+
+# Run tests
+pytest -q
+
+# Lint
+ruff check src tests
+
+# Type check
+mypy src
+
+# Format
+ruff format
 ```
 
-## MCP server config examples
-
-Add entries like these to your Copilot MCP config (e.g., ~/.config/github-copilot/intellij/mcp.json):
-
-```json
-{
-  "servers": {
-    "stdio-publisher-mcp": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "--package=github:Aliikhatami94/ai-infra",
-        "stdio-publisher-mcp"
-      ]
-    }
-  }
-}
-```
-
-Tip:
-- If you want to pin a specific ref (branch, tag, commit), set AI_INFRA_REF in your environment before launching the IDE.
-
-## Testing and quality
-
-- Unit tests: pytest
-  - `pytest -q`
-- Lint: ruff
-  - `ruff check src tests`
-- Types: mypy
-  - `mypy src`
-
-Tip: add a test_examples.py that imports and runs the example main() functions to smoke test provider wiring without hitting network (use mocks).
-
-
-## Project layout
-
-- src/ai_infra/llm: core LLM and Agent APIs, providers, tools, and utils
-- src/ai_infra/graph: Graph wrapper, typed models, and utilities
-- src/ai_infra/mcp: MCP client, examples, and server stubs
-- tests: add your unit/integration tests here
-
-
-## Notes and roadmap
-
-- Providers: OpenAI, Anthropic, Google GenAI, xAI (via langchain providers)
-- Features include structured output, retries, fallbacks, streaming, and tool call controls
-- MCP doc generation (OpenMCP) is available via MCPClient.get_openmcp()
-- Nice-to-haves: add a simple example runner module; more test coverage around examples and MCP flows
-
-
-## License
+## 📄 License
 
 MIT
