@@ -1,6 +1,114 @@
-# CLI to publish MCP stdio servers as npx-runner CLIs
+# ai-infra CLI
 
-Publish your **Python MCP stdio servers** as **npx-runner CLIs** so any agent can launch them without installing Python packages.
+Command-line interface for ai-infra SDK.
+
+## Quick Start
+
+```bash
+# Start interactive chat
+ai-infra chat
+
+# Send a one-shot message
+ai-infra chat -m "What is Python?"
+
+# List available providers
+ai-infra providers
+```
+
+## Installation
+
+The CLI is installed automatically with ai-infra:
+
+```bash
+pip install ai-infra
+```
+
+Or with Poetry:
+
+```bash
+poetry install
+poetry run ai-infra --help
+```
+
+## Commands
+
+### Chat
+
+Interactive chat REPL or one-shot messages:
+
+```bash
+# Interactive mode
+ai-infra chat
+
+# With specific provider/model
+ai-infra chat --provider openai --model gpt-4o
+
+# One-shot message
+ai-infra chat -m "Explain Docker"
+
+# With system prompt
+ai-infra chat -m "Hello" -s "You are helpful"
+
+# JSON output (for scripting)
+ai-infra chat -m "Hello" --json
+```
+
+### Discovery
+
+List providers and models:
+
+```bash
+# List all providers
+ai-infra providers
+
+# Only configured providers
+ai-infra providers --configured
+
+# List models for a provider
+ai-infra models --provider openai
+
+# List all models (configured providers)
+ai-infra models --all
+```
+
+### Image Generation
+
+```bash
+# List providers
+ai-infra image-providers
+
+# List models
+ai-infra image-models --provider openai
+```
+
+### Multimodal (TTS/STT)
+
+```bash
+# TTS
+ai-infra tts-providers
+ai-infra tts-voices --provider openai
+ai-infra tts-models --provider elevenlabs
+
+# STT
+ai-infra stt-providers
+ai-infra stt-models --provider openai
+```
+
+## Environment Variables
+
+Set API keys for providers:
+
+```bash
+export OPENAI_API_KEY=sk-...
+export ANTHROPIC_API_KEY=sk-ant-...
+export GOOGLE_API_KEY=...
+```
+
+---
+
+# MCP Stdio Publisher
+
+Publish Python MCP stdio servers as npx-runner CLIs so any agent can launch them.
 
 ## Requirements
 
@@ -10,7 +118,7 @@ Publish your **Python MCP stdio servers** as **npx-runner CLIs** so any agent ca
   ```toml
   [tool.poetry.scripts]
   mcp-publish = "ai_infra.mcp.server.custom.publish.cli:app"
-  
+
 ## Generate a shim
 
 ```bash
