@@ -202,6 +202,89 @@ These parameters only work with `deep=True`:
 
 ---
 
+## Workspace Configuration
+
+The `workspace` parameter controls how agents interact with the filesystem. It provides a unified configuration that works for both regular agents (using proj_mgmt tools) and deep agents (using built-in file tools).
+
+### Quick Start
+
+```python
+from ai_infra.llm import Agent
+
+# Simple: sandbox to current directory
+agent = Agent(deep=True, workspace=".")
+
+# Agent can now read/write files in current directory
+result = agent.run("List files in src/")
+```
+
+### Workspace Modes
+
+| Mode | Filesystem | Persistence | Sandboxing | Use Case |
+|------|-----------|-------------|------------|----------|
+| `sandboxed` | Real files | ✅ Persists | ✅ Confined to root | Local development (default) |
+| `virtual` | In-memory | ❌ Gone when done | N/A | Cloud, untrusted prompts |
+| `full` | Real files | ✅ Persists | ❌ No sandboxing | Trusted automation |
+
+### Examples
+
+```python
+from ai_infra.llm import Agent, Workspace
+
+# Local development - sandboxed to project (default)
+agent = Agent(
+    deep=True,
+    workspace=Workspace(".", mode="sandboxed"),
+)
+
+# Cloud deployment - virtual filesystem (safest)
+agent = Agent(
+    deep=True,
+    workspace=Workspace(mode="virtual"),
+)
+# Files only exist in memory, safe for untrusted prompts
+
+# Trusted CI/CD - full access (use with caution)
+agent = Agent(
+    deep=True,
+    workspace=Workspace("/", mode="full"),
+)
+```
+
+### With Regular Agents (proj_mgmt tools)
+
+The workspace also configures proj_mgmt tools like `file_read`, `file_write`:
+
+```python
+from ai_infra.llm import Agent
+from ai_infra.llm.tools.custom.proj_mgmt import file_read, file_write
+
+agent = Agent(
+    tools=[file_read, file_write],
+    workspace="/path/to/project",
+)
+# Tools are now sandboxed to /path/to/project
+```
+
+### Migration from set_workspace_root
+
+The old `set_workspace_root()` function is deprecated:
+
+```python
+# ❌ Old way (deprecated)
+from ai_infra.llm.tools.custom.proj_mgmt import set_workspace_root
+set_workspace_root("/path/to/project")
+agent = Agent(tools=[file_read])
+
+# ✅ New way
+agent = Agent(
+    tools=[file_read],
+    workspace="/path/to/project",
+)
+```
+
+---
+
 ## Tool Execution Configuration
 
 Control how tools are executed:
@@ -277,6 +360,9 @@ Agent(
     response_format: Optional[Any] = None,
     context_schema: Optional[Type[Any]] = None,
     use_longterm_memory: bool = False,
+
+    # Workspace (file operations)
+    workspace: Optional[Union[str, Path, Workspace]] = None,
 
     **model_kwargs,
 )

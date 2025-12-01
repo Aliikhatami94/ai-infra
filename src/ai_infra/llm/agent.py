@@ -9,7 +9,23 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Callable, Dict, List, Literal, Optional, Sequence, Tuple, Type, Union
+from pathlib import Path
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Sequence,
+    Tuple,
+    Type,
+    Union,
+)
+
+if TYPE_CHECKING:
+    from ai_infra.llm.workspace import Workspace
 
 from ai_infra.llm.base import BaseLLM
 from ai_infra.llm.session import (
@@ -236,6 +252,8 @@ class Agent(BaseLLM):
         response_format: Optional[Any] = None,
         context_schema: Optional[Type[Any]] = None,
         use_longterm_memory: bool = False,
+        # Workspace configuration
+        workspace: Optional[Union[str, "Path", "Workspace"]] = None,
         **model_kwargs,
     ):
         """Initialize an Agent with optional tools and provider settings.
@@ -290,6 +308,14 @@ class Agent(BaseLLM):
                 context_schema: Schema for the deep agent context.
                 use_longterm_memory: Enable long-term memory (requires session with store).
 
+            Workspace Configuration:
+                workspace: Workspace configuration for file operations. Can be:
+                    - String/Path: Directory to sandbox file operations to
+                    - Workspace: Full workspace config with mode ("virtual", "sandboxed", "full")
+                    For deep agents, configures the filesystem backend.
+                    For regular agents, configures proj_mgmt tools.
+                    Example: workspace=".", workspace=Workspace(".", mode="sandboxed")
+
             **model_kwargs: Additional kwargs passed to the model
         """
         super().__init__()
@@ -313,6 +339,19 @@ class Agent(BaseLLM):
         self._response_format = response_format
         self._context_schema = context_schema
         self._use_longterm_memory = use_longterm_memory
+
+        # Workspace configuration
+        self._workspace: Optional["Workspace"] = None
+        if workspace is not None:
+            if isinstance(workspace, (str, Path)):
+                from ai_infra.llm.workspace import Workspace as WorkspaceClass
+
+                self._workspace = WorkspaceClass(workspace)
+            else:
+                self._workspace = workspace
+
+            # Configure proj_mgmt tools for regular agents
+            self._workspace.configure_proj_mgmt()
 
         # Persona support (set by from_persona)
         self._tool_filter: Optional[Callable[[str], bool]] = None
@@ -977,8 +1016,14 @@ class Agent(BaseLLM):
         if tools:
             all_tools.extend(tools)
 
+        # Get backend from workspace (if configured)
+        backend = None
+        if self._workspace:
+            backend = self._workspace.get_deepagent_backend()
+
         return create_deep_agent(
             model=model,
+            backend=backend,
             tools=all_tools if all_tools else None,
             system_prompt=system,
             middleware=tuple(self._middleware) if self._middleware else (),
@@ -987,7 +1032,6 @@ class Agent(BaseLLM):
             context_schema=self._context_schema,
             checkpointer=checkpointer,
             store=store,
-            use_longterm_memory=self._use_longterm_memory,
             interrupt_on=interrupt_on,
         )
 

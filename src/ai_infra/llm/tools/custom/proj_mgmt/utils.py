@@ -44,8 +44,23 @@ _DEFAULT_ROOT = Path(os.getenv("REPO_ROOT", os.getcwd())).resolve()
 _workspace_root: ContextVar[Optional[Path]] = ContextVar("workspace_root", default=None)
 
 
+def _set_workspace_root(path: Union[str, Path, None]) -> None:
+    """Internal: Set workspace root without deprecation warning.
+
+    Used by Workspace.configure_proj_mgmt() to set the root.
+    """
+    if path is None:
+        _workspace_root.set(None)
+    else:
+        _workspace_root.set(Path(path).resolve())
+
+
 def set_workspace_root(path: Union[str, Path, None]) -> None:
     """Set an explicit workspace root for the current context.
+
+    .. deprecated:: 1.0
+        Use Agent(workspace=...) instead. Direct workspace configuration
+        will be removed in a future version.
 
     Use this to sandbox tools to a specific directory instead of
     auto-detecting the repo root.
@@ -65,10 +80,14 @@ def set_workspace_root(path: Union[str, Path, None]) -> None:
         # Reset to auto-detection
         set_workspace_root(None)
     """
-    if path is None:
-        _workspace_root.set(None)
-    else:
-        _workspace_root.set(Path(path).resolve())
+    import warnings
+
+    warnings.warn(
+        "set_workspace_root() is deprecated. Use Agent(workspace=...) instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    _set_workspace_root(path)
 
 
 def get_workspace_root() -> Path:

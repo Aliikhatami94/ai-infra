@@ -53,8 +53,8 @@ pre-commit = "^4.3.0"
 # Raw provider SDKs for models.list() discovery
 google-genai = "^1.0.0"
 
-# DeepAgents - autonomous agent orchestration
-deepagents = "^0.1.0"
+# DeepAgents - autonomous agent orchestration (0.2.x adds backends module)
+deepagents = "^0.2.0"
 
 # Retriever backends (optional)
 numpy = "^1.24.0"

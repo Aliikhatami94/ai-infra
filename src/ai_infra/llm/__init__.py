@@ -56,6 +56,7 @@ from ai_infra.llm.utils.logging_hooks import (
     ResponseContext,
 )
 from ai_infra.llm.utils.settings import ModelSettings
+from ai_infra.llm.workspace import Workspace, workspace
 
 __all__ = [
     "LLM",
@@ -113,4 +114,7 @@ __all__ = [
     "CompiledSubAgent",
     "SubAgentMiddleware",
     "FilesystemMiddleware",
+    # Workspace abstraction
+    "Workspace",
+    "workspace",
 ]

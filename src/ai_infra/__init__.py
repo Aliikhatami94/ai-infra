@@ -31,6 +31,8 @@ from ai_infra.llm import (
     AudioResponse,
     TranscriptionResult,
     Voice,
+    Workspace,
+    workspace,
 )
 from ai_infra.llm.personas import Persona
 from ai_infra.llm.providers import Providers
@@ -121,4 +123,7 @@ __all__ = [
     "progress",
     "ProgressStream",
     "ProgressEvent",
+    # Phase 4.8 - Unified Workspace Architecture
+    "Workspace",
+    "workspace",
 ]
