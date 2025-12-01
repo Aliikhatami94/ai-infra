@@ -18,6 +18,16 @@ from ai_infra.llm.multimodal import (
     Voice,
 )
 from ai_infra.llm.providers import Providers
+from ai_infra.llm.realtime import (
+    AudioChunk,
+    RealtimeConfig,
+    RealtimeError,
+    RealtimeVoice,
+    TranscriptDelta,
+    VADMode,
+    VoiceSession,
+    realtime_voice,
+)
 from ai_infra.llm.session import (
     PendingAction,
     ResumeDecision,
@@ -117,4 +127,13 @@ __all__ = [
     # Workspace abstraction
     "Workspace",
     "workspace",
+    # Realtime Voice API
+    "RealtimeVoice",
+    "realtime_voice",
+    "RealtimeConfig",
+    "VADMode",
+    "AudioChunk",
+    "TranscriptDelta",
+    "VoiceSession",
+    "RealtimeError",
 ]

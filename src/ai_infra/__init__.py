@@ -21,7 +21,7 @@ from ai_infra.errors import (
 )
 from ai_infra.graph import Graph
 from ai_infra.imagegen import GeneratedImage, ImageGen, ImageGenProvider
-from ai_infra.llm import (
+from ai_infra.llm import (  # Realtime Voice API
     LLM,
     STT,
     TTS,
@@ -29,9 +29,13 @@ from ai_infra.llm import (
     AudioFormat,
     AudioOutput,
     AudioResponse,
+    RealtimeConfig,
+    RealtimeVoice,
     TranscriptionResult,
+    VADMode,
     Voice,
     Workspace,
+    realtime_voice,
     workspace,
 )
 from ai_infra.llm.personas import Persona
@@ -126,4 +130,9 @@ __all__ = [
     # Phase 4.8 - Unified Workspace Architecture
     "Workspace",
     "workspace",
+    # Phase 4.10 - Realtime Voice API
+    "RealtimeVoice",
+    "realtime_voice",
+    "RealtimeConfig",
+    "VADMode",
 ]
