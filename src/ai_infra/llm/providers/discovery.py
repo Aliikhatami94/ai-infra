@@ -203,10 +203,42 @@ class ModelCapability(str, Enum):
 # Provider-specific capability patterns
 # Format: (pattern, capabilities) - if pattern in model_id, add these capabilities
 # Patterns are checked in order, and capabilities accumulate (a model can have multiple)
+#
+# IMPORTANT: More specific patterns should come first, and exclusion patterns
+# (like "codex", "instruct") are handled specially to prevent false positives.
 # =============================================================================
+
+# Patterns that indicate a model is NOT a chat model (overrides other patterns)
+OPENAI_NON_CHAT_PATTERNS = [
+    "codex",  # Code completion models (not chat)
+    "instruct",  # Instruct models (legacy, use completions API)
+    "davinci",  # Legacy completion models
+    "curie",  # Legacy completion models
+    "babbage",  # Legacy completion models
+    "ada",  # Legacy models (except embeddings handled separately)
+]
 
 # OpenAI model capability patterns
 OPENAI_CAPABILITY_PATTERNS = [
+    # Legacy/Code models (check these FIRST to avoid false chat detection)
+    ("codex", {ModelCapability.CODE}),
+    ("davinci", {ModelCapability.CODE}),
+    ("curie", {ModelCapability.CODE}),
+    ("babbage", {ModelCapability.CODE}),
+    ("instruct", {ModelCapability.CODE}),
+    # Embedding models
+    ("embedding", {ModelCapability.EMBEDDING}),
+    ("text-embedding", {ModelCapability.EMBEDDING}),
+    # Audio/Speech models
+    ("whisper", {ModelCapability.AUDIO}),
+    ("tts", {ModelCapability.AUDIO}),
+    ("-audio", {ModelCapability.AUDIO}),
+    ("realtime", {ModelCapability.REALTIME, ModelCapability.AUDIO}),
+    # Image generation
+    ("dall-e", {ModelCapability.IMAGE}),
+    # Moderation
+    ("moderation", {ModelCapability.MODERATION}),
+    ("omni-moderation", {ModelCapability.MODERATION}),
     # GPT-4o series (multimodal: chat + vision + audio)
     ("gpt-4o-audio", {ModelCapability.CHAT, ModelCapability.VISION, ModelCapability.AUDIO}),
     ("gpt-4o-realtime", {ModelCapability.CHAT, ModelCapability.REALTIME, ModelCapability.AUDIO}),
@@ -229,24 +261,6 @@ OPENAI_CAPABILITY_PATTERNS = [
     ("o4", {ModelCapability.CHAT}),
     ("o5", {ModelCapability.CHAT}),
     ("o6", {ModelCapability.CHAT}),
-    # Audio/Speech models
-    ("whisper", {ModelCapability.AUDIO}),
-    ("tts", {ModelCapability.AUDIO}),
-    ("-audio", {ModelCapability.AUDIO}),
-    ("realtime", {ModelCapability.REALTIME, ModelCapability.AUDIO}),
-    # Embedding models
-    ("embedding", {ModelCapability.EMBEDDING}),
-    ("text-embedding", {ModelCapability.EMBEDDING}),
-    # Image generation
-    ("dall-e", {ModelCapability.IMAGE}),
-    # Moderation
-    ("moderation", {ModelCapability.MODERATION}),
-    ("omni-moderation", {ModelCapability.MODERATION}),
-    # Legacy completion/code models
-    ("davinci", {ModelCapability.CODE}),
-    ("curie", {ModelCapability.CODE}),
-    ("babbage", {ModelCapability.CODE}),
-    ("codex", {ModelCapability.CODE}),
 ]
 
 # Anthropic model capability patterns
@@ -305,6 +319,14 @@ PROVIDER_CAPABILITY_PATTERNS = {
     "xai": XAI_CAPABILITY_PATTERNS,
 }
 
+# Mapping of provider to non-chat patterns (models that should NOT be marked as chat)
+PROVIDER_NON_CHAT_PATTERNS = {
+    "openai": OPENAI_NON_CHAT_PATTERNS,
+    "anthropic": [],  # All Anthropic models are chat
+    "google_genai": [],  # Handled by patterns
+    "xai": [],  # All xAI models are chat
+}
+
 
 def detect_model_capabilities(model_id: str, provider: str) -> Set[ModelCapability]:
     """
@@ -320,13 +342,25 @@ def detect_model_capabilities(model_id: str, provider: str) -> Set[ModelCapabili
     model_lower = model_id.lower()
     capabilities: Set[ModelCapability] = set()
 
+    # Check if this model matches any non-chat patterns (prevents false chat detection)
+    non_chat_patterns = PROVIDER_NON_CHAT_PATTERNS.get(provider, [])
+    is_non_chat_model = any(pattern in model_lower for pattern in non_chat_patterns)
+
     # Get patterns for this provider
     patterns = PROVIDER_CAPABILITY_PATTERNS.get(provider, [])
 
     # Check each pattern
     for pattern, caps in patterns:
         if pattern in model_lower:
-            capabilities.update(caps)
+            # If this is a non-chat model, don't add CHAT or VISION capability
+            # (legacy/code models don't support chat completions or vision)
+            if is_non_chat_model:
+                caps_to_add = {
+                    c for c in caps if c not in (ModelCapability.CHAT, ModelCapability.VISION)
+                }
+                capabilities.update(caps_to_add)
+            else:
+                capabilities.update(caps)
 
     # If no capabilities detected, mark as unknown (still include it!)
     if not capabilities:
