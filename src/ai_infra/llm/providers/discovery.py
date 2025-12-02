@@ -31,8 +31,9 @@ from __future__ import annotations
 import json
 import logging
 import time
+from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
 from ai_infra.providers import ProviderCapability, ProviderRegistry
 
@@ -169,34 +170,247 @@ def get_default_provider() -> Optional[str]:
 # -----------------------------------------------------------------------------
 
 
+# =============================================================================
+# Model Capability Detection
+# =============================================================================
+# Instead of excluding models, we categorize them by capability.
+# This allows the same model list to serve different use cases:
+# - chat: Text generation, conversation
+# - embedding: Vector embeddings for RAG
+# - audio: TTS, STT, realtime voice
+# - image: Image generation (DALL-E, Imagen)
+# - moderation: Content moderation
+# - vision: Image understanding (many chat models also support this)
+# =============================================================================
+
+
+class ModelCapability(str, Enum):
+    """Capabilities a model can have."""
+
+    CHAT = "chat"
+    EMBEDDING = "embedding"
+    AUDIO = "audio"
+    IMAGE = "image"
+    MODERATION = "moderation"
+    VISION = "vision"
+    REALTIME = "realtime"
+    VIDEO = "video"
+    CODE = "code"  # Legacy codex models
+    UNKNOWN = "unknown"
+
+
+# =============================================================================
+# Provider-specific capability patterns
+# Format: (pattern, capabilities) - if pattern in model_id, add these capabilities
+# Patterns are checked in order, and capabilities accumulate (a model can have multiple)
+# =============================================================================
+
+# OpenAI model capability patterns
+OPENAI_CAPABILITY_PATTERNS = [
+    # GPT-4o series (multimodal: chat + vision + audio)
+    ("gpt-4o-audio", {ModelCapability.CHAT, ModelCapability.VISION, ModelCapability.AUDIO}),
+    ("gpt-4o-realtime", {ModelCapability.CHAT, ModelCapability.REALTIME, ModelCapability.AUDIO}),
+    ("gpt-4o", {ModelCapability.CHAT, ModelCapability.VISION}),
+    # GPT-4 variants
+    ("gpt-4-turbo", {ModelCapability.CHAT, ModelCapability.VISION}),
+    ("gpt-4-vision", {ModelCapability.CHAT, ModelCapability.VISION}),
+    ("gpt-4", {ModelCapability.CHAT}),
+    # GPT-5+ (future-proofing - assume chat + vision)
+    ("gpt-5", {ModelCapability.CHAT, ModelCapability.VISION}),
+    ("gpt-6", {ModelCapability.CHAT, ModelCapability.VISION}),
+    ("gpt-7", {ModelCapability.CHAT, ModelCapability.VISION}),
+    # GPT-3.5
+    ("gpt-3.5", {ModelCapability.CHAT}),
+    # ChatGPT branded models
+    ("chatgpt", {ModelCapability.CHAT}),
+    # o-series reasoning models (o1, o3, o4, etc.)
+    ("o1", {ModelCapability.CHAT}),
+    ("o3", {ModelCapability.CHAT}),
+    ("o4", {ModelCapability.CHAT}),
+    ("o5", {ModelCapability.CHAT}),
+    ("o6", {ModelCapability.CHAT}),
+    # Audio/Speech models
+    ("whisper", {ModelCapability.AUDIO}),
+    ("tts", {ModelCapability.AUDIO}),
+    ("-audio", {ModelCapability.AUDIO}),
+    ("realtime", {ModelCapability.REALTIME, ModelCapability.AUDIO}),
+    # Embedding models
+    ("embedding", {ModelCapability.EMBEDDING}),
+    ("text-embedding", {ModelCapability.EMBEDDING}),
+    # Image generation
+    ("dall-e", {ModelCapability.IMAGE}),
+    # Moderation
+    ("moderation", {ModelCapability.MODERATION}),
+    ("omni-moderation", {ModelCapability.MODERATION}),
+    # Legacy completion/code models
+    ("davinci", {ModelCapability.CODE}),
+    ("curie", {ModelCapability.CODE}),
+    ("babbage", {ModelCapability.CODE}),
+    ("codex", {ModelCapability.CODE}),
+]
+
+# Anthropic model capability patterns
+ANTHROPIC_CAPABILITY_PATTERNS = [
+    # Claude 3+ models have vision
+    ("claude-3", {ModelCapability.CHAT, ModelCapability.VISION}),
+    ("claude-4", {ModelCapability.CHAT, ModelCapability.VISION}),
+    ("claude-5", {ModelCapability.CHAT, ModelCapability.VISION}),
+    # Older Claude models (chat only)
+    ("claude-2", {ModelCapability.CHAT}),
+    ("claude-instant", {ModelCapability.CHAT}),
+    # Catch-all for any claude model
+    ("claude", {ModelCapability.CHAT}),
+]
+
+# Google model capability patterns
+GOOGLE_CAPABILITY_PATTERNS = [
+    # Gemini models (all have vision)
+    ("gemini-2", {ModelCapability.CHAT, ModelCapability.VISION}),
+    ("gemini-1.5", {ModelCapability.CHAT, ModelCapability.VISION}),
+    ("gemini-1", {ModelCapability.CHAT, ModelCapability.VISION}),
+    ("gemini-pro-vision", {ModelCapability.CHAT, ModelCapability.VISION}),
+    ("gemini-ultra", {ModelCapability.CHAT, ModelCapability.VISION}),
+    ("gemini", {ModelCapability.CHAT, ModelCapability.VISION}),
+    # Embedding models
+    ("embedding", {ModelCapability.EMBEDDING}),
+    ("text-embedding", {ModelCapability.EMBEDDING}),
+    # Image generation
+    ("imagen", {ModelCapability.IMAGE}),
+    # Video generation
+    ("veo", {ModelCapability.VIDEO}),
+    # Other
+    ("aqa", {ModelCapability.CHAT}),
+    # PaLM models (legacy)
+    ("palm", {ModelCapability.CHAT}),
+    ("bison", {ModelCapability.CHAT}),
+]
+
+# xAI model capability patterns
+XAI_CAPABILITY_PATTERNS = [
+    # Grok models with vision
+    ("grok-2-vision", {ModelCapability.CHAT, ModelCapability.VISION}),
+    ("grok-vision", {ModelCapability.CHAT, ModelCapability.VISION}),
+    # Grok chat models
+    ("grok-3", {ModelCapability.CHAT}),
+    ("grok-2", {ModelCapability.CHAT}),
+    ("grok-1", {ModelCapability.CHAT}),
+    ("grok", {ModelCapability.CHAT}),
+]
+
+# Mapping of provider to capability patterns
+PROVIDER_CAPABILITY_PATTERNS = {
+    "openai": OPENAI_CAPABILITY_PATTERNS,
+    "anthropic": ANTHROPIC_CAPABILITY_PATTERNS,
+    "google_genai": GOOGLE_CAPABILITY_PATTERNS,
+    "xai": XAI_CAPABILITY_PATTERNS,
+}
+
+
+def detect_model_capabilities(model_id: str, provider: str) -> Set[ModelCapability]:
+    """
+    Detect capabilities of a model based on its ID and provider.
+
+    Args:
+        model_id: The model identifier (e.g., "gpt-4o", "claude-3-opus")
+        provider: The provider name (e.g., "openai", "anthropic")
+
+    Returns:
+        Set of ModelCapability enums the model supports.
+    """
+    model_lower = model_id.lower()
+    capabilities: Set[ModelCapability] = set()
+
+    # Get patterns for this provider
+    patterns = PROVIDER_CAPABILITY_PATTERNS.get(provider, [])
+
+    # Check each pattern
+    for pattern, caps in patterns:
+        if pattern in model_lower:
+            capabilities.update(caps)
+
+    # If no capabilities detected, mark as unknown (still include it!)
+    if not capabilities:
+        capabilities.add(ModelCapability.UNKNOWN)
+
+    return capabilities
+
+
+def filter_models_by_capability(
+    models: List[str],
+    provider: str,
+    capability: ModelCapability,
+) -> List[str]:
+    """
+    Filter models to only those with a specific capability.
+
+    Args:
+        models: List of model IDs
+        provider: Provider name
+        capability: The capability to filter for
+
+    Returns:
+        List of model IDs that have the specified capability.
+    """
+    return [m for m in models if capability in detect_model_capabilities(m, provider)]
+
+
+def categorize_models(
+    models: List[str],
+    provider: str,
+) -> Dict[ModelCapability, List[str]]:
+    """
+    Categorize models by their capabilities.
+
+    A model can appear in multiple categories if it has multiple capabilities.
+
+    Args:
+        models: List of model IDs
+        provider: Provider name
+
+    Returns:
+        Dict mapping capability to list of models with that capability.
+    """
+    result: Dict[ModelCapability, List[str]] = {cap: [] for cap in ModelCapability}
+
+    for model in models:
+        caps = detect_model_capabilities(model, provider)
+        for cap in caps:
+            result[cap].append(model)
+
+    # Sort each category
+    for cap in result:
+        result[cap] = sorted(result[cap])
+
+    return result
+
+
 def _list_openai_models() -> List[str]:
-    """Fetch models from OpenAI API."""
+    """Fetch all models from OpenAI API."""
     try:
         import openai
 
         client = openai.OpenAI()
         models = client.models.list()
-        # Filter to chat/completion models, exclude embeddings/audio/etc
-        chat_models = [
-            m.id
-            for m in models.data
-            if any(prefix in m.id for prefix in ("gpt-4", "gpt-3.5", "o1", "o3", "chatgpt"))
-            and "realtime" not in m.id
-            and "audio" not in m.id
-        ]
-        return sorted(set(chat_models))
+        return sorted(set(m.id for m in models.data))
     except Exception as e:
         log.warning(f"Failed to fetch OpenAI models: {e}")
         return []
 
 
+def _list_openai_chat_models() -> List[str]:
+    """Fetch chat-capable models from OpenAI API."""
+    models = _list_openai_models()
+    return filter_models_by_capability(models, "openai", ModelCapability.CHAT)
+
+
 def _list_anthropic_models() -> List[str]:
-    """Fetch models from Anthropic API."""
+    """Fetch all models from Anthropic API."""
     try:
         import anthropic
 
         client = anthropic.Anthropic()
         models = client.models.list()
+        # Anthropic only has chat models
         return sorted([m.id for m in models.data])
     except Exception as e:
         log.warning(f"Failed to fetch Anthropic models: {e}")
@@ -204,28 +418,27 @@ def _list_anthropic_models() -> List[str]:
 
 
 def _list_google_models() -> List[str]:
-    """Fetch models from Google GenAI API."""
+    """Fetch all models from Google GenAI API."""
     try:
         from google import genai
 
-        # Google SDK uses GOOGLE_API_KEY by default, but we support multiple
         api_key = get_api_key("google_genai")
         client = genai.Client(api_key=api_key)
         models = client.models.list()
-        # Filter to generative models
-        gen_models = [
-            m.name.replace("models/", "")
-            for m in models
-            if hasattr(m, "name") and "gemini" in m.name.lower()
-        ]
-        return sorted(set(gen_models))
+        return sorted(set(m.name.replace("models/", "") for m in models if hasattr(m, "name")))
     except Exception as e:
         log.warning(f"Failed to fetch Google GenAI models: {e}")
         return []
 
 
+def _list_google_chat_models() -> List[str]:
+    """Fetch chat-capable models from Google GenAI API."""
+    models = _list_google_models()
+    return filter_models_by_capability(models, "google_genai", ModelCapability.CHAT)
+
+
 def _list_xai_models() -> List[str]:
-    """Fetch models from xAI API (OpenAI-compatible)."""
+    """Fetch all models from xAI API (OpenAI-compatible)."""
     try:
         import openai
 
@@ -234,18 +447,27 @@ def _list_xai_models() -> List[str]:
             base_url="https://api.x.ai/v1",
         )
         models = client.models.list()
+        # xAI only has chat models (Grok)
         return sorted([m.id for m in models.data])
     except Exception as e:
         log.warning(f"Failed to fetch xAI models: {e}")
         return []
 
 
-# Fetcher dispatch
+# Fetcher dispatch - returns ALL models (use filter_models_by_capability for specific types)
 _FETCHERS = {
     "openai": _list_openai_models,
     "anthropic": _list_anthropic_models,
     "google_genai": _list_google_models,
     "xai": _list_xai_models,
+}
+
+# Convenience fetchers for chat models specifically
+_CHAT_FETCHERS = {
+    "openai": _list_openai_chat_models,
+    "anthropic": _list_anthropic_models,  # All Anthropic models are chat
+    "google_genai": _list_google_chat_models,
+    "xai": _list_xai_models,  # All xAI models are chat
 }
 
 
@@ -301,6 +523,7 @@ def clear_cache() -> None:
 def list_models(
     provider: str,
     *,
+    capability: Optional[ModelCapability] = None,
     refresh: bool = False,
     use_cache: bool = True,
 ) -> List[str]:
@@ -309,6 +532,8 @@ def list_models(
 
     Args:
         provider: Provider name (e.g., "openai", "anthropic")
+        capability: Optional capability to filter by (e.g., ModelCapability.CHAT).
+                   If None, returns all models.
         refresh: Force refresh from API, bypassing cache
         use_cache: Whether to use cached results (default: True)
 
@@ -318,6 +543,16 @@ def list_models(
     Raises:
         ValueError: If provider is not supported.
         RuntimeError: If provider is not configured (no API key).
+
+    Example:
+        # Get all models
+        all_models = list_models("openai")
+
+        # Get only chat models
+        chat_models = list_models("openai", capability=ModelCapability.CHAT)
+
+        # Get only embedding models
+        embedding_models = list_models("openai", capability=ModelCapability.EMBEDDING)
     """
     if provider not in SUPPORTED_PROVIDERS:
         raise ValueError(
@@ -335,7 +570,10 @@ def list_models(
         cache = _load_cache()
         if _is_cache_valid(cache, provider):
             log.debug(f"Using cached models for {provider}")
-            return cache[provider]["models"]
+            models = cache[provider]["models"]
+            if capability:
+                return filter_models_by_capability(models, provider, capability)
+            return models
 
     # Fetch from API
     log.info(f"Fetching models from {provider}...")
@@ -353,6 +591,10 @@ def list_models(
             "timestamp": time.time(),
         }
         _save_cache(cache)
+
+    # Filter by capability if specified
+    if capability:
+        return filter_models_by_capability(models, provider, capability)
 
     return models
 
@@ -401,6 +643,7 @@ def list_all_models(
 # -----------------------------------------------------------------------------
 
 __all__ = [
+    # Core functions
     "list_providers",
     "list_configured_providers",
     "list_models",
@@ -408,6 +651,12 @@ __all__ = [
     "is_provider_configured",
     "get_api_key",
     "clear_cache",
+    # Model capability detection
+    "ModelCapability",
+    "detect_model_capabilities",
+    "filter_models_by_capability",
+    "categorize_models",
+    # Constants
     "SUPPORTED_PROVIDERS",
     "PROVIDER_ENV_VARS",
 ]
