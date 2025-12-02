@@ -11,6 +11,12 @@ ai-infra chat
 # Send a one-shot message
 ai-infra chat -m "What is Python?"
 
+# Resume last session
+ai-infra chat                   # Auto-resumes last session
+
+# Start fresh session
+ai-infra chat --new
+
 # List available providers
 ai-infra providers
 ```
@@ -34,16 +40,22 @@ poetry run ai-infra --help
 
 ### Chat
 
-Interactive chat REPL or one-shot messages:
+Interactive chat REPL with session persistence:
 
 ```bash
-# Interactive mode
+# Interactive mode (auto-resumes last session)
 ai-infra chat
+
+# Start a new session (don't auto-resume)
+ai-infra chat --new
+
+# Resume or create a named session
+ai-infra chat --session my-project
 
 # With specific provider/model
 ai-infra chat --provider openai --model gpt-4o
 
-# One-shot message
+# One-shot message (no persistence)
 ai-infra chat -m "Explain Docker"
 
 # With system prompt
@@ -51,7 +63,38 @@ ai-infra chat -m "Hello" -s "You are helpful"
 
 # JSON output (for scripting)
 ai-infra chat -m "Hello" --json
+
+# Disable persistence
+ai-infra chat --no-persist
 ```
+
+#### Chat Session Commands
+
+Within the interactive chat, use these commands:
+
+```
+/help              Show all commands
+/clear             Clear conversation history
+/system <prompt>   Set or update system prompt
+/history           Show conversation history
+
+# Session management
+/sessions          List all saved sessions
+/save [name]       Save current session
+/load <name>       Load a saved session
+/new               Start a new session
+/delete <name>     Delete a saved session
+/rename <name>     Rename current session
+
+# Model settings
+/model <name>      Change model
+/provider <name>   Change provider
+/temp <value>      Set temperature (0.0-2.0)
+
+/quit, /exit       Save session and exit
+```
+
+Sessions are stored in `~/.ai-infra/chat_sessions/` as JSON files.
 
 ### Discovery
 
