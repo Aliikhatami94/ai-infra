@@ -189,19 +189,30 @@ class Retriever:
 
         # Check if we should load from existing save
         if self._persist_path and self._persist_path.exists():
-            # Load from saved state
-            loaded = Retriever.load(self._persist_path)
+            try:
+                # Load from saved state
+                loaded = Retriever.load(self._persist_path)
 
-            # Copy state from loaded retriever
-            self._embeddings = loaded._embeddings
-            self._chunk_size = loaded._chunk_size
-            self._chunk_overlap = loaded._chunk_overlap
-            self._backend_name = loaded._backend_name
-            self._backend = loaded._backend
-            self._doc_ids = loaded._doc_ids
-            self._similarity = loaded._similarity if hasattr(loaded, "_similarity") else "cosine"
-            self._initialized = True
-            return
+                # Copy state from loaded retriever
+                self._embeddings = loaded._embeddings
+                self._chunk_size = loaded._chunk_size
+                self._chunk_overlap = loaded._chunk_overlap
+                self._backend_name = loaded._backend_name
+                self._backend = loaded._backend
+                self._doc_ids = loaded._doc_ids
+                self._similarity = (
+                    loaded._similarity if hasattr(loaded, "_similarity") else "cosine"
+                )
+                self._initialized = True
+                return
+            except Exception as e:
+                # Failed to load (corrupt file, incompatible format, etc.)
+                # Fall through to fresh initialization
+                import logging
+
+                logging.getLogger(__name__).warning(
+                    f"Failed to load from {self._persist_path}, starting fresh: {e}"
+                )
 
         # Store chunking config
         self._chunk_size = chunk_size
