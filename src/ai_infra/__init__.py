@@ -38,6 +38,19 @@ from ai_infra.llm import (  # Realtime Voice API
     realtime_voice,
     workspace,
 )
+
+# Phase 6.4 - Memory Management
+from ai_infra.llm.memory import (
+    MemoryItem,
+    MemoryStore,
+    SummarizationMiddleware,
+    SummarizeResult,
+    count_tokens,
+    count_tokens_approximate,
+    get_context_limit,
+    summarize_messages,
+    trim_messages,
+)
 from ai_infra.llm.personas import Persona
 from ai_infra.llm.providers import Providers
 from ai_infra.llm.tools.custom.retriever import create_retriever_tool, create_retriever_tool_async
@@ -156,4 +169,14 @@ __all__ = [
     "realtime_voice",
     "RealtimeConfig",
     "VADMode",
+    # Phase 6.4 - Memory Management
+    "trim_messages",
+    "count_tokens",
+    "count_tokens_approximate",
+    "get_context_limit",
+    "summarize_messages",
+    "SummarizeResult",
+    "SummarizationMiddleware",
+    "MemoryStore",
+    "MemoryItem",
 ]

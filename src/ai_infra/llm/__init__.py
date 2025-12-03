@@ -8,6 +8,19 @@ from ai_infra.llm.agent import (
 from ai_infra.llm.base import BaseLLM
 from ai_infra.llm.defaults import MODEL, PROVIDER
 from ai_infra.llm.llm import LLM
+
+# Phase 6.4 - Memory Management
+from ai_infra.llm.memory import (
+    MemoryItem,
+    MemoryStore,
+    SummarizationMiddleware,
+    SummarizeResult,
+    count_tokens,
+    count_tokens_approximate,
+    get_context_limit,
+    summarize_messages,
+    trim_messages,
+)
 from ai_infra.llm.multimodal import (
     STT,
     TTS,
@@ -136,4 +149,14 @@ __all__ = [
     "TranscriptDelta",
     "VoiceSession",
     "RealtimeError",
+    # Phase 6.4 - Memory Management
+    "trim_messages",
+    "count_tokens",
+    "count_tokens_approximate",
+    "get_context_limit",
+    "summarize_messages",
+    "SummarizeResult",
+    "SummarizationMiddleware",
+    "MemoryStore",
+    "MemoryItem",
 ]
