@@ -9,17 +9,15 @@ from ai_infra.llm.base import BaseLLM
 from ai_infra.llm.defaults import MODEL, PROVIDER
 from ai_infra.llm.llm import LLM
 
+# Phase 6.5 - Context Management (Primary API)
 # Phase 6.4 - Memory Management
 from ai_infra.llm.memory import (
+    ContextResult,
     MemoryItem,
     MemoryStore,
-    SummarizationMiddleware,
-    SummarizeResult,
     count_tokens,
     count_tokens_approximate,
-    get_context_limit,
-    summarize_messages,
-    trim_messages,
+    fit_context,
 )
 from ai_infra.llm.multimodal import (
     STT,
@@ -149,14 +147,12 @@ __all__ = [
     "TranscriptDelta",
     "VoiceSession",
     "RealtimeError",
+    # Phase 6.5 - Context Management (Primary API)
+    "fit_context",
+    "ContextResult",
     # Phase 6.4 - Memory Management
-    "trim_messages",
     "count_tokens",
     "count_tokens_approximate",
-    "get_context_limit",
-    "summarize_messages",
-    "SummarizeResult",
-    "SummarizationMiddleware",
     "MemoryStore",
     "MemoryItem",
 ]

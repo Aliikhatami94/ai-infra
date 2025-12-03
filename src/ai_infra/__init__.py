@@ -40,16 +40,14 @@ from ai_infra.llm import (  # Realtime Voice API
 )
 
 # Phase 6.4 - Memory Management
+# Phase 6.5 - Unified Context Management
 from ai_infra.llm.memory import (
+    ContextResult,
     MemoryItem,
     MemoryStore,
-    SummarizationMiddleware,
-    SummarizeResult,
     count_tokens,
     count_tokens_approximate,
-    get_context_limit,
-    summarize_messages,
-    trim_messages,
+    fit_context,
 )
 from ai_infra.llm.personas import Persona
 from ai_infra.llm.providers import Providers
@@ -169,14 +167,12 @@ __all__ = [
     "realtime_voice",
     "RealtimeConfig",
     "VADMode",
+    # Phase 6.5 - Context Management (Primary API)
+    "fit_context",
+    "ContextResult",
     # Phase 6.4 - Memory Management
-    "trim_messages",
     "count_tokens",
     "count_tokens_approximate",
-    "get_context_limit",
-    "summarize_messages",
-    "SummarizeResult",
-    "SummarizationMiddleware",
     "MemoryStore",
     "MemoryItem",
 ]

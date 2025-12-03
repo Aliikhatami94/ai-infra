@@ -2,28 +2,135 @@
 
 ai-infra provides comprehensive memory capabilities for building production agents:
 
-- **Short-term memory**: Manage context window with trimming and summarization
-- **Long-term memory**: Key-value store with semantic search across sessions
+- **Context Management**: `fit_context()` - One function to fit messages into token budgets
+- **Long-term Memory**: Key-value store with semantic search across sessions
 - **Conversation RAG**: Search and recall past conversations via agent tool
 
 ## Quick Start
 
 ```python
-from ai_infra import Agent
-from ai_infra.llm.memory import trim_messages, MemoryStore
-from ai_infra.llm.tools.custom import ConversationMemory, create_memory_tool
+from ai_infra import fit_context, MemoryStore
+from ai_infra.llm.memory import ConversationMemory, create_memory_tool
 
-# 1. Trim messages to fit context window
-trimmed = trim_messages(messages, strategy="token", max_tokens=4000)
+# 1. Fit messages into context window (trim or summarize)
+result = fit_context(messages, max_tokens=4000)
+# Use result.messages in your prompt
 
-# 2. Store long-term memories
+# 2. With summarization (rolling summary pattern)
+result = fit_context(
+    messages,
+    max_tokens=4000,
+    summarize=True,
+    summary=existing_summary,  # From previous turn
+)
+# Store result.summary for next turn
+
+# 3. Long-term memory store
 store = MemoryStore()
 store.put(("user_123", "prefs"), "language", {"value": "Python"})
 
-# 3. Agent with conversation recall
+# 4. Agent with conversation recall
 memory = ConversationMemory()
 recall_tool = create_memory_tool(memory, user_id="user_123")
-agent = Agent(tools=[recall_tool])
+```
+
+---
+
+## Context Management
+
+The primary API for managing conversation context is `fit_context()`. It handles trimming, summarization, and rolling summaries in one simple function.
+
+### fit_context()
+
+Fit messages into a token budget.
+
+```python
+from ai_infra import fit_context
+
+# Simple: just fit messages (trims oldest if over limit)
+result = fit_context(messages, max_tokens=4000)
+prompt_messages = result.messages  # Use these
+
+# With summarization: compress old messages instead of dropping
+result = fit_context(messages, max_tokens=4000, summarize=True)
+print(result.summary)  # Store this for next turn
+
+# Rolling summary: extend existing summary (stateless API pattern)
+result = fit_context(
+    messages,
+    max_tokens=4000,
+    summarize=True,
+    summary="Previous summary from last turn...",
+)
+
+# Fine-tune: custom keep count and LLM
+result = fit_context(
+    messages,
+    max_tokens=4000,
+    summarize=True,
+    summary=existing_summary,
+    keep=10,                    # Keep last 10 messages
+    llm=LLM(model="gpt-4o-mini"),  # Cheaper model for summaries
+)
+```
+
+### ContextResult
+
+The result from `fit_context()`:
+
+```python
+@dataclass
+class ContextResult:
+    messages: list[BaseMessage]  # Use these messages
+    summary: str | None          # Store this (if summarize=True)
+    tokens: int                  # Token count of result
+
+    # Metadata
+    action: Literal["none", "trimmed", "summarized"]
+    original_count: int
+    final_count: int
+```
+
+### Rolling Summary Pattern (Stateless APIs)
+
+For stateless APIs like nfrax-api where the client manages state:
+
+```python
+# Server-side
+@app.post("/v1/chat")
+def chat(request: ChatRequest):
+    # Fit context with optional existing summary
+    result = fit_context(
+        request.messages,
+        max_tokens=4000,
+        summarize=True,
+        summary=request.summary,  # From client
+    )
+
+    # Generate response using fitted context
+    response = llm.chat(result.messages)
+
+    # Return summary to client (if generated)
+    return {
+        "response": response,
+        "summary": result.summary,  # Client stores this
+    }
+```
+
+```typescript
+// Client-side
+const response = await fetch("/v1/chat", {
+    body: JSON.stringify({
+        messages: conversation.messages.slice(conversation.summaryIndex),
+        summary: conversation.summary,
+    })
+});
+
+// Store new summary if returned
+if (response.summary) {
+    conversation.summary = response.summary;
+    conversation.summaryIndex = conversation.messages.length;
+}
 ```
 
 ---
@@ -54,105 +161,18 @@ agent.run("How did we fix that auth bug last month?")  # Searches all history
 
 ---
 
-## Short-Term Memory
+## Token Counting
 
-Utilities for managing context window within a single conversation.
-
-### trim_messages
-
-Reduce message history to fit context limits.
+For advanced use cases, token counting utilities are available:
 
 ```python
-from ai_infra.llm.memory import trim_messages
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
-
-messages = [
-    SystemMessage(content="You are helpful."),
-    HumanMessage(content="Hello"),
-    AIMessage(content="Hi there!"),
-    HumanMessage(content="Tell me about Python"),
-    AIMessage(content="Python is a programming language..."),
-    # ... many more messages
-]
-
-# Strategy: "last" - Keep last N messages
-trimmed = trim_messages(messages, strategy="last", max_messages=10)
-
-# Strategy: "first" - Keep first N messages  
-trimmed = trim_messages(messages, strategy="first", max_messages=10)
-
-# Strategy: "token" - Fit within token limit
-trimmed = trim_messages(messages, strategy="token", max_tokens=4000)
-
-# Preserve system message (default: True)
-trimmed = trim_messages(
-    messages,
-    strategy="last",
-    max_messages=5,
-    preserve_system=True,  # System message always kept
-)
-```
-
-### count_tokens
-
-Count tokens in messages for context management.
-
-```python
-from ai_infra.llm.memory import count_tokens, count_tokens_approximate, get_context_limit
+from ai_infra import count_tokens, count_tokens_approximate
 
 # Approximate count (fast, no dependencies)
 count = count_tokens_approximate(messages)
 
 # Exact count with tiktoken (requires tiktoken package)
-count = count_tokens(messages, model="gpt-4")
-
-# Get context limit for a model
-limit = get_context_limit("gpt-4")  # 128000
-limit = get_context_limit("claude-3-opus")  # 200000
-```
-
-### summarize_messages
-
-Compress old messages into a summary to preserve context while freeing tokens.
-
-```python
-from ai_infra.llm.memory import summarize_messages, asummarize_messages
-
-# Summarize old messages, keep last 5
-result = summarize_messages(
-    messages,
-    keep_last=5,
-    llm_provider="openai",  # LLM for summarization
-    llm_model="gpt-4o-mini",  # Fast, cheap model
-)
-
-# Result contains:
-# - result.summary: str - The summary text
-# - result.messages: List - Summary + kept messages
-# - result.original_count: int - Original message count
-# - result.summarized_count: int - How many were summarized
-
-# Async version
-result = await asummarize_messages(messages, keep_last=5)
-```
-
-### SummarizationMiddleware
-
-Auto-summarize when context gets too long (for use with Agent middleware).
-
-```python
-from ai_infra.llm.memory import SummarizationMiddleware
-
-middleware = SummarizationMiddleware(
-    trigger_tokens=8000,  # Summarize when exceeds this
-    # OR
-    trigger_messages=50,  # Summarize when exceeds this count
-    keep_last=10,  # Always keep last N messages
-)
-
-# Check if summarization needed
-if middleware.should_summarize(messages):
-    result = middleware.process(messages)
+count = count_tokens(messages, model="gpt-4o")
 ```
 
 ---

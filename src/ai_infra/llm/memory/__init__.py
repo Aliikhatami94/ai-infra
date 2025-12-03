@@ -1,22 +1,27 @@
 """Memory management for ai-infra agents.
 
 This module provides:
-1. Short-term memory utilities (trim_messages, summarize_messages)
+1. `fit_context()` - The primary API for fitting messages into token budgets
 2. Long-term memory store (MemoryStore with semantic search)
 3. Conversation history RAG (ConversationMemory)
 
-Short-term Memory (within a session):
+Context Management (Primary API):
     ```python
-    from ai_infra.memory import trim_messages, summarize_messages
+    from ai_infra.memory import fit_context
 
-    # Trim to last 10 messages
-    trimmed = trim_messages(messages, strategy="last", max_messages=10)
+    # Simple: fit messages into budget (trims oldest)
+    result = fit_context(messages, max_tokens=4000)
 
-    # Trim to fit token limit
-    trimmed = trim_messages(messages, strategy="token", max_tokens=4000)
+    # With summarization: compress old messages instead of dropping
+    result = fit_context(messages, max_tokens=4000, summarize=True)
 
-    # Summarize old messages
-    result = summarize_messages(messages, keep_last=5)
+    # Rolling summary: extend existing summary (for stateless APIs)
+    result = fit_context(
+        messages,
+        max_tokens=4000,
+        summarize=True,
+        summary="Previous summary...",
+    )
     ```
 
 Long-term Memory (across sessions):
@@ -59,15 +64,14 @@ Conversation History RAG:
     ```
 """
 
+# Primary API (6.5)
+from ai_infra.llm.memory.context import ContextResult, afit_context, fit_context
+
+# Long-term memory store (6.4.2)
 from ai_infra.llm.memory.store import MemoryItem, MemoryStore
-from ai_infra.llm.memory.summarize import (
-    SummarizationMiddleware,
-    SummarizeResult,
-    asummarize_messages,
-    summarize_messages,
-)
-from ai_infra.llm.memory.tokens import count_tokens, count_tokens_approximate, get_context_limit
-from ai_infra.llm.memory.trim import trim_messages
+
+# Token utilities (internal, but useful for advanced users)
+from ai_infra.llm.memory.tokens import count_tokens, count_tokens_approximate
 
 # Re-export ConversationMemory from tools/custom for convenience
 from ai_infra.llm.tools.custom.memory import (
@@ -79,17 +83,13 @@ from ai_infra.llm.tools.custom.memory import (
 )
 
 __all__ = [
-    # Trim utilities (6.4.1)
-    "trim_messages",
-    # Token utilities (6.4.1)
+    # Primary API (6.5) - This is what most users need
+    "fit_context",
+    "afit_context",
+    "ContextResult",
+    # Token utilities (for advanced use)
     "count_tokens",
     "count_tokens_approximate",
-    "get_context_limit",
-    # Summarization (6.4.1)
-    "summarize_messages",
-    "asummarize_messages",
-    "SummarizeResult",
-    "SummarizationMiddleware",
     # Long-term memory store (6.4.2)
     "MemoryStore",
     "MemoryItem",

@@ -1,6 +1,8 @@
 """Unit tests for ai_infra.memory module.
 
 Tests for Phase 6.4.1 (Short-term memory) and 6.4.2 (Long-term memory store).
+Note: trim_messages, summarize_messages etc are now internal to fit_context,
+but we test them to ensure the underlying functionality works.
 """
 
 import time
@@ -9,17 +11,17 @@ from unittest.mock import MagicMock, patch
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
-from ai_infra import (
-    MemoryItem,
-    MemoryStore,
+# Public API imports
+from ai_infra import MemoryItem, MemoryStore, count_tokens, count_tokens_approximate
+from ai_infra.llm.memory.summarize import (
     SummarizationMiddleware,
     SummarizeResult,
-    count_tokens,
-    count_tokens_approximate,
-    get_context_limit,
     summarize_messages,
-    trim_messages,
 )
+from ai_infra.llm.memory.tokens import get_context_limit
+
+# Internal imports for testing underlying functionality
+from ai_infra.llm.memory.trim import trim_messages
 
 # =============================================================================
 # Tests for trim_messages (6.4.1)
