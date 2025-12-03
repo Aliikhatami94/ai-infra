@@ -730,3 +730,476 @@ class TestBackendFactory:
                 assert backend is not None
             finally:
                 os.unlink(f.name)
+
+
+# =============================================================================
+# Persistence Tests
+# =============================================================================
+
+
+class TestRetrieverPersistence:
+    """Tests for Retriever save/load functionality."""
+
+    @pytest.fixture
+    def mock_embeddings(self) -> MagicMock:
+        """Create mock embeddings that return consistent vectors."""
+        mock = MagicMock()
+        mock.provider = "mock"
+        mock.model = "mock-model"
+        # Return 384-dim vectors (same as all-MiniLM-L6-v2)
+        mock.embed.return_value = [0.1] * 384
+        mock.embed_batch.return_value = [[0.1 + i * 0.01] * 384 for i in range(10)]
+        return mock
+
+    @pytest.fixture
+    def retriever(self, mock_embeddings: MagicMock) -> Any:
+        """Create a Retriever with mocked embeddings."""
+        from ai_infra.retriever import Retriever
+
+        r = Retriever(backend="memory")
+        r._embeddings = mock_embeddings
+        return r
+
+    def test_save_creates_files(self, retriever: Any, mock_embeddings: MagicMock) -> None:
+        """Test save() creates pickle and JSON files."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "test_save.pkl"
+
+            # Add some content
+            retriever.add_text("Hello world")
+            retriever.add_text("Paris is the capital of France")
+
+            # Save
+            saved_path = retriever.save(path)
+
+            # Check files exist
+            assert saved_path.exists()
+            assert saved_path.with_suffix(".json").exists()
+
+            # Check JSON metadata
+            import json
+
+            with open(saved_path.with_suffix(".json")) as f:
+                metadata = json.load(f)
+
+            assert metadata["version"] == 1
+            assert metadata["backend"] == "memory"
+            assert metadata["chunk_count"] == 2
+            assert "created_at" in metadata
+
+    def test_save_to_directory(self, retriever: Any, mock_embeddings: MagicMock) -> None:
+        """Test save() to a directory creates default filename."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            retriever.add_text("Test content")
+
+            # Save to directory (not file)
+            saved_path = retriever.save(tmpdir)
+
+            # Should create retriever.pkl in the directory
+            assert saved_path == Path(tmpdir) / "retriever.pkl"
+            assert saved_path.exists()
+
+    def test_load_restores_data(self, retriever: Any, mock_embeddings: MagicMock) -> None:
+        """Test load() restores saved data."""
+        from ai_infra.retriever import Retriever
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "test_load.pkl"
+
+            # Add content and save
+            retriever.add_text("Hello world")
+            retriever.add_text("Paris is the capital of France")
+            original_count = retriever.count
+            retriever.save(path)
+
+            # Load into new retriever
+            loaded = Retriever.load(path)
+
+            # Check data restored
+            assert loaded.count == original_count
+            assert loaded.backend_name == "memory"
+
+    def test_load_nonexistent_raises(self) -> None:
+        """Test load() raises FileNotFoundError for missing file."""
+        from ai_infra.retriever import Retriever
+
+        with pytest.raises(FileNotFoundError):
+            Retriever.load("./nonexistent_retriever.pkl")
+
+    def test_persist_path_auto_load(self, mock_embeddings: MagicMock) -> None:
+        """Test persist_path loads existing save on init."""
+        from ai_infra.retriever import Retriever
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "auto_load.pkl"
+
+            # Create and save first retriever
+            r1 = Retriever(backend="memory")
+            r1._embeddings = mock_embeddings
+            r1.add_text("Persisted content")
+            r1.save(path)
+            original_count = r1.count
+
+            # Create new retriever with persist_path - should auto-load
+            r2 = Retriever(backend="memory", persist_path=path)
+
+            # Should have loaded the data
+            assert r2.count == original_count
+
+    def test_persist_path_auto_save(self, mock_embeddings: MagicMock) -> None:
+        """Test persist_path auto-saves after add."""
+        from ai_infra.retriever import Retriever
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "auto_save.pkl"
+
+            # Create retriever with persist_path (file doesn't exist yet)
+            r1 = Retriever(backend="memory", persist_path=path)
+            r1._embeddings = mock_embeddings
+
+            # File shouldn't exist yet
+            assert not path.exists()
+
+            # Add content - should trigger auto-save
+            r1.add_text("Auto-saved content")
+
+            # File should now exist
+            assert path.exists()
+
+            # Load and verify
+            r2 = Retriever.load(path)
+            assert r2.count == r1.count
+
+    def test_persist_path_no_auto_save(self, mock_embeddings: MagicMock) -> None:
+        """Test auto_save=False disables auto-saving."""
+        from ai_infra.retriever import Retriever
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "no_auto_save.pkl"
+
+            # Create retriever with auto_save=False
+            r1 = Retriever(backend="memory", persist_path=path, auto_save=False)
+            r1._embeddings = mock_embeddings
+
+            # Add content
+            r1.add_text("Not auto-saved")
+
+            # File should NOT exist (auto_save disabled)
+            assert not path.exists()
+
+            # Manual save should work
+            r1.save(path)
+            assert path.exists()
+
+    def test_save_unsupported_backend_raises(self) -> None:
+        """Test save() raises for unsupported backends."""
+        from ai_infra.retriever import Retriever
+        from ai_infra.retriever.backends import get_backend
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "test.pkl"
+
+            # Create retriever with a backend that doesn't have _ids
+            r = Retriever(backend="memory")
+
+            # Remove _ids to simulate unsupported backend
+            del r._backend._ids
+
+            with pytest.raises(ValueError, match="doesn't support save"):
+                r.save(path)
+
+
+# =============================================================================
+# Lazy Initialization Tests
+# =============================================================================
+
+
+class TestRetrieverLazyInit:
+    """Tests for Retriever lazy initialization functionality."""
+
+    def test_lazy_init_no_model_load_on_create(self) -> None:
+        """Test lazy_init=True doesn't load embedding model on creation."""
+        from ai_infra.retriever import Retriever
+        from ai_infra.retriever.retriever import _LazyEmbeddings
+
+        # Create with lazy_init=True
+        r = Retriever(backend="memory", lazy_init=True, provider="huggingface")
+
+        # Should use lazy embeddings wrapper
+        assert isinstance(r._embeddings, _LazyEmbeddings)
+
+        # Internal embeddings should not be loaded yet
+        assert r._embeddings._embeddings is None
+
+        # Should not be marked as initialized
+        assert r._initialized is False
+
+    def test_lazy_init_loads_on_add(self) -> None:
+        """Test lazy_init loads model on first add."""
+        from ai_infra.retriever import Retriever
+        from ai_infra.retriever.retriever import _LazyEmbeddings
+
+        # Create with lazy_init=True and mock the internal loading
+        r = Retriever(backend="memory", lazy_init=True, provider="huggingface")
+
+        # Mock the embeddings to avoid actual model loading
+        mock_embeddings = MagicMock()
+        mock_embeddings.embed_batch.return_value = [[0.1] * 384]
+        r._embeddings._embeddings = mock_embeddings
+
+        # Add content - should trigger initialization
+        r.add_text("Test content")
+
+        # Should be marked as initialized now
+        assert r._initialized is True
+
+        # embed_batch should have been called
+        mock_embeddings.embed_batch.assert_called_once()
+
+    def test_lazy_init_loads_on_search(self) -> None:
+        """Test lazy_init loads model on first search."""
+        from ai_infra.retriever import Retriever
+
+        # Create with lazy_init=True
+        r = Retriever(backend="memory", lazy_init=True, provider="huggingface")
+
+        # Add some content manually to backend (bypass embedding)
+        import numpy as np
+
+        r._backend.add(
+            embeddings=[[0.1] * 384],
+            texts=["Test content"],
+            metadatas=[{}],
+            ids=["test-id"],
+        )
+
+        # Mock the embeddings for search
+        mock_embeddings = MagicMock()
+        mock_embeddings.embed.return_value = [0.1] * 384
+        r._embeddings._embeddings = mock_embeddings
+
+        # Search - should trigger initialization
+        results = r.search("test")
+
+        # Should be marked as initialized now
+        assert r._initialized is True
+
+        # embed should have been called for the query
+        mock_embeddings.embed.assert_called_once_with("test")
+
+    def test_lazy_embeddings_provider_model_exposed(self) -> None:
+        """Test lazy embeddings exposes provider and model properties."""
+        from ai_infra.retriever.retriever import _LazyEmbeddings
+
+        lazy = _LazyEmbeddings(provider="openai", model="text-embedding-3-small")
+
+        assert lazy.provider == "openai"
+        assert lazy.model == "text-embedding-3-small"
+
+        # Should not have loaded yet
+        assert lazy._embeddings is None
+
+    def test_normal_init_loads_immediately(self) -> None:
+        """Test normal init (lazy_init=False) loads model immediately."""
+        from ai_infra.retriever import Retriever
+        from ai_infra.retriever.retriever import _LazyEmbeddings
+
+        # Mock the Embeddings class at its import location
+        with patch("ai_infra.embeddings.Embeddings") as MockEmbeddings:
+            mock_instance = MagicMock()
+            mock_instance.provider = "mock"
+            mock_instance.model = "mock-model"
+            MockEmbeddings.return_value = mock_instance
+
+            # Create with lazy_init=False (default)
+            r = Retriever(backend="memory", lazy_init=False, provider="openai")
+
+            # Should NOT use lazy embeddings wrapper
+            assert not isinstance(r._embeddings, _LazyEmbeddings)
+
+            # Should be marked as initialized
+            assert r._initialized is True
+
+            # Verify Embeddings was instantiated
+            MockEmbeddings.assert_called_once()
+
+    def test_lazy_init_with_persist_path(self) -> None:
+        """Test lazy_init works with persist_path."""
+        from ai_infra.retriever import Retriever
+        from ai_infra.retriever.retriever import _LazyEmbeddings
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "lazy_persist.pkl"
+
+            # Create with lazy_init=True and persist_path (no existing file)
+            r = Retriever(
+                backend="memory",
+                lazy_init=True,
+                persist_path=path,
+                provider="huggingface",
+            )
+
+            # Should use lazy embeddings
+            assert isinstance(r._embeddings, _LazyEmbeddings)
+
+            # File shouldn't exist yet
+            assert not path.exists()
+
+
+class TestRetrieverSimilarityMetrics:
+    """Tests for similarity metric options."""
+
+    def test_default_similarity_is_cosine(self) -> None:
+        """Test default similarity metric is cosine."""
+        from ai_infra.retriever import Retriever
+
+        with patch("ai_infra.embeddings.Embeddings") as MockEmbeddings:
+            mock_instance = MagicMock()
+            mock_instance.provider = "mock"
+            mock_instance.model = "mock-model"
+            MockEmbeddings.return_value = mock_instance
+
+            r = Retriever(backend="memory", provider="openai")
+            assert r.similarity == "cosine"
+            assert r._backend.similarity == "cosine"
+
+    def test_similarity_dot_product(self) -> None:
+        """Test dot product similarity metric."""
+        from ai_infra.retriever import Retriever
+
+        with patch("ai_infra.embeddings.Embeddings") as MockEmbeddings:
+            mock_instance = MagicMock()
+            mock_instance.provider = "mock"
+            mock_instance.model = "mock-model"
+            MockEmbeddings.return_value = mock_instance
+
+            r = Retriever(backend="memory", similarity="dot_product", provider="openai")
+            assert r.similarity == "dot_product"
+            assert r._backend.similarity == "dot_product"
+
+    def test_similarity_euclidean(self) -> None:
+        """Test euclidean similarity metric."""
+        from ai_infra.retriever import Retriever
+
+        with patch("ai_infra.embeddings.Embeddings") as MockEmbeddings:
+            mock_instance = MagicMock()
+            mock_instance.provider = "mock"
+            mock_instance.model = "mock-model"
+            MockEmbeddings.return_value = mock_instance
+
+            r = Retriever(backend="memory", similarity="euclidean", provider="openai")
+            assert r.similarity == "euclidean"
+            assert r._backend.similarity == "euclidean"
+
+    def test_memory_backend_invalid_similarity(self) -> None:
+        """Test invalid similarity metric raises error."""
+        from ai_infra.retriever.backends.memory import MemoryBackend
+
+        with pytest.raises(ValueError, match="Unsupported similarity"):
+            MemoryBackend(similarity="invalid")
+
+    def test_sqlite_backend_invalid_similarity(self) -> None:
+        """Test invalid similarity metric raises error for SQLite."""
+        from ai_infra.retriever.backends.sqlite import SQLiteBackend
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "test.db"
+            with pytest.raises(ValueError, match="Unsupported similarity"):
+                SQLiteBackend(path=str(db_path), similarity="invalid")
+
+    def test_similarity_preserved_on_save_load(self) -> None:
+        """Test similarity metric is preserved when saving and loading."""
+        from ai_infra.retriever import Retriever
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "similarity_test.pkl"
+
+            # Mock embeddings for this test
+            mock_emb = MagicMock()
+            mock_emb.provider = "mock"
+            mock_emb.model = "mock-model"
+            mock_emb.embed.return_value = [0.1, 0.2, 0.3]
+            mock_emb.embed_batch.return_value = [[0.1, 0.2, 0.3]]
+
+            # Create with dot_product similarity
+            r1 = Retriever(
+                backend="memory",
+                similarity="dot_product",
+                embeddings=mock_emb,
+            )
+
+            # Add some text and save
+            r1.add("Test document")
+            r1.save(path)
+
+            # Load and verify similarity is preserved
+            r2 = Retriever.load(path)
+            assert r2.similarity == "dot_product"
+            assert r2._backend.similarity == "dot_product"
+
+    def test_cosine_similarity_search(self) -> None:
+        """Test search works with cosine similarity."""
+        import numpy as np
+
+        from ai_infra.retriever.backends.memory import MemoryBackend
+
+        backend = MemoryBackend(similarity="cosine")
+
+        # Add normalized vectors
+        v1 = [1.0, 0.0, 0.0]  # Unit vector in x direction
+        v2 = [0.0, 1.0, 0.0]  # Unit vector in y direction
+        v3 = [0.707, 0.707, 0.0]  # 45 degrees between x and y
+
+        backend.add([v1, v2, v3], ["x", "y", "xy"], ids=["1", "2", "3"])
+
+        # Query with x direction - should match v1 best
+        results = backend.search([1.0, 0.0, 0.0], k=3)
+        assert results[0]["text"] == "x"
+        assert results[0]["score"] == pytest.approx(1.0, rel=1e-5)
+
+        # v3 (45 degrees) should be more similar than v2 (90 degrees)
+        assert results[1]["text"] == "xy"
+        assert results[2]["text"] == "y"
+
+    def test_dot_product_similarity_search(self) -> None:
+        """Test search works with dot product similarity."""
+        from ai_infra.retriever.backends.memory import MemoryBackend
+
+        backend = MemoryBackend(similarity="dot_product")
+
+        # Add vectors
+        v1 = [1.0, 0.0, 0.0]
+        v2 = [0.5, 0.0, 0.0]  # Same direction, smaller magnitude
+        v3 = [2.0, 0.0, 0.0]  # Same direction, larger magnitude
+
+        backend.add([v1, v2, v3], ["one", "half", "two"], ids=["1", "2", "3"])
+
+        # Query with [1, 0, 0] - dot product favors larger magnitude
+        results = backend.search([1.0, 0.0, 0.0], k=3)
+
+        # v3 has highest dot product (2.0), then v1 (1.0), then v2 (0.5)
+        assert results[0]["text"] == "two"
+        assert results[1]["text"] == "one"
+        assert results[2]["text"] == "half"
+
+    def test_euclidean_similarity_search(self) -> None:
+        """Test search works with euclidean similarity."""
+        from ai_infra.retriever.backends.memory import MemoryBackend
+
+        backend = MemoryBackend(similarity="euclidean")
+
+        # Add vectors with different distances from query
+        v1 = [1.0, 0.0, 0.0]  # Distance 0 from query
+        v2 = [0.5, 0.0, 0.0]  # Distance 0.5 from query
+        v3 = [0.0, 0.0, 0.0]  # Distance 1.0 from query
+
+        backend.add([v1, v2, v3], ["close", "medium", "far"], ids=["1", "2", "3"])
+
+        # Query with [1, 0, 0] - euclidean favors closer vectors
+        results = backend.search([1.0, 0.0, 0.0], k=3)
+
+        # v1 is closest (identical), then v2, then v3
+        assert results[0]["text"] == "close"
+        assert results[0]["score"] == pytest.approx(1.0, rel=1e-5)  # 1/(1+0)
+        assert results[1]["text"] == "medium"
+        assert results[2]["text"] == "far"

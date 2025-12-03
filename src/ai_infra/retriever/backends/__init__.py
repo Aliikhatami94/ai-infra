@@ -3,12 +3,13 @@
 Each backend provides vector storage and similarity search capabilities.
 """
 
-from ai_infra.retriever.backends.base import BaseBackend
+from ai_infra.retriever.backends.base import BaseBackend, SimilarityMetric
 from ai_infra.retriever.backends.memory import MemoryBackend
 
 __all__ = [
     "BaseBackend",
     "MemoryBackend",
+    "SimilarityMetric",
     "get_backend",
 ]
 

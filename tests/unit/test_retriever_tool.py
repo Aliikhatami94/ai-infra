@@ -309,3 +309,107 @@ class TestEdgeCases:
         tool.invoke({"query": "test"})
 
         mock_retriever.search.assert_called_with("test", k=5, min_score=0.75, detailed=True)
+
+
+# =============================================================================
+# Formatting Options Tests
+# =============================================================================
+
+
+class TestFormattingOptions:
+    """Tests for new formatting options (max_chars, format)."""
+
+    def test_max_chars_truncates_output(self, mock_retriever: MagicMock) -> None:
+        """Test that max_chars truncates long output."""
+        tool = create_retriever_tool(mock_retriever, max_chars=30)
+        result = tool.invoke({"query": "test"})
+
+        assert len(result) <= 30
+        assert result.endswith("...")
+
+    def test_max_chars_none_no_truncation(self, mock_retriever: MagicMock) -> None:
+        """Test that max_chars=None doesn't truncate."""
+        tool = create_retriever_tool(mock_retriever, max_chars=None)
+        result = tool.invoke({"query": "test"})
+
+        # All content should be present
+        assert "First document content" in result
+        assert "Second document content" in result
+        assert "Third document content" in result
+
+    def test_format_text_default(self, mock_retriever: MagicMock) -> None:
+        """Test default text format."""
+        tool = create_retriever_tool(mock_retriever, format="text")
+        result = tool.invoke({"query": "test"})
+
+        # Text format uses --- separator
+        assert "---" in result
+        assert "First document content" in result
+
+    def test_format_markdown(self, mock_retriever: MagicMock) -> None:
+        """Test markdown format."""
+        tool = create_retriever_tool(mock_retriever, format="markdown", return_scores=True)
+        result = tool.invoke({"query": "test"})
+
+        # Markdown format uses headers
+        assert "### Result 1" in result
+        assert "**Score:**" in result
+        assert "**Source:**" in result
+        assert "---" in result  # Separator between results
+
+    def test_format_json(self, mock_retriever: MagicMock) -> None:
+        """Test JSON format."""
+        import json
+
+        tool = create_retriever_tool(mock_retriever, format="json", return_scores=True)
+        result = tool.invoke({"query": "test"})
+
+        # Should be valid JSON
+        data = json.loads(result)
+        assert isinstance(data, list)
+        assert len(data) == 3
+        assert data[0]["text"] == "First document content"
+        assert data[0]["score"] == pytest.approx(0.95, rel=1e-3)
+        assert data[0]["source"] == "doc1.txt"
+
+    def test_format_json_without_scores(self, mock_retriever: MagicMock) -> None:
+        """Test JSON format without scores."""
+        import json
+
+        tool = create_retriever_tool(mock_retriever, format="json", return_scores=False)
+        result = tool.invoke({"query": "test"})
+
+        data = json.loads(result)
+        assert "text" in data[0]
+        assert "score" not in data[0]
+        assert "source" in data[0]
+
+    def test_format_markdown_without_scores(self, mock_retriever: MagicMock) -> None:
+        """Test markdown format without scores."""
+        tool = create_retriever_tool(mock_retriever, format="markdown", return_scores=False)
+        result = tool.invoke({"query": "test"})
+
+        assert "### Result 1" in result
+        assert "**Score:**" not in result
+        assert "**Source:**" in result
+
+    @pytest.mark.asyncio
+    async def test_async_format_json(self, mock_retriever: MagicMock) -> None:
+        """Test JSON format works with async tool."""
+        import json
+
+        tool = create_retriever_tool_async(mock_retriever, format="json", return_scores=True)
+        result = await tool.ainvoke({"query": "test"})
+
+        data = json.loads(result)
+        assert isinstance(data, list)
+        assert data[0]["text"] == "Async first document"
+
+    @pytest.mark.asyncio
+    async def test_async_max_chars(self, mock_retriever: MagicMock) -> None:
+        """Test max_chars works with async tool."""
+        tool = create_retriever_tool_async(mock_retriever, max_chars=25)
+        result = await tool.ainvoke({"query": "test"})
+
+        assert len(result) <= 25
+        assert result.endswith("...")

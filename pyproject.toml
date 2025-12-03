@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "ai-infra"
-version = "0.1.112"
+version = "0.1.113"
 description = "Infrastructure for efficient and scalable AI applications."
 authors = ["Ali Khatami <aliikhatami94@gmail.com>"]
 license = "MIT"
@@ -59,6 +59,8 @@ deepagents = "^0.2.0"
 # Retriever backends (optional)
 numpy = "^1.24.0"
 langchain-text-splitters = "^0.3.8"
+langchain-huggingface = "^1.1.0"
+sentence-transformers = "^5.1.2"
 
 [tool.poetry.extras]
 # Retriever storage backends
@@ -73,9 +75,13 @@ pdf = ["pypdf"]
 docx = ["python-docx"]
 html = ["beautifulsoup4"]
 csv = ["pandas"]
+# Free local embeddings (no API key needed)
+local-embeddings = ["langchain-huggingface", "sentence-transformers"]
+huggingface = ["langchain-huggingface", "sentence-transformers"]
 # All retriever dependencies
 retriever = ["pypdf", "python-docx", "beautifulsoup4", "pandas"]
 retriever-all = ["pgvector", "psycopg2-binary", "chromadb", "pypdf", "python-docx", "beautifulsoup4", "pandas"]
+retriever-local = ["langchain-huggingface", "sentence-transformers", "pypdf", "python-docx", "beautifulsoup4", "pandas"]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.0"

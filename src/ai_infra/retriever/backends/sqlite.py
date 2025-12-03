@@ -11,17 +11,19 @@ import sqlite3
 import uuid
 from typing import TYPE_CHECKING, Any
 
-from ai_infra.retriever.backends.base import BaseBackend
+from ai_infra.retriever.backends.base import BaseBackend, SimilarityMetric
 
 if TYPE_CHECKING:
     import numpy as np
 
 
 class SQLiteBackend(BaseBackend):
-    """SQLite vector storage with cosine similarity search.
+    """SQLite vector storage with configurable similarity search.
 
-    Uses numpy for cosine similarity calculations. Embeddings are stored
+    Uses numpy for similarity calculations. Embeddings are stored
     as JSON arrays in SQLite.
+
+    Supports multiple similarity metrics: cosine (default), euclidean, dot_product.
 
     Note: For very large datasets, consider using the postgres or chroma
     backends which have optimized vector indexes.
@@ -30,19 +32,33 @@ class SQLiteBackend(BaseBackend):
         >>> backend = SQLiteBackend(path="./vectors.db")
         >>> backend.add([[0.1, 0.2, 0.3]], ["Hello"], [{"source": "test"}])
         >>> results = backend.search([0.1, 0.2, 0.3], k=5)
+
+        >>> # With dot product similarity
+        >>> backend = SQLiteBackend(path="./vectors.db", similarity="dot_product")
     """
+
+    # All three metrics are supported
+    supported_metrics: tuple[SimilarityMetric, ...] = ("cosine", "euclidean", "dot_product")
 
     def __init__(
         self,
         path: str = "./retriever.db",
         table_name: str = "embeddings",
+        similarity: SimilarityMetric = "cosine",
     ) -> None:
         """Initialize the SQLite backend.
 
         Args:
             path: Path to the SQLite database file.
             table_name: Table name for storing embeddings.
+            similarity: Similarity metric to use ("cosine", "euclidean", "dot_product").
         """
+        if similarity not in self.supported_metrics:
+            raise ValueError(
+                f"Unsupported similarity metric: {similarity!r}. "
+                f"Supported: {', '.join(self.supported_metrics)}"
+            )
+
         try:
             import numpy as np
         except ImportError as e:
@@ -51,6 +67,7 @@ class SQLiteBackend(BaseBackend):
             ) from e
 
         self._np = np
+        self.similarity = similarity
         self._path = os.path.expanduser(path)
         self._table_name = table_name
 
@@ -135,7 +152,7 @@ class SQLiteBackend(BaseBackend):
         k: int = 5,
         filter: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
-        """Search for similar vectors using cosine similarity.
+        """Search for similar vectors using the configured similarity metric.
 
         Args:
             query_embedding: The query vector.
@@ -160,7 +177,7 @@ class SQLiteBackend(BaseBackend):
                     continue
 
             embedding = self._np.array(json.loads(row["embedding"]), dtype=self._np.float32)
-            score = self._cosine_similarity(query_vec, embedding)
+            score = self._compute_similarity(query_vec, embedding)
             scores.append((row["id"], row["text"], metadata, score))
 
         # Sort by score descending
@@ -222,6 +239,17 @@ class SQLiteBackend(BaseBackend):
         if self._conn:
             self._conn.close()
 
+    def _compute_similarity(self, a: "np.ndarray", b: "np.ndarray") -> float:
+        """Compute similarity between two vectors using the configured metric."""
+        if self.similarity == "cosine":
+            return self._cosine_similarity(a, b)
+        elif self.similarity == "euclidean":
+            return self._euclidean_similarity(a, b)
+        elif self.similarity == "dot_product":
+            return self._dot_product_similarity(a, b)
+        else:
+            return self._cosine_similarity(a, b)
+
     def _cosine_similarity(self, a: "np.ndarray", b: "np.ndarray") -> float:
         """Compute cosine similarity between two vectors."""
         norm_a = self._np.linalg.norm(a)
@@ -229,6 +257,15 @@ class SQLiteBackend(BaseBackend):
         if norm_a == 0 or norm_b == 0:
             return 0.0
         return float(self._np.dot(a, b) / (norm_a * norm_b))
+
+    def _euclidean_similarity(self, a: "np.ndarray", b: "np.ndarray") -> float:
+        """Compute euclidean distance-based similarity between two vectors."""
+        distance = float(self._np.linalg.norm(a - b))
+        return 1.0 / (1.0 + distance)
+
+    def _dot_product_similarity(self, a: "np.ndarray", b: "np.ndarray") -> float:
+        """Compute dot product similarity between two vectors."""
+        return float(self._np.dot(a, b))
 
     @staticmethod
     def _matches_filter(

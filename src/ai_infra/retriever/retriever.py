@@ -27,7 +27,11 @@ Example:
 from __future__ import annotations
 
 import asyncio
+import json
+import pickle
 import uuid
+from datetime import datetime
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, overload
 
 from ai_infra.retriever.backends import BaseBackend, get_backend
@@ -84,9 +88,16 @@ class Retriever:
         embeddings: "Embeddings | None" = None,
         # Backend configuration
         backend: str = "memory",
+        # Similarity metric
+        similarity: str = "cosine",
         # Chunking configuration
         chunk_size: int = 500,
         chunk_overlap: int = 50,
+        # Persistence configuration
+        persist_path: str | Path | None = None,
+        auto_save: bool = True,
+        # Lazy initialization
+        lazy_init: bool = False,
         # Backend-specific options
         **backend_config: Any,
     ) -> None:
@@ -106,8 +117,19 @@ class Retriever:
                 - "faiss": FAISS (high-performance local)
                 - "pinecone": Pinecone (managed cloud)
                 - "qdrant": Qdrant (cloud or self-hosted)
+            similarity: Similarity metric for search. Options:
+                - "cosine": Cosine similarity (default). Best general choice.
+                - "euclidean": Euclidean distance-based similarity.
+                - "dot_product": Dot product. Best for normalized embeddings.
             chunk_size: Maximum characters per chunk (default 500).
             chunk_overlap: Overlapping characters between chunks (default 50).
+            persist_path: Path to save/load retriever state. If provided and the
+                         file exists, the retriever loads from it. Works with
+                         memory backend to add persistence.
+            auto_save: If True (default) and persist_path is set, automatically
+                      saves after each add operation.
+            lazy_init: If True, defer loading the embedding model until first
+                      use (add or search). Makes server startup faster.
             **backend_config: Backend-specific options:
                 - postgres: connection_string, host, port, user, password, database
                 - sqlite: path
@@ -134,25 +156,91 @@ class Retriever:
             ...     backend="faiss",
             ...     persist_path="./vector_store",
             ... )
-        """
-        # Initialize embeddings
-        if embeddings is not None:
-            self._embeddings = embeddings
-        else:
-            from ai_infra.embeddings import Embeddings as EmbeddingsClass
 
-            self._embeddings = EmbeddingsClass(provider=provider, model=model)
+            >>> # Memory backend with disk persistence (survives restarts)
+            >>> r = Retriever(
+            ...     backend="memory",
+            ...     persist_path="./cache/embeddings.pkl",
+            ... )
+
+            >>> # Lazy initialization (fast startup)
+            >>> r = Retriever(
+            ...     provider="huggingface",
+            ...     lazy_init=True,  # Model loads on first add/search
+            ... )
+
+            >>> # Custom similarity metric
+            >>> r = Retriever(
+            ...     similarity="dot_product",  # Best for normalized embeddings
+            ... )
+        """
+        # Store persistence config
+        self._persist_path = Path(persist_path) if persist_path else None
+        self._auto_save = auto_save
+        self._lazy_init = lazy_init
+        self._initialized = False
+        self._similarity = similarity
+
+        # Store config for lazy init
+        self._init_provider = provider
+        self._init_model = model
+        self._init_embeddings = embeddings
+        self._init_backend_config = backend_config
+
+        # Check if we should load from existing save
+        if self._persist_path and self._persist_path.exists():
+            # Load from saved state
+            loaded = Retriever.load(self._persist_path)
+
+            # Copy state from loaded retriever
+            self._embeddings = loaded._embeddings
+            self._chunk_size = loaded._chunk_size
+            self._chunk_overlap = loaded._chunk_overlap
+            self._backend_name = loaded._backend_name
+            self._backend = loaded._backend
+            self._doc_ids = loaded._doc_ids
+            self._similarity = loaded._similarity if hasattr(loaded, "_similarity") else "cosine"
+            self._initialized = True
+            return
 
         # Store chunking config
         self._chunk_size = chunk_size
         self._chunk_overlap = chunk_overlap
 
-        # Initialize backend
+        # Initialize backend (always - it's lightweight)
         self._backend_name = backend
-        self._backend = get_backend(backend, **backend_config)
+        self._backend = get_backend(backend, similarity=similarity, **backend_config)
 
         # Track added documents for deduplication
         self._doc_ids: set[str] = set()
+
+        # Initialize embeddings (unless lazy)
+        if lazy_init:
+            # Use lazy wrapper - will load model on first use
+            self._embeddings = _LazyEmbeddings(provider=provider, model=model)
+            self._initialized = False
+        else:
+            # Immediate initialization
+            if embeddings is not None:
+                self._embeddings = embeddings
+            else:
+                from ai_infra.embeddings import Embeddings as EmbeddingsClass
+
+                self._embeddings = EmbeddingsClass(provider=provider, model=model)
+            self._initialized = True
+
+    def _ensure_initialized(self) -> None:
+        """Ensure embeddings are initialized (for lazy init).
+
+        Called before any operation that needs the embedding model.
+        Thread-safe and idempotent.
+        """
+        if self._initialized:
+            return
+
+        # If using lazy embeddings, they'll initialize on first use
+        # Just mark as initialized so we don't check again
+        self._initialized = True
 
     @property
     def backend(self) -> BaseBackend:
@@ -163,6 +251,11 @@ class Retriever:
     def backend_name(self) -> str:
         """Get the backend name."""
         return self._backend_name
+
+    @property
+    def similarity(self) -> str:
+        """Get the similarity metric used for search."""
+        return self._similarity
 
     @property
     def count(self) -> int:
@@ -330,6 +423,9 @@ class Retriever:
         if not chunks:
             return []
 
+        # Ensure embeddings are initialized (for lazy init)
+        self._ensure_initialized()
+
         # Generate IDs
         ids = [str(uuid.uuid4()) for _ in chunks]
         texts = [c.text for c in chunks]
@@ -349,6 +445,10 @@ class Retriever:
         # Track IDs
         self._doc_ids.update(ids)
 
+        # Auto-save if persist_path is configured
+        if self._persist_path and self._auto_save:
+            self.save(self._persist_path)
+
         return ids
 
     # =========================================================================
@@ -362,6 +462,7 @@ class Retriever:
         k: int = ...,
         filter: dict[str, Any] | None = ...,
         detailed: Literal[False] = ...,
+        min_score: float | None = ...,
     ) -> list[str]:
         pass
 
@@ -372,6 +473,7 @@ class Retriever:
         k: int = ...,
         filter: dict[str, Any] | None = ...,
         detailed: Literal[True] = ...,
+        min_score: float | None = ...,
     ) -> list[SearchResult]:
         pass
 
@@ -381,6 +483,7 @@ class Retriever:
         k: int = 5,
         filter: dict[str, Any] | None = None,
         detailed: bool = False,
+        min_score: float | None = None,
     ) -> list[str] | list[SearchResult]:
         """Search for similar content.
 
@@ -390,6 +493,8 @@ class Retriever:
             filter: Optional metadata filter (backend-dependent).
             detailed: If True, return SearchResult objects with scores
                      and metadata. If False (default), return plain strings.
+            min_score: Optional minimum similarity score threshold (0-1).
+                      Results below this score are filtered out.
 
         Returns:
             List of matching texts (or SearchResult objects if detailed=True).
@@ -403,9 +508,15 @@ class Retriever:
             >>> results = r.search("capital of France", detailed=True)
             >>> for result in results:
             ...     print(f"{result.score:.2f}: {result.text}")
+
+            >>> # With minimum score threshold
+            >>> results = r.search("query", min_score=0.7, detailed=True)
         """
         if self._backend.count() == 0:
             return [] if not detailed else []
+
+        # Ensure embeddings are initialized (for lazy init)
+        self._ensure_initialized()
 
         # Embed query
         query_embedding = self._embeddings.embed(query)
@@ -416,6 +527,10 @@ class Retriever:
             k=k,
             filter=filter,
         )
+
+        # Filter by min_score if specified
+        if min_score is not None:
+            results = [r for r in results if r.get("score", 0) >= min_score]
 
         if detailed:
             return [
@@ -526,6 +641,9 @@ class Retriever:
         if not chunks:
             return []
 
+        # Ensure embeddings are initialized (for lazy init)
+        self._ensure_initialized()
+
         ids = [str(uuid.uuid4()) for _ in chunks]
         texts = [c.text for c in chunks]
         metadatas = [c.metadata for c in chunks]
@@ -564,6 +682,9 @@ class Retriever:
         """
         if self._backend.count() == 0:
             return []
+
+        # Ensure embeddings are initialized (for lazy init)
+        self._ensure_initialized()
 
         # Async embed
         query_embedding = await self._embeddings.aembed(query)
@@ -644,3 +765,212 @@ class Retriever:
 
     def __len__(self) -> int:
         return self.count
+
+    # =========================================================================
+    # Persistence methods
+    # =========================================================================
+
+    def save(self, path: str | Path) -> Path:
+        """Save the retriever state to disk for later loading.
+
+        Serializes the backend data, embeddings config, and metadata to a pickle file.
+        Also creates a JSON sidecar file with human-readable metadata.
+
+        Only works with in-memory-like backends (memory, faiss). For database
+        backends (postgres, sqlite, chroma), data is already persisted.
+
+        Args:
+            path: Path to save the retriever state. Can be a file path or directory.
+                  If directory, creates 'retriever.pkl' inside it.
+
+        Returns:
+            Path to the saved pickle file.
+
+        Raises:
+            ValueError: If the backend doesn't support serialization.
+
+        Example:
+            >>> r = Retriever()
+            >>> r.add("Some text to search")
+            >>> r.save("./cache/my_retriever.pkl")
+
+            >>> # Later...
+            >>> r2 = Retriever.load("./cache/my_retriever.pkl")
+            >>> r2.search("text")
+        """
+        path = Path(path)
+
+        # If path is a directory, add default filename
+        if path.is_dir() or not path.suffix:
+            path.mkdir(parents=True, exist_ok=True)
+            path = path / "retriever.pkl"
+        else:
+            path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Get backend state (only memory backend supports this for now)
+        if not hasattr(self._backend, "_ids"):
+            raise ValueError(
+                f"Backend '{self._backend_name}' doesn't support save(). "
+                f"Use a persistent backend like 'sqlite' or 'postgres' instead, "
+                f"or use 'memory' backend with save/load."
+            )
+
+        # Serialize the state
+        state = {
+            "version": 1,
+            "backend_name": self._backend_name,
+            "chunk_size": self._chunk_size,
+            "chunk_overlap": self._chunk_overlap,
+            "similarity": self._similarity,
+            "doc_ids": list(self._doc_ids),
+            "embeddings_provider": self._embeddings.provider,
+            "embeddings_model": self._embeddings.model,
+            # Backend data (memory backend specific)
+            "backend_data": {
+                "ids": self._backend._ids,
+                "texts": self._backend._texts,
+                "metadatas": self._backend._metadatas,
+                "embeddings": [e.tolist() for e in self._backend._embeddings],
+            },
+        }
+
+        # Save pickle
+        with open(path, "wb") as f:
+            pickle.dump(state, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+        # Save JSON sidecar with human-readable metadata
+        metadata_path = path.with_suffix(".json")
+        metadata = {
+            "version": 1,
+            "created_at": datetime.utcnow().isoformat() + "Z",
+            "backend": self._backend_name,
+            "embeddings_provider": self._embeddings.provider,
+            "embeddings_model": self._embeddings.model,
+            "similarity": self._similarity,
+            "chunk_size": self._chunk_size,
+            "chunk_overlap": self._chunk_overlap,
+            "doc_count": len(self._doc_ids),
+            "chunk_count": self.count,
+        }
+        with open(metadata_path, "w") as f:
+            json.dump(metadata, f, indent=2)
+
+        return path
+
+    @classmethod
+    def load(cls, path: str | Path) -> "Retriever":
+        """Load a retriever from a previously saved state.
+
+        Args:
+            path: Path to the saved retriever pickle file, or directory containing it.
+
+        Returns:
+            A fully initialized Retriever with the loaded data.
+
+        Raises:
+            FileNotFoundError: If the save file doesn't exist.
+            ValueError: If the save file is corrupted or incompatible.
+
+        Example:
+            >>> # Save a retriever
+            >>> r = Retriever()
+            >>> r.add("Hello world")
+            >>> r.save("./cache/retriever.pkl")
+
+            >>> # Load it later (even after restart)
+            >>> r2 = Retriever.load("./cache/retriever.pkl")
+            >>> r2.search("hello")
+            ['Hello world']
+        """
+        path = Path(path)
+
+        # If path is a directory, look for default filename
+        if path.is_dir():
+            path = path / "retriever.pkl"
+
+        if not path.exists():
+            raise FileNotFoundError(f"No saved retriever found at: {path}")
+
+        # Load the state
+        with open(path, "rb") as f:
+            state = pickle.load(f)
+
+        # Validate version
+        version = state.get("version", 0)
+        if version != 1:
+            raise ValueError(f"Unsupported save file version: {version}")
+
+        # Create retriever instance without calling __init__
+        # This avoids loading the embedding model (we have embeddings already)
+        retriever = object.__new__(cls)
+
+        # Restore config
+        retriever._persist_path = None
+        retriever._auto_save = False
+        retriever._chunk_size = state["chunk_size"]
+        retriever._chunk_overlap = state["chunk_overlap"]
+        retriever._backend_name = state["backend_name"]
+        retriever._similarity = state.get("similarity", "cosine")  # Default for old saves
+        retriever._doc_ids = set(state["doc_ids"])
+
+        # Create a lazy embeddings placeholder that stores provider/model info
+        # Actual embedding model only loads if user calls add() after load
+        retriever._embeddings = _LazyEmbeddings(
+            provider=state["embeddings_provider"],
+            model=state["embeddings_model"],
+        )
+
+        # Initialize backend with loaded data (include similarity)
+        retriever._backend = get_backend(state["backend_name"], similarity=retriever._similarity)
+
+        # Restore backend data
+        backend_data = state["backend_data"]
+        import numpy as np
+
+        retriever._backend._ids = backend_data["ids"]
+        retriever._backend._texts = backend_data["texts"]
+        retriever._backend._metadatas = backend_data["metadatas"]
+        retriever._backend._embeddings = [
+            np.array(e, dtype=np.float32) for e in backend_data["embeddings"]
+        ]
+
+        return retriever
+
+
+class _LazyEmbeddings:
+    """Lazy embeddings wrapper that only loads the model when needed.
+
+    Used by Retriever.load() to avoid loading the embedding model
+    until the user actually calls add() on the loaded retriever.
+    """
+
+    def __init__(self, provider: str, model: str) -> None:
+        self._provider = provider
+        self._model = model
+        self._embeddings = None
+
+    @property
+    def provider(self) -> str:
+        return self._provider
+
+    @property
+    def model(self) -> str:
+        return self._model
+
+    def _ensure_loaded(self) -> None:
+        if self._embeddings is None:
+            from ai_infra.embeddings import Embeddings as EmbeddingsClass
+
+            self._embeddings = EmbeddingsClass(provider=self._provider, model=self._model)
+
+    def embed(self, text: str) -> list[float]:
+        self._ensure_loaded()
+        return self._embeddings.embed(text)
+
+    def embed_batch(self, texts: list[str]) -> list[list[float]]:
+        self._ensure_loaded()
+        return self._embeddings.embed_batch(texts)
+
+    async def aembed(self, text: str) -> list[float]:
+        self._ensure_loaded()
+        return await self._embeddings.aembed(text)

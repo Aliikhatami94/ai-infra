@@ -299,6 +299,248 @@ retriever = Retriever(
 
 ---
 
+## Persistence (Save/Load)
+
+Save retriever state to disk and reload later without re-embedding:
+
+```python
+from ai_infra import Retriever
+
+# Create and populate
+retriever = Retriever()
+retriever.add("./documents/")
+
+# Save to disk
+retriever.save("./cache/my_retriever.pkl")
+
+# Later, load without re-embedding
+retriever = Retriever.load("./cache/my_retriever.pkl")
+results = retriever.search("query")  # Works immediately
+```
+
+### Auto-Persistence
+
+Automatically save after each `add()` operation:
+
+```python
+retriever = Retriever(
+    persist_path="./cache/retriever.pkl",
+    auto_save=True,  # Default
+)
+
+# File created/updated automatically
+retriever.add("New document")
+# Saved automatically!
+
+# On restart, loads automatically if file exists
+retriever = Retriever(persist_path="./cache/retriever.pkl")
+```
+
+### Metadata Sidecar
+
+When saving, a `.json` sidecar file is created with human-readable metadata:
+
+```json
+{
+  "version": 1,
+  "created_at": "2025-12-02T10:30:00Z",
+  "backend": "memory",
+  "embeddings_provider": "openai",
+  "embeddings_model": "text-embedding-3-small",
+  "similarity": "cosine",
+  "chunk_size": 500,
+  "chunk_overlap": 50,
+  "doc_count": 15,
+  "chunk_count": 47
+}
+```
+
+---
+
+## Lazy Initialization
+
+Defer embedding model loading until first use for faster server startup:
+
+```python
+from ai_infra import Retriever
+
+# Fast startup - model NOT loaded yet
+retriever = Retriever(
+    provider="huggingface",
+    lazy_init=True,
+)
+
+# ... server starts immediately ...
+
+# Model loads on first add() or search()
+retriever.add("First document")  # Model loads here
+```
+
+### Combined with Persistence
+
+Best of both worlds - fast startup AND no re-embedding:
+
+```python
+retriever = Retriever(
+    persist_path="./cache/retriever.pkl",
+    lazy_init=True,
+)
+
+# If file exists: loads embeddings, model NOT loaded
+# Model only loads if you call add() with new content
+results = retriever.search("query")  # Uses cached embeddings
+```
+
+---
+
+## Similarity Metrics
+
+Choose the similarity function for search:
+
+```python
+from ai_infra import Retriever
+
+# Cosine similarity (default) - best general choice
+retriever = Retriever(similarity="cosine")
+
+# Euclidean distance - converted to similarity score
+retriever = Retriever(similarity="euclidean")
+
+# Dot product - best for normalized embeddings
+retriever = Retriever(similarity="dot_product")
+```
+
+### When to Use Each
+
+| Metric | Best For | Score Range |
+|--------|----------|-------------|
+| `cosine` | General text similarity | [-1, 1] |
+| `euclidean` | When magnitude matters | [0, 1] |
+| `dot_product` | Normalized embeddings | Unbounded |
+
+### Backend Support
+
+All backends (memory, sqlite, postgres, etc.) support all three metrics.
+
+---
+
+## Tool Formatting Options
+
+Control how retriever tool formats results for agents:
+
+```python
+from ai_infra import Retriever, create_retriever_tool
+
+retriever = Retriever()
+retriever.add("./docs/")
+
+# Basic tool
+tool = create_retriever_tool(retriever, name="search_docs")
+
+# With formatting options
+tool = create_retriever_tool(
+    retriever,
+    name="search_docs",
+    description="Search documentation",
+    k=5,
+    min_score=0.7,
+    return_scores=True,    # Include similarity scores
+    max_chars=2000,        # Truncate long results
+    format="markdown",     # Output format
+)
+```
+
+### Output Formats
+
+**`format="text"` (default)**
+```
+First document content
+
+---
+
+Second document content
+```
+
+**`format="markdown"`**
+```markdown
+### Result 1
+**Score:** 0.95
+**Source:** doc1.txt
+
+First document content
+
+---
+
+### Result 2
+...
+```
+
+**`format="json"`**
+```json
+[
+  {"text": "First document content", "score": 0.95, "source": "doc1.txt"},
+  {"text": "Second document content", "score": 0.85, "source": "doc2.txt"}
+]
+```
+
+---
+
+## Production Deployment
+
+Recommended configuration for production:
+
+```python
+from ai_infra import Retriever
+
+retriever = Retriever(
+    # Fast startup
+    lazy_init=True,
+
+    # Persist to disk (survives restarts)
+    persist_path="./cache/embeddings.pkl",
+    auto_save=True,
+
+    # Embedding configuration
+    provider="openai",
+    model="text-embedding-3-small",
+
+    # Similarity metric
+    similarity="cosine",
+
+    # Chunking
+    chunk_size=500,
+    chunk_overlap=50,
+)
+```
+
+### FastAPI Integration
+
+```python
+from fastapi import FastAPI
+from ai_infra import Retriever, create_retriever_tool_async
+
+app = FastAPI()
+
+# Initialize once at startup (fast with lazy_init)
+retriever = Retriever(
+    persist_path="./cache/docs.pkl",
+    lazy_init=True,
+)
+
+@app.on_event("startup")
+async def load_docs():
+    # Only loads if cache doesn't exist
+    if retriever.count == 0:
+        retriever.add("./documents/")
+
+@app.get("/search")
+async def search(query: str):
+    results = await retriever.asearch(query, k=5)
+    return [{"text": r.text, "score": r.score} for r in results]
+```
+
+---
+
 ## Document Management
 
 ### Delete

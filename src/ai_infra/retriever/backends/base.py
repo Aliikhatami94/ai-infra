@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Literal
+
+# Similarity metric type alias
+SimilarityMetric = Literal["cosine", "euclidean", "dot_product"]
 
 
 class BaseBackend(ABC):
@@ -14,7 +17,16 @@ class BaseBackend(ABC):
 
     Backends work with raw embeddings, texts, and metadata dicts
     rather than higher-level objects for maximum flexibility.
+
+    Attributes:
+        similarity: The similarity metric used for search. Default is "cosine".
     """
+
+    # Default similarity metric
+    similarity: SimilarityMetric = "cosine"
+
+    # Metrics supported by this backend (override in subclasses)
+    supported_metrics: tuple[SimilarityMetric, ...] = ("cosine", "euclidean", "dot_product")
 
     @abstractmethod
     def add(

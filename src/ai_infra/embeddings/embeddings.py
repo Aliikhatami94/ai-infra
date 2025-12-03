@@ -18,16 +18,24 @@ _LANGCHAIN_MAPPINGS: dict[str, dict[str, str]] = {
     "google_genai": {"package": "langchain_google_genai", "class": "GoogleGenerativeAIEmbeddings"},
     "voyage": {"package": "langchain_voyageai", "class": "VoyageAIEmbeddings"},
     "cohere": {"package": "langchain_cohere", "class": "CohereEmbeddings"},
+    "huggingface": {"package": "langchain_huggingface", "class": "HuggingFaceEmbeddings"},
 }
 
 # Provider aliases for backwards compatibility
 _PROVIDER_ALIASES: dict[str, str] = {
     "google": "google_genai",
     "anthropic": "voyage",  # Anthropic recommends Voyage AI for embeddings
+    "local": "huggingface",  # Local/free option
+    "sentence-transformers": "huggingface",
 }
 
-# Provider priority for auto-detection
-_PROVIDER_PRIORITY = ["openai", "voyage", "google_genai", "cohere"]
+# Default models per provider (for providers not in registry)
+_DEFAULT_MODELS: dict[str, str] = {
+    "huggingface": "sentence-transformers/all-MiniLM-L6-v2",
+}
+
+# Provider priority for auto-detection (huggingface last as fallback)
+_PROVIDER_PRIORITY = ["openai", "voyage", "google_genai", "cohere", "huggingface"]
 
 
 def _get_provider_config() -> dict[str, dict[str, Any]]:
@@ -42,6 +50,15 @@ def _get_provider_config() -> dict[str, dict[str, Any]]:
                 "default_model": cap.default_model if cap else None,
                 **_LANGCHAIN_MAPPINGS[name],
             }
+
+    # Add huggingface (local, no API key needed)
+    if "huggingface" not in config:
+        config["huggingface"] = {
+            "env_key": None,  # No API key needed
+            "default_model": _DEFAULT_MODELS["huggingface"],
+            **_LANGCHAIN_MAPPINGS["huggingface"],
+        }
+
     # Add aliases
     for alias, target in _PROVIDER_ALIASES.items():
         if target in config:
@@ -57,10 +74,11 @@ class Embeddings:
     """Simple, provider-agnostic text embeddings.
 
     Generate embeddings from text using any supported provider (OpenAI, Google,
-    Voyage, Cohere, Anthropic). Just set your API key and go!
+    Voyage, Cohere, Anthropic) or use free local embeddings with HuggingFace.
 
     Features:
-        - Zero-config: Auto-detects provider from environment
+        - Zero-config: Auto-detects provider, falls back to free local embeddings
+        - Free option: Use HuggingFace/sentence-transformers (no API key needed)
         - Simple API: `embed()` for one, `embed_batch()` for many
         - Async support: `aembed()` and `aembed_batch()`
         - Similarity helper: `similarity()` for cosine similarity
@@ -70,9 +88,13 @@ class Embeddings:
         ```python
         from ai_infra import Embeddings
 
-        # Auto-detect provider from API keys
+        # Auto-detect provider (falls back to free local if no API keys)
         embeddings = Embeddings()
         vector = embeddings.embed("Hello, world!")
+
+        # Free local embeddings (no API key needed)
+        embeddings = Embeddings(provider="huggingface")
+        embeddings = Embeddings(provider="local")  # alias
 
         # Specific provider and model
         embeddings = Embeddings(provider="openai", model="text-embedding-3-large")
@@ -84,11 +106,12 @@ class Embeddings:
         score = embeddings.similarity("Hello", "Hi")
         ```
 
-    Environment Variables:
-        - OPENAI_API_KEY: For OpenAI embeddings
-        - GOOGLE_API_KEY: For Google embeddings
-        - VOYAGE_API_KEY: For Voyage AI embeddings
-        - COHERE_API_KEY: For Cohere embeddings
+    Providers:
+        - openai: OpenAI embeddings (requires OPENAI_API_KEY)
+        - google/google_genai: Google embeddings (requires GOOGLE_API_KEY)
+        - voyage: Voyage AI embeddings (requires VOYAGE_API_KEY)
+        - cohere: Cohere embeddings (requires COHERE_API_KEY)
+        - huggingface/local: Free local embeddings (no API key, runs on CPU)
     """
 
     def __init__(
@@ -101,22 +124,27 @@ class Embeddings:
         """Initialize embeddings.
 
         Args:
-            provider: Provider name (openai, google, voyage, cohere, anthropic).
-                     Auto-detects from environment if not specified.
+            provider: Provider name (openai, google, voyage, cohere, anthropic,
+                     huggingface/local). Auto-detects from environment if not
+                     specified, falling back to huggingface (free, local).
             model: Model name. Uses provider default if not specified.
             dimensions: Embedding dimensions (OpenAI text-embedding-3 only).
             **kwargs: Additional provider-specific options.
 
         Raises:
-            ValueError: If no provider available or invalid provider.
+            ValueError: If invalid provider specified.
 
         Example:
             ```python
-            # Auto-detect
+            # Auto-detect (falls back to free local embeddings)
             embeddings = Embeddings()
 
             # Specific provider
             embeddings = Embeddings(provider="openai")
+
+            # Free local embeddings (no API key needed)
+            embeddings = Embeddings(provider="huggingface")
+            embeddings = Embeddings(provider="local")  # alias
 
             # Custom model
             embeddings = Embeddings(
@@ -158,12 +186,21 @@ class Embeddings:
         self._lc_embeddings = self._init_embeddings(config, dimensions, **kwargs)
 
     def _get_available_provider(self) -> str | None:
-        """Find first available provider from environment."""
+        """Find first available provider from environment.
+
+        Returns the first configured provider, or 'huggingface' as a free fallback
+        if no API keys are set.
+        """
         # Use registry for provider discovery
         for provider_name in _PROVIDER_PRIORITY:
+            if provider_name == "huggingface":
+                # huggingface is always available (local, no API key)
+                continue
             if ProviderRegistry.is_configured(provider_name):
                 return provider_name
-        return None
+
+        # Fall back to huggingface (free, local)
+        return "huggingface"
 
     def _init_embeddings(
         self,
@@ -181,13 +218,21 @@ class Embeddings:
             module = importlib.import_module(package_name)
             embedding_cls = getattr(module, class_name)
         except ImportError as e:
+            # Provide helpful install instructions
+            install_cmd = package_name
+            if self._provider_name == "huggingface":
+                install_cmd = "langchain-huggingface sentence-transformers"
             raise ImportError(
                 f"Embedding provider '{self._provider_name}' requires: "
-                f"pip install {package_name}"
+                f"pip install {install_cmd}"
             ) from e
 
-        # Build kwargs
-        lc_kwargs: dict[str, Any] = {"model": self._model, **kwargs}
+        # Build kwargs based on provider
+        if self._provider_name == "huggingface":
+            # HuggingFace uses model_name, not model
+            lc_kwargs: dict[str, Any] = {"model_name": self._model, **kwargs}
+        else:
+            lc_kwargs = {"model": self._model, **kwargs}
 
         # OpenAI supports custom dimensions
         if dimensions is not None and self._provider_name == "openai":

@@ -8,7 +8,7 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING, Any
 
-from ai_infra.retriever.backends.base import BaseBackend
+from ai_infra.retriever.backends.base import BaseBackend, SimilarityMetric
 
 if TYPE_CHECKING:
     import numpy as np
@@ -17,17 +17,43 @@ if TYPE_CHECKING:
 class MemoryBackend(BaseBackend):
     """In-memory vector storage using numpy arrays.
 
-    Uses cosine similarity for vector search. Data is not persisted
+    Supports multiple similarity metrics for vector search. Data is not persisted
     and will be lost when the backend is closed or the process ends.
+
+    Args:
+        similarity: Similarity metric to use ("cosine", "euclidean", "dot_product").
+                   Default is "cosine".
 
     Example:
         >>> backend = MemoryBackend()
         >>> backend.add([[0.1, 0.2, 0.3]], ["Hello"], [{"source": "test"}])
         >>> results = backend.search([0.1, 0.2, 0.3], k=5)
+
+        >>> # With dot product similarity
+        >>> backend = MemoryBackend(similarity="dot_product")
     """
 
-    def __init__(self) -> None:
-        """Initialize the memory backend."""
+    # All three metrics are supported
+    supported_metrics: tuple[SimilarityMetric, ...] = ("cosine", "euclidean", "dot_product")
+
+    def __init__(self, similarity: SimilarityMetric = "cosine") -> None:
+        """Initialize the memory backend.
+
+        Args:
+            similarity: Similarity metric to use. Options:
+                - "cosine": Cosine similarity (default). Range [-1, 1] but
+                  typically [0, 1] for positive embeddings.
+                - "euclidean": Euclidean distance (converted to similarity).
+                  Uses 1 / (1 + distance) for [0, 1] range.
+                - "dot_product": Dot product similarity. Best for normalized
+                  embeddings where it equals cosine similarity.
+        """
+        if similarity not in self.supported_metrics:
+            raise ValueError(
+                f"Unsupported similarity metric: {similarity!r}. "
+                f"Supported: {', '.join(self.supported_metrics)}"
+            )
+
         try:
             import numpy as np
         except ImportError as e:
@@ -36,6 +62,7 @@ class MemoryBackend(BaseBackend):
             ) from e
 
         self._np = np
+        self.similarity = similarity
         self._ids: list[str] = []
         self._texts: list[str] = []
         self._metadatas: list[dict[str, Any]] = []
@@ -85,7 +112,7 @@ class MemoryBackend(BaseBackend):
         k: int = 5,
         filter: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
-        """Search for similar vectors using cosine similarity.
+        """Search for similar vectors using the configured similarity metric.
 
         Args:
             query_embedding: The query vector.
@@ -100,7 +127,7 @@ class MemoryBackend(BaseBackend):
 
         query_vec = self._np.array(query_embedding, dtype=self._np.float32)
 
-        # Compute cosine similarity with all stored embeddings
+        # Compute similarity with all stored embeddings
         scores: list[tuple[int, float]] = []
         for i, embedding in enumerate(self._embeddings):
             # Apply metadata filter if provided
@@ -108,7 +135,7 @@ class MemoryBackend(BaseBackend):
                 if not self._matches_filter(self._metadatas[i], filter):
                     continue
 
-            score = self._cosine_similarity(query_vec, embedding)
+            score = self._compute_similarity(query_vec, embedding)
             scores.append((i, float(score)))
 
         # Sort by score descending
@@ -177,6 +204,26 @@ class MemoryBackend(BaseBackend):
         """
         return len(self._ids)
 
+    def _compute_similarity(self, a: "np.ndarray", b: "np.ndarray") -> float:
+        """Compute similarity between two vectors using the configured metric.
+
+        Args:
+            a: First vector.
+            b: Second vector.
+
+        Returns:
+            Similarity score. Higher is always more similar.
+        """
+        if self.similarity == "cosine":
+            return self._cosine_similarity(a, b)
+        elif self.similarity == "euclidean":
+            return self._euclidean_similarity(a, b)
+        elif self.similarity == "dot_product":
+            return self._dot_product_similarity(a, b)
+        else:
+            # Fallback to cosine (shouldn't happen due to validation)
+            return self._cosine_similarity(a, b)
+
     def _cosine_similarity(self, a: "np.ndarray", b: "np.ndarray") -> float:
         """Compute cosine similarity between two vectors.
 
@@ -185,13 +232,42 @@ class MemoryBackend(BaseBackend):
             b: Second vector.
 
         Returns:
-            Cosine similarity score (0-1 for normalized vectors).
+            Cosine similarity score (range [-1, 1], typically [0, 1] for positive embeddings).
         """
         norm_a = self._np.linalg.norm(a)
         norm_b = self._np.linalg.norm(b)
         if norm_a == 0 or norm_b == 0:
             return 0.0
         return float(self._np.dot(a, b) / (norm_a * norm_b))
+
+    def _euclidean_similarity(self, a: "np.ndarray", b: "np.ndarray") -> float:
+        """Compute euclidean distance-based similarity between two vectors.
+
+        Uses 1 / (1 + distance) to convert distance to similarity score.
+
+        Args:
+            a: First vector.
+            b: Second vector.
+
+        Returns:
+            Euclidean similarity score (range [0, 1], 1 = identical vectors).
+        """
+        distance = float(self._np.linalg.norm(a - b))
+        return 1.0 / (1.0 + distance)
+
+    def _dot_product_similarity(self, a: "np.ndarray", b: "np.ndarray") -> float:
+        """Compute dot product similarity between two vectors.
+
+        Best used with normalized embeddings, where it equals cosine similarity.
+
+        Args:
+            a: First vector.
+            b: Second vector.
+
+        Returns:
+            Dot product score (unbounded, higher = more similar).
+        """
+        return float(self._np.dot(a, b))
 
     @staticmethod
     def _matches_filter(
