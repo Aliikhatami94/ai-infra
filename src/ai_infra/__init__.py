@@ -6,7 +6,27 @@ if not os.environ.get("AI_INFRA_ENV_LOADED"):
     load_dotenv(find_dotenv(usecwd=True))
     os.environ["AI_INFRA_ENV_LOADED"] = "1"
 
-from ai_infra.callbacks import CallbackManager, Callbacks
+from ai_infra.callbacks import (  # Events; Built-in callbacks
+    CallbackManager,
+    Callbacks,
+    GraphNodeEndEvent,
+    GraphNodeErrorEvent,
+    GraphNodeStartEvent,
+    LLMEndEvent,
+    LLMErrorEvent,
+    LLMStartEvent,
+    LLMTokenEvent,
+    LoggingCallbacks,
+    MCPConnectEvent,
+    MCPDisconnectEvent,
+    MCPLoggingEvent,
+    MCPProgressEvent,
+    MetricsCallbacks,
+    PrintCallbacks,
+    ToolEndEvent,
+    ToolErrorEvent,
+    ToolStartEvent,
+)
 from ai_infra.embeddings import Embeddings, VectorStore
 from ai_infra.embeddings.vectorstore import Document, SearchResult
 
@@ -53,12 +73,8 @@ from ai_infra.llm.personas import Persona
 from ai_infra.llm.providers import Providers
 from ai_infra.llm.tools.custom.retriever import create_retriever_tool, create_retriever_tool_async
 from ai_infra.logging import configure_logging, get_logger
-from ai_infra.mcp import CachingInterceptor
-from ai_infra.mcp import CallbackContext as MCPCallbackContext
 from ai_infra.mcp import (
-    Callbacks as MCPCallbacks,  # MCP Callbacks; MCP Interceptors; MCP Prompts & Resources
-)
-from ai_infra.mcp import (
+    CachingInterceptor,
     MCPClient,
     MCPResource,
     MCPServer,
@@ -111,8 +127,6 @@ __all__ = [
     "Providers",
     "mcp_from_functions",
     # MCP Advanced Features (Phase 6.6)
-    "MCPCallbacks",
-    "MCPCallbackContext",
     "ToolCallInterceptor",
     "MCPToolCallRequest",
     "CachingInterceptor",
@@ -157,9 +171,28 @@ __all__ = [
     # Logging
     "configure_logging",
     "get_logger",
-    # Callbacks
+    # Callbacks (Unified Callback System - Phase 6.7)
     "Callbacks",
     "CallbackManager",
+    # Callback Events
+    "LLMStartEvent",
+    "LLMEndEvent",
+    "LLMErrorEvent",
+    "LLMTokenEvent",
+    "ToolStartEvent",
+    "ToolEndEvent",
+    "ToolErrorEvent",
+    "MCPConnectEvent",
+    "MCPDisconnectEvent",
+    "MCPProgressEvent",
+    "MCPLoggingEvent",
+    "GraphNodeStartEvent",
+    "GraphNodeEndEvent",
+    "GraphNodeErrorEvent",
+    # Built-in Callbacks
+    "LoggingCallbacks",
+    "MetricsCallbacks",
+    "PrintCallbacks",
     # Tracing
     "get_tracer",
     "configure_tracing",

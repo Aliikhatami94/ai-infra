@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
@@ -25,6 +26,7 @@ from typing import (
 )
 
 if TYPE_CHECKING:
+    from ai_infra.callbacks import CallbackManager, Callbacks
     from ai_infra.llm.workspace import Workspace
 
 from ai_infra.llm.base import BaseLLM
@@ -233,6 +235,8 @@ class Agent(BaseLLM):
         name: Optional[str] = None,
         description: Optional[str] = None,
         system: Optional[str] = None,
+        # Callbacks for observability
+        callbacks: Optional[Union["Callbacks", "CallbackManager"]] = None,
         # Tool execution config
         on_tool_error: Literal["return_error", "retry", "abort"] = "return_error",
         tool_timeout: Optional[float] = None,
@@ -267,6 +271,13 @@ class Agent(BaseLLM):
                 name: Agent name (required when used as a subagent)
                 description: What this agent does (used by parent to decide delegation)
                 system: System prompt / instructions for this agent
+
+            Callbacks (observability):
+                callbacks: Callback handler(s) for observing agent events.
+                    Receives events for LLM calls (start, end, error, tokens)
+                    and tool executions (start, end, error).
+                    Can be a single Callbacks instance or a CallbackManager.
+                    Example: callbacks=MyCallbacks() or callbacks=CallbackManager([...])
 
             Tool Execution:
                 on_tool_error: How to handle tool execution errors:
@@ -332,6 +343,9 @@ class Agent(BaseLLM):
             validate_results=validate_tool_results,
         )
 
+        # Callbacks for observability
+        self._callbacks: Optional["CallbackManager"] = self._normalize_callbacks(callbacks)
+
         # DeepAgents mode config
         self._deep = deep
         self._subagents = self._convert_subagents(subagents) if subagents else None
@@ -383,6 +397,206 @@ class Agent(BaseLLM):
 
         if tools:
             self.set_global_tools(tools)
+
+    def _normalize_callbacks(
+        self, callbacks: Optional[Union["Callbacks", "CallbackManager"]]
+    ) -> Optional["CallbackManager"]:
+        """Convert callbacks to CallbackManager.
+
+        Accepts either a single Callbacks instance or a CallbackManager,
+        and normalizes to CallbackManager for consistent dispatch.
+
+        Args:
+            callbacks: Single callback handler or manager
+
+        Returns:
+            CallbackManager or None
+        """
+        if callbacks is None:
+            return None
+
+        from ai_infra.callbacks import CallbackManager, Callbacks
+
+        if isinstance(callbacks, CallbackManager):
+            return callbacks
+        if isinstance(callbacks, Callbacks):
+            return CallbackManager([callbacks])
+        raise ValueError(
+            f"Invalid callbacks type: {type(callbacks)}. "
+            "Expected Callbacks or CallbackManager instance."
+        )
+
+    def _wrap_tool_with_callbacks(self, tool: Any, callbacks: "CallbackManager") -> Any:
+        """Wrap a tool to fire callback events on start/end/error.
+
+        For BaseTool subclasses, we wrap the _run/_arun methods directly.
+        For plain functions, we wrap the function itself.
+
+        Args:
+            tool: The tool to wrap (can be a function or LangChain tool)
+            callbacks: CallbackManager to dispatch events to
+
+        Returns:
+            Wrapped tool that fires callback events
+        """
+        import functools
+        import inspect
+
+        from langchain_core.tools import BaseTool
+
+        from ai_infra.callbacks import ToolEndEvent, ToolErrorEvent, ToolStartEvent
+
+        tool_name = getattr(tool, "name", getattr(tool, "__name__", str(tool)))
+
+        # For BaseTool subclasses, wrap _run/_arun methods directly
+        # This preserves the tool structure that LangGraph expects
+        if isinstance(tool, BaseTool):
+            original_run = tool._run
+            original_arun = tool._arun if hasattr(tool, "_arun") else None
+
+            def wrapped_run(*args, **kwargs):
+                callbacks.on_tool_start(ToolStartEvent(tool_name=tool_name, arguments=kwargs))
+                start_time = time.time()
+                try:
+                    result = original_run(*args, **kwargs)
+                    callbacks.on_tool_end(
+                        ToolEndEvent(
+                            tool_name=tool_name,
+                            result=result,
+                            latency_ms=(time.time() - start_time) * 1000,
+                        )
+                    )
+                    return result
+                except Exception as e:
+                    callbacks.on_tool_error(
+                        ToolErrorEvent(
+                            tool_name=tool_name,
+                            error=e,
+                            arguments=kwargs,
+                            latency_ms=(time.time() - start_time) * 1000,
+                        )
+                    )
+                    raise
+
+            async def wrapped_arun(*args, **kwargs):
+                await callbacks.on_tool_start_async(
+                    ToolStartEvent(tool_name=tool_name, arguments=kwargs)
+                )
+                start_time = time.time()
+                try:
+                    if original_arun:
+                        result = await original_arun(*args, **kwargs)
+                    else:
+                        # Fallback to sync run if no async version
+                        result = original_run(*args, **kwargs)
+                    await callbacks.on_tool_end_async(
+                        ToolEndEvent(
+                            tool_name=tool_name,
+                            result=result,
+                            latency_ms=(time.time() - start_time) * 1000,
+                        )
+                    )
+                    return result
+                except Exception as e:
+                    await callbacks.on_tool_error_async(
+                        ToolErrorEvent(
+                            tool_name=tool_name,
+                            error=e,
+                            arguments=kwargs,
+                            latency_ms=(time.time() - start_time) * 1000,
+                        )
+                    )
+                    raise
+
+            # Monkey-patch the methods
+            tool._run = wrapped_run
+            tool._arun = wrapped_arun
+            return tool
+
+        # For plain functions, wrap them as before
+        func = getattr(tool, "func", tool)
+        is_async = inspect.iscoroutinefunction(func)
+
+        if is_async:
+            # Async tool wrapper
+            @functools.wraps(func)
+            async def async_wrapper(*args, **kwargs):
+                callbacks.on_tool_start(ToolStartEvent(tool_name=tool_name, arguments=kwargs))
+                start_time = time.time()
+                try:
+                    result = await func(*args, **kwargs)
+                    callbacks.on_tool_end(
+                        ToolEndEvent(
+                            tool_name=tool_name,
+                            result=result,
+                            latency_ms=(time.time() - start_time) * 1000,
+                        )
+                    )
+                    return result
+                except Exception as e:
+                    callbacks.on_tool_error(
+                        ToolErrorEvent(
+                            tool_name=tool_name,
+                            error=e,
+                            arguments=kwargs,
+                            latency_ms=(time.time() - start_time) * 1000,
+                        )
+                    )
+                    raise
+
+            # Preserve tool attributes
+            if hasattr(tool, "name"):
+                async_wrapper.name = tool.name  # type: ignore
+            if hasattr(tool, "description"):
+                async_wrapper.description = tool.description  # type: ignore
+            if hasattr(tool, "args_schema"):
+                async_wrapper.args_schema = tool.args_schema  # type: ignore
+
+            # If it's a LangChain tool, wrap properly
+            if hasattr(tool, "func"):
+                tool.func = async_wrapper
+                return tool
+            return async_wrapper
+        else:
+            # Sync tool wrapper
+            @functools.wraps(func)
+            def sync_wrapper(*args, **kwargs):
+                callbacks.on_tool_start(ToolStartEvent(tool_name=tool_name, arguments=kwargs))
+                start_time = time.time()
+                try:
+                    result = func(*args, **kwargs)
+                    callbacks.on_tool_end(
+                        ToolEndEvent(
+                            tool_name=tool_name,
+                            result=result,
+                            latency_ms=(time.time() - start_time) * 1000,
+                        )
+                    )
+                    return result
+                except Exception as e:
+                    callbacks.on_tool_error(
+                        ToolErrorEvent(
+                            tool_name=tool_name,
+                            error=e,
+                            arguments=kwargs,
+                            latency_ms=(time.time() - start_time) * 1000,
+                        )
+                    )
+                    raise
+
+            # Preserve tool attributes
+            if hasattr(tool, "name"):
+                sync_wrapper.name = tool.name  # type: ignore
+            if hasattr(tool, "description"):
+                sync_wrapper.description = tool.description  # type: ignore
+            if hasattr(tool, "args_schema"):
+                sync_wrapper.args_schema = tool.args_schema  # type: ignore
+
+            # If it's a LangChain tool, wrap properly
+            if hasattr(tool, "func"):
+                tool.func = sync_wrapper
+                return tool
+            return sync_wrapper
 
     @classmethod
     def from_persona(
@@ -914,7 +1128,10 @@ class Agent(BaseLLM):
         model_kwargs: Optional[Dict[str, Any]] = None,
         tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,
     ) -> Tuple[Any, Any]:
-        # Build a composite tool wrapper that applies execution config, approval, and HITL
+        # Capture callbacks for use in wrapper closure
+        callbacks = self._callbacks
+
+        # Build a composite tool wrapper that applies execution config, approval, HITL, and callbacks
         def _wrap_tool(t: Any) -> Any:
             # 1. Apply execution config (error handling, timeout, validation)
             wrapped = wrap_tool_with_execution_config(t, self._tool_execution_config)
@@ -926,6 +1143,10 @@ class Agent(BaseLLM):
             # 3. Apply legacy HITL if configured (for backward compatibility)
             if self._hitl.on_tool_call or self._hitl.on_tool_call_async:
                 wrapped = wrap_tool_for_hitl(wrapped, self._hitl)
+
+            # 4. Apply callback wrapper for observability
+            if callbacks:
+                wrapped = self._wrap_tool_with_callbacks(wrapped, callbacks)
 
             return wrapped
 
@@ -1066,6 +1287,23 @@ class Agent(BaseLLM):
             provider, model_name, tools, extra, model_kwargs, tool_controls
         )
 
+        # Fire LLM start callback
+        if self._callbacks:
+            from ai_infra.callbacks import LLMStartEvent
+
+            self._callbacks.on_llm_start(
+                LLMStartEvent(
+                    provider=provider,
+                    model=model_name or "",
+                    messages=messages,
+                    tools=[
+                        {"name": getattr(t, "name", str(t))} for t in (tools or self.tools or [])
+                    ],
+                )
+            )
+
+        start_time = time.time()
+
         async def _call():
             return await agent.ainvoke({"messages": messages}, context=context, config=config)
 
@@ -1075,7 +1313,32 @@ class Agent(BaseLLM):
                 res = await _with_retry_util(_call, **retry_cfg)
             else:
                 res = await _call()
+
+            # Fire LLM end callback
+            if self._callbacks:
+                from ai_infra.callbacks import LLMEndEvent
+
+                self._callbacks.on_llm_end(
+                    LLMEndEvent(
+                        provider=provider,
+                        model=model_name or "",
+                        response=self._extract_text_content(res),
+                        latency_ms=(time.time() - start_time) * 1000,
+                    )
+                )
         except Exception as e:
+            # Fire LLM error callback
+            if self._callbacks:
+                from ai_infra.callbacks import LLMErrorEvent
+
+                self._callbacks.on_llm_error(
+                    LLMErrorEvent(
+                        provider=provider,
+                        model=model_name or "",
+                        error=e,
+                        latency_ms=(time.time() - start_time) * 1000,
+                    )
+                )
             # Translate provider errors to ai-infra errors
             raise translate_provider_error(e, provider=provider, model=model_name) from e
         ai_msg = await apply_output_gate_async(res, self._hitl)
@@ -1095,9 +1358,51 @@ class Agent(BaseLLM):
         agent, context = self._make_agent_with_context(
             provider, model_name, tools, extra, model_kwargs, tool_controls
         )
+
+        # Fire LLM start callback
+        if self._callbacks:
+            from ai_infra.callbacks import LLMStartEvent
+
+            self._callbacks.on_llm_start(
+                LLMStartEvent(
+                    provider=provider,
+                    model=model_name or "",
+                    messages=messages,
+                    tools=[
+                        {"name": getattr(t, "name", str(t))} for t in (tools or self.tools or [])
+                    ],
+                )
+            )
+
+        start_time = time.time()
         try:
             res = agent.invoke({"messages": messages}, context=context, config=config)
+
+            # Fire LLM end callback
+            if self._callbacks:
+                from ai_infra.callbacks import LLMEndEvent
+
+                self._callbacks.on_llm_end(
+                    LLMEndEvent(
+                        provider=provider,
+                        model=model_name or "",
+                        response=self._extract_text_content(res),
+                        latency_ms=(time.time() - start_time) * 1000,
+                    )
+                )
         except Exception as e:
+            # Fire LLM error callback
+            if self._callbacks:
+                from ai_infra.callbacks import LLMErrorEvent
+
+                self._callbacks.on_llm_error(
+                    LLMErrorEvent(
+                        provider=provider,
+                        model=model_name or "",
+                        error=e,
+                        latency_ms=(time.time() - start_time) * 1000,
+                    )
+                )
             # Translate provider errors to ai-infra errors
             raise translate_provider_error(e, provider=provider, model=model_name) from e
         ai_msg = apply_output_gate(res, self._hitl)
@@ -1119,10 +1424,27 @@ class Agent(BaseLLM):
             provider, model_name, tools, extra, model_kwargs, tool_controls
         )
         modes = [stream_mode] if isinstance(stream_mode, str) else list(stream_mode)
+
+        # Track token index for callbacks
+        token_index = 0
+
         if modes == ["messages"]:
             async for token, meta in agent.astream(
                 {"messages": messages}, context=context, config=config, stream_mode="messages"
             ):
+                # Fire token callback
+                if self._callbacks and hasattr(token, "content") and token.content:
+                    from ai_infra.callbacks import LLMTokenEvent
+
+                    self._callbacks.on_llm_token(
+                        LLMTokenEvent(
+                            provider=provider,
+                            model=model_name or "",
+                            token=str(token.content),
+                            index=token_index,
+                        )
+                    )
+                    token_index += 1
                 yield token, meta
             return
         last_values = None
@@ -1152,12 +1474,26 @@ class Agent(BaseLLM):
         agent, context = self._make_agent_with_context(
             provider, model_name, tools, extra, model_kwargs, tool_controls
         )
+        token_index = 0
         async for token, meta in agent.astream(
             {"messages": messages},
             context=context,
             config=config,
             stream_mode="messages",
         ):
+            # Fire token callback
+            if self._callbacks and hasattr(token, "content") and token.content:
+                from ai_infra.callbacks import LLMTokenEvent
+
+                self._callbacks.on_llm_token(
+                    LLMTokenEvent(
+                        provider=provider,
+                        model=model_name or "",
+                        token=str(token.content),
+                        index=token_index,
+                    )
+                )
+                token_index += 1
             yield token, meta
 
     def agent(

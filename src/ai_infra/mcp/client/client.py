@@ -5,7 +5,7 @@ import difflib
 import traceback
 from contextlib import asynccontextmanager
 from dataclasses import asdict, is_dataclass
-from typing import TYPE_CHECKING, Any, AsyncContextManager, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, AsyncContextManager, Dict, List, Optional, Union
 
 from langchain_core.messages import BaseMessage
 from langchain_mcp_adapters.client import MultiServerMCPClient
@@ -16,7 +16,6 @@ from mcp.client.stdio import stdio_client
 from mcp.client.streamable_http import streamablehttp_client
 from pydantic import BaseModel
 
-from ai_infra.mcp.client.callbacks import CallbackContext, Callbacks
 from ai_infra.mcp.client.exceptions import MCPServerError, MCPTimeoutError, MCPToolError
 from ai_infra.mcp.client.interceptors import (
     MCPToolCallRequest,
@@ -34,6 +33,8 @@ from ai_infra.mcp.client.resources import (
 
 if TYPE_CHECKING:
     from langchain_mcp_adapters.callbacks import Callbacks as LCCallbacks
+
+    from ai_infra.callbacks import CallbackManager, Callbacks
 
 
 class MCPClient:
@@ -68,8 +69,8 @@ class MCPClient:
         self,
         config: List[dict] | List[McpServerConfig],
         *,
-        # Callbacks for progress and logging
-        callbacks: Callbacks | None = None,
+        # Callbacks for MCP events (progress, logging)
+        callbacks: Optional[Union["Callbacks", "CallbackManager"]] = None,
         # Interceptors for tool call lifecycle
         interceptors: List[ToolCallInterceptor] | None = None,
         # Connection management
@@ -82,6 +83,22 @@ class MCPClient:
         # HTTP connection pooling (for future use)
         pool_size: int = 10,
     ):
+        """Initialize MCP Client.
+
+        Args:
+            config: List of MCP server configurations.
+            callbacks: Callback handler(s) for MCP events (progress, logging).
+                Receives MCPProgressEvent and MCPLoggingEvent during tool execution.
+                Can be a single Callbacks instance or a CallbackManager.
+                Example: callbacks=MyCallbacks() or callbacks=CallbackManager([...])
+            interceptors: List of tool call interceptors for request/response modification.
+            auto_reconnect: Whether to auto-reconnect on connection failure.
+            reconnect_delay: Delay between reconnect attempts in seconds.
+            max_reconnect_attempts: Maximum number of reconnect attempts.
+            tool_timeout: Timeout for tool calls in seconds.
+            discover_timeout: Timeout for server discovery in seconds.
+            pool_size: HTTP connection pool size (for future use).
+        """
         if not isinstance(config, list):
             raise TypeError("Config must be a list of server configs")
         self._configs: List[McpServerConfig] = [
@@ -92,8 +109,8 @@ class MCPClient:
         self._discovered: bool = False
         self._errors: List[Dict[str, Any]] = []
 
-        # Callbacks
-        self._callbacks = callbacks
+        # Callbacks - normalize to CallbackManager
+        self._callbacks: Optional["CallbackManager"] = self._normalize_callbacks(callbacks)
 
         # Interceptors
         self._interceptors = interceptors
@@ -112,6 +129,34 @@ class MCPClient:
 
         # Health status
         self._health_status: Dict[str, str] = {}
+
+    def _normalize_callbacks(
+        self, callbacks: Optional[Union["Callbacks", "CallbackManager"]]
+    ) -> Optional["CallbackManager"]:
+        """Convert callbacks to CallbackManager.
+
+        Accepts either a single Callbacks instance or a CallbackManager,
+        and normalizes to CallbackManager for consistent dispatch.
+
+        Args:
+            callbacks: Single callback handler or manager
+
+        Returns:
+            CallbackManager or None
+        """
+        if callbacks is None:
+            return None
+
+        from ai_infra.callbacks import CallbackManager, Callbacks
+
+        if isinstance(callbacks, CallbackManager):
+            return callbacks
+        if isinstance(callbacks, Callbacks):
+            return CallbackManager([callbacks])
+        raise ValueError(
+            f"Invalid callbacks type: {type(callbacks)}. "
+            "Expected Callbacks or CallbackManager instance."
+        )
 
     # ---------- async context manager ----------
 
@@ -347,7 +392,12 @@ class MCPClient:
     # ---------- callback conversion ----------
 
     def _to_langchain_callbacks(self) -> "LCCallbacks | None":
-        """Convert ai-infra callbacks to langchain-mcp-adapters format."""
+        """Convert unified callbacks to langchain-mcp-adapters format.
+
+        This creates wrapper functions that fire MCPProgressEvent and
+        MCPLoggingEvent through the unified callback system when
+        langchain-mcp-adapters invokes them.
+        """
         if self._callbacks is None:
             return None
 
@@ -355,42 +405,40 @@ class MCPClient:
         from langchain_mcp_adapters.callbacks import CallbackContext as LCCallbackContext
         from langchain_mcp_adapters.callbacks import Callbacks as LCCallbacks
 
-        _lc_on_progress = None
-        _lc_on_logging = None
+        from ai_infra.callbacks import MCPLoggingEvent, MCPProgressEvent
 
-        if self._callbacks.on_progress is not None:
-            ai_on_progress = self._callbacks.on_progress
+        callbacks = self._callbacks  # Capture for closures
 
-            async def _progress_handler(
-                progress: float,
-                total: float | None,
-                message: str | None,
-                context: LCCallbackContext,
-            ) -> None:
-                # Convert LC context to our context
-                ai_context = CallbackContext(
-                    server_name=context.server_name,
-                    tool_name=context.tool_name,
-                )
-                await ai_on_progress(progress, total, message, ai_context)
+        async def _progress_handler(
+            progress: float,
+            total: float | None,
+            message: str | None,
+            context: LCCallbackContext,
+        ) -> None:
+            """Fire MCPProgressEvent through unified callback system."""
+            event = MCPProgressEvent(
+                server_name=context.server_name,
+                tool_name=context.tool_name,
+                progress=progress,
+                total=total,
+                message=message,
+            )
+            await callbacks.on_mcp_progress_async(event)
 
-            _lc_on_progress = _progress_handler
-
-        if self._callbacks.on_logging is not None:
-            ai_on_logging = self._callbacks.on_logging
-
-            async def _logging_handler(params, context: LCCallbackContext) -> None:
-                ai_context = CallbackContext(
-                    server_name=context.server_name,
-                    tool_name=context.tool_name,
-                )
-                await ai_on_logging(params, ai_context)
-
-            _lc_on_logging = _logging_handler
+        async def _logging_handler(params, context: LCCallbackContext) -> None:
+            """Fire MCPLoggingEvent through unified callback system."""
+            event = MCPLoggingEvent(
+                server_name=context.server_name,
+                tool_name=context.tool_name,
+                level=str(getattr(params, "level", "info")),
+                data=getattr(params, "data", None),
+                logger_name=getattr(params, "logger", None),
+            )
+            await callbacks.on_mcp_logging_async(event)
 
         return LCCallbacks(
-            on_progress=_lc_on_progress,
-            on_logging_message=_lc_on_logging,
+            on_progress=_progress_handler,
+            on_logging_message=_logging_handler,
         )
 
     # ---------- public API ----------
@@ -474,10 +522,26 @@ class MCPClient:
             async with self.get_client(request.server_name) as session:
                 # Build progress callback if configured
                 progress_callback = None
-                if self._callbacks and self._callbacks.on_progress:
-                    ctx = CallbackContext(server_name=request.server_name, tool_name=request.name)
-                    mcp_callbacks = self._callbacks.to_mcp_format(ctx)
-                    progress_callback = mcp_callbacks.progress_callback
+                if self._callbacks:
+                    from ai_infra.callbacks import MCPProgressEvent
+
+                    callbacks = self._callbacks  # Capture for closure
+
+                    async def _progress_cb(
+                        progress: float,
+                        total: float | None,
+                        message: str | None,
+                    ) -> None:
+                        event = MCPProgressEvent(
+                            server_name=request.server_name,
+                            tool_name=request.name,
+                            progress=progress,
+                            total=total,
+                            message=message,
+                        )
+                        await callbacks.on_mcp_progress_async(event)
+
+                    progress_callback = _progress_cb
 
                 return await session.call_tool(
                     request.name,

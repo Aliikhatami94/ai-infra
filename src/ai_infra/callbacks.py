@@ -164,6 +164,48 @@ class MCPDisconnectEvent:
 
 
 @dataclass
+class MCPProgressEvent:
+    """Event fired when MCP tool reports progress.
+
+    This event is fired during long-running MCP tool executions
+    when the tool reports incremental progress.
+
+    Example:
+        class MyCallbacks(Callbacks):
+            async def on_mcp_progress_async(self, event: MCPProgressEvent):
+                print(f"[{event.server_name}/{event.tool_name}] {event.progress:.0%}")
+    """
+
+    server_name: str
+    tool_name: Optional[str]
+    progress: float
+    total: Optional[float] = None
+    message: Optional[str] = None
+    timestamp: float = field(default_factory=time.time)
+
+
+@dataclass
+class MCPLoggingEvent:
+    """Event fired when MCP server sends a log message.
+
+    This event is fired when an MCP server emits logging notifications
+    during tool execution or other operations.
+
+    Example:
+        class MyCallbacks(Callbacks):
+            async def on_mcp_logging_async(self, event: MCPLoggingEvent):
+                print(f"[{event.server_name}] {event.level}: {event.data}")
+    """
+
+    server_name: str
+    tool_name: Optional[str]
+    level: str  # debug, info, warning, error
+    data: Any
+    logger_name: Optional[str] = None
+    timestamp: float = field(default_factory=time.time)
+
+
+@dataclass
 class GraphNodeStartEvent:
     """Event fired when graph node execution starts."""
 
@@ -260,6 +302,43 @@ class Callbacks(ABC):
         """Called when MCP server disconnects."""
         pass
 
+    def on_mcp_progress(self, event: MCPProgressEvent) -> None:
+        """Called when MCP tool reports progress.
+
+        Override this for sync callbacks. For async callbacks,
+        override on_mcp_progress_async instead.
+        """
+        pass
+
+    async def on_mcp_progress_async(self, event: MCPProgressEvent) -> None:
+        """Async version of on_mcp_progress.
+
+        Called during async MCP operations. Default implementation
+        calls the sync version.
+
+        Example:
+            class MyCallbacks(Callbacks):
+                async def on_mcp_progress_async(self, event):
+                    await notify_user(f"Progress: {event.progress:.0%}")
+        """
+        self.on_mcp_progress(event)
+
+    def on_mcp_logging(self, event: MCPLoggingEvent) -> None:
+        """Called when MCP server sends log message.
+
+        Override this for sync callbacks. For async callbacks,
+        override on_mcp_logging_async instead.
+        """
+        pass
+
+    async def on_mcp_logging_async(self, event: MCPLoggingEvent) -> None:
+        """Async version of on_mcp_logging.
+
+        Called during async MCP operations. Default implementation
+        calls the sync version.
+        """
+        self.on_mcp_logging(event)
+
     # Graph events
     def on_graph_node_start(self, event: GraphNodeStartEvent) -> None:
         """Called when graph node execution starts."""
@@ -329,28 +408,64 @@ class CallbackManager:
                     f"Callback error in {callback.__class__.__name__}.{method}: {e}"
                 )
 
+    async def _dispatch_async(self, method: str, event: Any) -> None:
+        """Dispatch async event to all callbacks."""
+        for callback in self._callbacks:
+            try:
+                handler = getattr(callback, method, None)
+                if handler:
+                    await handler(event)
+            except Exception as e:
+                # Log but don't propagate callback errors
+                import logging
+
+                logging.getLogger("ai_infra.callbacks").warning(
+                    f"Callback error in {callback.__class__.__name__}.{method}: {e}"
+                )
+
     # LLM events
     def on_llm_start(self, event: LLMStartEvent) -> None:
         self._dispatch("on_llm_start", event)
 
+    async def on_llm_start_async(self, event: LLMStartEvent) -> None:
+        await self._dispatch_async("on_llm_start_async", event)
+
     def on_llm_end(self, event: LLMEndEvent) -> None:
         self._dispatch("on_llm_end", event)
+
+    async def on_llm_end_async(self, event: LLMEndEvent) -> None:
+        await self._dispatch_async("on_llm_end_async", event)
 
     def on_llm_error(self, event: LLMErrorEvent) -> None:
         self._dispatch("on_llm_error", event)
 
+    async def on_llm_error_async(self, event: LLMErrorEvent) -> None:
+        await self._dispatch_async("on_llm_error_async", event)
+
     def on_llm_token(self, event: LLMTokenEvent) -> None:
         self._dispatch("on_llm_token", event)
+
+    async def on_llm_token_async(self, event: LLMTokenEvent) -> None:
+        await self._dispatch_async("on_llm_token_async", event)
 
     # Tool events
     def on_tool_start(self, event: ToolStartEvent) -> None:
         self._dispatch("on_tool_start", event)
 
+    async def on_tool_start_async(self, event: ToolStartEvent) -> None:
+        await self._dispatch_async("on_tool_start_async", event)
+
     def on_tool_end(self, event: ToolEndEvent) -> None:
         self._dispatch("on_tool_end", event)
 
+    async def on_tool_end_async(self, event: ToolEndEvent) -> None:
+        await self._dispatch_async("on_tool_end_async", event)
+
     def on_tool_error(self, event: ToolErrorEvent) -> None:
         self._dispatch("on_tool_error", event)
+
+    async def on_tool_error_async(self, event: ToolErrorEvent) -> None:
+        await self._dispatch_async("on_tool_error_async", event)
 
     # MCP events
     def on_mcp_connect(self, event: MCPConnectEvent) -> None:
@@ -358,6 +473,18 @@ class CallbackManager:
 
     def on_mcp_disconnect(self, event: MCPDisconnectEvent) -> None:
         self._dispatch("on_mcp_disconnect", event)
+
+    def on_mcp_progress(self, event: "MCPProgressEvent") -> None:
+        self._dispatch("on_mcp_progress", event)
+
+    async def on_mcp_progress_async(self, event: "MCPProgressEvent") -> None:
+        await self._dispatch_async("on_mcp_progress_async", event)
+
+    def on_mcp_logging(self, event: "MCPLoggingEvent") -> None:
+        self._dispatch("on_mcp_logging", event)
+
+    async def on_mcp_logging_async(self, event: "MCPLoggingEvent") -> None:
+        await self._dispatch_async("on_mcp_logging_async", event)
 
     # Graph events
     def on_graph_node_start(self, event: GraphNodeStartEvent) -> None:
@@ -692,6 +819,8 @@ __all__ = [
     "ToolErrorEvent",
     "MCPConnectEvent",
     "MCPDisconnectEvent",
+    "MCPProgressEvent",
+    "MCPLoggingEvent",
     "GraphNodeStartEvent",
     "GraphNodeEndEvent",
     "GraphNodeErrorEvent",

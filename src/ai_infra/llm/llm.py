@@ -7,9 +7,12 @@ without agent/tool capabilities.
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Union
 
 from pydantic import BaseModel
+
+if TYPE_CHECKING:
+    from ai_infra.callbacks import CallbackManager, Callbacks
 
 from ai_infra.llm.base import BaseLLM
 from ai_infra.llm.tools import apply_output_gate, apply_output_gate_async
@@ -58,6 +61,50 @@ class LLM(BaseLLM):
             print(token, end="", flush=True)
         ```
     """
+
+    def __init__(
+        self,
+        *,
+        callbacks: Optional[Union["Callbacks", "CallbackManager"]] = None,
+    ):
+        """Initialize LLM with optional callbacks.
+
+        Args:
+            callbacks: Callback handler(s) for observing LLM events.
+                Receives events for LLM calls (start, end, error, tokens).
+                Can be a single Callbacks instance or a CallbackManager.
+                Example: callbacks=MyCallbacks() or callbacks=CallbackManager([...])
+        """
+        super().__init__()
+        self._callbacks: Optional["CallbackManager"] = self._normalize_callbacks(callbacks)
+
+    def _normalize_callbacks(
+        self, callbacks: Optional[Union["Callbacks", "CallbackManager"]]
+    ) -> Optional["CallbackManager"]:
+        """Convert callbacks to CallbackManager.
+
+        Accepts either a single Callbacks instance or a CallbackManager,
+        and normalizes to CallbackManager for consistent dispatch.
+
+        Args:
+            callbacks: Single callback handler or manager
+
+        Returns:
+            CallbackManager or None
+        """
+        if callbacks is None:
+            return None
+
+        from ai_infra.callbacks import CallbackManager, Callbacks
+
+        if isinstance(callbacks, CallbackManager):
+            return callbacks
+        if isinstance(callbacks, Callbacks):
+            return CallbackManager([callbacks])
+        raise ValueError(
+            f"Invalid callbacks type: {type(callbacks)}. "
+            "Expected Callbacks or CallbackManager instance."
+        )
 
     # =========================================================================
     # Discovery API - Static methods for provider/model discovery
@@ -229,6 +276,23 @@ class LLM(BaseLLM):
         self._logging_hooks.call_request_sync(request_ctx)
         start_time = time.time()
 
+        # Build messages for callback (simplified)
+        messages_for_callback = [{"role": "user", "content": user_msg}]
+        if system:
+            messages_for_callback.insert(0, {"role": "system", "content": system})
+
+        # Fire LLM start callback
+        if self._callbacks:
+            from ai_infra.callbacks import LLMStartEvent
+
+            self._callbacks.on_llm_start(
+                LLMStartEvent(
+                    provider=provider,
+                    model=model_name or "",
+                    messages=messages_for_callback,
+                )
+            )
+
         try:
             # PROMPT method uses shared helper
             if output_schema is not None and output_method == "prompt":
@@ -270,6 +334,24 @@ class LLM(BaseLLM):
             )
             self._logging_hooks.call_response_sync(response_ctx)
 
+            # Fire LLM end callback
+            if self._callbacks:
+                from ai_infra.callbacks import LLMEndEvent
+
+                # Extract token usage if available
+                usage = getattr(res, "usage_metadata", None)
+                self._callbacks.on_llm_end(
+                    LLMEndEvent(
+                        provider=provider,
+                        model=model_name or "",
+                        response=getattr(res, "content", str(res)),
+                        input_tokens=getattr(usage, "input_tokens", None) if usage else None,
+                        output_tokens=getattr(usage, "output_tokens", None) if usage else None,
+                        total_tokens=getattr(usage, "total_tokens", None) if usage else None,
+                        latency_ms=duration_ms,
+                    )
+                )
+
             if output_schema is not None and is_pydantic_schema(output_schema):
                 return coerce_structured_result(output_schema, res)
 
@@ -287,6 +369,20 @@ class LLM(BaseLLM):
                 duration_ms=duration_ms,
             )
             self._logging_hooks.call_error_sync(error_ctx)
+
+            # Fire LLM error callback
+            if self._callbacks:
+                from ai_infra.callbacks import LLMErrorEvent
+
+                self._callbacks.on_llm_error(
+                    LLMErrorEvent(
+                        provider=provider,
+                        model=model_name or "",
+                        error=e,
+                        latency_ms=duration_ms,
+                    )
+                )
+
             # Translate provider error to ai-infra error
             raise translate_provider_error(e, provider=provider, model=model_name) from e
 
@@ -352,6 +448,23 @@ class LLM(BaseLLM):
         await self._logging_hooks.call_request_async(request_ctx)
         start_time = time.time()
 
+        # Build messages for callback (simplified)
+        messages_for_callback = [{"role": "user", "content": user_msg}]
+        if system:
+            messages_for_callback.insert(0, {"role": "system", "content": system})
+
+        # Fire LLM start callback (async)
+        if self._callbacks:
+            from ai_infra.callbacks import LLMStartEvent
+
+            await self._callbacks.on_llm_start_async(
+                LLMStartEvent(
+                    provider=provider,
+                    model=model_name or "",
+                    messages=messages_for_callback,
+                )
+            )
+
         try:
             if output_schema is not None and output_method == "prompt":
                 res = await self._prompt_structured_async(
@@ -391,6 +504,24 @@ class LLM(BaseLLM):
             )
             await self._logging_hooks.call_response_async(response_ctx)
 
+            # Fire LLM end callback (async)
+            if self._callbacks:
+                from ai_infra.callbacks import LLMEndEvent
+
+                # Extract token usage if available
+                usage = getattr(res, "usage_metadata", None)
+                await self._callbacks.on_llm_end_async(
+                    LLMEndEvent(
+                        provider=provider,
+                        model=model_name or "",
+                        response=getattr(res, "content", str(res)),
+                        input_tokens=getattr(usage, "input_tokens", None) if usage else None,
+                        output_tokens=getattr(usage, "output_tokens", None) if usage else None,
+                        total_tokens=getattr(usage, "total_tokens", None) if usage else None,
+                        latency_ms=duration_ms,
+                    )
+                )
+
             if output_schema is not None and is_pydantic_schema(output_schema):
                 return coerce_structured_result(output_schema, res)
 
@@ -408,6 +539,20 @@ class LLM(BaseLLM):
                 duration_ms=duration_ms,
             )
             await self._logging_hooks.call_error_async(error_ctx)
+
+            # Fire LLM error callback (async)
+            if self._callbacks:
+                from ai_infra.callbacks import LLMErrorEvent
+
+                await self._callbacks.on_llm_error_async(
+                    LLMErrorEvent(
+                        provider=provider,
+                        model=model_name or "",
+                        error=e,
+                        latency_ms=duration_ms,
+                    )
+                )
+
             # Translate provider error to ai-infra error
             raise translate_provider_error(e, provider=provider, model=model_name) from e
 
@@ -453,11 +598,74 @@ class LLM(BaseLLM):
             model_kwargs["max_tokens"] = max_tokens
         model = self.set_model(provider, model_name, **model_kwargs)
         messages = _make_messages(user_msg, system, images=images, provider=provider)
-        async for event in model.astream(messages):
-            text = getattr(event, "content", None)
-            if text is None:
-                text = getattr(event, "delta", None) or getattr(event, "text", None)
-            if text is None:
-                text = str(event)
-            meta = {"raw": event}
-            yield text, meta
+
+        # Build messages for callback (simplified)
+        messages_for_callback = [{"role": "user", "content": user_msg}]
+        if system:
+            messages_for_callback.insert(0, {"role": "system", "content": system})
+
+        # Fire LLM start callback before streaming
+        if self._callbacks:
+            from ai_infra.callbacks import LLMStartEvent
+
+            await self._callbacks.on_llm_start_async(
+                LLMStartEvent(
+                    provider=provider,
+                    model=model_name or "",
+                    messages=messages_for_callback,
+                )
+            )
+
+        start_time = time.time()
+
+        try:
+            async for event in model.astream(messages):
+                text = getattr(event, "content", None)
+                if text is None:
+                    text = getattr(event, "delta", None) or getattr(event, "text", None)
+                if text is None:
+                    text = str(event)
+
+                # Fire LLM token callback for each token
+                if self._callbacks and text:
+                    from ai_infra.callbacks import LLMTokenEvent
+
+                    await self._callbacks.on_llm_token_async(
+                        LLMTokenEvent(
+                            provider=provider,
+                            model=model_name or "",
+                            token=text,
+                        )
+                    )
+
+                meta = {"raw": event}
+                yield text, meta
+
+            # Fire LLM end callback after streaming completes
+            if self._callbacks:
+                from ai_infra.callbacks import LLMEndEvent
+
+                duration_ms = (time.time() - start_time) * 1000
+                await self._callbacks.on_llm_end_async(
+                    LLMEndEvent(
+                        provider=provider,
+                        model=model_name or "",
+                        response="[streamed]",
+                        latency_ms=duration_ms,
+                    )
+                )
+        except Exception as e:
+            # Fire LLM error callback on streaming error
+            if self._callbacks:
+                from ai_infra.callbacks import LLMErrorEvent
+
+                duration_ms = (time.time() - start_time) * 1000
+                await self._callbacks.on_llm_error_async(
+                    LLMErrorEvent(
+                        provider=provider,
+                        model=model_name or "",
+                        error=e,
+                        latency_ms=duration_ms,
+                    )
+                )
+            raise
