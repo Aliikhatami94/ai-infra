@@ -1,159 +1,317 @@
+<div align="center">
+
 # ai-infra
 
-> **Production-ready Python SDK for building AI applications with LLMs, agents, and multimodal capabilities.**
+### Build AI applications in minutes, not months
 
-ai-infra provides clean interfaces for chat, agents, embeddings, voice, and image generation across 10+ providers—all with zero-config defaults.
+[![PyPI](https://img.shields.io/pypi/v/ai-infra.svg)](https://pypi.org/project/ai-infra/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+[![Downloads](https://static.pepy.tech/badge/ai-infra/month)](https://pepy.tech/project/ai-infra)
 
-## ✨ Features
+**One unified SDK for LLMs, agents, RAG, voice, images, and MCP—across 10+ providers.**
 
-- **LLM**: Chat, structured output, streaming, retries, multi-turn conversations
-- **Agents**: Tool calling, human-in-the-loop, provider fallbacks, autonomous deep mode
-- **Graph**: LangGraph workflows with typed state and conditional branching
-- **Embeddings & RAG**: Vector storage, document retrieval, multiple backends
-- **Multimodal**: Text-to-speech, speech-to-text, vision, realtime voice
-- **Image Generation**: DALL-E, Imagen, Stability AI, Replicate
-- **MCP**: Model Context Protocol client/server, OpenAPI→MCP conversion
+[Documentation](docs/) · [Examples](examples/) · [PyPI](https://pypi.org/project/ai-infra/)
 
-## 🚀 Quick Start
+</div>
 
-**5 lines to your first chat:**
+---
+
+## Why ai-infra?
+
+Building AI apps means juggling OpenAI, Anthropic, Google, embeddings, vector stores, tool calling, MCP servers... each with different APIs and gotchas.
+
+**ai-infra** gives you one clean interface that works everywhere:
+
+```python
+from ai_infra import Agent
+
+def search_web(query: str) -> str:
+    """Search the web."""
+    return f"Results for: {query}"
+
+agent = Agent(tools=[search_web])
+result = agent.run("Find the latest news about AI")
+# Works with OpenAI, Anthropic, Google—same code.
+```
+
+## Quick Install
+
+```bash
+pip install ai-infra
+```
+
+## What's Included
+
+| Feature | What You Get | One-liner |
+|---------|-------------|-----------|
+| **LLM Chat** | Chat, streaming, structured output, retries | `LLM().chat("Hello")` |
+| **Agents** | Tool calling, human-in-the-loop, deep mode | `Agent(tools=[...]).run(...)` |
+| **RAG** | Embeddings, vector stores, retrieval | `Retriever().search(...)` |
+| **MCP** | Client/server, OpenAPI→MCP, tool discovery | `MCPClient(url)` |
+| **Voice** | Text-to-speech, speech-to-text, realtime | `TTS().speak(...)` |
+| **Images** | DALL-E, Stability, Imagen generation | `ImageGen().generate(...)` |
+| **Graph** | LangGraph workflows, typed state | `Graph().add_node(...)` |
+| **Memory** | Conversation history, context management | Built-in |
+
+## 30-Second Examples
+
+### Chat with any LLM
 
 ```python
 from ai_infra import LLM
 
-llm = LLM()  # Auto-detects configured provider
-response = llm.chat("What is the capital of France?")
+llm = LLM()  # Uses OPENAI_API_KEY by default
+response = llm.chat("Explain quantum computing in one sentence")
 print(response)
+
+# Switch providers instantly
+llm = LLM(provider="anthropic", model="claude-sonnet-4-20250514")
+response = llm.chat("Same question, different model")
 ```
 
-**With tools (agent):**
+### Build an Agent with Tools
 
 ```python
 from ai_infra import Agent
 
 def get_weather(city: str) -> str:
-    """Get weather for a city."""
-    return f"Weather in {city}: 72°F, sunny"
+    """Get current weather for a city."""
+    return f"72F and sunny in {city}"
 
-agent = Agent(tools=[get_weather])
-result = agent.run("What's the weather in Tokyo?")
-print(result)
+def search_web(query: str) -> str:
+    """Search the web for information."""
+    return f"Top results for: {query}"
+
+agent = Agent(tools=[get_weather, search_web])
+result = agent.run("What's the weather in Tokyo and find me restaurants there")
+# Agent automatically calls both tools and synthesizes the answer
 ```
 
-## 📦 Installation
+### RAG in 5 Lines
 
-**Python**: 3.11 – 3.13
+```python
+from ai_infra import Retriever
 
-```bash
-# Using pip
-pip install ai-infra
+retriever = Retriever()
+retriever.add_file("company_docs.pdf")
+retriever.add_file("product_manual.md")
 
-# Using Poetry (development)
-poetry install
-poetry shell
+results = retriever.search("How do I reset my password?")
+print(results[0].content)
 ```
 
-## 🔑 Provider Setup
+### Connect to MCP Servers
 
-Set API keys for the providers you want to use:
+```python
+from ai_infra import MCPClient
+
+async with MCPClient("http://localhost:8080") as client:
+    tools = await client.list_tools()
+    result = await client.call_tool("search", {"query": "AI news"})
+```
+
+### Create an MCP Server
+
+```python
+from ai_infra import mcp_from_functions
+
+def search_docs(query: str) -> str:
+    """Search documentation."""
+    return f"Found: {query}"
+
+mcp = mcp_from_functions(name="my-mcp", functions=[search_docs])
+mcp.run(transport="stdio")
+```
+
+## Supported Providers
+
+| Provider | Chat | Embeddings | TTS | STT | Images | Realtime |
+|----------|:----:|:----------:|:---:|:---:|:------:|:--------:|
+| **OpenAI** | Yes | Yes | Yes | Yes | Yes | Yes |
+| **Anthropic** | Yes | - | - | - | - | - |
+| **Google** | Yes | Yes | Yes | Yes | Yes | Yes |
+| **xAI (Grok)** | Yes | - | - | - | - | - |
+| **ElevenLabs** | - | - | Yes | - | - | - |
+| **Deepgram** | - | - | - | Yes | - | - |
+| **Stability AI** | - | - | - | - | Yes | - |
+| **Replicate** | - | - | - | - | Yes | - |
+| **Voyage AI** | - | Yes | - | - | - | - |
+| **Cohere** | - | Yes | - | - | - | - |
+
+## Setup
 
 ```bash
-# Required: At least one chat provider
+# Set your API keys (use whichever providers you need)
 export OPENAI_API_KEY=sk-...
 export ANTHROPIC_API_KEY=sk-ant-...
 export GOOGLE_API_KEY=...
-export XAI_API_KEY=...
 
-# Optional: Specialized providers
-export ELEVENLABS_API_KEY=...     # TTS
-export DEEPGRAM_API_KEY=...       # STT
-export STABILITY_API_KEY=...      # Image generation
-export REPLICATE_API_TOKEN=...    # Image generation
-export VOYAGE_API_KEY=...         # Embeddings
-export COHERE_API_KEY=...         # Embeddings
+# That's it. ai-infra auto-detects available providers.
 ```
 
-## 🔌 Supported Providers
+## Feature Highlights
 
-| Provider | Chat | Embeddings | TTS | STT | ImageGen | Realtime |
-|----------|:----:|:----------:|:---:|:---:|:--------:|:--------:|
-| OpenAI | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Anthropic | ✅ | - | - | - | - | - |
-| Google | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| xAI | ✅ | - | - | - | - | - |
-| ElevenLabs | - | - | ✅ | - | - | - |
-| Deepgram | - | - | - | ✅ | - | - |
-| Stability | - | - | - | - | ✅ | - |
-| Replicate | - | - | - | - | ✅ | - |
-| Voyage | - | ✅ | - | - | - | - |
-| Cohere | - | ✅ | - | - | - | - |
+### Deep Agent (Autonomous Mode)
 
-## 📚 Documentation
+For complex, multi-step tasks:
 
-Full documentation is in the [`docs/`](docs/) folder:
+```python
+from ai_infra import DeepAgent
+
+agent = DeepAgent(
+    goal="Analyze this codebase and generate documentation",
+    tools=[read_file, write_file, search],
+    max_iterations=50,
+)
+
+result = await agent.run()
+print(result.output)
+```
+
+**Includes:** Planning, self-correction, progress tracking, human approval gates.
+
+### MCP Client with Interceptors
+
+Advanced MCP features:
+
+```python
+from ai_infra import MCPClient
+from ai_infra.mcp import RetryInterceptor, CachingInterceptor, LoggingInterceptor
+
+async with MCPClient(
+    "http://localhost:8080",
+    interceptors=[
+        RetryInterceptor(max_retries=3),
+        CachingInterceptor(ttl=300),
+        LoggingInterceptor(),
+    ]
+) as client:
+    # Automatic retries, caching, and logging for all tool calls
+    result = await client.call_tool("expensive_operation", {...})
+```
+
+**Includes:** Callbacks, interceptors, prompts, resources, progress tracking.
+
+### RAG with Multiple Backends
+
+```python
+from ai_infra import Retriever
+
+# In-memory (development)
+retriever = Retriever(backend="memory")
+
+# SQLite (local persistence)
+retriever = Retriever(backend="sqlite", path="./vectors.db")
+
+# PostgreSQL with pgvector (production)
+retriever = Retriever(backend="postgres", connection_string="...")
+
+# Pinecone (managed cloud)
+retriever = Retriever(backend="pinecone", index_name="my-index")
+```
+
+### Voice & Multimodal
+
+```python
+from ai_infra import TTS, STT
+
+# Text to speech
+tts = TTS(provider="elevenlabs")
+audio = tts.speak("Hello, world!")
+
+# Speech to text
+stt = STT(provider="deepgram")
+text = stt.transcribe("audio.mp3")
+```
+
+### Image Generation
+
+```python
+from ai_infra import ImageGen
+
+gen = ImageGen(provider="openai")  # or "stability", "replicate"
+image = gen.generate("A futuristic city at sunset")
+image.save("city.png")
+```
+
+## CLI Tools
+
+```bash
+# Test MCP connections
+ai-infra mcp test --url http://localhost:8080
+
+# List MCP tools
+ai-infra mcp tools --url http://localhost:8080
+
+# Call an MCP tool
+ai-infra mcp call --url http://localhost:8080 --tool search --args '{"query": "test"}'
+
+# Server info
+ai-infra mcp info --url http://localhost:8080
+```
+
+## Documentation
 
 | Section | Description |
 |---------|-------------|
 | [Getting Started](docs/getting-started.md) | Installation, API keys, first example |
-| [Core Modules](docs/core/) | LLM, Agent, Graph, Providers |
-| [Multimodal](docs/multimodal/) | TTS, STT, Vision, Realtime Voice |
-| [Embeddings & RAG](docs/embeddings/) | Embeddings, VectorStore, Retriever |
-| [Tools](docs/tools/) | Schema tools, progress streaming |
-| [MCP](docs/mcp/) | Model Context Protocol client/server |
-| [Advanced Features](docs/features/) | Personas, Replay, Workspace, Deep Agent |
-| [Image Generation](docs/imagegen/) | DALL-E, Imagen, Stability, Replicate |
-| [Infrastructure](docs/infrastructure/) | Errors, Logging, Tracing, Callbacks |
-| [CLI Reference](docs/cli.md) | Command-line interface |
+| **Core** | |
+| [LLM](docs/core/llm.md) | Chat, streaming, structured output |
+| [Agent](docs/core/agents.md) | Tool calling, human-in-the-loop |
+| [Graph](docs/core/graph.md) | LangGraph workflows |
+| **RAG & Embeddings** | |
+| [Retriever](docs/embeddings/retriever.md) | Vector search, file loading |
+| [Embeddings](docs/embeddings/embeddings.md) | Text embeddings |
+| **MCP** | |
+| [Client](docs/mcp/client.md) | Connect to MCP servers |
+| [Server](docs/mcp/server.md) | Create MCP servers |
+| **Multimodal** | |
+| [TTS](docs/multimodal/tts.md) | Text-to-speech |
+| [STT](docs/multimodal/stt.md) | Speech-to-text |
+| [Vision](docs/multimodal/vision.md) | Image understanding |
+| **Advanced** | |
+| [Deep Agent](docs/features/deep-agent.md) | Autonomous agents |
+| [Personas](docs/features/personas.md) | Agent personalities |
+| [CLI Reference](docs/cli.md) | Command-line tools |
 
-## 📁 Module Overview
-
-| Module | Description |
-|--------|-------------|
-| `ai_infra.llm` | LLM chat, agents, structured output, streaming |
-| `ai_infra.graph` | LangGraph workflows with typed state |
-| `ai_infra.mcp` | MCP client/server, OpenAPI→MCP conversion |
-| `ai_infra.embeddings` | Text embeddings across providers |
-| `ai_infra.retriever` | RAG with multiple vector store backends |
-| `ai_infra.imagegen` | Image generation (DALL-E, Stability, etc.) |
-| `ai_infra.providers` | Centralized provider registry |
-
-## 🧪 Examples
-
-See the [`examples/`](examples/) folder for runnable scripts:
+## Running Examples
 
 ```bash
-# LLM chat
-python -c "from ai_infra.llm.examples.02_llm_chat_basic import main; main()"
-
-# Agent with tools
-python -c "from ai_infra.llm.examples.01_agent_basic import main; main()"
-
-# Graph workflow
-python -c "from ai_infra.graph.examples.01_graph_basic import main; main()"
-
-# MCP client
-python -m ai_infra.mcp.examples.01_mcps
-```
-
-## 🛠️ Development
-
-```bash
-# Install dev dependencies
+git clone https://github.com/nfraxio/ai-infra.git
+cd ai-infra
 poetry install
 
-# Run tests
-pytest -q
+# Chat
+poetry run python -c "from ai_infra import LLM; print(LLM().chat('Hello!'))"
 
-# Lint
-ruff check src tests
+# Agent
+poetry run python -c "from ai_infra.llm.examples.01_agent_basic import main; main()"
 
-# Type check
-mypy src
-
-# Format
-ruff format
+# MCP
+poetry run ai-infra mcp test --url http://localhost:8080
 ```
 
-## 📄 License
+## Related Packages
 
-MIT
+ai-infra is part of the **nfrax** infrastructure suite:
+
+| Package | Purpose |
+|---------|---------|
+| **[ai-infra](https://github.com/nfraxio/ai-infra)** | AI/LLM infrastructure (agents, tools, RAG, MCP) |
+| **[svc-infra](https://github.com/nfraxio/svc-infra)** | Backend infrastructure (auth, billing, jobs, webhooks) |
+| **[fin-infra](https://github.com/nfraxio/fin-infra)** | Financial infrastructure (banking, portfolio, insights) |
+
+## License
+
+MIT License - use it for anything.
+
+---
+
+<div align="center">
+
+**Built by [nfraxio](https://github.com/nfraxio)**
+
+[Star us on GitHub](https://github.com/nfraxio/ai-infra) | [View on PyPI](https://pypi.org/project/ai-infra/)
+
+</div>
