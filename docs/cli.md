@@ -345,6 +345,110 @@ AI_INFRA_OUTPUT_FORMAT=text  # or "json"
 
 ---
 
+## MCP Commands
+
+Debug and test MCP servers from the command line.
+
+### `ai-infra mcp test`
+
+Test connection to an MCP server:
+
+```bash
+# HTTP transport
+ai-infra mcp test http://localhost:8000/mcp
+
+# Stdio transport  
+ai-infra mcp test --transport stdio --command npx --args "-y @modelcontextprotocol/server-filesystem /tmp"
+```
+
+Output:
+```
+╭─── MCP Server Test ────╮
+│ ✓ Connected successfully │
+│                          │
+│ Server: localhost:8000   │
+│ Transport: streamable_http │
+│ Tools: 12                │
+│ Prompts: 3               │
+│ Resources: 5             │
+╰──────────────────────────╯
+```
+
+### `ai-infra mcp tools`
+
+List available tools from an MCP server:
+
+```bash
+ai-infra mcp tools http://localhost:8000/mcp
+
+# With verbose output showing parameters
+ai-infra mcp tools http://localhost:8000/mcp --verbose
+
+# JSON output
+ai-infra mcp tools http://localhost:8000/mcp --json
+```
+
+### `ai-infra mcp prompts`
+
+List available prompts:
+
+```bash
+ai-infra mcp prompts http://localhost:8000/mcp
+```
+
+### `ai-infra mcp resources`
+
+List available resources:
+
+```bash
+ai-infra mcp resources http://localhost:8000/mcp
+```
+
+### `ai-infra mcp call`
+
+Call a tool on an MCP server:
+
+```bash
+# Call with JSON arguments
+ai-infra mcp call http://localhost:8000/mcp get_weather '{"city": "NYC"}'
+
+# With timeout
+ai-infra mcp call http://localhost:8000/mcp slow_tool '{}' --timeout 60
+```
+
+### `ai-infra mcp prompt`
+
+Get a prompt with arguments:
+
+```bash
+ai-infra mcp prompt http://localhost:8000/mcp code_review '{"language": "python"}'
+```
+
+### `ai-infra mcp resource`
+
+Fetch a resource:
+
+```bash
+# Display content
+ai-infra mcp resource http://localhost:8000/mcp file:///docs/readme.md
+
+# Save to file
+ai-infra mcp resource http://localhost:8000/mcp file:///data.json --output data.json
+```
+
+### `ai-infra mcp info`
+
+Get server information and capabilities:
+
+```bash
+ai-infra mcp info http://localhost:8000/mcp
+
+# JSON output
+ai-infra mcp info http://localhost:8000/mcp --json
+```
+
+---
+
 ## Configuration File
 
 Create `~/.ai-infra/config.yaml`:

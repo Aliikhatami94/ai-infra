@@ -192,6 +192,128 @@ print(prompt.messages)
 
 ---
 
+## Callbacks
+
+Track progress and log tool calls using callbacks:
+
+### Progress Callbacks
+
+```python
+from ai_infra.mcp import MCPClient, Callbacks, CallbackContext
+
+def on_tool_start(ctx: CallbackContext):
+    print(f"Starting: {ctx.tool_name}")
+
+def on_tool_end(ctx: CallbackContext):
+    print(f"Completed: {ctx.tool_name} in {ctx.duration_ms}ms")
+
+callbacks = Callbacks(
+    on_tool_start=on_tool_start,
+    on_tool_end=on_tool_end,
+)
+
+async with MCPClient(config, callbacks=callbacks) as client:
+    await client.call_tool("server", "my_tool", {"arg": "value"})
+```
+
+### Built-in Logging Callback
+
+```python
+from ai_infra.mcp import LoggingCallback
+
+callbacks = Callbacks(on_tool_start=LoggingCallback())
+```
+
+### Progress Callback
+
+```python
+from ai_infra.mcp import ProgressCallback
+
+# Get progress updates during long-running tools
+callbacks = Callbacks(on_progress=ProgressCallback())
+```
+
+---
+
+## Interceptors
+
+Intercept and modify tool calls for caching, retries, rate limiting:
+
+### Caching Interceptor
+
+```python
+from ai_infra.mcp import MCPClient, CachingInterceptor
+
+# Cache tool results for 5 minutes
+caching = CachingInterceptor(ttl_seconds=300)
+
+async with MCPClient(config, interceptors=[caching]) as client:
+    # First call hits the server
+    result1 = await client.call_tool("server", "expensive_tool", {"id": 1})
+
+    # Second call returns cached result
+    result2 = await client.call_tool("server", "expensive_tool", {"id": 1})
+```
+
+### Retry Interceptor
+
+```python
+from ai_infra.mcp import RetryInterceptor
+
+# Retry failed calls up to 3 times with exponential backoff
+retry = RetryInterceptor(max_retries=3, backoff_factor=2.0)
+
+async with MCPClient(config, interceptors=[retry]) as client:
+    result = await client.call_tool("server", "flaky_tool", {})
+```
+
+### Rate Limit Interceptor
+
+```python
+from ai_infra.mcp import RateLimitInterceptor
+
+# Limit to 10 calls per second
+rate_limit = RateLimitInterceptor(max_calls=10, period_seconds=1.0)
+
+async with MCPClient(config, interceptors=[rate_limit]) as client:
+    # Calls will be throttled to respect rate limit
+    for i in range(100):
+        await client.call_tool("server", "tool", {"i": i})
+```
+
+### Custom Interceptor
+
+```python
+from ai_infra.mcp import ToolCallInterceptor, MCPToolCallRequest
+
+class LoggingInterceptor(ToolCallInterceptor):
+    async def intercept(self, request: MCPToolCallRequest, call_next):
+        print(f"Calling: {request.tool_name}")
+        result = await call_next(request)
+        print(f"Result: {result}")
+        return result
+
+async with MCPClient(config, interceptors=[LoggingInterceptor()]) as client:
+    await client.call_tool("server", "tool", {})
+```
+
+### Chaining Interceptors
+
+```python
+# Interceptors are applied in order
+interceptors = [
+    RateLimitInterceptor(max_calls=10, period_seconds=1.0),
+    RetryInterceptor(max_retries=3),
+    CachingInterceptor(ttl_seconds=300),
+]
+
+async with MCPClient(config, interceptors=interceptors) as client:
+    # Rate limit → Retry → Cache → actual call
+    result = await client.call_tool("server", "tool", {})
+```
+
+---
+
 ## Error Handling
 
 ```python

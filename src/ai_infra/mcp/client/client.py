@@ -5,8 +5,9 @@ import difflib
 import traceback
 from contextlib import asynccontextmanager
 from dataclasses import asdict, is_dataclass
-from typing import Any, AsyncContextManager, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, AsyncContextManager, Dict, List, Optional
 
+from langchain_core.messages import BaseMessage
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain_mcp_adapters.sessions import SSEConnection, StdioConnection, StreamableHttpConnection
 from mcp import ClientSession, StdioServerParameters
@@ -15,8 +16,24 @@ from mcp.client.stdio import stdio_client
 from mcp.client.streamable_http import streamablehttp_client
 from pydantic import BaseModel
 
+from ai_infra.mcp.client.callbacks import CallbackContext, Callbacks
 from ai_infra.mcp.client.exceptions import MCPServerError, MCPTimeoutError, MCPToolError
+from ai_infra.mcp.client.interceptors import (
+    MCPToolCallRequest,
+    ToolCallInterceptor,
+    build_interceptor_chain,
+)
 from ai_infra.mcp.client.models import McpServerConfig
+from ai_infra.mcp.client.prompts import PromptInfo, list_mcp_prompts, load_mcp_prompt
+from ai_infra.mcp.client.resources import (
+    MCPResource,
+    ResourceInfo,
+    list_mcp_resources,
+    load_mcp_resources,
+)
+
+if TYPE_CHECKING:
+    from langchain_mcp_adapters.callbacks import Callbacks as LCCallbacks
 
 
 class MCPClient:
@@ -51,6 +68,10 @@ class MCPClient:
         self,
         config: List[dict] | List[McpServerConfig],
         *,
+        # Callbacks for progress and logging
+        callbacks: Callbacks | None = None,
+        # Interceptors for tool call lifecycle
+        interceptors: List[ToolCallInterceptor] | None = None,
         # Connection management
         auto_reconnect: bool = False,
         reconnect_delay: float = 1.0,
@@ -70,6 +91,12 @@ class MCPClient:
         self._by_name: Dict[str, McpServerConfig] = {}
         self._discovered: bool = False
         self._errors: List[Dict[str, Any]] = []
+
+        # Callbacks
+        self._callbacks = callbacks
+
+        # Interceptors
+        self._interceptors = interceptors
 
         # Connection management
         self._auto_reconnect = auto_reconnect
@@ -317,6 +344,55 @@ class MCPClient:
     def server_names(self) -> List[str]:
         return list(self._by_name.keys())
 
+    # ---------- callback conversion ----------
+
+    def _to_langchain_callbacks(self) -> "LCCallbacks | None":
+        """Convert ai-infra callbacks to langchain-mcp-adapters format."""
+        if self._callbacks is None:
+            return None
+
+        # Import here to avoid circular deps
+        from langchain_mcp_adapters.callbacks import CallbackContext as LCCallbackContext
+        from langchain_mcp_adapters.callbacks import Callbacks as LCCallbacks
+
+        _lc_on_progress = None
+        _lc_on_logging = None
+
+        if self._callbacks.on_progress is not None:
+            ai_on_progress = self._callbacks.on_progress
+
+            async def _progress_handler(
+                progress: float,
+                total: float | None,
+                message: str | None,
+                context: LCCallbackContext,
+            ) -> None:
+                # Convert LC context to our context
+                ai_context = CallbackContext(
+                    server_name=context.server_name,
+                    tool_name=context.tool_name,
+                )
+                await ai_on_progress(progress, total, message, ai_context)
+
+            _lc_on_progress = _progress_handler
+
+        if self._callbacks.on_logging is not None:
+            ai_on_logging = self._callbacks.on_logging
+
+            async def _logging_handler(params, context: LCCallbackContext) -> None:
+                ai_context = CallbackContext(
+                    server_name=context.server_name,
+                    tool_name=context.tool_name,
+                )
+                await ai_on_logging(params, ai_context)
+
+            _lc_on_logging = _logging_handler
+
+        return LCCallbacks(
+            on_progress=_lc_on_progress,
+            on_logging_message=_lc_on_logging,
+        )
+
     # ---------- public API ----------
 
     def get_client(self, server_name: str) -> AsyncContextManager[ClientSession]:
@@ -356,7 +432,10 @@ class MCPClient:
                 )
             else:
                 raise ValueError(f"Unknown transport: {cfg.transport}")
-        return MultiServerMCPClient(mapping)
+
+        # Pass callbacks to MultiServerMCPClient
+        lc_callbacks = self._to_langchain_callbacks()
+        return MultiServerMCPClient(mapping, callbacks=lc_callbacks)
 
     async def call_tool(
         self, server_name: str, tool_name: str, arguments: Dict[str, Any]
@@ -390,13 +469,38 @@ class MCPClient:
                 server_name=server_name,
             )
 
+        # Build the base handler that actually calls the tool
+        async def _base_handler(request: MCPToolCallRequest):
+            async with self.get_client(request.server_name) as session:
+                # Build progress callback if configured
+                progress_callback = None
+                if self._callbacks and self._callbacks.on_progress:
+                    ctx = CallbackContext(server_name=request.server_name, tool_name=request.name)
+                    mcp_callbacks = self._callbacks.to_mcp_format(ctx)
+                    progress_callback = mcp_callbacks.progress_callback
+
+                return await session.call_tool(
+                    request.name,
+                    arguments=request.args,
+                    progress_callback=progress_callback,
+                )
+
+        # Build interceptor chain
+        handler = build_interceptor_chain(_base_handler, self._interceptors)
+
+        # Create the request
+        request = MCPToolCallRequest(
+            name=tool_name,
+            args=arguments,
+            server_name=server_name,
+        )
+
         async def _do_call():
-            async with self.get_client(server_name) as session:
-                res = await session.call_tool(tool_name, arguments=arguments)
-                if getattr(res, "structuredContent", None):
-                    return {"structured": res.structuredContent}
-                texts = [c.text for c in (res.content or []) if hasattr(c, "text")]
-                return {"content": "\n".join(texts)}
+            res = await handler(request)
+            if getattr(res, "structuredContent", None):
+                return {"structured": res.structuredContent}
+            texts = [c.text for c in (res.content or []) if hasattr(c, "text")]
+            return {"content": "\n".join(texts)}
 
         try:
             if self._tool_timeout:
@@ -487,13 +591,238 @@ class MCPClient:
         self._health_status = results
         return results
 
-    async def list_resources(self, server_name: str):
-        ms_client = await self.list_clients()
-        return await ms_client.get_resources(server_name)
+    async def list_resources(self, server_name: str | None = None) -> Dict[str, List[ResourceInfo]]:
+        """
+        List available resources from MCP servers.
 
-    async def list_prompts(self, server_name: str, prompt_name: str):
-        ms_client = await self.list_clients()
-        return await ms_client.get_prompt(server_name, prompt_name)
+        Args:
+            server_name: If provided, only list resources from this server.
+                        If None, list resources from all servers.
+
+        Returns:
+            Dict mapping server names to lists of ResourceInfo objects.
+
+        Raises:
+            MCPServerError: If specified server is not found.
+
+        Example:
+            ```python
+            resources = await mcp.list_resources()
+            # {"my-server": [ResourceInfo(uri="file:///config.json", ...)]}
+
+            for server, resource_list in resources.items():
+                for r in resource_list:
+                    print(f"{server}: {r.uri} ({r.mime_type})")
+            ```
+        """
+        if not self._discovered:
+            await self.discover()
+
+        servers = [server_name] if server_name else self.server_names()
+
+        for name in servers:
+            if name not in self._by_name:
+                suggestions = difflib.get_close_matches(name, self.server_names(), n=3, cutoff=0.5)
+                suggest_msg = f" Did you mean: {', '.join(suggestions)}?" if suggestions else ""
+                raise MCPServerError(
+                    f"Unknown server '{name}'. Known: {', '.join(self.server_names())}.{suggest_msg}",
+                    server_name=name,
+                )
+
+        results: Dict[str, List[ResourceInfo]] = {}
+        for name in servers:
+            try:
+                async with self.get_client(name) as session:
+                    results[name] = await list_mcp_resources(session)
+            except Exception:
+                # Include server in results with empty list on error
+                results[name] = []
+
+        return results
+
+    async def get_resources(
+        self,
+        server_name: str,
+        *,
+        uris: str | List[str] | None = None,
+    ) -> List[MCPResource]:
+        """
+        Get resources from an MCP server.
+
+        Fetches the actual content of resources. If no URIs are specified,
+        fetches all available resources from the server.
+
+        Args:
+            server_name: Name of the server to get resources from.
+            uris: Optional URI(s) to fetch. Can be a single URI string,
+                a list of URIs, or None to fetch all resources.
+
+        Returns:
+            List of MCPResource objects with loaded content.
+
+        Raises:
+            MCPServerError: If the server is not found.
+            MCPToolError: If resource fetch fails.
+
+        Example:
+            ```python
+            # Get all resources
+            resources = await mcp.get_resources("my-server")
+
+            # Get specific resource
+            resources = await mcp.get_resources(
+                "my-server",
+                uris="file:///config.json",
+            )
+            for r in resources:
+                if r.is_text:
+                    print(r.data)
+                else:
+                    print(f"Binary: {r.size} bytes")
+            ```
+        """
+        if not self._discovered:
+            await self.discover()
+
+        if server_name not in self._by_name:
+            suggestions = difflib.get_close_matches(
+                server_name, self.server_names(), n=3, cutoff=0.5
+            )
+            suggest_msg = f" Did you mean: {', '.join(suggestions)}?" if suggestions else ""
+            raise MCPServerError(
+                f"Unknown server '{server_name}'. Known: {', '.join(self.server_names())}.{suggest_msg}",
+                server_name=server_name,
+            )
+
+        try:
+            async with self.get_client(server_name) as session:
+                return await load_mcp_resources(session, uris=uris)
+        except Exception as e:
+            if isinstance(e, MCPServerError):
+                raise
+            raise MCPToolError(
+                f"Failed to get resources: {e}",
+                tool_name="get_resources",
+                server_name=server_name,
+                details={"original_error": str(e), "uris": uris},
+            ) from e
+
+    async def list_prompts(self, server_name: str | None = None) -> Dict[str, List[PromptInfo]]:
+        """
+        List available prompts from MCP servers.
+
+        Args:
+            server_name: If provided, only list prompts from this server.
+                        If None, list prompts from all servers.
+
+        Returns:
+            Dict mapping server names to lists of PromptInfo objects.
+
+        Raises:
+            MCPServerError: If specified server is not found.
+
+        Example:
+            ```python
+            prompts = await mcp.list_prompts()
+            # {"my-server": [PromptInfo(name="code-review", ...)]}
+
+            for server, prompt_list in prompts.items():
+                for p in prompt_list:
+                    print(f"{server}/{p.name}: {p.description}")
+            ```
+        """
+        if not self._discovered:
+            await self.discover()
+
+        servers = [server_name] if server_name else self.server_names()
+
+        for name in servers:
+            if name not in self._by_name:
+                suggestions = difflib.get_close_matches(name, self.server_names(), n=3, cutoff=0.5)
+                suggest_msg = f" Did you mean: {', '.join(suggestions)}?" if suggestions else ""
+                raise MCPServerError(
+                    f"Unknown server '{name}'. Known: {', '.join(self.server_names())}.{suggest_msg}",
+                    server_name=name,
+                )
+
+        results: Dict[str, List[PromptInfo]] = {}
+        for name in servers:
+            try:
+                async with self.get_client(name) as session:
+                    results[name] = await list_mcp_prompts(session)
+            except Exception:
+                # Include server in results with empty list on error
+                results[name] = []
+
+        return results
+
+    async def get_prompt(
+        self,
+        server_name: str,
+        prompt_name: str,
+        *,
+        arguments: Dict[str, Any] | None = None,
+    ) -> List[BaseMessage]:
+        """
+        Get a prompt from an MCP server as LangChain messages.
+
+        Fetches the prompt template from the server, optionally substituting
+        arguments, and returns the result as a list of LangChain messages
+        ready for use with an LLM.
+
+        Args:
+            server_name: Name of the server to get the prompt from.
+            prompt_name: Name of the prompt to fetch.
+            arguments: Optional arguments to substitute into the prompt template.
+
+        Returns:
+            List of LangChain BaseMessage objects (HumanMessage, AIMessage, etc.).
+
+        Raises:
+            MCPServerError: If the server is not found.
+            MCPToolError: If the prompt fetch fails.
+
+        Example:
+            ```python
+            # Get a simple prompt
+            messages = await mcp.get_prompt("my-server", "greeting")
+
+            # Get a prompt with arguments
+            messages = await mcp.get_prompt(
+                "my-server",
+                "code-review",
+                arguments={"language": "python", "code": code_snippet},
+            )
+
+            # Use with LLM
+            response = await llm.ainvoke(messages)
+            ```
+        """
+        if not self._discovered:
+            await self.discover()
+
+        if server_name not in self._by_name:
+            suggestions = difflib.get_close_matches(
+                server_name, self.server_names(), n=3, cutoff=0.5
+            )
+            suggest_msg = f" Did you mean: {', '.join(suggestions)}?" if suggestions else ""
+            raise MCPServerError(
+                f"Unknown server '{server_name}'. Known: {', '.join(self.server_names())}.{suggest_msg}",
+                server_name=server_name,
+            )
+
+        try:
+            async with self.get_client(server_name) as session:
+                return await load_mcp_prompt(session, prompt_name, arguments=arguments)
+        except Exception as e:
+            if isinstance(e, MCPServerError):
+                raise
+            raise MCPToolError(
+                f"Failed to get prompt '{prompt_name}': {e}",
+                tool_name=prompt_name,
+                server_name=server_name,
+                details={"original_error": str(e)},
+            ) from e
 
     async def get_openmcp(
         self,

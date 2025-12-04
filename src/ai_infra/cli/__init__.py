@@ -8,6 +8,7 @@ from ai_infra.cli.cmds import (
     register_chat,
     register_discovery,
     register_imagegen,
+    register_mcp,
     register_multimodal,
     register_stdio_publisher,
 )
@@ -19,6 +20,7 @@ register_stdio_publisher(app)
 register_discovery(app)
 register_imagegen(app)
 register_multimodal(app)
+register_mcp(app)
 
 
 def main():

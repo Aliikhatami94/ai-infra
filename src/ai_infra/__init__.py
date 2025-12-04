@@ -53,7 +53,22 @@ from ai_infra.llm.personas import Persona
 from ai_infra.llm.providers import Providers
 from ai_infra.llm.tools.custom.retriever import create_retriever_tool, create_retriever_tool_async
 from ai_infra.logging import configure_logging, get_logger
-from ai_infra.mcp import MCPClient, MCPServer
+from ai_infra.mcp import CachingInterceptor
+from ai_infra.mcp import CallbackContext as MCPCallbackContext
+from ai_infra.mcp import (
+    Callbacks as MCPCallbacks,  # MCP Callbacks; MCP Interceptors; MCP Prompts & Resources
+)
+from ai_infra.mcp import (
+    MCPClient,
+    MCPResource,
+    MCPServer,
+    MCPToolCallRequest,
+    PromptInfo,
+    RateLimitInterceptor,
+    ResourceInfo,
+    RetryInterceptor,
+    ToolCallInterceptor,
+)
 from ai_infra.mcp.server.tools import mcp_from_functions
 
 # Provider Registry (Phase 4.11)
@@ -95,6 +110,17 @@ __all__ = [
     "MCPClient",
     "Providers",
     "mcp_from_functions",
+    # MCP Advanced Features (Phase 6.6)
+    "MCPCallbacks",
+    "MCPCallbackContext",
+    "ToolCallInterceptor",
+    "MCPToolCallRequest",
+    "CachingInterceptor",
+    "RetryInterceptor",
+    "RateLimitInterceptor",
+    "PromptInfo",
+    "MCPResource",
+    "ResourceInfo",
     # Provider Registry (Phase 4.11)
     "ProviderRegistry",
     "ProviderCapability",
