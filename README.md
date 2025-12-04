@@ -4,10 +4,7 @@
 
 ### Build AI applications in minutes, not months
 
-[![PyPI](https://img.shields.io/pypi/v/ai-infra.svg)](https://pypi.org/project/ai-infra/)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-[![Downloads](https://static.pepy.tech/badge/ai-infra/month)](https://pepy.tech/project/ai-infra)
+[![PyPI](https://img.shields.io/pypi/v/ai-infra.svg)](https://pypi.org/project/ai-infra/) [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/) [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT) [![Downloads](https://static.pepy.tech/badge/ai-infra/month)](https://pepy.tech/project/ai-infra)
 
 **One unified SDK for LLMs, agents, RAG, voice, images, and MCP—across 10+ providers.**
 
