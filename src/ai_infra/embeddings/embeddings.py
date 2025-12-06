@@ -435,7 +435,9 @@ class Embeddings:
         """
         available = []
         for provider, config in _PROVIDER_CONFIG.items():
-            if os.environ.get(config["env_key"]):
+            env_key = config["env_key"]
+            # Provider is available if it has no env_key (local) or if the env_key is set
+            if env_key is None or os.environ.get(env_key):
                 available.append(provider)
         return available
 

@@ -10,6 +10,8 @@ Run with: poetry run python scripts/test_unified_callbacks_live.py
 import asyncio
 from typing import List
 
+import pytest
+
 # Colors for console output
 GREEN = "\033[92m"
 RED = "\033[91m"
@@ -83,6 +85,7 @@ def test_1_llm_callbacks():
 # =============================================================================
 
 
+@pytest.mark.asyncio
 async def test_2_async_llm_callbacks():
     """Test that LLM fires async callback events during achat()."""
     section("Test 2: Async LLM Callbacks with achat()")
@@ -120,6 +123,7 @@ async def test_2_async_llm_callbacks():
 # =============================================================================
 
 
+@pytest.mark.asyncio
 async def test_3_streaming_callbacks():
     """Test that LLM fires token events during streaming."""
     section("Test 3: Streaming Callbacks with stream_tokens()")

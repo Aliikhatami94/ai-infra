@@ -310,6 +310,123 @@ except AIInfraError as e:
 
 ---
 
+## FastAPI Integration
+
+ai-infra provides a one-liner to add a chat endpoint to any FastAPI router.
+
+### Quick Start
+
+```python
+from fastapi import APIRouter
+from ai_infra import Agent, add_agent_endpoint
+
+# Create router and agent
+router = APIRouter()
+agent = Agent(tools=[...])
+
+# Add chat endpoint (that's it!)
+add_agent_endpoint(router, agent)
+
+# Mount router
+app.include_router(router)
+
+# Endpoint available at POST /chat
+```
+
+### Works with svc-infra Routers
+
+```python
+from svc_infra.api.fastapi.routers import public_router, user_router
+from ai_infra import Agent, add_agent_endpoint
+
+# Public endpoint (no auth)
+public_agent = Agent(tools=[public_tools])
+add_agent_endpoint(public_router, public_agent, path="/public/chat")
+
+# Protected endpoint (requires auth)
+user_agent = Agent(tools=[user_tools])
+add_agent_endpoint(user_router, user_agent, path="/user/chat")
+```
+
+### Custom Request/Response Models
+
+```python
+from ai_infra.fastapi import ChatRequest, ChatResponse, add_agent_endpoint
+
+# Extend base models
+class MyRequest(ChatRequest):
+    tenant_id: str
+    session_id: str
+
+class MyResponse(ChatResponse):
+    session_id: str
+    credits_used: int
+
+# Use custom models
+add_agent_endpoint(
+    router,
+    agent,
+    request_model=MyRequest,
+    response_model=MyResponse,
+)
+```
+
+### Dynamic Agent per Request
+
+```python
+from fastapi import Depends
+
+def get_user_agent(user_id: str = Depends(get_current_user)):
+    # Create agent with user-specific tools
+    return Agent(tools=get_user_tools(user_id))
+
+add_agent_endpoint(
+    router,
+    agent=None,
+    get_agent=get_user_agent,
+)
+```
+
+### Streaming
+
+The endpoint automatically supports SSE streaming when `stream: true`:
+
+```python
+# Client-side
+const response = await fetch('/chat', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({message: "Hi", stream: true}),
+});
+
+const reader = response.body.getReader();
+while (true) {
+    const {done, value} = await reader.read();
+    if (done) break;
+
+    const text = new TextDecoder().decode(value);
+    // Parse SSE events: content_delta, tool_start, tool_end, done
+}
+```
+
+### What's Handled for You
+
+- ✅ SSE streaming with visibility levels
+- ✅ Non-streaming responses
+- ✅ Request validation (Pydantic)
+- ✅ Agent execution (sync + async)
+- ✅ Tool call events
+- ✅ Error handling
+
+### What's YOUR Responsibility
+
+- ⚠️ Auth (use FastAPI dependencies)
+- ⚠️ Rate limiting (use middleware or svc-infra)
+- ⚠️ Logging (use callbacks or middleware)
+- ⚠️ Database (inject via dependencies)
+
+---
+
 ## See Also
 
 - [LLM](llm.md) - Chat without tools

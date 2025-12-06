@@ -28,10 +28,13 @@ class TestEmbeddingsProviders:
         assert "anthropic" in providers
 
     def test_list_configured_providers_empty(self) -> None:
-        """Test no providers configured."""
+        """Test providers when no API keys set - huggingface is always available."""
         with patch.dict("os.environ", {}, clear=True):
             providers = Embeddings.list_configured_providers()
-            assert providers == []
+            # huggingface (and its aliases) are always available as free local fallback
+            assert "huggingface" in providers
+            assert "local" in providers  # alias for huggingface
+            assert "sentence-transformers" in providers  # alias for huggingface
 
     def test_list_configured_providers_with_key(self) -> None:
         """Test with API key set."""
@@ -45,10 +48,11 @@ class TestEmbeddingsProviders:
             Embeddings(provider="invalid")
 
     def test_no_provider_available(self) -> None:
-        """Test error when no provider configured."""
+        """Test fallback to huggingface when no API keys set."""
         with patch.dict("os.environ", {}, clear=True):
-            with pytest.raises(ValueError, match="No embedding provider available"):
-                Embeddings()
+            # Should not raise - huggingface is always available as free fallback
+            embeddings = Embeddings()
+            assert embeddings.provider == "huggingface"
 
 
 class TestEmbeddingsWithMock:

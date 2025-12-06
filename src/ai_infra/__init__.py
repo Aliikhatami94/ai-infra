@@ -39,6 +39,9 @@ from ai_infra.errors import (
     ProviderError,
     ValidationError,
 )
+
+# FastAPI Integration
+from ai_infra.fastapi import ChatRequest, ChatResponse, add_agent_endpoint
 from ai_infra.graph import Graph
 from ai_infra.imagegen import GeneratedImage, ImageGen, ImageGenProvider
 from ai_infra.llm import (  # Realtime Voice API
@@ -101,6 +104,9 @@ from ai_infra.providers import (
 )
 from ai_infra.replay import MemoryStorage, SQLiteStorage, WorkflowRecorder, replay
 from ai_infra.retriever import Retriever
+
+# Streaming
+from ai_infra.streaming import SSECallbacks, SSEEvent, VisibilityLevel
 from ai_infra.tools import (
     ProgressEvent,
     ProgressStream,
@@ -238,4 +244,12 @@ __all__ = [
     "count_tokens_approximate",
     "MemoryStore",
     "MemoryItem",
+    # Phase 6.8 - FastAPI Integration
+    "add_agent_endpoint",
+    "ChatRequest",
+    "ChatResponse",
+    # Phase 6.8 - Streaming
+    "SSECallbacks",
+    "SSEEvent",
+    "VisibilityLevel",
 ]
