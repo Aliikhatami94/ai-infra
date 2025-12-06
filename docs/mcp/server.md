@@ -52,6 +52,45 @@ server = MCPServer(
 
 ---
 
+## Security
+
+**Security is automatic!** ai-infra auto-detects your deployment environment and configures appropriate security settings. Works with Railway, Render, Fly.io, Heroku, Vercel, and more.
+
+### Auto-detection (Recommended)
+
+```python
+from ai_infra import mcp_from_functions
+
+# Security auto-configured - works in dev and production
+mcp = mcp_from_functions(name="my-mcp", functions=[my_tool])
+```
+
+### Disable Security (Dev Only)
+
+```python
+from ai_infra import MCPSecuritySettings, mcp_from_functions
+
+mcp = mcp_from_functions(
+    name="my-mcp",
+    functions=[my_tool],
+    security=MCPSecuritySettings(enable_security=False)
+)
+```
+
+### Custom Domains
+
+```python
+from ai_infra import MCPSecuritySettings, mcp_from_functions
+
+mcp = mcp_from_functions(
+    name="my-mcp",
+    functions=[my_tool],
+    security=MCPSecuritySettings(domains=["api.example.com", "example.com"])
+)
+```
+
+---
+
 ## Adding Tools
 
 ### From Functions

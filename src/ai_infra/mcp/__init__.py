@@ -31,13 +31,14 @@ from ai_infra.mcp.client.resources import (
     list_mcp_resources,
     load_mcp_resources,
 )
-from ai_infra.mcp.server import MCPServer
+from ai_infra.mcp.server import MCPSecuritySettings, MCPServer
 from ai_infra.mcp.server.openapi import load_openapi, load_spec
 from ai_infra.mcp.server.tools import mcp_from_functions
 
 __all__ = [
     # Server
     "MCPServer",
+    "MCPSecuritySettings",
     # Client
     "MCPClient",
     "McpServerConfig",

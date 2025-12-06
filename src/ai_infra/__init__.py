@@ -77,6 +77,7 @@ from ai_infra.mcp import (
     CachingInterceptor,
     MCPClient,
     MCPResource,
+    MCPSecuritySettings,
     MCPServer,
     MCPToolCallRequest,
     PromptInfo,
@@ -126,6 +127,9 @@ __all__ = [
     "MCPClient",
     "Providers",
     "mcp_from_functions",
+    # MCP Security Settings
+    "MCPSecuritySettings",
+    "TransportSecuritySettings",
     # MCP Advanced Features (Phase 6.6)
     "ToolCallInterceptor",
     "MCPToolCallRequest",
