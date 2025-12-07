@@ -1170,6 +1170,14 @@ class Agent(BaseLLM):
                             if cfg.include_tool_events and should_emit_event(
                                 "tool_start", eff_visibility
                             ):
+                                # Debug: Log what we're emitting
+                                import logging
+
+                                logger = logging.getLogger(__name__)
+                                logger.info(
+                                    f"🔧 Emitting tool_start: tool={acc_name}, visibility={eff_visibility}, has_args={tc_args is not None}, args={tc_args}"
+                                )
+
                                 event = StreamEvent(
                                     type="tool_start",
                                     tool=acc_name,
@@ -1187,20 +1195,16 @@ class Agent(BaseLLM):
                             # Args still incomplete - keep accumulating
                             pass
                     elif not args_str:
-                        # Tool with no args - emit immediately
-                        if cfg.include_tool_events and should_emit_event(
-                            "tool_start", eff_visibility
-                        ):
-                            event = StreamEvent(
-                                type="tool_start",
-                                tool=acc_name,
-                                tool_id=acc_id,
-                            )
-                            yield filter_event_for_visibility(event, eff_visibility)
+                        # Args not yet complete - DON'T emit tool_start yet
+                        # Wait for fully-formed tool_calls which have complete arguments
+                        # This prevents emitting tool_start with null arguments
+                        import logging
 
-                        emitted_tool_starts.add(acc_id)
-                        pending_tool_calls[acc_id] = time_module.time()
-                        tools_called += 1
+                        logger = logging.getLogger(__name__)
+                        logger.debug(
+                            f"🔄 Tool {acc_name} has empty args_str - waiting for complete tool_calls"
+                        )
+                        pass
 
                 # Also handle fully-formed tool_calls
                 for tc in tool_calls:
@@ -1213,8 +1217,12 @@ class Agent(BaseLLM):
                         tc_name = getattr(tc, "name", "unknown")
                         tc_args = getattr(tc, "args", {})
 
-                    # Skip if no name or already emitted
+                    # Skip if no name, no args (incomplete chunk), or already emitted
+                    # Empty args {} means LLM hasn't streamed the arguments yet
                     if not tc_name or tc_name == "unknown" or tc_id in emitted_tool_starts:
+                        continue
+                    if not tc_args or (isinstance(tc_args, dict) and len(tc_args) == 0):
+                        # Skip incomplete tool calls with empty args (streaming in progress)
                         continue
 
                     # Parse args if string
