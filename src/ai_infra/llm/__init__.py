@@ -5,6 +5,15 @@ from ai_infra.llm.agent import (
     SubAgent,
     SubAgentMiddleware,
 )
+
+# Phase 6.8 - Streaming
+from ai_infra.llm.auth import (
+    PROVIDER_ENV_VARS,
+    add_provider_mapping,
+    atemporary_api_key,
+    get_provider_env_var,
+    temporary_api_key,
+)
 from ai_infra.llm.base import BaseLLM
 from ai_infra.llm.defaults import MODEL, PROVIDER
 from ai_infra.llm.llm import LLM
@@ -48,6 +57,12 @@ from ai_infra.llm.session import (
     memory,
     postgres,
     sqlite,
+)
+from ai_infra.llm.streaming import (
+    StreamConfig,
+    StreamEvent,
+    filter_event_for_visibility,
+    should_emit_event,
 )
 from ai_infra.llm.tools import (
     ApprovalEvent,
@@ -155,4 +170,15 @@ __all__ = [
     "count_tokens_approximate",
     "MemoryStore",
     "MemoryItem",
+    # Phase 6.8 - Streaming
+    "StreamEvent",
+    "StreamConfig",
+    "should_emit_event",
+    "filter_event_for_visibility",
+    # Phase 6.8 - Auth helpers
+    "temporary_api_key",
+    "atemporary_api_key",
+    "add_provider_mapping",
+    "get_provider_env_var",
+    "PROVIDER_ENV_VARS",
 ]

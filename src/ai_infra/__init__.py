@@ -59,6 +59,9 @@ from ai_infra.llm import (  # Realtime Voice API
     workspace,
 )
 
+# Phase 6.8 - Streaming
+from ai_infra.llm.auth import atemporary_api_key, temporary_api_key
+
 # Phase 6.4 - Memory Management
 # Phase 6.5 - Unified Context Management
 from ai_infra.llm.memory import (
@@ -71,6 +74,7 @@ from ai_infra.llm.memory import (
 )
 from ai_infra.llm.personas import Persona
 from ai_infra.llm.providers import Providers
+from ai_infra.llm.streaming import StreamConfig, StreamEvent
 from ai_infra.llm.tools.custom.retriever import create_retriever_tool, create_retriever_tool_async
 from ai_infra.logging import configure_logging, get_logger
 from ai_infra.mcp import (
@@ -85,6 +89,8 @@ from ai_infra.mcp import (
     ResourceInfo,
     RetryInterceptor,
     ToolCallInterceptor,
+    clear_mcp_cache,
+    load_mcp_tools_cached,
 )
 from ai_infra.mcp.server.tools import mcp_from_functions
 
@@ -238,4 +244,13 @@ __all__ = [
     "count_tokens_approximate",
     "MemoryStore",
     "MemoryItem",
+    # Phase 6.8 - Streaming
+    "StreamEvent",
+    "StreamConfig",
+    # Phase 6.8 - Auth helpers
+    "temporary_api_key",
+    "atemporary_api_key",
+    # Phase 6.8 - MCP tool loading
+    "load_mcp_tools_cached",
+    "clear_mcp_cache",
 ]

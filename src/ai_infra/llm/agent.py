@@ -27,6 +27,7 @@ from typing import (
 
 if TYPE_CHECKING:
     from ai_infra.callbacks import CallbackManager, Callbacks
+    from ai_infra.llm.streaming import StreamConfig
     from ai_infra.llm.workspace import Workspace
 
 from ai_infra.llm.base import BaseLLM
@@ -990,6 +991,308 @@ class Agent(BaseLLM):
 
         # Extract text content from result (legacy behavior)
         return self._extract_text_content(result)
+
+    async def astream(
+        self,
+        prompt: str,
+        *,
+        provider: Optional[str] = None,
+        model_name: Optional[str] = None,
+        tools: Optional[List[Any]] = None,
+        system: Optional[str] = None,
+        visibility: Literal["minimal", "standard", "detailed", "debug"] = "standard",
+        stream_mode: Union[str, List[str]] = "messages",
+        config: Optional[Dict[str, Any]] = None,
+        stream_config: Optional["StreamConfig"] = None,
+        **model_kwargs,
+    ):
+        """Stream agent responses as normalized, typed events.
+
+        This is the recommended way to stream agent responses in applications.
+        Unlike astream_agent_tokens() which yields raw LangChain message chunks,
+        this method yields clean StreamEvent objects ready for any framework.
+
+        Args:
+            prompt: User message/prompt
+            provider: LLM provider (uses default if None)
+            model_name: Model name (uses default if None)
+            tools: Override tools (uses global tools if None)
+            system: System prompt
+
+            visibility: Event detail level
+                - "minimal": Only response tokens
+                - "standard": + tool names and timing (default)
+                - "detailed": + tool arguments
+                - "debug": + tool result previews
+
+            stream_mode: LangGraph stream mode(s) - passed through to underlying graph
+                Supports: "messages", "values", "updates", "custom", "debug"
+
+            config: Full LangGraph RunnableConfig for advanced use cases
+                - config["configurable"]["thread_id"] for persistence
+                - config["tags"] for tracing
+                - Any other LangGraph config options
+
+            stream_config: Advanced streaming configuration (StreamConfig)
+            **model_kwargs: Passed through to LLM (temperature, max_tokens, etc.)
+
+        Yields:
+            StreamEvent objects with typed data
+
+        Example - Basic usage:
+            ```python
+            agent = Agent(tools=[search_docs])
+
+            async for event in agent.astream("What is the refund policy?"):
+                if event.type == "token":
+                    print(event.content, end="", flush=True)
+            ```
+
+        Example - With visibility:
+            ```python
+            async for event in agent.astream(
+                "Search for authentication docs",
+                visibility="detailed",  # Include tool arguments
+            ):
+                if event.type == "tool_start":
+                    print(f"Calling {event.tool} with {event.arguments}")
+            ```
+
+        Example - FastAPI SSE endpoint:
+            ```python
+            @app.post("/chat")
+            async def chat(message: str):
+                async def generate():
+                    async for event in agent.astream(message):
+                        yield f"data: {json.dumps(event.to_dict())}\\n\\n"
+                return StreamingResponse(generate(), media_type="text/event-stream")
+            ```
+        """
+        import json
+        import time as time_module
+
+        from langchain_core.messages import AIMessageChunk, ToolMessage
+
+        from ai_infra.llm.streaming import (
+            StreamConfig,
+            StreamEvent,
+            filter_event_for_visibility,
+            should_emit_event,
+        )
+
+        # Use stream_config or create default
+        cfg = stream_config or StreamConfig(visibility=visibility)
+        eff_visibility = cfg.visibility
+
+        # Resolve provider and model
+        eff_provider = provider or self._default_provider
+        eff_model = model_name or self._default_model_name
+        eff_provider, eff_model = self._resolve_provider_and_model(eff_provider, eff_model)
+
+        # Merge model kwargs
+        eff_kwargs = {**self._default_model_kwargs, **model_kwargs}
+
+        # Build messages
+        messages: List[Dict[str, Any]] = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+
+        # State for tool call accumulation
+        pending_tool_calls: Dict[str, float] = {}  # tool_call_id -> start_time
+        emitted_tool_starts: set = set()  # Track which tool_starts we've already emitted
+        accumulating_tool_calls: Dict[int, Dict[str, Any]] = {}  # index -> {id, name, args_str}
+        tools_called = 0
+
+        # Emit "thinking" event at start
+        if cfg.include_thinking and should_emit_event("thinking", eff_visibility):
+            yield StreamEvent(type="thinking", model=eff_model)
+
+        # Stream tokens
+        async for token, meta in self.astream_agent_tokens(
+            messages=messages,
+            provider=eff_provider,
+            model_name=eff_model,
+            tools=tools,
+            model_kwargs=eff_kwargs,
+            config=config,
+        ):
+            # Process AIMessageChunk for tool calls
+            if isinstance(token, AIMessageChunk):
+                tool_call_chunks = getattr(token, "tool_call_chunks", []) or []
+                tool_calls = getattr(token, "tool_calls", []) or []
+
+                # Process tool_call_chunks - accumulate args until complete
+                for tc in tool_call_chunks:
+                    if isinstance(tc, dict):
+                        tc_index = tc.get("index", 0)
+                        tc_id = tc.get("id", "")
+                        tc_name = tc.get("name", "")
+                        tc_args_chunk = tc.get("args", "")
+                    else:
+                        tc_index = getattr(tc, "index", 0)
+                        tc_id = getattr(tc, "id", "")
+                        tc_name = getattr(tc, "name", "")
+                        tc_args_chunk = getattr(tc, "args", "")
+
+                    # Initialize accumulator for this tool call index
+                    if tc_index not in accumulating_tool_calls:
+                        accumulating_tool_calls[tc_index] = {
+                            "id": tc_id or "",
+                            "name": tc_name or "",
+                            "args_str": "",
+                        }
+
+                    # Accumulate data
+                    acc = accumulating_tool_calls[tc_index]
+                    if tc_id:
+                        acc["id"] = tc_id
+                    if tc_name:
+                        acc["name"] = tc_name
+                    if tc_args_chunk:
+                        acc["args_str"] += tc_args_chunk
+
+                    # Try to emit tool_start when complete
+                    acc_id = acc["id"] or acc["name"] or str(tc_index)
+                    acc_name = acc["name"]
+                    args_str = acc["args_str"]
+
+                    # Skip if no name yet or already emitted
+                    if not acc_name or acc_id in emitted_tool_starts:
+                        continue
+
+                    # Try to parse args as JSON
+                    tc_args: Optional[Dict[str, Any]] = None
+                    if args_str.strip():
+                        try:
+                            tc_args = json.loads(args_str)
+                            # Successfully parsed - emit tool_start
+                            if cfg.include_tool_events and should_emit_event(
+                                "tool_start", eff_visibility
+                            ):
+                                event = StreamEvent(
+                                    type="tool_start",
+                                    tool=acc_name,
+                                    tool_id=acc_id,
+                                    arguments=(
+                                        tc_args if eff_visibility in ("detailed", "debug") else None
+                                    ),
+                                )
+                                yield filter_event_for_visibility(event, eff_visibility)
+
+                            emitted_tool_starts.add(acc_id)
+                            pending_tool_calls[acc_id] = time_module.time()
+                            tools_called += 1
+                        except json.JSONDecodeError:
+                            # Args still incomplete - keep accumulating
+                            pass
+                    elif not args_str:
+                        # Tool with no args - emit immediately
+                        if cfg.include_tool_events and should_emit_event(
+                            "tool_start", eff_visibility
+                        ):
+                            event = StreamEvent(
+                                type="tool_start",
+                                tool=acc_name,
+                                tool_id=acc_id,
+                            )
+                            yield filter_event_for_visibility(event, eff_visibility)
+
+                        emitted_tool_starts.add(acc_id)
+                        pending_tool_calls[acc_id] = time_module.time()
+                        tools_called += 1
+
+                # Also handle fully-formed tool_calls
+                for tc in tool_calls:
+                    if isinstance(tc, dict):
+                        tc_id = tc.get("id") or tc.get("name", "")
+                        tc_name = tc.get("name", "unknown")
+                        tc_args = tc.get("args", {})
+                    else:
+                        tc_id = getattr(tc, "id", "") or getattr(tc, "name", "")
+                        tc_name = getattr(tc, "name", "unknown")
+                        tc_args = getattr(tc, "args", {})
+
+                    # Skip if no name or already emitted
+                    if not tc_name or tc_name == "unknown" or tc_id in emitted_tool_starts:
+                        continue
+
+                    # Parse args if string
+                    if isinstance(tc_args, str) and tc_args.strip():
+                        try:
+                            tc_args = json.loads(tc_args)
+                        except json.JSONDecodeError:
+                            tc_args = {}
+                    elif not isinstance(tc_args, dict):
+                        tc_args = {}
+
+                    if cfg.include_tool_events and should_emit_event("tool_start", eff_visibility):
+                        event = StreamEvent(
+                            type="tool_start",
+                            tool=tc_name,
+                            tool_id=tc_id,
+                            arguments=tc_args if eff_visibility in ("detailed", "debug") else None,
+                        )
+                        yield filter_event_for_visibility(event, eff_visibility)
+
+                    emitted_tool_starts.add(tc_id)
+                    pending_tool_calls[tc_id] = time_module.time()
+                    tools_called += 1
+
+            # Handle tool results (ToolMessage)
+            if isinstance(token, ToolMessage):
+                tc_id = getattr(token, "tool_call_id", "")
+                tc_name = getattr(token, "name", "tool")
+
+                # Calculate latency
+                start_time = pending_tool_calls.pop(tc_id, time_module.time())
+                latency_ms = (time_module.time() - start_time) * 1000
+
+                # Clear the accumulator for this tool's index
+                idx_to_remove = None
+                for idx, acc in accumulating_tool_calls.items():
+                    if acc.get("id") == tc_id:
+                        idx_to_remove = idx
+                        break
+                if idx_to_remove is not None:
+                    del accumulating_tool_calls[idx_to_remove]
+
+                # Emit tool_end
+                if cfg.include_tool_events and should_emit_event("tool_end", eff_visibility):
+                    preview = None
+                    if eff_visibility == "debug":
+                        result_str = str(token.content)
+                        if len(result_str) > cfg.tool_result_preview_length:
+                            preview = result_str[: cfg.tool_result_preview_length] + "..."
+                        else:
+                            preview = result_str
+
+                    event = StreamEvent(
+                        type="tool_end",
+                        tool=tc_name,
+                        tool_id=tc_id,
+                        latency_ms=round(latency_ms, 1),
+                        preview=preview,
+                    )
+                    yield filter_event_for_visibility(event, eff_visibility)
+
+                continue
+
+            # Stream AI response content as token events
+            content = None
+            if isinstance(token, AIMessageChunk) and token.content:
+                content = token.content
+            elif hasattr(token, "content") and token.content:
+                content = token.content
+            elif isinstance(token, str) and token:
+                content = token
+
+            if content and should_emit_event("token", eff_visibility):
+                yield StreamEvent(type="token", content=content)
+
+        # Emit done event
+        if should_emit_event("done", eff_visibility):
+            yield StreamEvent(type="done", tools_called=tools_called)
 
     def resume(
         self,

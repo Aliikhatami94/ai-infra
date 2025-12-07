@@ -35,6 +35,15 @@ from ai_infra.mcp.server import MCPSecuritySettings, MCPServer
 from ai_infra.mcp.server.openapi import load_openapi, load_spec
 from ai_infra.mcp.server.tools import mcp_from_functions
 
+# Phase 6.8 - Tool loading helpers
+from ai_infra.mcp.tools import (
+    clear_mcp_cache,
+    get_cache_stats,
+    get_cached_tools,
+    is_cached,
+    load_mcp_tools_cached,
+)
+
 __all__ = [
     # Server
     "MCPServer",
@@ -73,4 +82,10 @@ __all__ = [
     "load_openapi",
     "load_spec",
     "mcp_from_functions",
+    # Phase 6.8 - Tool loading helpers
+    "load_mcp_tools_cached",
+    "clear_mcp_cache",
+    "get_cached_tools",
+    "is_cached",
+    "get_cache_stats",
 ]

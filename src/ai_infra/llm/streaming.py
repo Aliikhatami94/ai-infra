@@ -1,0 +1,226 @@
+"""Streaming utilities for Agent.astream().
+
+This module provides typed streaming events and configuration for
+normalized agent streaming. Apps receive clean, typed events instead
+of raw LangChain message chunks.
+
+Example:
+    from ai_infra import Agent
+
+    agent = Agent(tools=[search_docs])
+    async for event in agent.astream("What is the refund policy?"):
+        if event.type == "token":
+            print(event.content, end="", flush=True)
+"""
+
+from __future__ import annotations
+
+import time
+from dataclasses import dataclass, field, replace
+from typing import Any, Dict, Literal, Optional
+
+
+@dataclass
+class StreamEvent:
+    """Typed streaming event from Agent.astream().
+
+    Framework-agnostic - apps decide how to serialize (SSE, WebSocket, etc.)
+
+    Event types:
+        - thinking: Agent started processing (emitted once at start)
+        - token: Text content chunk from the LLM response
+        - tool_start: Tool execution started (name, arguments based on visibility)
+        - tool_end: Tool execution completed (with timing, optional preview)
+        - done: Streaming completed (with summary stats)
+        - error: Error occurred during streaming
+
+    Attributes:
+        type: Event type identifier
+        content: Token content (for "token" events)
+        tool: Tool name (for "tool_start", "tool_end" events)
+        tool_id: Tool call ID for correlation
+        arguments: Tool arguments dict (visibility=detailed+)
+        preview: Tool result preview (visibility=debug only)
+        latency_ms: Tool execution time in milliseconds
+        model: Model name (for "thinking" event)
+        tools_called: Total tools called (for "done" event)
+        error: Error message (for "error" event)
+        timestamp: Event timestamp (Unix epoch)
+
+    Example:
+        # Token event
+        StreamEvent(type="token", content="Hello")
+
+        # Tool start event
+        StreamEvent(type="tool_start", tool="search_docs", tool_id="call_abc123")
+
+        # Done event
+        StreamEvent(type="done", tools_called=2)
+    """
+
+    type: Literal["thinking", "token", "tool_start", "tool_end", "done", "error"]
+
+    # Type-specific data
+    content: Optional[str] = None  # token content
+    tool: Optional[str] = None  # tool name
+    tool_id: Optional[str] = None  # tool call ID
+    arguments: Optional[Dict[str, Any]] = None  # tool arguments (detailed+)
+    preview: Optional[str] = None  # result preview (debug only)
+    latency_ms: Optional[float] = None  # tool execution time
+    model: Optional[str] = None  # model name (thinking event)
+    tools_called: Optional[int] = None  # total tools (done event)
+    error: Optional[str] = None  # error message
+
+    # Metadata
+    timestamp: float = field(default_factory=time.time)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dict for serialization (excludes None values).
+
+        Returns:
+            Dict with type and all non-None fields.
+
+        Example:
+            event = StreamEvent(type="token", content="Hello")
+            event.to_dict()  # {"type": "token", "content": "Hello"}
+        """
+        d: Dict[str, Any] = {"type": self.type}
+        for field_name in [
+            "content",
+            "tool",
+            "tool_id",
+            "arguments",
+            "preview",
+            "latency_ms",
+            "model",
+            "tools_called",
+            "error",
+        ]:
+            val = getattr(self, field_name)
+            if val is not None:
+                d[field_name] = val
+        return d
+
+    def __repr__(self) -> str:
+        """Compact representation for debugging."""
+        parts = [f"type={self.type!r}"]
+        if self.content is not None:
+            # Truncate long content
+            content = self.content[:50] + "..." if len(self.content) > 50 else self.content
+            parts.append(f"content={content!r}")
+        if self.tool is not None:
+            parts.append(f"tool={self.tool!r}")
+        if self.error is not None:
+            parts.append(f"error={self.error!r}")
+        return f"StreamEvent({', '.join(parts)})"
+
+
+@dataclass
+class StreamConfig:
+    """Configuration for Agent.astream() behavior.
+
+    Most users won't need this - use direct parameters on astream() instead.
+    This is for advanced customization scenarios.
+
+    Attributes:
+        visibility: Event detail level (minimal/standard/detailed/debug)
+        include_thinking: Whether to emit "thinking" event at start
+        include_tool_events: Whether to emit tool_start/tool_end events
+        tool_result_preview_length: Max chars for tool result preview (debug)
+        deduplicate_tool_starts: Prevent duplicate tool_start for same call
+
+    Example:
+        # Custom config for debugging
+        config = StreamConfig(
+            visibility="debug",
+            tool_result_preview_length=1000,
+        )
+        async for event in agent.astream(prompt, stream_config=config):
+            ...
+    """
+
+    # Visibility level (controls what events/data are emitted)
+    visibility: Literal["minimal", "standard", "detailed", "debug"] = "standard"
+
+    # Event filtering
+    include_thinking: bool = True
+    include_tool_events: bool = True
+
+    # Tool handling
+    tool_result_preview_length: int = 500
+    deduplicate_tool_starts: bool = True
+
+
+# Visibility level numeric values for comparison
+_VISIBILITY_LEVELS: Dict[str, int] = {
+    "minimal": 0,
+    "standard": 1,
+    "detailed": 2,
+    "debug": 3,
+}
+
+# Minimum visibility required for each event type
+_EVENT_VISIBILITY_REQUIREMENTS: Dict[str, int] = {
+    "token": 0,  # Always emit tokens
+    "thinking": 1,  # standard+
+    "tool_start": 1,  # standard+
+    "tool_end": 1,  # standard+
+    "done": 1,  # standard+
+    "error": 0,  # Always emit errors
+}
+
+
+def should_emit_event(event_type: str, visibility: str) -> bool:
+    """Determine if event should be emitted based on visibility level.
+
+    Args:
+        event_type: The event type to check
+        visibility: Current visibility setting
+
+    Returns:
+        True if event should be emitted
+    """
+    level = _VISIBILITY_LEVELS.get(visibility, 1)
+    required = _EVENT_VISIBILITY_REQUIREMENTS.get(event_type, 0)
+    return level >= required
+
+
+def filter_event_for_visibility(event: StreamEvent, visibility: str) -> StreamEvent:
+    """Filter event data based on visibility level.
+
+    Removes sensitive or verbose data that shouldn't be exposed at the
+    current visibility level.
+
+    Args:
+        event: The event to filter
+        visibility: Current visibility setting
+
+    Returns:
+        Filtered event (may be the same instance if no changes needed)
+    """
+    if visibility == "minimal":
+        # minimal: tokens and errors only, already filtered by should_emit_event
+        return event
+
+    if visibility == "standard":
+        # standard: Remove tool arguments from tool_start
+        if event.type == "tool_start" and event.arguments is not None:
+            return replace(event, arguments=None)
+        return event
+
+    if visibility == "detailed":
+        # detailed: Include arguments, exclude result preview
+        if event.type == "tool_end" and event.preview is not None:
+            return replace(event, preview=None)
+        return event
+
+    # debug: include everything
+    return event
+
+
+__all__ = [
+    "StreamEvent",
+    "StreamConfig",
+    "should_emit_event",
+    "filter_event_for_visibility",
+]

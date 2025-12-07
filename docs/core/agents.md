@@ -93,6 +93,74 @@ asyncio.run(main())
 
 ---
 
+## Streaming Responses
+
+Use `agent.astream()` to stream typed `StreamEvent` objects.
+
+### Basic Usage
+
+```python
+from ai_infra import Agent
+
+agent = Agent(tools=[search_docs])
+async for event in agent.astream("What is the refund policy?"):
+    if event.type == "token":
+        print(event.content, end="", flush=True)
+```
+
+### Visibility Levels
+
+- `minimal`: tokens only
+- `standard`: tokens + tool names (default)
+- `detailed`: include tool arguments
+- `debug`: include tool result previews
+
+```python
+async for event in agent.astream("Search docs", visibility="detailed"):
+    if event.type == "tool_start":
+        print(f"Calling {event.tool} with {event.arguments}")
+```
+
+### With LangGraph Config
+
+Pass LangGraph config for persistence and tracing:
+
+```python
+config = {
+    "configurable": {"thread_id": "user-123"},
+    "tags": ["production"],
+}
+
+async for event in agent.astream("Continue", config=config):
+    ...
+```
+
+### Framework Examples
+
+FastAPI SSE:
+
+```python
+@app.post("/chat")
+async def chat(req: ChatRequest):
+    async def generate():
+        async for event in agent.astream(req.message, visibility=req.visibility):
+            yield f"data: {event.to_dict()}\n\n"
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
+```
+
+WebSocket:
+
+```python
+@router.websocket("/chat")
+async def chat_ws(ws: WebSocket):
+    await ws.accept()
+    async for event in agent.astream("Hello"):
+        await ws.send_json(event.to_dict())
+```
+
+---
+
 ## Human-in-the-Loop (HITL)
 
 Require human approval before tool execution:
