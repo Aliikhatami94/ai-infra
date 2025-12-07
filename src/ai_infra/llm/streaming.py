@@ -30,7 +30,7 @@ class StreamEvent:
         - thinking: Agent started processing (emitted once at start)
         - token: Text content chunk from the LLM response
         - tool_start: Tool execution started (name, arguments based on visibility)
-        - tool_end: Tool execution completed (with timing, optional preview)
+        - tool_end: Tool execution completed (with timing, optional results)
         - done: Streaming completed (with summary stats)
         - error: Error occurred during streaming
 
@@ -40,12 +40,25 @@ class StreamEvent:
         tool: Tool name (for "tool_start", "tool_end" events)
         tool_id: Tool call ID for correlation
         arguments: Tool arguments dict (visibility=detailed+)
-        preview: Tool result preview (visibility=debug only)
+        result: Full tool result string (visibility=detailed+).
+                Contains complete output for parsing/processing.
+                Use this when you need to parse tool outputs (e.g., extract
+                package names, paths, create clickable links).
+                Example: Multi-line formatted search results.
+        preview: Truncated tool result (visibility=debug only).
+                 For UI display/debugging, not parsing. Max 500 chars by default.
+                 Use this for quick visual inspection during development.
         latency_ms: Tool execution time in milliseconds
         model: Model name (for "thinking" event)
         tools_called: Total tools called (for "done" event)
         error: Error message (for "error" event)
         timestamp: Event timestamp (Unix epoch)
+
+    Visibility levels and tool results:
+        - minimal: No tool events
+        - standard: Tool names + timing only
+        - detailed: + tool arguments + FULL tool results (result field)
+        - debug: + truncated preview (preview field, max 500 chars)
 
     Example:
         # Token event
@@ -53,6 +66,15 @@ class StreamEvent:
 
         # Tool start event
         StreamEvent(type="tool_start", tool="search_docs", tool_id="call_abc123")
+
+        # Tool end event with full result (detailed visibility)
+        StreamEvent(
+            type="tool_end",
+            tool="search_docs",
+            tool_id="call_abc123",
+            latency_ms=234.5,
+            result="### Result 1 (svc-infra: auth.md)\\n...\\n### Result 2..."
+        )
 
         # Done event
         StreamEvent(type="done", tools_called=2)
@@ -65,7 +87,8 @@ class StreamEvent:
     tool: Optional[str] = None  # tool name
     tool_id: Optional[str] = None  # tool call ID
     arguments: Optional[Dict[str, Any]] = None  # tool arguments (detailed+)
-    preview: Optional[str] = None  # result preview (debug only)
+    result: Optional[str] = None  # full tool result (detailed+, for parsing)
+    preview: Optional[str] = None  # truncated result preview (debug only, for UI)
     latency_ms: Optional[float] = None  # tool execution time
     model: Optional[str] = None  # model name (thinking event)
     tools_called: Optional[int] = None  # total tools (done event)
@@ -90,6 +113,7 @@ class StreamEvent:
             "tool",
             "tool_id",
             "arguments",
+            "result",
             "preview",
             "latency_ms",
             "model",
@@ -191,6 +215,12 @@ def filter_event_for_visibility(event: StreamEvent, visibility: str) -> StreamEv
     Removes sensitive or verbose data that shouldn't be exposed at the
     current visibility level.
 
+    Visibility behavior for tool results:
+        - minimal: No tool events (filtered by should_emit_event)
+        - standard: Tool names + timing only (no arguments, result, or preview)
+        - detailed: + arguments + FULL result (no preview)
+        - debug: + arguments + result + truncated preview (everything)
+
     Args:
         event: The event to filter
         visibility: Current visibility setting
@@ -203,18 +233,23 @@ def filter_event_for_visibility(event: StreamEvent, visibility: str) -> StreamEv
         return event
 
     if visibility == "standard":
-        # standard: Remove tool arguments from tool_start
-        if event.type == "tool_start" and event.arguments is not None:
-            return replace(event, arguments=None)
-        return event
+        # standard: Remove tool arguments, result, and preview
+        changes = {}
+        if event.arguments is not None:
+            changes["arguments"] = None
+        if event.result is not None:
+            changes["result"] = None
+        if event.preview is not None:
+            changes["preview"] = None
+        return replace(event, **changes) if changes else event
 
     if visibility == "detailed":
-        # detailed: Include arguments, exclude result preview
-        if event.type == "tool_end" and event.preview is not None:
+        # detailed: Include arguments and FULL result, exclude preview
+        if event.preview is not None:
             return replace(event, preview=None)
         return event
 
-    # debug: include everything
+    # debug: include everything (arguments + result + preview)
     return event
 
 

@@ -9,7 +9,8 @@ Typed streaming for agents using `Agent.astream()`.
 - `content`: token text
 - `tool` / `tool_id`: tool name and call ID
 - `arguments`: tool args (visibility detailed+)
-- `preview`: tool result preview (visibility=debug)
+- `result`: **FULL tool result** (visibility detailed+) - for parsing/processing
+- `preview`: truncated tool result (visibility=debug) - for UI display
 - `latency_ms`: tool latency
 - `model`: model name (thinking)
 - `tools_called`: total tools (done)
@@ -17,6 +18,42 @@ Typed streaming for agents using `Agent.astream()`.
 - `timestamp`: event timestamp
 
 Serialize with `event.to_dict()`.
+
+## Visibility Levels
+
+Control what data is included in streaming events:
+
+### `minimal`
+- Response tokens only
+- No thinking, tool events, or metadata
+- Cleanest output for simple UIs
+
+### `standard` (default)
+- Response tokens
+- Tool names and timing
+- Thinking indicator
+- **No** tool arguments or results
+
+### `detailed` ✨
+- Everything in `standard`
+- **Tool arguments** (inputs)
+- **FULL tool results** (outputs) ← NEW!
+- For applications that need to parse tool outputs
+- Example: Create clickable links from search results
+
+### `debug`
+- Everything in `detailed`
+- **Truncated preview** (500 chars) for quick UI display
+- For development/debugging
+
+## Tool Result Fields
+
+Two fields for different use cases:
+
+| Field | Visibility | Purpose | Example |
+|-------|-----------|---------|---------|
+| `result` | `detailed+` | **Full output** for parsing | Multi-result search output |
+| `preview` | `debug` only | **Truncated** for UI display | First 500 chars |
 
 ## StreamConfig reference
 
@@ -124,3 +161,84 @@ async def stream_with_mcp(message: str, api_key: str):
         async for event in agent.astream(message, visibility="debug"):
             yield event
 ```
+
+## Real-World Use Case: Clickable Tool Results
+
+**Problem**: Chat UI needs to show clickable links to documentation pages from MCP `search_docs` tool results.
+
+**Tool output format**:
+```
+### Result 1 (svc-infra: auth.md)
+[snippet about authentication]
+---
+### Result 2 (ai-infra: core/llm.md)
+[snippet about LLM usage]
+```
+
+**Solution**: Use `detailed` visibility to get full results, parse, and create links:
+
+```python
+import re
+from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
+from ai_infra import Agent, atemporary_api_key, load_mcp_tools_cached
+
+app = FastAPI()
+
+def parse_doc_results(result: str) -> list[dict]:
+    """Parse search_docs output into structured data."""
+    pattern = r"### Result \d+ \((.+?): (.+?)\)"
+    matches = re.finditer(pattern, result)
+    return [
+        {"package": m.group(1), "path": m.group(2)}
+        for m in matches
+    ]
+
+@app.post("/chat")
+async def chat(message: str, provider: str, api_key: str):
+    tools = await load_mcp_tools_cached("http://localhost:8000/mcp")
+    agent = Agent(tools=tools)
+
+    async def generate():
+        async with atemporary_api_key(provider, api_key):
+            async for event in agent.astream(message, visibility="detailed"):
+                # Regular events pass through
+                if event.type != "tool_end":
+                    yield f"data: {json.dumps(event.to_dict())}\n\n"
+                    continue
+
+                # Parse tool results for search tools
+                if "search" in event.tool and event.result:
+                    docs = parse_doc_results(event.result)
+
+                    # Emit custom event with structured data
+                    yield f"data: {json.dumps({
+                        'type': 'tool_results',
+                        'tool': event.tool,
+                        'docs': docs,  # [{"package": "svc-infra", "path": "auth.md"}, ...]
+                        'latency_ms': event.latency_ms,
+                    })}\n\n"
+                else:
+                    # Regular tool_end event
+                    yield f"data: {json.dumps(event.to_dict())}\n\n"
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
+```
+
+**Frontend** (TypeScript/React):
+```typescript
+// Handle tool results in chat UI
+if (event.type === "tool_results") {
+    event.docs.forEach((doc: {package: string, path: string}) => {
+        const url = `/${doc.package}/${doc.path.replace('.md', '')}`;
+        // Create clickable chip/link in UI
+        showClickableChip(doc.package, doc.path, url);
+    });
+}
+```
+
+**Key benefits**:
+- ✅ Full tool results available at `detailed` visibility
+- ✅ Parse once in backend, send structured data to frontend
+- ✅ Frontend receives clean, clickable links
+- ✅ No string truncation issues (unlike `debug` preview)

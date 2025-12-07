@@ -1259,9 +1259,17 @@ class Agent(BaseLLM):
 
                 # Emit tool_end
                 if cfg.include_tool_events and should_emit_event("tool_end", eff_visibility):
+                    # Get full result string from tool
+                    result_str = str(token.content)
+
+                    # Determine if we should include full result (detailed or debug)
+                    result_output = None
+                    if eff_visibility in ("detailed", "debug"):
+                        result_output = result_str
+
+                    # Create truncated preview (debug only)
                     preview = None
                     if eff_visibility == "debug":
-                        result_str = str(token.content)
                         if len(result_str) > cfg.tool_result_preview_length:
                             preview = result_str[: cfg.tool_result_preview_length] + "..."
                         else:
@@ -1272,6 +1280,7 @@ class Agent(BaseLLM):
                         tool=tc_name,
                         tool_id=tc_id,
                         latency_ms=round(latency_ms, 1),
+                        result=result_output,
                         preview=preview,
                     )
                     yield filter_event_for_visibility(event, eff_visibility)
