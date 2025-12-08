@@ -27,7 +27,11 @@ def test_disabled_security():
     assert security.enabled is False
     assert security.allowed_hosts == []
     assert security.allowed_origins == []
-    assert security.to_transport_settings() is None
+
+    # Should return TransportSecuritySettings with disabled flag
+    transport_settings = security.to_transport_settings()
+    assert transport_settings is not None
+    assert transport_settings.enable_dns_rebinding_protection is False
 
 
 def test_custom_domains():

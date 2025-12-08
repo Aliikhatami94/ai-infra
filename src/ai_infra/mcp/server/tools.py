@@ -162,14 +162,12 @@ class MCPSecuritySettings:
             self._allowed_hosts = _auto_detect_hosts()
             self._allowed_origins = _auto_detect_origins()
 
-    def to_transport_settings(self) -> TransportSecuritySettings | None:
+    def to_transport_settings(self) -> TransportSecuritySettings:
         """Convert to the underlying TransportSecuritySettings.
 
-        Returns None if security is disabled to let FastMCP use its defaults.
+        Always returns a TransportSecuritySettings object to ensure
+        proper security configuration is applied.
         """
-        if not self._enable_dns_rebinding_protection:
-            return None  # Let FastMCP handle it (allows all)
-
         return TransportSecuritySettings(
             enable_dns_rebinding_protection=self._enable_dns_rebinding_protection,
             allowed_hosts=self._allowed_hosts,
