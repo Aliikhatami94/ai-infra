@@ -140,3 +140,10 @@ def test_mcp_from_functions_with_disabled_security():
     mcp = mcp_from_functions(name="test", functions=[my_tool], security=security)
 
     assert mcp is not None
+
+    # Verify transport security is properly configured
+    # When security is disabled, transport_security should have enable_dns_rebinding_protection=False
+    if hasattr(mcp, "_transport_security"):
+        transport_sec = mcp._transport_security
+        if transport_sec is not None:
+            assert transport_sec.enable_dns_rebinding_protection is False

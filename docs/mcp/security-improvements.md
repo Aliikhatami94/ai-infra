@@ -4,6 +4,8 @@
 
 Simplified and improved MCP security settings in ai-infra to automatically detect deployment environments and configure appropriate security without manual intervention.
 
+**Update (Dec 8, 2025)**: Fixed critical bug where `enable_security=False` was returning `None` from `to_transport_settings()`, causing FastMCP to use its default security (localhost only) instead of actually disabling security. Now always returns a proper `TransportSecuritySettings` object with the correct configuration.
+
 ## Problem
 
 The original implementation had several issues:
