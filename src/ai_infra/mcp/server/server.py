@@ -433,7 +433,25 @@ class MCPServer:
 
     def attach_to_fastapi(self, app: Any) -> None:
         self.mount_all(app)
-        app.router.lifespan_context = self.lifespan
+
+        # Preserve any existing lifespan and merge with ours
+        previous_lifespan = getattr(app.router, "lifespan_context", None)
+
+        if previous_lifespan is None:
+            # No existing lifespan, just use ours
+            app.router.lifespan_context = self.lifespan
+        else:
+            # Merge: run both lifespans (existing first, then MCP)
+            @contextlib.asynccontextmanager
+            async def _merged_lifespan(a: Any):
+                async with contextlib.AsyncExitStack() as stack:
+                    # Enter previous lifespan first
+                    await stack.enter_async_context(previous_lifespan(a))
+                    # Then enter MCP lifespan
+                    await stack.enter_async_context(self.lifespan(a))
+                    yield
+
+            app.router.lifespan_context = _merged_lifespan
 
     # ---------- discovery ----------
 
