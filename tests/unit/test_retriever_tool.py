@@ -124,7 +124,7 @@ class TestToolExecution:
         tool.invoke({"query": "test query"})
 
         mock_retriever.search.assert_called_once_with(
-            "test query", k=3, min_score=0.8, detailed=True
+            "test query", k=3, min_score=0.8, filter=None, detailed=True
         )
 
     def test_returns_no_results_message(self, empty_mock_retriever: MagicMock) -> None:
@@ -212,7 +212,7 @@ class TestCreateRetrieverToolAsync:
         await tool.ainvoke({"query": "async test"})
 
         mock_retriever.asearch.assert_called_once_with(
-            "async test", k=2, min_score=0.9, detailed=True
+            "async test", k=2, min_score=0.9, filter=None, detailed=True
         )
 
     @pytest.mark.asyncio
@@ -301,14 +301,28 @@ class TestEdgeCases:
         tool = create_retriever_tool(mock_retriever, k=10)
         tool.invoke({"query": "test"})
 
-        mock_retriever.search.assert_called_with("test", k=10, min_score=None, detailed=True)
+        mock_retriever.search.assert_called_with(
+            "test", k=10, min_score=None, filter=None, detailed=True
+        )
 
     def test_min_score_parameter_passed_to_retriever(self, mock_retriever: MagicMock) -> None:
         """Test that min_score parameter is correctly passed to retriever."""
         tool = create_retriever_tool(mock_retriever, min_score=0.75)
         tool.invoke({"query": "test"})
 
-        mock_retriever.search.assert_called_with("test", k=5, min_score=0.75, detailed=True)
+        mock_retriever.search.assert_called_with(
+            "test", k=5, min_score=0.75, filter=None, detailed=True
+        )
+
+    def test_filter_parameter_passed_to_retriever(self, mock_retriever: MagicMock) -> None:
+        """Test that filter parameter is correctly passed to retriever."""
+        filter_dict = {"type": "docs", "package": "svc-infra"}
+        tool = create_retriever_tool(mock_retriever, filter=filter_dict)
+        tool.invoke({"query": "test"})
+
+        mock_retriever.search.assert_called_with(
+            "test", k=5, min_score=None, filter=filter_dict, detailed=True
+        )
 
 
 # =============================================================================

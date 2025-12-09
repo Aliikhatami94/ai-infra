@@ -119,6 +119,7 @@ def create_retriever_tool(
     description: str = "Search documents for relevant information",
     k: int = 5,
     min_score: Optional[float] = None,
+    filter: Optional[dict[str, Any]] = None,
     return_scores: bool = False,
     max_chars: Optional[int] = None,
     format: OutputFormat = "text",
@@ -136,6 +137,9 @@ def create_retriever_tool(
         k: Number of results to return (default: 5).
         min_score: Minimum similarity score threshold (0-1). Results below this
             score are filtered out. Default: None (no filtering).
+        filter: Metadata filter dict for search. Used to filter results by
+            metadata fields (e.g., {"type": "docs", "package": "svc-infra"}).
+            Default: None (no metadata filtering).
         return_scores: If True, include similarity scores in the output.
             Default: False (just return the text).
         max_chars: Maximum characters in the output. Longer results are truncated
@@ -170,19 +174,20 @@ def create_retriever_tool(
             min_score=0.7,
         )
 
-        # Structured output for API/frontend
+        # Structured output for API/frontend with filtering
         tool = create_retriever_tool(
             retriever=retriever,
             name="search_docs",
             description="Search documentation",
             structured=True,  # Returns dict with results, query, count
+            filter={"type": "docs"},  # Only search docs, not examples
         )
         ```
     """
 
     def search_documents(query: str) -> Union[str, dict[str, Any]]:
         """Search the retriever for relevant documents."""
-        results = retriever.search(query, k=k, min_score=min_score, detailed=True)
+        results = retriever.search(query, k=k, min_score=min_score, filter=filter, detailed=True)
 
         if structured:
             return {
@@ -207,6 +212,7 @@ def create_retriever_tool_async(
     description: str = "Search documents for relevant information",
     k: int = 5,
     min_score: Optional[float] = None,
+    filter: Optional[dict[str, Any]] = None,
     return_scores: bool = False,
     max_chars: Optional[int] = None,
     format: OutputFormat = "text",
@@ -223,6 +229,9 @@ def create_retriever_tool_async(
         description: Tool description (helps the agent understand when to use it).
         k: Number of results to return (default: 5).
         min_score: Minimum similarity score threshold (0-1).
+        filter: Metadata filter dict for search. Used to filter results by
+            metadata fields (e.g., {"type": "docs", "package": "svc-infra"}).
+            Default: None (no metadata filtering).
         return_scores: If True, include similarity scores in the output.
         max_chars: Maximum characters in the output. Longer results are truncated.
         format: Output format ("text", "markdown", "json").
@@ -238,19 +247,22 @@ def create_retriever_tool_async(
 
     Example:
         ```python
-        # Structured output for API endpoints
+        # Structured output for API endpoints with filtering
         tool = create_retriever_tool_async(
             retriever=retriever,
             name="search_docs",
             description="Search documentation",
             structured=True,
+            filter={"type": "docs"},  # Only search docs, not examples
         )
         ```
     """
 
     async def search_documents_async(query: str) -> Union[str, dict[str, Any]]:
         """Search the retriever for relevant documents (async)."""
-        results = await retriever.asearch(query, k=k, min_score=min_score, detailed=True)
+        results = await retriever.asearch(
+            query, k=k, min_score=min_score, filter=filter, detailed=True
+        )
 
         if structured:
             return {
