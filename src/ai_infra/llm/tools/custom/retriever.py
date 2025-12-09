@@ -29,7 +29,7 @@ Example:
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
 from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, Field
@@ -122,6 +122,7 @@ def create_retriever_tool(
     return_scores: bool = False,
     max_chars: Optional[int] = None,
     format: OutputFormat = "text",
+    structured: bool = False,
 ) -> StructuredTool:
     """Create an Agent-compatible tool from a Retriever instance.
 
@@ -143,6 +144,12 @@ def create_retriever_tool(
             - "text" (default): Plain text with results separated by ---
             - "markdown": Formatted with headers and metadata
             - "json": JSON array with text, score, and source fields
+        structured: If True, returns a dictionary with structured results
+            that can be parsed by frontends. The dictionary contains:
+            - "results": List of SearchResult.to_dict() objects
+            - "query": The original search query
+            - "count": Number of results returned
+            If False (default), returns formatted text for LLM consumption.
 
     Returns:
         A StructuredTool that can be passed to Agent(tools=[...]).
@@ -154,7 +161,7 @@ def create_retriever_tool(
         retriever = Retriever()
         retriever.add("./docs/")
 
-        # Basic tool
+        # Basic tool (text output for LLM)
         tool = create_retriever_tool(
             retriever=retriever,
             name="search_docs",
@@ -163,22 +170,28 @@ def create_retriever_tool(
             min_score=0.7,
         )
 
-        # With formatting options
+        # Structured output for API/frontend
         tool = create_retriever_tool(
             retriever=retriever,
             name="search_docs",
             description="Search documentation",
-            return_scores=True,
-            max_chars=2000,  # Truncate long results
-            format="markdown",  # Rich formatting
+            structured=True,  # Returns dict with results, query, count
         )
         ```
     """
 
-    def search_documents(query: str) -> str:
+    def search_documents(query: str) -> Union[str, dict[str, Any]]:
         """Search the retriever for relevant documents."""
         results = retriever.search(query, k=k, min_score=min_score, detailed=True)
-        return _format_results(results, return_scores, format, max_chars)
+
+        if structured:
+            return {
+                "results": [r.to_dict() for r in results],
+                "query": query,
+                "count": len(results),
+            }
+        else:
+            return _format_results(results, return_scores, format, max_chars)
 
     return StructuredTool.from_function(
         func=search_documents,
@@ -197,6 +210,7 @@ def create_retriever_tool_async(
     return_scores: bool = False,
     max_chars: Optional[int] = None,
     format: OutputFormat = "text",
+    structured: bool = False,
 ) -> StructuredTool:
     """Create an async Agent-compatible tool from a Retriever instance.
 
@@ -212,15 +226,40 @@ def create_retriever_tool_async(
         return_scores: If True, include similarity scores in the output.
         max_chars: Maximum characters in the output. Longer results are truncated.
         format: Output format ("text", "markdown", "json").
+        structured: If True, returns a dictionary with structured results
+            that can be parsed by frontends. The dictionary contains:
+            - "results": List of SearchResult.to_dict() objects
+            - "query": The original search query
+            - "count": Number of results returned
+            If False (default), returns formatted text for LLM consumption.
 
     Returns:
         A StructuredTool with async execution.
+
+    Example:
+        ```python
+        # Structured output for API endpoints
+        tool = create_retriever_tool_async(
+            retriever=retriever,
+            name="search_docs",
+            description="Search documentation",
+            structured=True,
+        )
+        ```
     """
 
-    async def search_documents_async(query: str) -> str:
+    async def search_documents_async(query: str) -> Union[str, dict[str, Any]]:
         """Search the retriever for relevant documents (async)."""
         results = await retriever.asearch(query, k=k, min_score=min_score, detailed=True)
-        return _format_results(results, return_scores, format, max_chars)
+
+        if structured:
+            return {
+                "results": [r.to_dict() for r in results],
+                "query": query,
+                "count": len(results),
+            }
+        else:
+            return _format_results(results, return_scores, format, max_chars)
 
     return StructuredTool.from_function(
         coroutine=search_documents_async,

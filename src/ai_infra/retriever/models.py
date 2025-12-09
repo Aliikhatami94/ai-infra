@@ -31,6 +31,73 @@ class SearchResult:
         source_info = f", source={self.source!r}" if self.source else ""
         return f"SearchResult(score={self.score:.3f}, text={text_preview!r}{source_info})"
 
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for API responses.
+
+        Returns a clean dictionary suitable for JSON serialization
+        and frontend consumption.
+
+        Example:
+            >>> result = retriever.search("query", detailed=True)[0]
+            >>> data = result.to_dict()
+            >>> json.dumps(data)  # Ready for API response
+        """
+        return {
+            "text": self.text,
+            "score": round(self.score, 4),
+            "source": self.source,
+            "page": self.page,
+            "chunk_index": self.chunk_index,
+            "metadata": self.metadata,
+        }
+
+    # =========================================================================
+    # Convenience properties for common metadata patterns
+    # =========================================================================
+
+    @property
+    def package(self) -> str | None:
+        """Get package name from metadata (common for multi-repo docs).
+
+        Example:
+            >>> # When loaded with metadata={"package": "svc-infra"}
+            >>> result.package
+            'svc-infra'
+        """
+        return self.metadata.get("package")
+
+    @property
+    def path(self) -> str | None:
+        """Get file path from metadata.
+
+        Example:
+            >>> result.path
+            'docs/authentication.md'
+        """
+        return self.metadata.get("path")
+
+    @property
+    def content_type(self) -> str | None:
+        """Get content type from metadata (docs, examples, code, etc.).
+
+        Example:
+            >>> # When loaded with metadata={"type": "docs"}
+            >>> result.content_type
+            'docs'
+        """
+        return self.metadata.get("type")
+
+    @property
+    def repo(self) -> str | None:
+        """Get repository name from metadata (for GitHub sources).
+
+        Example:
+            >>> # When loaded from GitHub
+            >>> result.repo
+            'nfraxio/svc-infra'
+        """
+        return self.metadata.get("repo")
+
 
 @dataclass
 class Chunk:

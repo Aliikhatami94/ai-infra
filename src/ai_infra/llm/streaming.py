@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field, replace
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Dict, Literal, Optional, Union
 
 
 @dataclass
@@ -40,11 +40,15 @@ class StreamEvent:
         tool: Tool name (for "tool_start", "tool_end" events)
         tool_id: Tool call ID for correlation
         arguments: Tool arguments dict (visibility=detailed+)
-        result: Full tool result string (visibility=detailed+).
-                Contains complete output for parsing/processing.
+        result: Tool result (visibility=detailed+). Can be:
+                - str: Formatted text for LLM consumption (default)
+                - dict: Structured data when result_structured=True
                 Use this when you need to parse tool outputs (e.g., extract
                 package names, paths, create clickable links).
-                Example: Multi-line formatted search results.
+        result_structured: True if result is a structured dict from
+                          create_retriever_tool(structured=True). When True,
+                          to_dict() outputs 'structured_result' key instead of
+                          'result' for frontend JSON parsing.
         preview: Truncated tool result (visibility=debug only).
                  For UI display/debugging, not parsing. Max 500 chars by default.
                  Use this for quick visual inspection during development.
@@ -67,13 +71,23 @@ class StreamEvent:
         # Tool start event
         StreamEvent(type="tool_start", tool="search_docs", tool_id="call_abc123")
 
-        # Tool end event with full result (detailed visibility)
+        # Tool end event with text result (detailed visibility)
         StreamEvent(
             type="tool_end",
             tool="search_docs",
             tool_id="call_abc123",
             latency_ms=234.5,
             result="### Result 1 (svc-infra: auth.md)\\n...\\n### Result 2..."
+        )
+
+        # Tool end event with structured result (for frontend parsing)
+        StreamEvent(
+            type="tool_end",
+            tool="search_docs",
+            tool_id="call_abc123",
+            latency_ms=234.5,
+            result={"results": [...], "query": "auth", "count": 3},
+            result_structured=True,
         )
 
         # Done event
@@ -87,7 +101,8 @@ class StreamEvent:
     tool: Optional[str] = None  # tool name
     tool_id: Optional[str] = None  # tool call ID
     arguments: Optional[Dict[str, Any]] = None  # tool arguments (detailed+)
-    result: Optional[str] = None  # full tool result (detailed+, for parsing)
+    result: Optional[Union[str, Dict[str, Any]]] = None  # tool result (detailed+)
+    result_structured: bool = False  # True if result is structured dict (from retriever tool)
     preview: Optional[str] = None  # truncated result preview (debug only, for UI)
     latency_ms: Optional[float] = None  # tool execution time
     model: Optional[str] = None  # model name (thinking event)
@@ -100,20 +115,42 @@ class StreamEvent:
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dict for serialization (excludes None values).
 
+        For tool_end events with structured results, the result is included
+        directly under 'structured_result' key for frontend parsing.
+
         Returns:
             Dict with type and all non-None fields.
 
         Example:
             event = StreamEvent(type="token", content="Hello")
             event.to_dict()  # {"type": "token", "content": "Hello"}
+
+            # Structured tool result
+            event = StreamEvent(
+                type="tool_end",
+                tool="search",
+                result={"results": [...], "query": "...", "count": 3},
+                result_structured=True,
+            )
+            event.to_dict()  # {"type": "tool_end", "tool": "search", "structured_result": {...}}
         """
         d: Dict[str, Any] = {"type": self.type}
+
+        # Handle structured tool results specially
+        if self.type == "tool_end" and self.result_structured and self.result is not None:
+            # Include structured result directly for frontend parsing
+            d["structured_result"] = self.result
+            d["result_structured"] = True
+        elif self.result is not None:
+            # Include text result normally
+            d["result"] = self.result
+
+        # Include other non-None fields
         for field_name in [
             "content",
             "tool",
             "tool_id",
             "arguments",
-            "result",
             "preview",
             "latency_ms",
             "model",

@@ -98,6 +98,75 @@ retriever.add_directory("./documents/", recursive=True)
 
 ---
 
+## Remote Content Loading
+
+Load content directly from GitHub repositories and URLs:
+
+### From GitHub
+
+```python
+# Load files from a GitHub repository
+await retriever.add_from_github(
+    repo="owner/repo-name",
+    paths=["README.md", "docs/guide.md"],  # Optional: specific files
+    branch="main",  # Optional: default "main"
+)
+
+# Load entire docs folder
+await retriever.add_from_github(
+    repo="nfraxio/svc-infra",
+    paths=["docs/"],  # Directory path
+)
+```
+
+Metadata automatically includes:
+- `repo`: "owner/repo-name"
+- `package`: "repo-name" (extracted)
+- `path`: file path within repo
+- `type`: "github"
+
+### From URL
+
+```python
+# Load from any URL (raw GitHub, documentation sites, etc.)
+await retriever.add_from_url("https://raw.githubusercontent.com/owner/repo/main/README.md")
+
+# Multiple URLs
+for url in urls:
+    await retriever.add_from_url(url)
+```
+
+### Sync Wrappers
+
+For non-async contexts:
+
+```python
+# Sync versions (creates event loop internally)
+retriever.add_from_github_sync(repo="owner/repo", paths=["docs/"])
+retriever.add_from_url_sync("https://example.com/doc.md")
+```
+
+> **Note:** Sync wrappers detect if called from async context and raise an error suggesting the async versions.
+
+### Custom Loaders
+
+Use any content loader from svc-infra:
+
+```python
+from svc_infra.loader import GitHubLoader
+
+loader = GitHubLoader()
+
+# Load documents then add to retriever
+await retriever.add_from_loader(
+    loader,
+    repo="owner/repo",
+    paths=["docs/"]
+)
+```
+
+---
+
 ## Chunking
 
 Control how documents are split:
@@ -224,6 +293,45 @@ for r in results:
     print(f"File: {r.metadata.get('source')}")
 ```
 
+### SearchResult Object
+
+Each search result provides:
+
+```python
+result = results[0]
+
+# Core attributes
+result.text       # Document content
+result.score      # Similarity score (0.0-1.0)
+result.metadata   # Dict of metadata
+result.source     # Source file/URL
+result.page       # Page number (if applicable)
+result.chunk_index  # Chunk index in document
+
+# Convenience properties (for remote content)
+result.package      # Package name from metadata
+result.repo         # Repository from metadata  
+result.path         # File path from metadata
+result.content_type # Content type from metadata
+
+# Serialization
+result.to_dict()  # JSON-serializable dict
+```
+
+**`to_dict()` output:**
+
+```python
+{
+    "text": "Document content...",
+    "score": 0.9523,  # Rounded to 4 decimals
+    "source": "docs/guide.md",
+    "page": None,
+    "chunk_index": 0,
+    "metadata": {"repo": "nfraxio/svc-infra", ...}
+}
+```
+```
+
 ---
 
 ## With Agent
@@ -247,6 +355,32 @@ agent = Agent(tools=[tool])
 result = agent.run("What does the knowledge base say about X?")
 ```
 
+### Structured Results
+
+Get structured dictionary output instead of text:
+
+```python
+# Default: text output (formatted string)
+tool = create_retriever_tool(retriever, name="search")
+
+# Structured: dict output with results, query, count
+tool = create_retriever_tool(
+    retriever,
+    name="search",
+    structured=True,  # Returns dict instead of string
+)
+
+# Structured result format:
+# {
+#     "results": [
+#         {"text": "...", "score": 0.95, "source": "doc.pdf", ...},
+#         ...
+#     ],
+#     "query": "search query",
+#     "count": 5
+# }
+```
+
 ### Async Tool
 
 ```python
@@ -255,6 +389,9 @@ from ai_infra import create_retriever_tool_async
 tool = create_retriever_tool_async(retriever, name="search")
 agent = Agent(tools=[tool])
 result = await agent.arun("Search for...")
+
+# Also supports structured parameter
+tool = create_retriever_tool_async(retriever, name="search", structured=True)
 ```
 
 ---
@@ -295,6 +432,34 @@ retriever = Retriever(
     backend="sqlite",
     db_path="./data.db",
 )
+```
+
+### Auto-Configuration
+
+When using known embedding models, the retriever can automatically determine the embedding dimension:
+
+```python
+# Auto-detect dimension from known models
+retriever = Retriever(
+    provider="openai",
+    model="text-embedding-3-small",
+    auto_configure=True,  # Default: False
+)
+# Automatically sets dimension=1536
+
+# Supported models (28+ known dimensions):
+# - openai: text-embedding-3-small (1536), text-embedding-3-large (3072), text-embedding-ada-002 (1536)
+# - huggingface: sentence-transformers/all-MiniLM-L6-v2 (384), BAAI/bge-* (384-1024), etc.
+# - cohere: embed-english-* (1024)
+```
+
+To see all known dimensions:
+
+```python
+from ai_infra.retriever import KNOWN_EMBEDDING_DIMENSIONS
+
+print(KNOWN_EMBEDDING_DIMENSIONS)
+# {"sentence-transformers/all-MiniLM-L6-v2": 384, ...}
 ```
 
 ---
@@ -600,6 +765,37 @@ try:
     results = retriever.search("query")
 except AIInfraError as e:
     print(f"Retriever error: {e}")
+```
+
+---
+
+## Imports
+
+Multiple import paths available:
+
+```python
+# Main retriever class
+from ai_infra import Retriever
+
+# Tool functions
+from ai_infra import create_retriever_tool, create_retriever_tool_async
+
+# Full module imports
+from ai_infra.retriever import (
+    Retriever,
+    SearchResult,
+    Chunk,
+    create_retriever_tool,
+    create_retriever_tool_async,
+)
+
+# Top-level aliased imports (avoid name conflicts)
+from ai_infra import RetrieverSearchResult, RetrieverChunk
+
+# These are the same classes:
+assert RetrieverSearchResult is SearchResult
+assert RetrieverChunk is Chunk
+```
 ```
 
 ---

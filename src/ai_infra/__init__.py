@@ -106,7 +106,9 @@ from ai_infra.providers import (
     list_providers_for_capability,
 )
 from ai_infra.replay import MemoryStorage, SQLiteStorage, WorkflowRecorder, replay
+from ai_infra.retriever import Chunk as RetrieverChunk
 from ai_infra.retriever import Retriever
+from ai_infra.retriever import SearchResult as RetrieverSearchResult
 from ai_infra.tools import (
     ProgressEvent,
     ProgressStream,
@@ -169,6 +171,8 @@ __all__ = [
     "SearchResult",
     # Retriever
     "Retriever",
+    "RetrieverSearchResult",  # SearchResult from retriever (has to_dict, convenience props)
+    "RetrieverChunk",  # Chunk model from retriever
     "create_retriever_tool",
     "create_retriever_tool_async",
     # Errors

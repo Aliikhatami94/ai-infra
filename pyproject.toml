@@ -47,7 +47,6 @@ langsmith = "^0.4.13"
 
 # MCP integration
 mcp = {extras = ["cli"], version = "^1.13.1"}
-svc-infra = "^0.1.16"
 pre-commit = "^4.3.0"
 
 # Raw provider SDKs for models.list() discovery
@@ -61,6 +60,7 @@ numpy = "^1.24.0"
 langchain-text-splitters = "^0.3.8"
 langchain-huggingface = "^1.1.0"
 sentence-transformers = "^5.1.2"
+svc-infra = "^0.1.685"
 
 [tool.poetry.extras]
 # Retriever storage backends

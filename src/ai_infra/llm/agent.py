@@ -1267,17 +1267,30 @@ class Agent(BaseLLM):
 
                 # Emit tool_end
                 if cfg.include_tool_events and should_emit_event("tool_end", eff_visibility):
-                    # Get full result string from tool
-                    result_str = str(token.content)
+                    # Get result from tool - may be string or structured dict
+                    raw_result = token.content
 
-                    # Determine if we should include full result (detailed or debug)
+                    # Detect structured results (from create_retriever_tool(structured=True))
+                    is_structured = (
+                        isinstance(raw_result, dict)
+                        and "results" in raw_result
+                        and "query" in raw_result
+                    )
+
+                    # Determine result output based on visibility
                     result_output = None
+                    result_structured = False
                     if eff_visibility in ("detailed", "debug"):
-                        result_output = result_str
+                        if is_structured:
+                            result_output = raw_result  # Keep as dict
+                            result_structured = True
+                        else:
+                            result_output = str(raw_result)
 
-                    # Create truncated preview (debug only)
+                    # Create truncated preview (debug only, text results only)
                     preview = None
-                    if eff_visibility == "debug":
+                    if eff_visibility == "debug" and not is_structured:
+                        result_str = str(raw_result)
                         if len(result_str) > cfg.tool_result_preview_length:
                             preview = result_str[: cfg.tool_result_preview_length] + "..."
                         else:
@@ -1289,6 +1302,7 @@ class Agent(BaseLLM):
                         tool_id=tc_id,
                         latency_ms=round(latency_ms, 1),
                         result=result_output,
+                        result_structured=result_structured,
                         preview=preview,
                     )
                     yield filter_event_for_visibility(event, eff_visibility)

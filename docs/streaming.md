@@ -10,6 +10,7 @@ Typed streaming for agents using `Agent.astream()`.
 - `tool` / `tool_id`: tool name and call ID
 - `arguments`: tool args (visibility detailed+)
 - `result`: **FULL tool result** (visibility detailed+) - for parsing/processing
+- `result_structured`: True if result is a structured dict (not text)
 - `preview`: truncated tool result (visibility=debug) - for UI display
 - `latency_ms`: tool latency
 - `model`: model name (thinking)
@@ -18,6 +19,33 @@ Typed streaming for agents using `Agent.astream()`.
 - `timestamp`: event timestamp
 
 Serialize with `event.to_dict()`.
+
+### Structured Results
+
+When a tool returns a structured dict (e.g., `create_retriever_tool(structured=True)`), the event indicates this:
+
+```python
+async for event in agent.astream("Search for auth"):
+    if event.type == "tool_end" and event.result_structured:
+        # event.result is a dict, not a string
+        results = event.result["results"]
+        query = event.result["query"]
+        for r in results:
+            print(f"{r['source']}: {r['score']}")
+    elif event.type == "tool_end":
+        # event.result is a string
+        print(event.result)
+```
+
+**`to_dict()` output differs based on `result_structured`:**
+
+```python
+# Text result (result_structured=False)
+{"type": "tool_end", "result": "text output...", ...}
+
+# Structured result (result_structured=True)
+{"type": "tool_end", "structured_result": {"results": [...], "query": "..."}, ...}
+```
 
 ## Visibility Levels
 

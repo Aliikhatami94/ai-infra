@@ -22,12 +22,19 @@ Example:
     >>> # Get context for LLM
     >>> context = r.get_context("revenue growth", k=5)
     >>> prompt = f"Based on this context:\\n{context}\\n\\nAnswer: ..."
+
+Zero-config with environment variables:
+    >>> # Set DATABASE_URL for automatic postgres backend
+    >>> # No API keys? Uses free local HuggingFace embeddings
+    >>> r = Retriever()  # Auto-configures from environment!
 """
 
 from __future__ import annotations
 
 import asyncio
 import json
+import logging
+import os
 import pickle
 import uuid
 from datetime import datetime
@@ -42,6 +49,128 @@ from ai_infra.retriever.models import Chunk, SearchResult
 
 if TYPE_CHECKING:
     from ai_infra.embeddings import Embeddings
+
+logger = logging.getLogger(__name__)
+
+# Known embedding dimensions for common models
+# Used to auto-configure backend without requiring explicit dimension
+KNOWN_EMBEDDING_DIMENSIONS: dict[str, int] = {
+    # HuggingFace / Sentence Transformers (free, local)
+    "sentence-transformers/all-MiniLM-L6-v2": 384,
+    "sentence-transformers/all-MiniLM-L12-v2": 384,
+    "sentence-transformers/all-mpnet-base-v2": 768,
+    "sentence-transformers/paraphrase-MiniLM-L6-v2": 384,
+    "BAAI/bge-small-en-v1.5": 384,
+    "BAAI/bge-base-en-v1.5": 768,
+    "BAAI/bge-large-en-v1.5": 1024,
+    "BAAI/bge-m3": 1024,
+    "intfloat/e5-small-v2": 384,
+    "intfloat/e5-base-v2": 768,
+    "intfloat/e5-large-v2": 1024,
+    "thenlper/gte-small": 384,
+    "thenlper/gte-base": 768,
+    "thenlper/gte-large": 1024,
+    # OpenAI
+    "text-embedding-3-small": 1536,
+    "text-embedding-3-large": 3072,
+    "text-embedding-ada-002": 1536,
+    # Voyage AI
+    "voyage-2": 1024,
+    "voyage-02": 1024,
+    "voyage-large-2": 1536,
+    "voyage-code-2": 1536,
+    "voyage-lite-02-instruct": 1024,
+    # Cohere
+    "embed-english-v3.0": 1024,
+    "embed-multilingual-v3.0": 1024,
+    "embed-english-light-v3.0": 384,
+    "embed-multilingual-light-v3.0": 384,
+    # Google
+    "models/embedding-001": 768,
+    "models/text-embedding-004": 768,
+}
+
+# Default models for providers (when auto-configured)
+_DEFAULT_PROVIDER_MODELS: dict[str, str] = {
+    "huggingface": "sentence-transformers/all-MiniLM-L6-v2",
+    "openai": "text-embedding-3-small",
+    "voyage": "voyage-2",
+    "cohere": "embed-english-v3.0",
+    "google_genai": "models/text-embedding-004",
+}
+
+
+def _get_embedding_dimension(provider: str | None, model: str | None) -> int:
+    """Get embedding dimension for a provider/model combination.
+
+    Args:
+        provider: Embedding provider name (or None for auto-detected)
+        model: Model name (or None for provider default)
+
+    Returns:
+        Embedding dimension
+
+    Raises:
+        ValueError: If dimension cannot be determined
+    """
+    # Determine effective model
+    if model:
+        effective_model = model
+    elif provider and provider in _DEFAULT_PROVIDER_MODELS:
+        effective_model = _DEFAULT_PROVIDER_MODELS[provider]
+    else:
+        # Default to HuggingFace's default
+        effective_model = _DEFAULT_PROVIDER_MODELS["huggingface"]
+
+    # Look up dimension
+    if effective_model in KNOWN_EMBEDDING_DIMENSIONS:
+        return KNOWN_EMBEDDING_DIMENSIONS[effective_model]
+
+    # Check without provider prefix (e.g., "all-MiniLM-L6-v2")
+    for known_model, dim in KNOWN_EMBEDDING_DIMENSIONS.items():
+        if known_model.endswith(f"/{effective_model}") or effective_model.endswith(
+            known_model.split("/")[-1]
+        ):
+            return dim
+
+    # Unknown model - raise helpful error
+    raise ValueError(
+        f"Unknown embedding dimension for model '{effective_model}'. "
+        f"Please specify embedding_dimension explicitly, or use a known model: "
+        f"{', '.join(sorted(KNOWN_EMBEDDING_DIMENSIONS.keys())[:5])}..."
+    )
+
+
+def _require_svc_infra() -> None:
+    """Check that svc-infra is installed, raise helpful error if not."""
+    try:
+        import svc_infra.loaders  # noqa: F401
+    except ImportError:
+        raise ImportError(
+            "svc-infra is required for remote content loading. "
+            "Install with: pip install 'ai-infra[loaders]' or pip install svc-infra"
+        ) from None
+
+
+def _run_sync(coro: Any) -> Any:
+    """Run an async coroutine synchronously.
+
+    Handles Python 3.10+ event loop deprecation properly.
+    """
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop is not None:
+        # Already in an async context - can't use run_until_complete
+        raise RuntimeError(
+            "Cannot call sync method from within an async context. "
+            "Use the async version instead (e.g., add_from_github instead of add_from_github_sync)"
+        )
+
+    # Create new event loop and run
+    return asyncio.run(coro)
 
 
 class Retriever:
@@ -87,7 +216,7 @@ class Retriever:
         model: str | None = None,
         embeddings: "Embeddings | None" = None,
         # Backend configuration
-        backend: str = "memory",
+        backend: str | None = None,
         # Similarity metric
         similarity: str = "cosine",
         # Chunking configuration
@@ -98,19 +227,23 @@ class Retriever:
         auto_save: bool = True,
         # Lazy initialization
         lazy_init: bool = False,
+        # Auto-configuration
+        auto_configure: bool = True,
         # Backend-specific options
         **backend_config: Any,
     ) -> None:
         """Initialize the Retriever.
 
         Args:
-            provider: Embedding provider (openai, google, voyage, cohere).
-                     Auto-detected from environment if not specified.
+            provider: Embedding provider (openai, google, voyage, cohere, huggingface).
+                     If not specified and auto_configure=True, auto-detects from
+                     environment (falls back to free huggingface if no API keys).
             model: Embedding model name. Uses provider default if not specified.
             embeddings: Pre-configured Embeddings instance. If provided,
                        `provider` and `model` are ignored.
             backend: Storage backend name. Options:
-                - "memory": In-memory (default, no persistence)
+                - None: Auto-detect from DATABASE_URL (default if auto_configure=True)
+                - "memory": In-memory (no persistence)
                 - "postgres": PostgreSQL with pgvector (production)
                 - "sqlite": SQLite file (lightweight persistence)
                 - "chroma": ChromaDB (good for prototyping)
@@ -130,8 +263,16 @@ class Retriever:
                       saves after each add operation.
             lazy_init: If True, defer loading the embedding model until first
                       use (add or search). Makes server startup faster.
+            auto_configure: If True (default), auto-detect configuration from
+                           environment variables:
+                           - DATABASE_URL → backend="postgres" with auto dimension
+                           - OPENAI_API_KEY → provider="openai"
+                           - VOYAGE_API_KEY → provider="voyage"
+                           - COHERE_API_KEY → provider="cohere"
+                           - GOOGLE_API_KEY → provider="google_genai"
+                           - No API keys → provider="huggingface" (free local)
             **backend_config: Backend-specific options:
-                - postgres: connection_string, host, port, user, password, database
+                - postgres: connection_string, embedding_dimension, table_name
                 - sqlite: path
                 - chroma: persist_directory, collection_name
                 - faiss: persist_path, index_type
@@ -139,41 +280,78 @@ class Retriever:
                 - qdrant: url, api_key, collection_name
 
         Example:
-            >>> # Auto-detect everything
+            >>> # Zero-config (auto-detects from environment)
             >>> r = Retriever()
 
-            >>> # Custom embedding provider
+            >>> # Explicit configuration (overrides auto-detect)
             >>> r = Retriever(provider="openai", model="text-embedding-3-large")
 
-            >>> # Production with PostgreSQL
+            >>> # Production with PostgreSQL (auto-detects DATABASE_URL)
+            >>> # Just set DATABASE_URL env var!
+            >>> r = Retriever()
+
+            >>> # Or explicit postgres config
             >>> r = Retriever(
             ...     backend="postgres",
             ...     connection_string="postgresql://user:pass@localhost/db",
             ... )
 
-            >>> # Persistent local storage with FAISS
-            >>> r = Retriever(
-            ...     backend="faiss",
-            ...     persist_path="./vector_store",
-            ... )
-
-            >>> # Memory backend with disk persistence (survives restarts)
-            >>> r = Retriever(
-            ...     backend="memory",
-            ...     persist_path="./cache/embeddings.pkl",
-            ... )
+            >>> # Disable auto-configuration
+            >>> r = Retriever(auto_configure=False, backend="memory")
 
             >>> # Lazy initialization (fast startup)
-            >>> r = Retriever(
-            ...     provider="huggingface",
-            ...     lazy_init=True,  # Model loads on first add/search
-            ... )
-
-            >>> # Custom similarity metric
-            >>> r = Retriever(
-            ...     similarity="dot_product",  # Best for normalized embeddings
-            ... )
+            >>> r = Retriever(lazy_init=True)
         """
+        # =====================================================================
+        # Auto-configuration from environment
+        # =====================================================================
+        if auto_configure:
+            # Auto-detect backend from DATABASE_URL
+            if backend is None:
+                database_url = os.getenv("DATABASE_URL")
+                if database_url:
+                    backend = "postgres"
+                    # Set connection_string if not already provided
+                    if "connection_string" not in backend_config:
+                        backend_config["connection_string"] = database_url
+                    logger.debug("Auto-configured postgres backend from DATABASE_URL")
+                else:
+                    backend = "memory"
+
+            # Auto-detect embedding provider from API keys (if not specified)
+            if provider is None and embeddings is None:
+                if os.getenv("OPENAI_API_KEY"):
+                    provider = "openai"
+                    logger.debug("Auto-configured openai provider from OPENAI_API_KEY")
+                elif os.getenv("VOYAGE_API_KEY"):
+                    provider = "voyage"
+                    logger.debug("Auto-configured voyage provider from VOYAGE_API_KEY")
+                elif os.getenv("COHERE_API_KEY"):
+                    provider = "cohere"
+                    logger.debug("Auto-configured cohere provider from COHERE_API_KEY")
+                elif os.getenv("GOOGLE_API_KEY"):
+                    provider = "google_genai"
+                    logger.debug("Auto-configured google_genai provider from GOOGLE_API_KEY")
+                else:
+                    # Default to free local embeddings (no API key needed!)
+                    provider = "huggingface"
+                    model = model or "sentence-transformers/all-MiniLM-L6-v2"
+                    logger.debug("No API keys found, using free huggingface embeddings")
+
+            # Auto-detect embedding dimension for postgres backend
+            if backend == "postgres" and "embedding_dimension" not in backend_config:
+                try:
+                    dim = _get_embedding_dimension(provider, model)
+                    backend_config["embedding_dimension"] = dim
+                    logger.debug(f"Auto-configured embedding_dimension={dim} for model")
+                except ValueError:
+                    # Unknown dimension - let postgres backend use its default
+                    pass
+        else:
+            # No auto-configure - use defaults
+            if backend is None:
+                backend = "memory"
+
         # Store persistence config
         self._persist_path = Path(persist_path) if persist_path else None
         self._auto_save = auto_save
@@ -207,12 +385,7 @@ class Retriever:
                 return
             except Exception as e:
                 # Failed to load (corrupt file, incompatible format, etc.)
-                # Fall through to fresh initialization
-                import logging
-
-                logging.getLogger(__name__).warning(
-                    f"Failed to load from {self._persist_path}, starting fresh: {e}"
-                )
+                logger.warning(f"Failed to load from {self._persist_path}, starting fresh: {e}")
 
         # Store chunking config
         self._chunk_size = chunk_size
@@ -403,6 +576,263 @@ class Retriever:
         """
         documents = load_directory(path, pattern=pattern, recursive=recursive)
         return self._add_documents(documents, metadata=metadata, chunk=chunk)
+
+    # =========================================================================
+    # Remote content loading (delegates to svc-infra loaders)
+    # =========================================================================
+
+    async def add_from_github(
+        self,
+        repo: str,
+        path: str = "",
+        branch: str = "main",
+        pattern: str = "*.md",
+        token: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        chunk: bool = True,
+        **loader_kwargs: Any,
+    ) -> list[str]:
+        """Load and embed files from a GitHub repository.
+
+        Delegates to svc_infra.loaders.GitHubLoader for fetching, then embeds.
+
+        Args:
+            repo: Repository in "owner/repo" format (e.g., "nfraxio/svc-infra")
+            path: Path within repo (e.g., "docs", "examples/src")
+            branch: Branch name (default: "main")
+            pattern: Glob pattern for files (e.g., "*.md", "*.py", "*")
+            token: GitHub token for private repos or higher rate limits.
+                   Falls back to GITHUB_TOKEN env var.
+            metadata: Additional metadata to attach to all chunks.
+            chunk: Whether to chunk long content (default True)
+            **loader_kwargs: Additional args passed to GitHubLoader
+                (e.g., skip_patterns, recursive)
+
+        Returns:
+            List of chunk IDs added.
+
+        Raises:
+            ImportError: If svc-infra is not installed.
+
+        Example:
+            >>> retriever = Retriever()
+            >>>
+            >>> # Load documentation
+            >>> await retriever.add_from_github(
+            ...     "nfraxio/svc-infra",
+            ...     path="docs",
+            ...     pattern="*.md",
+            ...     metadata={"package": "svc-infra", "type": "docs"}
+            ... )
+            >>>
+            >>> # Load Python examples
+            >>> await retriever.add_from_github(
+            ...     "nfraxio/ai-infra",
+            ...     path="examples",
+            ...     pattern="*.py",
+            ...     metadata={"type": "examples"}
+            ... )
+        """
+        _require_svc_infra()
+        from svc_infra.loaders import GitHubLoader
+
+        loader = GitHubLoader(
+            repo=repo,
+            path=path,
+            branch=branch,
+            pattern=pattern,
+            token=token,
+            extra_metadata=metadata,
+            **loader_kwargs,
+        )
+
+        contents = await loader.load()
+
+        chunk_ids: list[str] = []
+        for content in contents:
+            # LoadedContent.metadata already has source, repo, path, branch
+            ids = self.add_text(
+                content.content,
+                metadata=content.metadata,
+                chunk=chunk,
+            )
+            chunk_ids.extend(ids)
+
+        logger.debug(f"Added {len(chunk_ids)} chunks from github://{repo}/{path}")
+        return chunk_ids
+
+    async def add_from_url(
+        self,
+        url: str | list[str],
+        metadata: dict[str, Any] | None = None,
+        chunk: bool = True,
+        **loader_kwargs: Any,
+    ) -> list[str]:
+        """Load and embed content from URL(s).
+
+        Delegates to svc_infra.loaders.URLLoader for fetching, then embeds.
+        Supports: HTML pages (auto text extraction), raw text, JSON, markdown.
+
+        Args:
+            url: Single URL or list of URLs to fetch
+            metadata: Additional metadata to attach to all chunks
+            chunk: Whether to chunk long content (default True)
+            **loader_kwargs: Additional args passed to URLLoader
+                (e.g., headers, extract_text, timeout)
+
+        Returns:
+            List of chunk IDs added.
+
+        Raises:
+            ImportError: If svc-infra is not installed.
+
+        Example:
+            >>> retriever = Retriever()
+            >>>
+            >>> # Load single URL
+            >>> await retriever.add_from_url(
+            ...     "https://example.com/docs/guide.md",
+            ...     metadata={"category": "guides"}
+            ... )
+            >>>
+            >>> # Load multiple URLs at once
+            >>> await retriever.add_from_url([
+            ...     "https://example.com/page1",
+            ...     "https://example.com/page2",
+            ... ])
+        """
+        _require_svc_infra()
+        from svc_infra.loaders import URLLoader
+
+        loader = URLLoader(
+            urls=url,
+            extra_metadata=metadata,
+            **loader_kwargs,
+        )
+
+        contents = await loader.load()
+
+        chunk_ids: list[str] = []
+        for content in contents:
+            ids = self.add_text(
+                content.content,
+                metadata=content.metadata,
+                chunk=chunk,
+            )
+            chunk_ids.extend(ids)
+
+        url_count = 1 if isinstance(url, str) else len(url)
+        logger.debug(f"Added {len(chunk_ids)} chunks from {url_count} URL(s)")
+        return chunk_ids
+
+    async def add_from_loader(
+        self,
+        loader: Any,  # BaseLoader from svc-infra
+        metadata: dict[str, Any] | None = None,
+        chunk: bool = True,
+    ) -> list[str]:
+        """Load and embed content from any svc-infra loader.
+
+        Generic method for using any svc_infra.loaders.BaseLoader subclass.
+
+        Args:
+            loader: Any loader from svc_infra.loaders (GitHubLoader, URLLoader, etc.)
+            metadata: Additional metadata to merge with loader metadata
+            chunk: Whether to chunk long content (default True)
+
+        Returns:
+            List of chunk IDs added.
+
+        Example:
+            >>> from svc_infra.loaders import GitHubLoader
+            >>>
+            >>> # Custom loader configuration
+            >>> loader = GitHubLoader(
+            ...     "nfraxio/svc-infra",
+            ...     path="docs",
+            ...     skip_patterns=["__pycache__", "*.pyc", "drafts/*"],
+            ... )
+            >>> await retriever.add_from_loader(loader, metadata={"team": "backend"})
+        """
+        contents = await loader.load()
+
+        chunk_ids: list[str] = []
+        for content in contents:
+            merged_metadata = {**content.metadata, **(metadata or {})}
+            ids = self.add_text(content.content, metadata=merged_metadata, chunk=chunk)
+            chunk_ids.extend(ids)
+
+        logger.debug(f"Added {len(chunk_ids)} chunks from custom loader")
+        return chunk_ids
+
+    def add_from_github_sync(
+        self,
+        repo: str,
+        path: str = "",
+        branch: str = "main",
+        pattern: str = "*.md",
+        token: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        chunk: bool = True,
+        **loader_kwargs: Any,
+    ) -> list[str]:
+        """Synchronous wrapper for add_from_github().
+
+        See add_from_github() for full documentation.
+
+        Note:
+            This creates a new event loop. Do not call from within an async context.
+        """
+        return _run_sync(
+            self.add_from_github(
+                repo=repo,
+                path=path,
+                branch=branch,
+                pattern=pattern,
+                token=token,
+                metadata=metadata,
+                chunk=chunk,
+                **loader_kwargs,
+            )
+        )
+
+    def add_from_url_sync(
+        self,
+        url: str | list[str],
+        metadata: dict[str, Any] | None = None,
+        chunk: bool = True,
+        **loader_kwargs: Any,
+    ) -> list[str]:
+        """Synchronous wrapper for add_from_url().
+
+        See add_from_url() for full documentation.
+
+        Note:
+            This creates a new event loop. Do not call from within an async context.
+        """
+        return _run_sync(
+            self.add_from_url(
+                url=url,
+                metadata=metadata,
+                chunk=chunk,
+                **loader_kwargs,
+            )
+        )
+
+    def add_from_loader_sync(
+        self,
+        loader: Any,
+        metadata: dict[str, Any] | None = None,
+        chunk: bool = True,
+    ) -> list[str]:
+        """Synchronous wrapper for add_from_loader().
+
+        See add_from_loader() for full documentation.
+
+        Note:
+            This creates a new event loop. Do not call from within an async context.
+        """
+        return _run_sync(self.add_from_loader(loader=loader, metadata=metadata, chunk=chunk))
 
     def _add_documents(
         self,
@@ -679,6 +1109,7 @@ class Retriever:
         k: int = 5,
         filter: dict[str, Any] | None = None,
         detailed: bool = False,
+        min_score: float | None = None,
     ) -> list[str] | list[SearchResult]:
         """Async version of search().
 
@@ -687,6 +1118,8 @@ class Retriever:
             k: Number of results.
             filter: Optional metadata filter.
             detailed: Return SearchResult objects if True.
+            min_score: Optional minimum similarity score threshold (0-1).
+                      Results below this score are filtered out.
 
         Returns:
             List of matching texts or SearchResult objects.
@@ -706,6 +1139,10 @@ class Retriever:
             k=k,
             filter=filter,
         )
+
+        # Filter by min_score if specified
+        if min_score is not None:
+            results = [r for r in results if r.get("score", 0) >= min_score]
 
         if detailed:
             return [
