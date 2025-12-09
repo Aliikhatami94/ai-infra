@@ -46,6 +46,7 @@ class PostgresBackend(BaseBackend):
         password: str | None = None,
         table_name: str = "ai_infra_embeddings",
         embedding_dimension: int = 1536,
+        similarity: str = "cosine",
     ) -> None:
         """Initialize the PostgreSQL backend.
 
@@ -59,6 +60,7 @@ class PostgresBackend(BaseBackend):
             password: Database password.
             table_name: Table name for storing embeddings.
             embedding_dimension: Dimension of embedding vectors.
+            similarity: Similarity metric (only "cosine" is supported for pgvector).
         """
         try:
             import psycopg2 as pg
@@ -86,6 +88,15 @@ class PostgresBackend(BaseBackend):
 
         self._table_name = table_name
         self._embedding_dimension = embedding_dimension
+        self._similarity = similarity  # Store but currently only cosine is used
+
+        # Validate similarity (pgvector only supports cosine for now)
+        if similarity not in ("cosine",):
+            import logging
+
+            logging.getLogger(__name__).warning(
+                f"PostgreSQL backend only supports cosine similarity, " f"ignoring {similarity!r}"
+            )
 
         # Connect to database
         self._conn: psycopg2.connection = pg.connect(connection_string)
@@ -235,7 +246,14 @@ class PostgresBackend(BaseBackend):
 
             for row in rows:
                 doc_id, text, metadata_json, score = row
-                metadata = json.loads(metadata_json) if metadata_json else {}
+                # metadata_json is already a dict (psycopg auto-parses JSON columns)
+                # Only parse if it's actually a string
+                if isinstance(metadata_json, str):
+                    metadata = json.loads(metadata_json)
+                elif metadata_json is not None:
+                    metadata = metadata_json
+                else:
+                    metadata = {}
                 results.append(
                     {
                         "id": doc_id,
