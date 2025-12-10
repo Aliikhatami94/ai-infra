@@ -306,9 +306,9 @@ class Retriever:
         # Auto-configuration from environment
         # =====================================================================
         if auto_configure:
-            # Auto-detect backend from DATABASE_URL
+            # Auto-detect backend from DATABASE_URL (also check DATABASE_URL_PRIVATE for Railway)
             if backend is None:
-                database_url = os.getenv("DATABASE_URL")
+                database_url = os.getenv("DATABASE_URL") or os.getenv("DATABASE_URL_PRIVATE")
                 if database_url:
                     backend = "postgres"
                     # Set connection_string if not already provided
