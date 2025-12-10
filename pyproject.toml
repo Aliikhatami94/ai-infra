@@ -31,36 +31,35 @@ Documentation = "https://github.com/your-org/ai-infra#readme"
 python = ">=3.11,<4.0"
 
 # Core AI/Infra
-fastapi = "^0.116.1"
-pydantic = "^2.11"
-python-dotenv = "^1.1.1"
+fastapi = ">=0.110.0"
+pydantic = ">=2.0"
+python-dotenv = ">=1.0.0"
 
 # LangChain ecosystem (v1)
-langgraph = "^1.0.0"
-langchain = "^1.0.0"
-langchain-openai = "^1.0.0"
-langchain-xai = "^1.0.0"
-langchain-anthropic = "^1.0.0"
-langchain-google-genai = "^3.0.0"
-langchain-mcp-adapters = "^0.1.14"
-langsmith = "^0.4.13"
+langgraph = ">=1.0.0"
+langchain = ">=1.0.0"
+langchain-openai = ">=1.0.0"
+langchain-xai = ">=1.0.0"
+langchain-anthropic = ">=1.0.0"
+langchain-google-genai = ">=3.0.0"
+langchain-mcp-adapters = ">=0.1.0"
+langsmith = ">=0.4.0"
 
 # MCP integration
-mcp = {extras = ["cli"], version = "^1.13.1"}
-pre-commit = "^4.3.0"
+mcp = {extras = ["cli"], version = ">=1.0.0"}
 
 # Raw provider SDKs for models.list() discovery
-google-genai = "^1.0.0"
+google-genai = ">=1.0.0"
 
 # DeepAgents - autonomous agent orchestration (0.2.x adds backends module)
-deepagents = "^0.2.0"
+deepagents = ">=0.2.0"
 
 # Retriever backends (optional)
-numpy = "^1.24.0"
-langchain-text-splitters = "^0.3.8"
-langchain-huggingface = "^1.1.0"
-sentence-transformers = "^5.1.2"
-svc-infra = "^0.1.685"
+numpy = ">=1.24.0"
+langchain-text-splitters = ">=0.3.0"
+langchain-huggingface = ">=1.0.0"
+sentence-transformers = ">=5.0.0"
+svc-infra = ">=0.1.0"
 
 [tool.poetry.extras]
 # Retriever storage backends
@@ -84,10 +83,11 @@ retriever-all = ["pgvector", "psycopg2-binary", "chromadb", "pypdf", "python-doc
 retriever-local = ["langchain-huggingface", "sentence-transformers", "pypdf", "python-docx", "beautifulsoup4", "pandas"]
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.3.0"
-pytest-asyncio = "^0.23.0"
-ruff = "^0.5.0"
-mypy = "^1.10.0"
+pytest = ">=8.0.0"
+pytest-asyncio = ">=0.23.0"
+ruff = ">=0.5.0"
+mypy = ">=1.10.0"
+pre-commit = ">=3.0.0"
 
 [tool.poetry.scripts]
 ai-infra = "ai_infra.cli:main"
