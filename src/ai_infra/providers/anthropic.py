@@ -25,7 +25,7 @@ ANTHROPIC = ProviderConfig(
                 "claude-3-opus-20240229",
                 "claude-3-haiku-20240307",
             ],
-            default_model="claude-3-5-haiku-latest",
+            default_model="claude-sonnet-4-5",
             features=["streaming", "function_calling", "vision", "extended_thinking"],
             extra={
                 "max_tokens_default": 4096,

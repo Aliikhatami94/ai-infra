@@ -31,7 +31,7 @@ GOOGLE = ProviderConfig(
                 "gemini-1.5-flash-latest",
                 "gemini-1.0-pro",
             ],
-            default_model="gemini-2.0-flash",
+            default_model="gemini-3-pro-preview",
             features=["streaming", "function_calling", "vision", "audio_input", "grounding"],
             extra={
                 "context_window": {

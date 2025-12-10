@@ -23,7 +23,7 @@ XAI = ProviderConfig(
                 "grok-2-mini",
                 "grok-beta",
             ],
-            default_model="grok-3-mini",
+            default_model="grok-code-fast-1",
             features=["streaming", "function_calling"],
             extra={
                 "openai_compatible": True,

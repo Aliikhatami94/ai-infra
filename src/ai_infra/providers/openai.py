@@ -31,7 +31,7 @@ OPENAI = ProviderConfig(
                 "o1-mini",
                 "o1-preview",
             ],
-            default_model="gpt-4o-mini",
+            default_model="gpt-5.1",
             features=["streaming", "function_calling", "vision", "json_mode", "structured_output"],
         ),
         ProviderCapability.EMBEDDINGS: CapabilityConfig(
