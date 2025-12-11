@@ -49,7 +49,10 @@ pip install ai-infra
 | **Voice** | Text-to-speech, speech-to-text, realtime | `TTS().speak(...)` |
 | **Images** | DALL-E, Stability, Imagen generation | `ImageGen().generate(...)` |
 | **Graph** | LangGraph workflows, typed state | `Graph().add_node(...)` |
-| **Memory** | Conversation history, context management | Built-in |
+| **Memory** | Context fitting, rolling summaries | `fit_context(messages, max_tokens=4000)` |
+| **Workspace** | Sandboxed file operations for agents | `Workspace("./project")` |
+| **Validation** | Prompt injection, PII detection | `validate_prompt(input)` |
+| **Tracing** | OpenTelemetry distributed tracing | `configure_tracing(...)` |
 
 ## 30-Second Examples
 
@@ -270,6 +273,13 @@ ai-infra mcp info --url http://localhost:8080
 | **Advanced** | |
 | [Deep Agent](docs/features/deep-agent.md) | Autonomous agents |
 | [Personas](docs/features/personas.md) | Agent personalities |
+| [Workspace](docs/features/workspace.md) | Sandboxed file operations |
+| [Memory](docs/memory.md) | Context management, rolling summaries |
+| [Streaming](docs/streaming.md) | Typed streaming events |
+| **Infrastructure** | |
+| [Validation](docs/infrastructure/validation.md) | Prompt/response validation |
+| [Tracing](docs/infrastructure/tracing.md) | OpenTelemetry tracing |
+| [Callbacks](docs/callbacks.md) | Execution hooks |
 | [CLI Reference](docs/cli.md) | Command-line tools |
 
 ## Running Examples

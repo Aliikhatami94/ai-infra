@@ -1,8 +1,62 @@
 # Streaming Guide
 
-Typed streaming for agents using `Agent.astream()`.
+> Stream agent responses with typed events for real-time UIs.
 
-## StreamEvent reference
+## Quick Start
+
+Get streaming working in 3 lines:
+
+```python
+from ai_infra import Agent
+
+agent = Agent(tools=[my_tool])
+
+# Basic streaming - print tokens as they arrive
+async for event in agent.astream("What is the weather in NYC?"):
+    if event.type == "token":
+        print(event.content, end="", flush=True)
+```
+
+### Complete FastAPI SSE Example
+
+```python
+from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
+from ai_infra import Agent
+import json
+
+app = FastAPI()
+agent = Agent(tools=[search_docs])
+
+@app.post("/chat")
+async def chat(message: str):
+    async def generate():
+        async for event in agent.astream(message, visibility="detailed"):
+            yield f"data: {json.dumps(event.to_dict())}\n\n"
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
+```
+
+### WebSocket Example
+
+```python
+from fastapi import WebSocket
+
+@app.websocket("/chat")
+async def chat_ws(websocket: WebSocket):
+    await websocket.accept()
+    message = await websocket.receive_text()
+
+    async for event in agent.astream(message):
+        await websocket.send_json(event.to_dict())
+
+    await websocket.close()
+```
+
+---
+
+## StreamEvent Reference
 
 `StreamEvent` fields (None when not applicable):
 - `type`: thinking | token | tool_start | tool_end | done | error

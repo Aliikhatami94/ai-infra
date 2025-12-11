@@ -1,42 +1,59 @@
 # Memory Management
 
+> Add conversation memory to your AI apps in minutes.
+
+## 5-Minute Quick Start
+
+### Basic Chat History (Most Common)
+
+Just want your agent to remember the conversation? Use `fit_context()`:
+
+```python
+from ai_infra import LLM, fit_context
+
+llm = LLM()
+messages = []  # Your conversation history
+
+# User sends a message
+messages.append({"role": "user", "content": "My name is Alice"})
+response = llm.chat(messages)
+messages.append({"role": "assistant", "content": response})
+
+# Later, fit messages into context window before sending
+messages.append({"role": "user", "content": "What's my name?"})
+
+result = fit_context(messages, max_tokens=4000)
+response = llm.chat(result.messages)  # "Your name is Alice"
+```
+
+That's it! `fit_context()` automatically trims old messages if the conversation gets too long.
+
+### With Summarization (Long Conversations)
+
+For conversations that exceed context limits, summarize instead of dropping:
+
+```python
+result = fit_context(
+    messages,
+    max_tokens=4000,
+    summarize=True,
+)
+# Old messages are summarized, recent ones kept intact
+```
+
+---
+
+## Overview
+
 ai-infra provides comprehensive memory capabilities for building production agents:
 
 - **Context Management**: `fit_context()` - One function to fit messages into token budgets
 - **Long-term Memory**: Key-value store with semantic search across sessions
 - **Conversation RAG**: Search and recall past conversations via agent tool
 
-## Quick Start
-
-```python
-from ai_infra import fit_context, MemoryStore
-from ai_infra.llm.memory import ConversationMemory, create_memory_tool
-
-# 1. Fit messages into context window (trim or summarize)
-result = fit_context(messages, max_tokens=4000)
-# Use result.messages in your prompt
-
-# 2. With summarization (rolling summary pattern)
-result = fit_context(
-    messages,
-    max_tokens=4000,
-    summarize=True,
-    summary=existing_summary,  # From previous turn
-)
-# Store result.summary for next turn
-
-# 3. Long-term memory store
-store = MemoryStore()
-store.put(("user_123", "prefs"), "language", {"value": "Python"})
-
-# 4. Agent with conversation recall
-memory = ConversationMemory()
-recall_tool = create_memory_tool(memory, user_id="user_123")
-```
-
 ---
 
-## Context Management
+## Context Management (Detailed)
 
 The primary API for managing conversation context is `fit_context()`. It handles trimming, summarization, and rolling summaries in one simple function.
 

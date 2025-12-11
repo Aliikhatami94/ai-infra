@@ -13,7 +13,8 @@
 | [MCP](#mcp) | Model Context Protocol client/server |
 | [Advanced Features](#advanced-features) | Personas, Replay, Workspace, Deep Agent |
 | [Image Generation](#image-generation) | DALL-E, Imagen, Stability, Replicate |
-| [Infrastructure](#infrastructure) | Errors, Logging, Tracing, Callbacks |
+| [Memory & Streaming](#memory--streaming) | Context management, typed streaming |
+| [Infrastructure](#infrastructure) | Errors, Logging, Tracing, Validation |
 | [CLI Reference](cli.md) | Command-line interface |
 
 ---
@@ -119,8 +120,19 @@ Cross-cutting concerns for production apps.
 | **Errors** | Exception handling | [errors.md](infrastructure/errors.md) |
 | **Logging** | Logging configuration | [logging.md](infrastructure/logging.md) |
 | **Tracing** | Observability and tracing | [tracing.md](infrastructure/tracing.md) |
-| **Callbacks** | Event hooks | [callbacks.md](infrastructure/callbacks.md) |
 | **Validation** | Input validation | [validation.md](infrastructure/validation.md) |
+| **Callbacks** | Event hooks for LLM, Agent, MCP | [callbacks.md](callbacks.md) |
+
+---
+
+## Memory & Streaming
+
+Context management and real-time streaming.
+
+| Module | Description | Doc |
+|--------|-------------|-----|
+| **Memory** | Context fitting, rolling summaries | [memory.md](memory.md) |
+| **Streaming** | Typed streaming events for UIs | [streaming.md](streaming.md) |
 
 ---
 

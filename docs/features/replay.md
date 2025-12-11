@@ -5,16 +5,20 @@
 ## Quick Start
 
 ```python
-from ai_infra import Replay
+from ai_infra import Agent, Replay
 
-# Load a recorded trace
-replay = Replay.from_file("trace_abc123.json")
+# 1. Run agent with recording enabled
+agent = Agent(tools=[search, write_file], record=True)
+result = agent.run("Search for Python tutorials and save notes")
 
-# Step through execution
+# 2. Get the recorded trace
+trace = agent.get_trace()
+trace.save("my_workflow.json")
+
+# 3. Later, replay and analyze
+replay = Replay.from_file("my_workflow.json")
 for step in replay.steps():
     print(f"Step {step.number}: {step.action}")
-    print(f"Input: {step.input}")
-    print(f"Output: {step.output}")
 ```
 
 ---
@@ -31,19 +35,32 @@ Replay enables debugging complex agent workflows by:
 
 ## Recording Workflows
 
-### Automatic Recording
+### Enable Recording on Agent
 
 ```python
 from ai_infra import Agent
 
-# Enable recording
-agent = Agent(persona=persona, record=True)
+# Enable recording with record=True
+agent = Agent(
+    tools=[search, calculate],
+    record=True,  # This enables recording
+)
 
 result = agent.run("Complete this task")
 
-# Get recorded trace
+# Get the recorded trace
 trace = agent.get_trace()
 trace.save("trace.json")
+```
+
+### With Custom Path
+
+```python
+agent = Agent(
+    tools=[my_tool],
+    record=True,
+    record_path="./traces/",  # Save traces here
+)
 ```
 
 ### Manual Recording

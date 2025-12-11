@@ -5,16 +5,11 @@
 ## Quick Start
 
 ```python
-from ai_infra import generate_image
+from ai_infra import ImageGen
 
-result = await generate_image(
-    prompt="A serene mountain landscape at sunset",
-    provider="openai",
-    size="1024x1024",
-)
-
-# Save the image
-result.save("landscape.png")
+gen = ImageGen()  # Auto-detects provider from env
+image = gen.generate("A serene mountain landscape at sunset")
+image.save("landscape.png")
 ```
 
 ---
@@ -29,34 +24,59 @@ ai-infra provides a unified interface for image generation across multiple provi
 
 ---
 
-## Basic Generation
+## Basic Usage
 
-### Simple Prompt
+### Simple Generation
 
 ```python
-from ai_infra import generate_image
+from ai_infra import ImageGen
 
-result = await generate_image(
-    prompt="A futuristic city with flying cars",
-    provider="openai",
-)
+gen = ImageGen()
+image = gen.generate("A futuristic city with flying cars")
+image.save("city.png")
+```
 
-# Access generated image
-image_bytes = result.data
-result.save("city.png")
+### With Provider Selection
+
+```python
+from ai_infra import ImageGen
+
+# OpenAI DALL-E
+gen = ImageGen(provider="openai")
+image = gen.generate("A cute robot assistant")
+
+# Stability AI
+gen = ImageGen(provider="stability")
+image = gen.generate("A photorealistic portrait")
+
+# Google Imagen
+gen = ImageGen(provider="google_genai")
+image = gen.generate("An abstract painting")
 ```
 
 ### With Parameters
 
 ```python
-result = await generate_image(
-    prompt="A cute robot assistant",
-    provider="openai",
-    model_name="dall-e-3",
+gen = ImageGen(provider="openai")
+image = gen.generate(
+    "A cute robot assistant",
+    model="dall-e-3",
     size="1792x1024",  # Widescreen
     quality="hd",
     style="vivid",
 )
+```
+
+---
+
+## Async Generation
+
+```python
+from ai_infra import ImageGen
+
+gen = ImageGen(provider="openai")
+image = await gen.agenerate("A sunset over mountains")
+image.save("sunset.png")
 ```
 
 ---
@@ -66,10 +86,10 @@ result = await generate_image(
 ### OpenAI DALL-E
 
 ```python
-result = await generate_image(
-    prompt="...",
-    provider="openai",
-    model_name="dall-e-3",  # or "dall-e-2"
+gen = ImageGen(provider="openai")
+image = gen.generate(
+    "Your prompt...",
+    model="dall-e-3",  # or "dall-e-2"
     size="1024x1024",  # 1024x1024, 1792x1024, 1024x1792
     quality="standard",  # or "hd"
     style="vivid",  # or "natural"
@@ -79,10 +99,10 @@ result = await generate_image(
 ### Stability AI
 
 ```python
-result = await generate_image(
-    prompt="...",
-    provider="stability",
-    model_name="stable-diffusion-xl",
+gen = ImageGen(provider="stability")
+image = gen.generate(
+    "Your prompt...",
+    model="stable-diffusion-xl",
     size="1024x1024",
     steps=30,
     cfg_scale=7.0,
@@ -93,10 +113,10 @@ result = await generate_image(
 ### Google Imagen
 
 ```python
-result = await generate_image(
-    prompt="...",
-    provider="google_genai",
-    model_name="imagen-3",
+gen = ImageGen(provider="google_genai")
+image = gen.generate(
+    "Your prompt...",
+    model="imagen-3",
     size="1024x1024",
     aspect_ratio="1:1",  # or "16:9", "9:16", etc.
 )
@@ -105,10 +125,10 @@ result = await generate_image(
 ### Replicate
 
 ```python
-result = await generate_image(
-    prompt="...",
-    provider="replicate",
-    model_name="stability-ai/sdxl",
+gen = ImageGen(provider="replicate")
+image = gen.generate(
+    "Your prompt...",
+    model="stability-ai/sdxl",
     size="1024x1024",
     num_inference_steps=50,
     guidance_scale=7.5,
@@ -122,14 +142,14 @@ result = await generate_image(
 Generate multiple variations:
 
 ```python
-results = await generate_image(
-    prompt="A magical forest",
-    provider="openai",
+gen = ImageGen(provider="openai")
+images = gen.generate(
+    "A magical forest",
     n=4,  # Generate 4 images
 )
 
-for i, result in enumerate(results):
-    result.save(f"forest_{i}.png")
+for i, image in enumerate(images):
+    image.save(f"forest_{i}.png")
 ```
 
 ---
@@ -139,24 +159,20 @@ for i, result in enumerate(results):
 ### Inpainting (OpenAI)
 
 ```python
-from ai_infra import edit_image
-
-result = await edit_image(
+gen = ImageGen(provider="openai")
+image = gen.edit(
     image="input.png",
     mask="mask.png",  # White areas = edit region
     prompt="Add a rainbow in the sky",
-    provider="openai",
 )
 ```
 
 ### Image Variations
 
 ```python
-from ai_infra import create_variation
-
-result = await create_variation(
+gen = ImageGen(provider="openai")
+images = gen.create_variation(
     image="input.png",
-    provider="openai",
     n=3,  # Generate 3 variations
 )
 ```
@@ -168,19 +184,19 @@ result = await create_variation(
 ### Negative Prompts
 
 ```python
-result = await generate_image(
-    prompt="A beautiful portrait",
+gen = ImageGen(provider="stability")
+image = gen.generate(
+    "A beautiful portrait",
     negative_prompt="blurry, low quality, distorted",
-    provider="stability",
 )
 ```
 
 ### Seed for Reproducibility
 
 ```python
-result = await generate_image(
-    prompt="A red apple",
-    provider="stability",
+gen = ImageGen(provider="stability")
+image = gen.generate(
+    "A red apple",
     seed=42,  # Same seed = same image
 )
 ```
@@ -188,10 +204,10 @@ result = await generate_image(
 ### Style Transfer
 
 ```python
-result = await generate_image(
-    prompt="A landscape",
+gen = ImageGen(provider="stability")
+image = gen.generate(
+    "A landscape",
     style="anime",  # Provider-specific styles
-    provider="stability",
 )
 ```
 

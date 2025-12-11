@@ -341,6 +341,84 @@ result = await agent.run()
 
 ---
 
+## Complete Example: All Features
+
+This example shows all DeepAgent features working together:
+
+```python
+from ai_infra import DeepAgent, Workspace
+
+# 1. Set up workspace with sandboxed file access
+workspace = Workspace("./my-project")
+
+# 2. Define tools the agent can use
+def search_codebase(query: str) -> str:
+    """Search for code patterns."""
+    return workspace.search(query)
+
+def read_file(path: str) -> str:
+    """Read a file."""
+    return workspace.read(path)
+
+def write_file(path: str, content: str) -> str:
+    """Write to a file."""
+    workspace.write(path, content)
+    return f"Wrote {len(content)} bytes to {path}"
+
+def run_tests() -> str:
+    """Run the test suite."""
+    # This is a dangerous operation - will require approval
+    import subprocess
+    result = subprocess.run(["pytest", "-q"], capture_output=True, text=True)
+    return result.stdout
+
+# 3. Create agent with all features
+agent = DeepAgent(
+    goal="Add type hints to all functions in src/ and verify with tests",
+    tools=[search_codebase, read_file, write_file, run_tests],
+    workspace=workspace,
+
+    # Planning & Execution
+    max_iterations=50,
+    allow_self_correction=True,  # Retry on failures
+
+    # Human approval for dangerous operations
+    require_approval_for=["run_tests", "write_file"],
+)
+
+# 4. Run with progress tracking
+async def main():
+    async for progress in agent.stream():
+        # Show progress
+        print(f"[Step {progress.step}] {progress.status}")
+
+        # Handle approval requests
+        if progress.requires_approval:
+            print(f"\n⚠️  Approval needed: {progress.pending_action}")
+            print(f"   Tool: {progress.tool_name}")
+            print(f"   Args: {progress.tool_args}")
+
+            if input("Approve? [y/n]: ").lower() == "y":
+                await agent.approve()
+            else:
+                await agent.reject("User declined")
+
+    # Get final result
+    result = agent.get_result()
+
+    # Summary
+    print(f"\n✅ Completed in {result.steps_count} steps")
+    print(f"   Duration: {result.duration_seconds:.1f}s")
+    print(f"   Tokens: {result.total_tokens}")
+    print(f"   Cost: ${result.estimated_cost:.4f}")
+    print(f"\nOutput:\n{result.output}")
+
+import asyncio
+asyncio.run(main())
+```
+
+---
+
 ## See Also
 
 - [Agent](../core/agents.md) - Basic agent usage

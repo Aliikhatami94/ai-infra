@@ -4,22 +4,38 @@
 
 ## Quick Start
 
+### Simplest Example
+
 ```python
 from ai_infra import RealtimeVoice
 
-async def main():
-    voice = RealtimeVoice()
+voice = RealtimeVoice()  # Auto-detects provider
 
-    @voice.on_transcript
-    async def handle_transcript(text: str, is_final: bool):
-        print(f"{'>' if is_final else '...'} {text}")
+async with voice.connect() as session:
+    # Send audio, get audio back
+    response = await session.send_audio(audio_bytes)
+    play_audio(response.audio)
+```
 
-    @voice.on_audio
-    async def handle_audio(audio: bytes):
-        play_audio(audio)
+### With Event Handlers (Recommended)
 
-    async with voice.connect() as session:
-        await session.send_audio(microphone_data)
+For real-time applications, use event handlers:
+
+```python
+from ai_infra import RealtimeVoice
+
+voice = RealtimeVoice()
+
+@voice.on_transcript
+async def handle_transcript(text: str, is_final: bool):
+    print(f"{'>' if is_final else '...'} {text}")
+
+@voice.on_audio
+async def handle_audio(audio: bytes):
+    play_audio(audio)
+
+async with voice.connect() as session:
+    await session.send_audio(microphone_data)
 ```
 
 ---
