@@ -285,7 +285,7 @@ ai-infra mcp info --url http://localhost:8080
 ## Running Examples
 
 ```bash
-git clone https://github.com/nfraxio/ai-infra.git
+git clone https://github.com/nfraxlab/ai-infra.git
 cd ai-infra
 poetry install
 
@@ -305,9 +305,9 @@ ai-infra is part of the **nfrax** infrastructure suite:
 
 | Package | Purpose |
 |---------|---------|
-| **[ai-infra](https://github.com/nfraxio/ai-infra)** | AI/LLM infrastructure (agents, tools, RAG, MCP) |
-| **[svc-infra](https://github.com/nfraxio/svc-infra)** | Backend infrastructure (auth, billing, jobs, webhooks) |
-| **[fin-infra](https://github.com/nfraxio/fin-infra)** | Financial infrastructure (banking, portfolio, insights) |
+| **[ai-infra](https://github.com/nfraxlab/ai-infra)** | AI/LLM infrastructure (agents, tools, RAG, MCP) |
+| **[svc-infra](https://github.com/nfraxlab/svc-infra)** | Backend infrastructure (auth, billing, jobs, webhooks) |
+| **[fin-infra](https://github.com/nfraxlab/fin-infra)** | Financial infrastructure (banking, portfolio, insights) |
 
 ## License
 
@@ -317,8 +317,8 @@ MIT License - use it for anything.
 
 <div align="center">
 
-**Built by [nfraxio](https://github.com/nfraxio)**
+**Built by [nfraxlab](https://github.com/nfraxlab)**
 
-[Star us on GitHub](https://github.com/nfraxio/ai-infra) | [View on PyPI](https://pypi.org/project/ai-infra/)
+[Star us on GitHub](https://github.com/nfraxlab/ai-infra) | [View on PyPI](https://pypi.org/project/ai-infra/)
 
 </div>

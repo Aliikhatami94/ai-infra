@@ -597,7 +597,7 @@ class Retriever:
         Delegates to svc_infra.loaders.GitHubLoader for fetching, then embeds.
 
         Args:
-            repo: Repository in "owner/repo" format (e.g., "nfraxio/svc-infra")
+            repo: Repository in "owner/repo" format (e.g., "nfraxlab/svc-infra")
             path: Path within repo (e.g., "docs", "examples/src")
             branch: Branch name (default: "main")
             pattern: Glob pattern for files (e.g., "*.md", "*.py", "*")
@@ -619,7 +619,7 @@ class Retriever:
             >>>
             >>> # Load documentation
             >>> await retriever.add_from_github(
-            ...     "nfraxio/svc-infra",
+            ...     "nfraxlab/svc-infra",
             ...     path="docs",
             ...     pattern="*.md",
             ...     metadata={"package": "svc-infra", "type": "docs"}
@@ -627,7 +627,7 @@ class Retriever:
             >>>
             >>> # Load Python examples
             >>> await retriever.add_from_github(
-            ...     "nfraxio/ai-infra",
+            ...     "nfraxlab/ai-infra",
             ...     path="examples",
             ...     pattern="*.py",
             ...     metadata={"type": "examples"}
@@ -748,7 +748,7 @@ class Retriever:
             >>>
             >>> # Custom loader configuration
             >>> loader = GitHubLoader(
-            ...     "nfraxio/svc-infra",
+            ...     "nfraxlab/svc-infra",
             ...     path="docs",
             ...     skip_patterns=["__pycache__", "*.pyc", "drafts/*"],
             ... )

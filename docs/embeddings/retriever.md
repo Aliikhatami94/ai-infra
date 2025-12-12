@@ -114,7 +114,7 @@ await retriever.add_from_github(
 
 # Load entire docs folder
 await retriever.add_from_github(
-    repo="nfraxio/svc-infra",
+    repo="nfraxlab/svc-infra",
     paths=["docs/"],  # Directory path
 )
 ```
@@ -327,7 +327,7 @@ result.to_dict()  # JSON-serializable dict
     "source": "docs/guide.md",
     "page": None,
     "chunk_index": 0,
-    "metadata": {"repo": "nfraxio/svc-infra", ...}
+    "metadata": {"repo": "nfraxlab/svc-infra", ...}
 }
 ```
 ```

@@ -94,7 +94,7 @@ class SearchResult:
         Example:
             >>> # When loaded from GitHub
             >>> result.repo
-            'nfraxio/svc-infra'
+            'nfraxlab/svc-infra'
         """
         return self.metadata.get("repo")
 

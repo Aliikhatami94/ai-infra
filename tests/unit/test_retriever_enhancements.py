@@ -273,10 +273,10 @@ class TestSearchResultConvenienceProperties:
         result = SearchResult(
             text="Test",
             score=0.9,
-            metadata={"repo": "nfraxio/svc-infra"},
+            metadata={"repo": "nfraxlab/svc-infra"},
         )
 
-        assert result.repo == "nfraxio/svc-infra"
+        assert result.repo == "nfraxlab/svc-infra"
 
     def test_path_property(self) -> None:
         """Test path property extracts from metadata."""

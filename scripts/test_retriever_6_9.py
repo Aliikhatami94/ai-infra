@@ -64,10 +64,10 @@ async def main():
     retriever = Retriever()
 
     # Test add_from_github (real GitHub API call)
-    print("\n🐙 Testing add_from_github() - Loading from nfraxio/svc-infra...")
+    print("\n🐙 Testing add_from_github() - Loading from nfraxlab/svc-infra...")
     try:
         ids = await retriever.add_from_github(
-            "nfraxio/svc-infra",
+            "nfraxlab/svc-infra",
             path="docs",
             pattern="auth.md",  # Just one file to be quick
             branch="main",
@@ -81,7 +81,7 @@ async def main():
     # Test add_from_url (real URL fetch)
     print("\n🌐 Testing add_from_url() - Loading from raw GitHub URL...")
     try:
-        url = "https://raw.githubusercontent.com/nfraxio/svc-infra/main/README.md"
+        url = "https://raw.githubusercontent.com/nfraxlab/svc-infra/main/README.md"
         ids = await retriever.add_from_url(
             url,
             metadata={"source_type": "url", "package": "svc-infra"},
@@ -96,7 +96,7 @@ async def main():
     r_sync = Retriever()
     try:
         ids = r_sync.add_from_url_sync(
-            "https://raw.githubusercontent.com/nfraxio/ai-infra/main/README.md",
+            "https://raw.githubusercontent.com/nfraxlab/ai-infra/main/README.md",
             metadata={"package": "ai-infra"},
         )
         print(f"   ✅ add_from_url_sync() loaded {len(ids)} chunks")
