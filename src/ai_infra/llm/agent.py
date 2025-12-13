@@ -259,6 +259,8 @@ class Agent(BaseLLM):
         use_longterm_memory: bool = False,
         # Workspace configuration
         workspace: Optional[Union[str, "Path", "Workspace"]] = None,
+        # Safety limits
+        recursion_limit: int = 50,
         **model_kwargs,
     ):
         """Initialize an Agent with optional tools and provider settings.
@@ -328,6 +330,12 @@ class Agent(BaseLLM):
                     For regular agents, configures proj_mgmt tools.
                     Example: workspace=".", workspace=Workspace(".", mode="sandboxed")
 
+            Safety Limits:
+                recursion_limit: Maximum number of agent iterations (default: 50).
+                    Prevents infinite loops when agent keeps calling tools without
+                    making progress. This is a critical safety measure to prevent
+                    runaway token costs. Raise only if you have monitoring in place.
+
             **model_kwargs: Additional kwargs passed to the model
         """
         super().__init__()
@@ -354,6 +362,9 @@ class Agent(BaseLLM):
         self._response_format = response_format
         self._context_schema = context_schema
         self._use_longterm_memory = use_longterm_memory
+
+        # Safety limits
+        self._recursion_limit = recursion_limit
 
         # Workspace configuration
         self._workspace: Optional["Workspace"] = None
@@ -1385,11 +1396,12 @@ class Agent(BaseLLM):
             model_kwargs=self._default_model_kwargs,
         )
 
-        # Resume with Command
+        # Resume with Command - inject recursion_limit into config
+        merged_config = self._merge_recursion_limit_config(context, config)
         result = agent.invoke(
             Command(resume=decision.model_dump()),
             context=context,
-            config=config,
+            config=merged_config,
         )
 
         return self._make_session_result(result, session_id)
@@ -1513,7 +1525,36 @@ class Agent(BaseLLM):
             store=store,
             interrupt_before=interrupt_before,
             interrupt_after=interrupt_after,
+            # Safety limits - stored in context.extra for runtime config injection
+            recursion_limit=self._recursion_limit,
         )
+
+    def _merge_recursion_limit_config(
+        self,
+        context: Any,
+        config: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Merge recursion_limit from context into config for runtime safety limits.
+
+        LangGraph requires recursion_limit to be passed at runtime to invoke()/astream()
+        via the config dict, NOT to create_react_agent().
+
+        Args:
+            context: ModelSettings context containing recursion_limit in extra
+            config: User-provided config dict (may be None)
+
+        Returns:
+            Config dict with recursion_limit set
+        """
+        result = dict(config) if config else {}
+        # Get recursion_limit from context.extra (set by make_agent_with_context)
+        recursion_limit = None
+        if hasattr(context, "extra") and context.extra:
+            recursion_limit = context.extra.get("recursion_limit")
+        # Only set if not already in config and we have a value
+        if "recursion_limit" not in result and recursion_limit is not None:
+            result["recursion_limit"] = recursion_limit
+        return result
 
     def _build_deep_agent(
         self,
@@ -1708,9 +1749,12 @@ class Agent(BaseLLM):
                 )
             )
 
+        # Inject recursion_limit into config for safety
+        merged_config = self._merge_recursion_limit_config(context, config)
+
         start_time = time.time()
         try:
-            res = agent.invoke({"messages": messages}, context=context, config=config)
+            res = agent.invoke({"messages": messages}, context=context, config=merged_config)
 
             # Fire LLM end callback
             if self._callbacks:
@@ -1759,12 +1803,18 @@ class Agent(BaseLLM):
         )
         modes = [stream_mode] if isinstance(stream_mode, str) else list(stream_mode)
 
+        # Inject recursion_limit into config for safety
+        merged_config = self._merge_recursion_limit_config(context, config)
+
         # Track token index for callbacks
         token_index = 0
 
         if modes == ["messages"]:
             async for token, meta in agent.astream(
-                {"messages": messages}, context=context, config=config, stream_mode="messages"
+                {"messages": messages},
+                context=context,
+                config=merged_config,
+                stream_mode="messages",
             ):
                 # Fire token callback
                 if self._callbacks and hasattr(token, "content") and token.content:
@@ -1783,7 +1833,7 @@ class Agent(BaseLLM):
             return
         last_values = None
         async for mode, chunk in agent.astream(
-            {"messages": messages}, context=context, config=config, stream_mode=modes
+            {"messages": messages}, context=context, config=merged_config, stream_mode=modes
         ):
             if mode == "values":
                 last_values = chunk
@@ -1808,11 +1858,14 @@ class Agent(BaseLLM):
         agent, context = self._make_agent_with_context(
             provider, model_name, tools, extra, model_kwargs, tool_controls
         )
+        # Inject recursion_limit into config for safety
+        merged_config = self._merge_recursion_limit_config(context, config)
+
         token_index = 0
         async for token, meta in agent.astream(
             {"messages": messages},
             context=context,
-            config=config,
+            config=merged_config,
             stream_mode="messages",
         ):
             # Fire token callback

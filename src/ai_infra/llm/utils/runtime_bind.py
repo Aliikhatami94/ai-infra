@@ -83,6 +83,8 @@ def make_agent_with_context(
     store: Optional[Any] = None,
     interrupt_before: Optional[List[str]] = None,
     interrupt_after: Optional[List[str]] = None,
+    # Safety limits
+    recursion_limit: int = 50,
 ) -> Tuple[Any, ModelSettings]:
     """Construct an agent (LangGraph ReAct) and its runtime context.
 
@@ -111,6 +113,10 @@ def make_agent_with_context(
         store: LangGraph store for cross-session memory
         interrupt_before: Tool names to pause before executing
         interrupt_after: Tool names to pause after executing
+        recursion_limit: Maximum number of agent iterations (default: 50).
+            Prevents infinite loops when agent keeps calling tools without
+            making progress. A recursion limit error will be raised if exceeded.
+            This is a critical safety measure to prevent runaway token costs.
 
     Returns:
         Tuple of (compiled agent, ModelSettings context)
@@ -156,11 +162,19 @@ def make_agent_with_context(
     if not effective_tools and logger:
         logger.warning("No tools bound; agent will not call tools.")
 
+    # Store recursion_limit in extra for runtime config injection
+    # IMPORTANT: recursion_limit is passed to invoke()/astream() config, NOT to create_react_agent()
+    merged_extra = {
+        "model_kwargs": model_kwargs or {},
+        "recursion_limit": recursion_limit,
+        **(extra or {}),
+    }
+
     context = ModelSettings(
         provider=provider,
         model_name=effective_model,
         tools=effective_tools,
-        extra={"model_kwargs": model_kwargs or {}, **(extra or {})},
+        extra=merged_extra,
     )
 
     def _selector(state, rt: Runtime[ModelSettings]):

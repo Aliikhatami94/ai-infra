@@ -29,6 +29,7 @@ Example (Web App):
 
 from __future__ import annotations
 
+import ast
 import uuid
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Literal, Optional
@@ -187,10 +188,11 @@ def console_approval_handler(request: ApprovalRequest) -> ApprovalResponse:
                 return ApprovalResponse.reject(reason="Rejected by user", approver="console")
             elif ans in ("m", "modify"):
                 print(f"   Current args: {request.args}")
-                # Simple modification: let user enter new args as Python dict
+                # Simple modification: let user enter new args as Python dict literal
+                # Using ast.literal_eval for safety - only allows dict/list/str/int/float/bool/None
                 try:
-                    new_args_str = input("   New args (Python dict): ").strip()
-                    new_args = eval(new_args_str)  # noqa: S307 - User input in console
+                    new_args_str = input("   New args (Python dict literal): ").strip()
+                    new_args = ast.literal_eval(new_args_str)  # Safe: only literals
                     if isinstance(new_args, dict):
                         return ApprovalResponse.approve(
                             modified_args=new_args,
@@ -198,8 +200,9 @@ def console_approval_handler(request: ApprovalRequest) -> ApprovalResponse:
                             approver="console",
                         )
                     print("   Invalid: must be a dict")
-                except Exception as e:
+                except (ValueError, SyntaxError) as e:
                     print(f"   Error parsing args: {e}")
+                    print("   Hint: Only dict literals allowed, e.g. {'key': 'value', 'count': 42}")
             else:
                 print("   Please enter y, n, or m")
     except EOFError:

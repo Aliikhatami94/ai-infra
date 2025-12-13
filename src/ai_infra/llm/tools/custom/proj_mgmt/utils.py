@@ -122,6 +122,15 @@ def _confine(path: Union[str, Path], *, workspace: Optional[Path] = None) -> Pat
     """
     Map user-supplied path to a real path under the workspace root.
 
+    ⚠️ SECURITY: This function is the primary defense against path traversal attacks.
+    ALL user-supplied paths MUST be processed through this function before any
+    filesystem operation. This prevents attacks like "../../etc/passwd".
+
+    The function:
+    1. Resolves the path to an absolute path (following symlinks)
+    2. Verifies the resolved path is under the workspace root
+    3. Raises ToolException if the path escapes the sandbox
+
     Args:
         path: User-supplied path (relative or absolute)
         workspace: Optional explicit workspace root. If None, uses
@@ -131,7 +140,14 @@ def _confine(path: Union[str, Path], *, workspace: Optional[Path] = None) -> Pat
         Resolved absolute path guaranteed to be under the workspace root.
 
     Raises:
-        ToolException: If path escapes the workspace root.
+        ToolException: If path escapes the workspace root (e.g., "../../etc/passwd").
+
+    Examples:
+        >>> _confine("src/main.py")  # OK: relative path
+        PosixPath('/workspace/src/main.py')
+
+        >>> _confine("../../../etc/passwd")  # BLOCKED
+        ToolException: Path escapes workspace root: /etc/passwd
     """
     root = (workspace or get_workspace_root()).resolve()
     p = _normalize_user_path(Path(path))

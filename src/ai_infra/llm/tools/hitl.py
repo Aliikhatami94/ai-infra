@@ -603,6 +603,10 @@ class ToolExecutionConfig:
         on_timeout: How to handle timeouts.
             - "return_error": Return timeout message to agent (default)
             - "abort": Re-raise TimeoutError
+        max_result_chars: Maximum characters in tool result (default 60000, ~15k tokens).
+            Results exceeding this limit are truncated with a note.
+            This prevents massive tool outputs from blowing the context window.
+            Set to 0 or None to disable truncation.
 
     Example:
         ```python
@@ -621,6 +625,11 @@ class ToolExecutionConfig:
             on_error="abort",
             validate_results=True,
         )
+
+        # Limit tool result size to prevent context overflow
+        config = ToolExecutionConfig(
+            max_result_chars=30000,  # ~7.5k tokens
+        )
         ```
     """
 
@@ -629,12 +638,15 @@ class ToolExecutionConfig:
     timeout: Optional[float] = None
     validate_results: bool = False
     on_timeout: Literal["return_error", "abort"] = "return_error"
+    max_result_chars: Optional[int] = 60000  # ~15k tokens, safe for most context windows
 
     def __post_init__(self):
         if self.max_retries < 0:
             raise ValueError("max_retries must be >= 0")
         if self.timeout is not None and self.timeout <= 0:
             raise ValueError("timeout must be > 0")
+        if self.max_result_chars is not None and self.max_result_chars < 0:
+            raise ValueError("max_result_chars must be >= 0 or None")
 
 
 class ToolExecutionError(Exception):
@@ -701,6 +713,44 @@ class _ExecutionConfigWrappedTool(BaseTool):
         if not isinstance(result, self._expected_return_type):
             raise ToolValidationError(self.name, self._expected_return_type, result)
 
+    def _truncate_result(self, result: Any) -> Any:
+        """Truncate result if it exceeds max_result_chars.
+
+        This prevents massive tool outputs from blowing the context window
+        and causing excessive token costs.
+        """
+        max_chars = self._config.max_result_chars
+        if max_chars is None or max_chars == 0:
+            return result  # Truncation disabled
+
+        # Handle string results
+        if isinstance(result, str):
+            if len(result) > max_chars:
+                return result[:max_chars] + f"\n\n[TRUNCATED: Result exceeded {max_chars} chars]"
+            return result
+
+        # Handle dict/list by converting to string for size check
+        if isinstance(result, (dict, list)):
+            try:
+                import json
+
+                result_str = json.dumps(result)
+                if len(result_str) > max_chars:
+                    # Return truncated JSON string with note
+                    return (
+                        result_str[:max_chars]
+                        + f"\n\n[TRUNCATED: Result exceeded {max_chars} chars]"
+                    )
+            except (TypeError, ValueError):
+                pass  # Can't serialize, return as-is
+            return result
+
+        # For other types, convert to string and check
+        result_str = str(result)
+        if len(result_str) > max_chars:
+            return result_str[:max_chars] + f"\n\n[TRUNCATED: Result exceeded {max_chars} chars]"
+        return result
+
     def _format_error(self, error: Exception) -> str:
         """Format error for returning to agent."""
         return f"[Tool Error: {self.name}] {type(error).__name__}: {str(error)}"
@@ -746,7 +796,8 @@ class _ExecutionConfigWrappedTool(BaseTool):
 
                 # Validate result
                 self._validate_result(result)
-                return result
+                # Truncate result to prevent context overflow
+                return self._truncate_result(result)
 
             except (ToolTimeoutError, ToolValidationError):
                 raise  # Don't retry these
@@ -797,7 +848,8 @@ class _ExecutionConfigWrappedTool(BaseTool):
 
                 # Validate result
                 self._validate_result(result)
-                return result
+                # Truncate result to prevent context overflow
+                return self._truncate_result(result)
 
             except (ToolTimeoutError, ToolValidationError):
                 raise  # Don't retry these
