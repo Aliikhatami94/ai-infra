@@ -190,6 +190,26 @@ The first provider with a configured API key is used.
 
 ---
 
+## Safety Limits
+
+Agents have built-in safety limits to prevent runaway costs and infinite loops:
+
+| Limit | Default | Description |
+|-------|---------|-------------|
+| `recursion_limit` | 50 | Maximum agent iterations before stopping |
+| `max_result_chars` | 10000 | Tool results truncated to prevent context overflow |
+
+```python
+from ai_infra import Agent
+
+# Agents automatically have a recursion limit of 50
+agent = Agent(tools=[...], recursion_limit=25)  # Override if needed
+```
+
+**Why this matters**: Without limits, a misbehaving agent can call tools indefinitely, consuming unlimited tokens and costs. The `recursion_limit` is enforced at runtime to prevent this.
+
+---
+
 ## Next Steps
 
 - **[LLM Documentation](core/llm.md)** - Deep dive into chat completions
