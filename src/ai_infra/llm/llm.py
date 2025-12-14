@@ -7,7 +7,7 @@ without agent/tool capabilities.
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Union
 
 from pydantic import BaseModel
 
@@ -65,7 +65,7 @@ class LLM(BaseLLM):
     def __init__(
         self,
         *,
-        callbacks: Optional[Union["Callbacks", "CallbackManager"]] = None,
+        callbacks: Union["Callbacks", "CallbackManager" | None] = None,
     ):
         """Initialize LLM with optional callbacks.
 
@@ -79,7 +79,7 @@ class LLM(BaseLLM):
         # Use shared normalize_callbacks utility
         from ai_infra.callbacks import normalize_callbacks
 
-        self._callbacks: Optional["CallbackManager"] = normalize_callbacks(callbacks)
+        self._callbacks: "CallbackManager" | None = normalize_callbacks(callbacks)
 
     # =========================================================================
     # Discovery API - Static methods for provider/model discovery
@@ -192,17 +192,17 @@ class LLM(BaseLLM):
     def chat(
         self,
         user_msg: str,
-        provider: Optional[str] = None,
-        model_name: Optional[str] = None,
-        system: Optional[str] = None,
-        extra: Optional[Dict[str, Any]] = None,
+        provider: str | None = None,
+        model_name: str | None = None,
+        system: str | None = None,
+        extra: Dict[str, Any | None] = None,
         output_schema: Union[type[BaseModel], Dict[str, Any], None] = None,
         output_method: (
             Literal["json_schema", "json_mode", "function_calling", "prompt"] | None
         ) = "prompt",
-        images: Optional[List[Any]] = None,
-        audio: Optional[Any] = None,
-        audio_output: Optional[Any] = None,
+        images: List[Any | None] = None,
+        audio: Any | None = None,
+        audio_output: Any | None = None,
         **model_kwargs,
     ):
         """Send a chat message and get a response.
@@ -361,17 +361,17 @@ class LLM(BaseLLM):
     async def achat(
         self,
         user_msg: str,
-        provider: Optional[str] = None,
-        model_name: Optional[str] = None,
-        system: Optional[str] = None,
-        extra: Optional[Dict[str, Any]] = None,
+        provider: str | None = None,
+        model_name: str | None = None,
+        system: str | None = None,
+        extra: Dict[str, Any | None] = None,
         output_schema: Union[type[BaseModel], Dict[str, Any], None] = None,
         output_method: (
             Literal["json_schema", "json_mode", "function_calling", "prompt"] | None
         ) = "prompt",
-        images: Optional[List[Any]] = None,
-        audio: Optional[Any] = None,
-        audio_output: Optional[Any] = None,
+        images: List[Any | None] = None,
+        audio: Any | None = None,
+        audio_output: Any | None = None,
         **model_kwargs,
     ):
         """Async version of chat().
@@ -528,14 +528,14 @@ class LLM(BaseLLM):
     async def stream_tokens(
         self,
         user_msg: str,
-        provider: Optional[str] = None,
-        model_name: Optional[str] = None,
-        system: Optional[str] = None,
+        provider: str | None = None,
+        model_name: str | None = None,
+        system: str | None = None,
         *,
-        temperature: Optional[float] = None,
-        top_p: Optional[float] = None,
-        max_tokens: Optional[int] = None,
-        images: Optional[List[Any]] = None,
+        temperature: float | None = None,
+        top_p: float | None = None,
+        max_tokens: int | None = None,
+        images: List[Any | None] = None,
         **model_kwargs,
     ):
         """Stream tokens from the model.

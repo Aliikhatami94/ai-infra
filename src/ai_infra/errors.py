@@ -14,7 +14,44 @@ All errors provide helpful, actionable error messages with:
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Dict, List, Optional
+
+# =============================================================================
+# Logging Helper
+# =============================================================================
+
+
+def log_exception(
+    logger: logging.Logger,
+    msg: str,
+    exc: Exception,
+    *,
+    level: str = "warning",
+    include_traceback: bool = True,
+) -> None:
+    """Log an exception with consistent formatting.
+
+    Use this helper instead of bare `except Exception:` blocks to ensure
+    all exceptions are properly logged with context.
+
+    Args:
+        logger: The logger instance to use
+        msg: Context message describing what operation failed
+        exc: The exception that was caught
+        level: Log level - "debug", "info", "warning", "error", "critical"
+        include_traceback: Whether to include full traceback (exc_info=True)
+
+    Example:
+        try:
+            result = await llm.achat("Hello")
+        except Exception as e:
+            log_exception(logger, "LLM call failed", e)
+            # Handle gracefully or re-raise
+    """
+    log_func = getattr(logger, level.lower(), logger.warning)
+    log_func(f"{msg}: {type(exc).__name__}: {exc}", exc_info=include_traceback)
+
 
 # =============================================================================
 # Base Error
@@ -734,6 +771,8 @@ class ToolValidationError(ToolError):
 # =============================================================================
 
 __all__ = [
+    # Logging helper
+    "log_exception",
     # Base
     "AIInfraError",
     # LLM

@@ -27,6 +27,9 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, Optional, 
 from langchain_core.tools import BaseTool
 from langchain_core.tools import tool as lc_tool  # type: ignore
 
+# Import tool errors from central location
+from ai_infra.errors import ToolExecutionError, ToolTimeoutError, ToolValidationError
+
 from .approval import (
     ApprovalHandler,
     ApprovalRequest,
@@ -649,39 +652,6 @@ class ToolExecutionConfig:
             raise ValueError("max_result_chars must be >= 0 or None")
 
 
-class ToolExecutionError(Exception):
-    """Exception raised when a tool execution fails."""
-
-    def __init__(self, tool_name: str, original_error: Exception, message: str):
-        self.tool_name = tool_name
-        self.original_error = original_error
-        super().__init__(message)
-
-
-class ToolTimeoutError(ToolExecutionError):
-    """Exception raised when a tool execution times out."""
-
-    def __init__(self, tool_name: str, timeout: float):
-        super().__init__(
-            tool_name=tool_name,
-            original_error=TimeoutError(f"Tool '{tool_name}' timed out after {timeout}s"),
-            message=f"Tool '{tool_name}' timed out after {timeout}s",
-        )
-
-
-class ToolValidationError(ToolExecutionError):
-    """Exception raised when tool result validation fails."""
-
-    def __init__(self, tool_name: str, expected_type: type, actual_value: Any):
-        super().__init__(
-            tool_name=tool_name,
-            original_error=TypeError(
-                f"Tool '{tool_name}' returned {type(actual_value).__name__}, expected {expected_type.__name__}"
-            ),
-            message=f"Tool '{tool_name}' returned {type(actual_value).__name__}, expected {expected_type.__name__}",
-        )
-
-
 class _ExecutionConfigWrappedTool(BaseTool):
     """Wraps a BaseTool with error handling, timeout, and validation."""
 
@@ -711,7 +681,10 @@ class _ExecutionConfigWrappedTool(BaseTool):
             return
         # Check type (basic isinstance check)
         if not isinstance(result, self._expected_return_type):
-            raise ToolValidationError(self.name, self._expected_return_type, result)
+            raise ToolValidationError(
+                f"Tool '{self.name}' returned {type(result).__name__}, expected {self._expected_return_type.__name__}",
+                tool_name=self.name,
+            )
 
     def _truncate_result(self, result: Any) -> Any:
         """Truncate result if it exceeds max_result_chars.
@@ -785,7 +758,11 @@ class _ExecutionConfigWrappedTool(BaseTool):
                     if thread.is_alive():
                         # Timeout occurred
                         if config.on_timeout == "abort":
-                            raise ToolTimeoutError(self.name, config.timeout)
+                            raise ToolTimeoutError(
+                                f"Tool '{self.name}' timed out after {config.timeout}s",
+                                tool_name=self.name,
+                                timeout=config.timeout,
+                            )
                         return f"[Tool Timeout: {self.name}] Execution timed out after {config.timeout}s"
 
                     if not error_queue.empty():
@@ -807,7 +784,10 @@ class _ExecutionConfigWrappedTool(BaseTool):
                     continue  # Retry
                 # Out of retries
                 if config.on_error == "abort":
-                    raise ToolExecutionError(self.name, e, f"Tool '{self.name}' failed: {e}") from e
+                    raise ToolExecutionError(
+                        f"Tool '{self.name}' failed: {e}",
+                        tool_name=self.name,
+                    ) from e
                 return self._format_error(e)
 
         # Shouldn't reach here, but just in case
@@ -838,7 +818,11 @@ class _ExecutionConfigWrappedTool(BaseTool):
                             )
                     except asyncio.TimeoutError:
                         if config.on_timeout == "abort":
-                            raise ToolTimeoutError(self.name, config.timeout)
+                            raise ToolTimeoutError(
+                                f"Tool '{self.name}' timed out after {config.timeout}s",
+                                tool_name=self.name,
+                                timeout=config.timeout,
+                            )
                         return f"[Tool Timeout: {self.name}] Execution timed out after {config.timeout}s"
                 else:
                     if hasattr(self._base, "ainvoke"):
@@ -859,7 +843,10 @@ class _ExecutionConfigWrappedTool(BaseTool):
                     continue  # Retry
                 # Out of retries
                 if config.on_error == "abort":
-                    raise ToolExecutionError(self.name, e, f"Tool '{self.name}' failed: {e}") from e
+                    raise ToolExecutionError(
+                        f"Tool '{self.name}' failed: {e}",
+                        tool_name=self.name,
+                    ) from e
                 return self._format_error(e)
 
         # Shouldn't reach here

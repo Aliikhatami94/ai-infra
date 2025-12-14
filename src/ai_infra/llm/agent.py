@@ -11,19 +11,7 @@ import asyncio
 import logging
 import time
 from pathlib import Path
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Dict,
-    List,
-    Literal,
-    Optional,
-    Sequence,
-    Tuple,
-    Type,
-    Union,
-)
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, Sequence, Tuple, Type, Union
 
 if TYPE_CHECKING:
     from ai_infra.callbacks import CallbackManager, Callbacks
@@ -228,37 +216,37 @@ class Agent(BaseLLM):
 
     def __init__(
         self,
-        tools: Optional[List[Any]] = None,
-        provider: Optional[str] = None,
-        model_name: Optional[str] = None,
+        tools: List[Any | None] = None,
+        provider: str | None = None,
+        model_name: str | None = None,
         *,
         # Agent identity (used when this Agent is passed as a subagent)
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        system: Optional[str] = None,
+        name: str | None = None,
+        description: str | None = None,
+        system: str | None = None,
         # Callbacks for observability
-        callbacks: Optional[Union["Callbacks", "CallbackManager"]] = None,
+        callbacks: Union["Callbacks", "CallbackManager" | None] = None,
         # Tool execution config
         on_tool_error: Literal["return_error", "retry", "abort"] = "return_error",
-        tool_timeout: Optional[float] = None,
+        tool_timeout: float | None = None,
         validate_tool_results: bool = False,
         max_tool_retries: int = 1,
         # Approval config
         require_approval: Union[bool, List[str], Callable[[str, Dict[str, Any]], bool]] = False,
-        approval_handler: Optional[Union[ApprovalHandler, AsyncApprovalHandler]] = None,
+        approval_handler: Union[ApprovalHandler, AsyncApprovalHandler | None] = None,
         # Session config (for persistence and pause/resume)
-        session: Optional[SessionStorage] = None,
-        pause_before: Optional[List[str]] = None,
-        pause_after: Optional[List[str]] = None,
+        session: SessionStorage | None = None,
+        pause_before: List[str | None] = None,
+        pause_after: List[str | None] = None,
         # DeepAgents mode (autonomous multi-step task execution)
         deep: bool = False,
-        subagents: Optional[List[Union["Agent", "SubAgent"]]] = None,
-        middleware: Optional[Sequence["AgentMiddleware"]] = None,
-        response_format: Optional[Any] = None,
-        context_schema: Optional[Type[Any]] = None,
+        subagents: List[Union["Agent", "SubAgent" | None]] = None,
+        middleware: Sequence["AgentMiddleware" | None] = None,
+        response_format: Any | None = None,
+        context_schema: Type[Any | None] = None,
         use_longterm_memory: bool = False,
         # Workspace configuration
-        workspace: Optional[Union[str, "Path", "Workspace"]] = None,
+        workspace: Union[str, "Path", "Workspace" | None] = None,
         # Safety limits
         recursion_limit: int = 50,
         **model_kwargs,
@@ -355,7 +343,7 @@ class Agent(BaseLLM):
         # Callbacks for observability - use shared normalize_callbacks utility
         from ai_infra.callbacks import normalize_callbacks
 
-        self._callbacks: Optional["CallbackManager"] = normalize_callbacks(callbacks)
+        self._callbacks: "CallbackManager" | None = normalize_callbacks(callbacks)
 
         # DeepAgents mode config
         self._deep = deep
@@ -369,7 +357,7 @@ class Agent(BaseLLM):
         self._recursion_limit = recursion_limit
 
         # Workspace configuration
-        self._workspace: Optional["Workspace"] = None
+        self._workspace: "Workspace" | None = None
         if workspace is not None:
             if isinstance(workspace, (str, Path)):
                 from ai_infra.llm.workspace import Workspace as WorkspaceClass
@@ -382,11 +370,11 @@ class Agent(BaseLLM):
             self._workspace.configure_proj_mgmt()
 
         # Persona support (set by from_persona)
-        self._tool_filter: Optional[Callable[[str], bool]] = None
-        self._persona: Optional[Any] = None  # Persona object if loaded
+        self._tool_filter: Callable[[str | None, bool]] = None
+        self._persona: Any | None = None  # Persona object if loaded
 
         # Set up approval config
-        self._approval_config: Optional[ApprovalConfig] = None
+        self._approval_config: ApprovalConfig | None = None
         if require_approval or approval_handler:
             # Determine if handler is async
             if approval_handler and asyncio.iscoroutinefunction(approval_handler):
@@ -401,7 +389,7 @@ class Agent(BaseLLM):
                 )
 
         # Set up session config for persistence and pause/resume
-        self._session_config: Optional[SessionConfig] = None
+        self._session_config: SessionConfig | None = None
         if session:
             self._session_config = SessionConfig(
                 storage=session,
@@ -587,14 +575,14 @@ class Agent(BaseLLM):
     @classmethod
     def from_persona(
         cls,
-        path: Optional[str] = None,
+        path: str | None = None,
         *,
-        persona: Optional[Any] = None,
-        name: Optional[str] = None,
-        prompt: Optional[str] = None,
-        allowed_tools: Optional[List[str]] = None,
-        deny: Optional[List[str]] = None,
-        approve: Optional[List[str]] = None,
+        persona: Any | None = None,
+        name: str | None = None,
+        prompt: str | None = None,
+        allowed_tools: List[str | None] = None,
+        deny: List[str | None] = None,
+        approve: List[str | None] = None,
         **kwargs,
     ) -> "Agent":
         """
@@ -730,11 +718,11 @@ class Agent(BaseLLM):
         self,
         prompt: str,
         *,
-        provider: Optional[str] = None,
-        model_name: Optional[str] = None,
-        tools: Optional[List[Any]] = None,
-        system: Optional[str] = None,
-        session_id: Optional[str] = None,
+        provider: str | None = None,
+        model_name: str | None = None,
+        tools: List[Any | None] = None,
+        system: str | None = None,
+        session_id: str | None = None,
         **model_kwargs,
     ) -> Union[str, SessionResult]:
         """Run the agent with a simple prompt and return the response.
@@ -905,11 +893,11 @@ class Agent(BaseLLM):
         self,
         prompt: str,
         *,
-        provider: Optional[str] = None,
-        model_name: Optional[str] = None,
-        tools: Optional[List[Any]] = None,
-        system: Optional[str] = None,
-        session_id: Optional[str] = None,
+        provider: str | None = None,
+        model_name: str | None = None,
+        tools: List[Any | None] = None,
+        system: str | None = None,
+        session_id: str | None = None,
         **model_kwargs,
     ) -> Union[str, SessionResult]:
         """Async version of run().
@@ -981,14 +969,14 @@ class Agent(BaseLLM):
         self,
         prompt: str,
         *,
-        provider: Optional[str] = None,
-        model_name: Optional[str] = None,
-        tools: Optional[List[Any]] = None,
-        system: Optional[str] = None,
+        provider: str | None = None,
+        model_name: str | None = None,
+        tools: List[Any | None] = None,
+        system: str | None = None,
         visibility: Literal["minimal", "standard", "detailed", "debug"] = "standard",
         stream_mode: Union[str, List[str]] = "messages",
-        config: Optional[Dict[str, Any]] = None,
-        stream_config: Optional["StreamConfig"] = None,
+        config: Dict[str, Any | None] = None,
+        stream_config: "StreamConfig" | None = None,
         **model_kwargs,
     ):
         """Stream agent responses as normalized, typed events.
@@ -1147,7 +1135,7 @@ class Agent(BaseLLM):
                         continue
 
                     # Try to parse args as JSON
-                    tc_args: Optional[Dict[str, Any]] = None
+                    tc_args: Dict[str, Any | None] = None
                     if args_str.strip():
                         try:
                             tc_args = json.loads(args_str)
@@ -1315,10 +1303,10 @@ class Agent(BaseLLM):
         session_id: str,
         *,
         approved: bool = True,
-        modified_args: Optional[Dict[str, Any]] = None,
-        reason: Optional[str] = None,
-        provider: Optional[str] = None,
-        model_name: Optional[str] = None,
+        modified_args: Dict[str, Any | None] = None,
+        reason: str | None = None,
+        provider: str | None = None,
+        model_name: str | None = None,
     ) -> Union[str, SessionResult]:
         """Resume a paused agent with a decision.
 
@@ -1385,10 +1373,10 @@ class Agent(BaseLLM):
         session_id: str,
         *,
         approved: bool = True,
-        modified_args: Optional[Dict[str, Any]] = None,
-        reason: Optional[str] = None,
-        provider: Optional[str] = None,
-        model_name: Optional[str] = None,
+        modified_args: Dict[str, Any | None] = None,
+        reason: str | None = None,
+        provider: str | None = None,
+        model_name: str | None = None,
     ) -> Union[str, SessionResult]:
         """Async version of resume().
 
@@ -1443,10 +1431,10 @@ class Agent(BaseLLM):
         self,
         provider: str,
         model_name: str = None,
-        tools: Optional[List[Any]] = None,
-        extra: Optional[Dict[str, Any]] = None,
-        model_kwargs: Optional[Dict[str, Any]] = None,
-        tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,
+        tools: List[Any | None] = None,
+        extra: Dict[str, Any | None] = None,
+        model_kwargs: Dict[str, Any | None] = None,
+        tool_controls: ToolCallControls | Dict[str, Any | None] = None,
     ) -> Tuple[Any, Any]:
         # Capture callbacks for use in wrapper closure
         callbacks = self._callbacks
@@ -1506,7 +1494,7 @@ class Agent(BaseLLM):
     def _merge_recursion_limit_config(
         self,
         context: Any,
-        config: Optional[Dict[str, Any]] = None,
+        config: Dict[str, Any | None] = None,
     ) -> Dict[str, Any]:
         """Merge recursion_limit from context into config for runtime safety limits.
 
@@ -1533,9 +1521,9 @@ class Agent(BaseLLM):
     def _build_deep_agent(
         self,
         provider: str,
-        model_name: Optional[str] = None,
-        tools: Optional[List[Any]] = None,
-        system: Optional[str] = None,
+        model_name: str | None = None,
+        tools: List[Any | None] = None,
+        system: str | None = None,
     ) -> Any:
         """Build a DeepAgents agent for autonomous multi-step task execution.
 
@@ -1605,7 +1593,7 @@ class Agent(BaseLLM):
             interrupt_on=interrupt_on,
         )
 
-    def _get_model_for_deep_agent(self, provider: str, model_name: Optional[str] = None) -> Any:
+    def _get_model_for_deep_agent(self, provider: str, model_name: str | None = None) -> Any:
         """Get a LangChain chat model instance for deep agent.
 
         Args:
@@ -1626,11 +1614,11 @@ class Agent(BaseLLM):
         messages: List[Dict[str, Any]],
         provider: str,
         model_name: str = None,
-        tools: Optional[List[Any]] = None,
-        extra: Optional[Dict[str, Any]] = None,
-        model_kwargs: Optional[Dict[str, Any]] = None,
-        tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,
-        config: Optional[Dict[str, Any]] = None,
+        tools: List[Any | None] = None,
+        extra: Dict[str, Any | None] = None,
+        model_kwargs: Dict[str, Any | None] = None,
+        tool_controls: ToolCallControls | Dict[str, Any | None] = None,
+        config: Dict[str, Any | None] = None,
     ) -> Any:
         agent, context = self._make_agent_with_context(
             provider, model_name, tools, extra, model_kwargs, tool_controls
@@ -1698,11 +1686,11 @@ class Agent(BaseLLM):
         messages: List[Dict[str, Any]],
         provider: str,
         model_name: str = None,
-        tools: Optional[List[Any]] = None,
-        extra: Optional[Dict[str, Any]] = None,
-        model_kwargs: Optional[Dict[str, Any]] = None,
-        tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,
-        config: Optional[Dict[str, Any]] = None,
+        tools: List[Any | None] = None,
+        extra: Dict[str, Any | None] = None,
+        model_kwargs: Dict[str, Any | None] = None,
+        tool_controls: ToolCallControls | Dict[str, Any | None] = None,
+        config: Dict[str, Any | None] = None,
     ) -> Any:
         agent, context = self._make_agent_with_context(
             provider, model_name, tools, extra, model_kwargs, tool_controls
@@ -1765,12 +1753,12 @@ class Agent(BaseLLM):
         messages: List[Dict[str, Any]],
         provider: str,
         model_name: str = None,
-        tools: Optional[List[Any]] = None,
-        extra: Optional[Dict[str, Any]] = None,
-        model_kwargs: Optional[Dict[str, Any]] = None,
+        tools: List[Any | None] = None,
+        extra: Dict[str, Any | None] = None,
+        model_kwargs: Dict[str, Any | None] = None,
         stream_mode: Union[str, Sequence[str]] = ("updates", "values"),
-        tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,
-        config: Optional[Dict[str, Any]] = None,
+        tool_controls: ToolCallControls | Dict[str, Any | None] = None,
+        config: Dict[str, Any | None] = None,
     ):
         agent, context = self._make_agent_with_context(
             provider, model_name, tools, extra, model_kwargs, tool_controls
@@ -1823,11 +1811,11 @@ class Agent(BaseLLM):
         messages: List[Dict[str, Any]],
         provider: str,
         model_name: str = None,
-        tools: Optional[List[Any]] = None,
-        extra: Optional[Dict[str, Any]] = None,
-        model_kwargs: Optional[Dict[str, Any]] = None,
-        tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,
-        config: Optional[Dict[str, Any]] = None,
+        tools: List[Any | None] = None,
+        extra: Dict[str, Any | None] = None,
+        model_kwargs: Dict[str, Any | None] = None,
+        tool_controls: ToolCallControls | Dict[str, Any | None] = None,
+        config: Dict[str, Any | None] = None,
     ):
         agent, context = self._make_agent_with_context(
             provider, model_name, tools, extra, model_kwargs, tool_controls
@@ -1861,9 +1849,9 @@ class Agent(BaseLLM):
         self,
         provider: str,
         model_name: str = None,
-        tools: Optional[List[Any]] = None,
-        extra: Optional[Dict[str, Any]] = None,
-        model_kwargs: Optional[Dict[str, Any]] = None,
+        tools: List[Any | None] = None,
+        extra: Dict[str, Any | None] = None,
+        model_kwargs: Dict[str, Any | None] = None,
     ):
         return self._make_agent_with_context(provider, model_name, tools, extra, model_kwargs)
 
@@ -1872,11 +1860,11 @@ class Agent(BaseLLM):
         self,
         messages: List[Dict[str, Any]],
         candidates: List[Tuple[str, str]],
-        tools: Optional[List[Any]] = None,
-        extra: Optional[Dict[str, Any]] = None,
-        model_kwargs: Optional[Dict[str, Any]] = None,
-        tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,
-        config: Optional[Dict[str, Any]] = None,
+        tools: List[Any | None] = None,
+        extra: Dict[str, Any | None] = None,
+        model_kwargs: Dict[str, Any | None] = None,
+        tool_controls: ToolCallControls | Dict[str, Any | None] = None,
+        config: Dict[str, Any | None] = None,
     ):
         def _run_single(provider: str, model_name: str, overrides: Dict[str, Any]):
             eff_extra, eff_model_kwargs, eff_tools, eff_tool_controls = _merge_overrides(
@@ -1904,11 +1892,11 @@ class Agent(BaseLLM):
         self,
         messages: List[Dict[str, Any]],
         candidates: List[Tuple[str, str]],
-        tools: Optional[List[Any]] = None,
-        extra: Optional[Dict[str, Any]] = None,
-        model_kwargs: Optional[Dict[str, Any]] = None,
-        tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,
-        config: Optional[Dict[str, Any]] = None,
+        tools: List[Any | None] = None,
+        extra: Dict[str, Any | None] = None,
+        model_kwargs: Dict[str, Any | None] = None,
+        tool_controls: ToolCallControls | Dict[str, Any | None] = None,
+        config: Dict[str, Any | None] = None,
     ):
         async def _run_single(provider: str, model_name: str, overrides: Dict[str, Any]):
             eff_extra, eff_model_kwargs, eff_tools, eff_tool_controls = _merge_overrides(
