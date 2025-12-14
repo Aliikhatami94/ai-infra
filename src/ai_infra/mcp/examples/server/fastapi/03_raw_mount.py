@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from mcp.server.fastmcp import FastMCP
 
-from ai_infra.mcp.server.core import MCPMount, MCPServer
+from ai_infra.mcp.server import MCPServer
+from ai_infra.mcp.server.models import MCPMount
 
 app = FastAPI()
 mcp_server = MCPServer(strict=True)

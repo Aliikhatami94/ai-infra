@@ -3,7 +3,7 @@ Based on my analysis of the ai-infra library, here are several areas where it ca
 ## 1. Testing Infrastructure
 
 The repository currently has **no test files or test infrastructure**. Adding comprehensive test coverage would significantly improve reliability and maintainability. This should include:
-- Unit tests for core components (CoreLLM, CoreAgent, CoreGraph)
+- Unit tests for core components (LLM, Agent, Graph)
 - Integration tests for provider interactions
 - End-to-end tests for complex workflows
 - Mock tests for external API calls
@@ -139,9 +139,9 @@ class BaseLLMCore:
     _logger = logging.getLogger(__name__)
 ```
 
-**File:** src/ai_infra/llm/core.py (L70-106)
+**File:** src/ai_infra/llm/llm.py (L70-106)
 ```python
-class CoreLLM(BaseLLMCore):
+class LLM(BaseLLMCore):
     """Direct model convenience interface (no agent graph)."""
 
     def chat(
@@ -167,7 +167,7 @@ class CoreLLM(BaseLLMCore):
                 running_loop = None
             if running_loop and running_loop.is_running():
                 self._logger.warning(
-                    "[CoreLLM] chat() retry config ignored due to existing event loop; use achat() instead."
+                    "[LLM] chat() retry config ignored due to existing event loop; use achat() instead."
                 )
                 res = _call()
             else:

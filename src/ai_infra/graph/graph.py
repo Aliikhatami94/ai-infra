@@ -328,6 +328,3 @@ class Graph:
 
     def get_arch_diagram(self) -> str:
         return self.graph.get_graph().draw_mermaid()
-
-
-# NOTE: CoreGraph alias removed - use Graph directly

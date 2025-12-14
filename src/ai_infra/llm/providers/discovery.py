@@ -33,7 +33,7 @@ import logging
 import time
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
 from ai_infra.providers import ProviderCapability, ProviderRegistry
 
@@ -510,7 +510,7 @@ _CHAT_FETCHERS = {
 # -----------------------------------------------------------------------------
 
 
-def _load_cache() -> Dict[str, any]:
+def _load_cache() -> Dict[str, Any]:
     """Load cache from disk."""
     if not CACHE_FILE.exists():
         return {}
@@ -521,7 +521,7 @@ def _load_cache() -> Dict[str, any]:
         return {}
 
 
-def _save_cache(cache: Dict[str, any]) -> None:
+def _save_cache(cache: Dict[str, Any]) -> None:
     """Save cache to disk."""
     try:
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -531,7 +531,7 @@ def _save_cache(cache: Dict[str, any]) -> None:
         log.warning(f"Failed to save cache: {e}")
 
 
-def _is_cache_valid(cache: Dict[str, any], provider: str) -> bool:
+def _is_cache_valid(cache: Dict[str, Any], provider: str) -> bool:
     """Check if cache entry is still valid."""
     if provider not in cache:
         return False

@@ -640,7 +640,7 @@ def _register_operation_tool(
     except Exception:
         pass
 
-    async def tool(args: Optional[InputModel] = None) -> OutputModel:
+    async def tool(args: Optional[InputModel] = None) -> OutputModel:  # type: ignore[valid-type]
         # Allow completely empty calls (e.g., ping) by treating None as {}
         payload = args.model_dump(by_alias=True, exclude_none=True) if args is not None else {}
 

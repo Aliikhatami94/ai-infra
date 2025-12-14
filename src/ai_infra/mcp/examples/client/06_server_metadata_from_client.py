@@ -1,4 +1,4 @@
-from ai_infra.mcp.client.core import MCPClient
+from ai_infra.mcp.client import MCPClient
 
 cfg = [
     {

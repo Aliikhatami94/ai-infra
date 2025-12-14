@@ -2,7 +2,7 @@ import asyncio
 
 from langchain_mcp_adapters.tools import load_mcp_tools
 
-from ai_infra.mcp.client.core import MCPClient
+from ai_infra.mcp.client import MCPClient
 
 cfg = [
     {

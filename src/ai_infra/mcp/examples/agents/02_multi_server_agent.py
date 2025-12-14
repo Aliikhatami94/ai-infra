@@ -2,7 +2,7 @@ import asyncio
 
 from ai_infra import Providers
 from ai_infra.llm import Agent
-from ai_infra.mcp.client.core import MCPClient
+from ai_infra.mcp.client import MCPClient
 
 cfg = [
     {
