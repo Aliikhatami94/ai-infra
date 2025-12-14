@@ -130,7 +130,15 @@ class FAISSBackend(BaseBackend):
             )
 
     def _load_index(self) -> "faiss.Index":
-        """Load index and metadata from disk."""
+        """Load index and metadata from disk.
+
+        Security Warning:
+            This method uses pickle to load metadata, which can execute arbitrary code.
+            Only load from trusted sources.
+        """
+        import logging
+        import warnings
+
         if not self._persist_path:
             return self._create_index()
 
@@ -145,6 +153,16 @@ class FAISSBackend(BaseBackend):
 
         # Load texts and metadata
         if meta_path.exists():
+            # Security warning for pickle files
+            warnings.warn(
+                "Loading a pickle metadata file can execute arbitrary code. "
+                "Only load from trusted sources.",
+                UserWarning,
+                stacklevel=2,
+            )
+            logging.getLogger("ai_infra.retriever.faiss").warning(
+                f"Loading pickle metadata from {meta_path}. Ensure this is from a trusted source."
+            )
             with open(meta_path, "rb") as f:
                 data = pickle.load(f)
                 self._texts = data.get("texts", [])

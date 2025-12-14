@@ -1319,6 +1319,11 @@ class Retriever:
             FileNotFoundError: If the save file doesn't exist.
             ValueError: If the save file is corrupted or incompatible.
 
+        Security Warning:
+            This method uses pickle to load data, which can execute arbitrary code.
+            Only load retriever files from trusted sources. A future version will
+            migrate to a safer JSON-based format.
+
         Example:
             >>> # Save a retriever
             >>> r = Retriever()
@@ -1330,6 +1335,11 @@ class Retriever:
             >>> r2.search("hello")
             ['Hello world']
         """
+        import logging
+        import warnings
+
+        logger = logging.getLogger("ai_infra.retriever")
+
         path = Path(path)
 
         # If path is a directory, look for default filename
@@ -1338,6 +1348,19 @@ class Retriever:
 
         if not path.exists():
             raise FileNotFoundError(f"No saved retriever found at: {path}")
+
+        # Security warning for pickle files
+        if path.suffix == ".pkl":
+            warnings.warn(
+                "Loading a pickle file can execute arbitrary code. "
+                "Only load retriever files from trusted sources. "
+                "A future version will migrate to a safer JSON format.",
+                UserWarning,
+                stacklevel=2,
+            )
+            logger.warning(
+                f"Loading pickle file from {path}. Ensure this file is from a trusted source."
+            )
 
         # Load the state
         with open(path, "rb") as f:

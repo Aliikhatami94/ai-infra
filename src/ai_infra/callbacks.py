@@ -241,6 +241,51 @@ class GraphNodeErrorEvent:
 
 
 # =============================================================================
+# Callback Utilities
+# =============================================================================
+
+
+def normalize_callbacks(
+    callbacks: Optional[Any],
+) -> Optional["CallbackManager"]:
+    """Convert callbacks to CallbackManager.
+
+    Accepts either a single Callbacks instance or a CallbackManager,
+    and normalizes to CallbackManager for consistent dispatch.
+
+    This is a shared utility used by LLM, Agent, and MCPClient to normalize
+    callback parameters.
+
+    Args:
+        callbacks: Single callback handler, CallbackManager, or None
+
+    Returns:
+        CallbackManager or None
+
+    Raises:
+        ValueError: If callbacks is not None, Callbacks, or CallbackManager
+
+    Example:
+        >>> cb = normalize_callbacks(MyCallbacks())
+        >>> isinstance(cb, CallbackManager)
+        True
+        >>> normalize_callbacks(None)
+        None
+    """
+    if callbacks is None:
+        return None
+
+    if isinstance(callbacks, CallbackManager):
+        return callbacks
+    if isinstance(callbacks, Callbacks):
+        return CallbackManager([callbacks])
+    raise ValueError(
+        f"Invalid callbacks type: {type(callbacks)}. "
+        "Expected Callbacks or CallbackManager instance."
+    )
+
+
+# =============================================================================
 # Callbacks Base Class
 # =============================================================================
 
@@ -379,12 +424,32 @@ class CallbackManager:
             ctx.set_response(response, tokens=150)
     """
 
-    def __init__(self, callbacks: Optional[Sequence[Callbacks]] = None):
-        self._callbacks: List[Callbacks] = list(callbacks or [])
+    def __init__(
+        self,
+        callbacks: Optional[Sequence[Callbacks]] = None,
+        critical_callbacks: Optional[Sequence[Callbacks]] = None,
+    ):
+        """Initialize CallbackManager.
 
-    def add(self, callback: Callbacks) -> None:
-        """Add a callback handler."""
-        self._callbacks.append(callback)
+        Args:
+            callbacks: List of callback handlers (errors logged but not propagated)
+            critical_callbacks: List of critical callback handlers (errors propagate).
+                Use for security audit callbacks that MUST succeed.
+        """
+        self._callbacks: List[Callbacks] = list(callbacks or [])
+        self._critical_callbacks: List[Callbacks] = list(critical_callbacks or [])
+
+    def add(self, callback: Callbacks, critical: bool = False) -> None:
+        """Add a callback handler.
+
+        Args:
+            callback: Callback handler to add
+            critical: If True, errors in this callback will propagate (not swallowed)
+        """
+        if critical:
+            self._critical_callbacks.append(callback)
+        else:
+            self._callbacks.append(callback)
 
     def remove(self, callback: Callbacks) -> None:
         """Remove a callback handler."""
@@ -392,36 +457,74 @@ class CallbackManager:
             self._callbacks.remove(callback)
         except ValueError:
             pass
+        try:
+            self._critical_callbacks.remove(callback)
+        except ValueError:
+            pass
 
     def _dispatch(self, method: str, event: Any) -> None:
-        """Dispatch event to all callbacks."""
+        """Dispatch event to all callbacks.
+
+        Critical callbacks are called first and errors propagate.
+        Regular callbacks have errors logged but not propagated.
+        """
+        import logging
+
+        logger = logging.getLogger("ai_infra.callbacks")
+
+        # Critical callbacks first - errors propagate
+        for callback in self._critical_callbacks:
+            handler = getattr(callback, method, None)
+            if handler:
+                try:
+                    handler(event)
+                except Exception:
+                    logger.error(
+                        f"Critical callback error in {callback.__class__.__name__}.{method}",
+                        exc_info=True,
+                    )
+                    raise  # Propagate critical callback errors
+
+        # Regular callbacks - errors logged but not propagated
         for callback in self._callbacks:
             try:
                 handler = getattr(callback, method, None)
                 if handler:
                     handler(event)
             except Exception as e:
-                # Log but don't propagate callback errors
-                import logging
-
-                logging.getLogger("ai_infra.callbacks").warning(
-                    f"Callback error in {callback.__class__.__name__}.{method}: {e}"
-                )
+                logger.warning(f"Callback error in {callback.__class__.__name__}.{method}: {e}")
 
     async def _dispatch_async(self, method: str, event: Any) -> None:
-        """Dispatch async event to all callbacks."""
+        """Dispatch async event to all callbacks.
+
+        Critical callbacks are called first and errors propagate.
+        Regular callbacks have errors logged but not propagated.
+        """
+        import logging
+
+        logger = logging.getLogger("ai_infra.callbacks")
+
+        # Critical callbacks first - errors propagate
+        for callback in self._critical_callbacks:
+            handler = getattr(callback, method, None)
+            if handler:
+                try:
+                    await handler(event)
+                except Exception:
+                    logger.error(
+                        f"Critical callback error in {callback.__class__.__name__}.{method}",
+                        exc_info=True,
+                    )
+                    raise  # Propagate critical callback errors
+
+        # Regular callbacks - errors logged but not propagated
         for callback in self._callbacks:
             try:
                 handler = getattr(callback, method, None)
                 if handler:
                     await handler(event)
             except Exception as e:
-                # Log but don't propagate callback errors
-                import logging
-
-                logging.getLogger("ai_infra.callbacks").warning(
-                    f"Callback error in {callback.__class__.__name__}.{method}: {e}"
-                )
+                logger.warning(f"Callback error in {callback.__class__.__name__}.{method}: {e}")
 
     # LLM events
     def on_llm_start(self, event: LLMStartEvent) -> None:
@@ -809,6 +912,8 @@ __all__ = [
     # Base
     "Callbacks",
     "CallbackManager",
+    # Utility
+    "normalize_callbacks",
     # Events
     "LLMStartEvent",
     "LLMEndEvent",

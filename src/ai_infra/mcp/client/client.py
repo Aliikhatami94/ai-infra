@@ -80,9 +80,9 @@ class MCPClient:
         auto_reconnect: bool = False,
         reconnect_delay: float = 1.0,
         max_reconnect_attempts: int = 5,
-        # Timeouts
-        tool_timeout: Optional[float] = None,
-        discover_timeout: Optional[float] = None,
+        # Timeouts - defaults prevent hanging forever on unresponsive servers
+        tool_timeout: Optional[float] = 60.0,  # 60 seconds default for tool calls
+        discover_timeout: Optional[float] = 30.0,  # 30 seconds default for discovery
         # HTTP connection pooling (for future use)
         pool_size: int = 10,
     ):
@@ -98,8 +98,10 @@ class MCPClient:
             auto_reconnect: Whether to auto-reconnect on connection failure.
             reconnect_delay: Delay between reconnect attempts in seconds.
             max_reconnect_attempts: Maximum number of reconnect attempts.
-            tool_timeout: Timeout for tool calls in seconds.
-            discover_timeout: Timeout for server discovery in seconds.
+            tool_timeout: Timeout for tool calls in seconds (default: 60.0).
+                Set to None to disable timeout (not recommended).
+            discover_timeout: Timeout for server discovery in seconds (default: 30.0).
+                Set to None to disable timeout (not recommended).
             pool_size: HTTP connection pool size (for future use).
         """
         if not isinstance(config, list):
@@ -112,8 +114,10 @@ class MCPClient:
         self._discovered: bool = False
         self._errors: List[Dict[str, Any]] = []
 
-        # Callbacks - normalize to CallbackManager
-        self._callbacks: Optional["CallbackManager"] = self._normalize_callbacks(callbacks)
+        # Callbacks - normalize to CallbackManager using shared utility
+        from ai_infra.callbacks import normalize_callbacks
+
+        self._callbacks: Optional["CallbackManager"] = normalize_callbacks(callbacks)
 
         # Interceptors
         self._interceptors = interceptors
@@ -132,34 +136,6 @@ class MCPClient:
 
         # Health status
         self._health_status: Dict[str, str] = {}
-
-    def _normalize_callbacks(
-        self, callbacks: Optional[Union["Callbacks", "CallbackManager"]]
-    ) -> Optional["CallbackManager"]:
-        """Convert callbacks to CallbackManager.
-
-        Accepts either a single Callbacks instance or a CallbackManager,
-        and normalizes to CallbackManager for consistent dispatch.
-
-        Args:
-            callbacks: Single callback handler or manager
-
-        Returns:
-            CallbackManager or None
-        """
-        if callbacks is None:
-            return None
-
-        from ai_infra.callbacks import CallbackManager, Callbacks
-
-        if isinstance(callbacks, CallbackManager):
-            return callbacks
-        if isinstance(callbacks, Callbacks):
-            return CallbackManager([callbacks])
-        raise ValueError(
-            f"Invalid callbacks type: {type(callbacks)}. "
-            "Expected Callbacks or CallbackManager instance."
-        )
 
     # ---------- async context manager ----------
 

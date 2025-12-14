@@ -407,6 +407,9 @@ class SessionConfig:
     """Configuration for session-aware agent execution.
 
     This is used internally by the Agent class to manage sessions.
+
+    The max_messages parameter prevents unbounded memory growth by trimming
+    old messages when the limit is exceeded.
     """
 
     storage: SessionStorage
@@ -417,6 +420,29 @@ class SessionConfig:
 
     pause_after: List[str] = field(default_factory=list)
     """Tool names to pause after executing."""
+
+    max_messages: Optional[int] = 100
+    """Maximum number of messages to retain in session history.
+
+    When exceeded, oldest messages are trimmed (keeping system message).
+    Set to None for unlimited (not recommended for production).
+    Default: 100 messages.
+    """
+
+    max_tokens: Optional[int] = None
+    """Maximum total tokens to retain in session history.
+
+    When exceeded, oldest messages are trimmed until under limit.
+    Set to None for unlimited (uses max_messages limit only).
+    Note: Requires token counting which may add latency.
+    """
+
+    trim_strategy: Literal["last", "summarize"] = "last"
+    """Strategy for trimming when limits are exceeded.
+
+    - "last": Keep the most recent messages (default, fast)
+    - "summarize": Summarize old messages before dropping (slower, preserves context)
+    """
 
     def get_config(self, session_id: str) -> Dict[str, Any]:
         """Get LangGraph config for a session.
@@ -491,3 +517,45 @@ def get_pending_action(result: Any) -> Optional[PendingAction]:
                     message=value.get("message"),
                 )
     return None
+
+
+def trim_messages(
+    messages: List[Dict[str, Any]],
+    max_messages: Optional[int] = 100,
+    keep_system: bool = True,
+) -> List[Dict[str, Any]]:
+    """Trim messages to prevent unbounded history growth.
+
+    Removes oldest messages (except system) when limit is exceeded.
+
+    Args:
+        messages: List of message dicts with 'role' and 'content'
+        max_messages: Maximum messages to keep (None = unlimited)
+        keep_system: Whether to always preserve system message at start
+
+    Returns:
+        Trimmed list of messages
+
+    Example:
+        >>> messages = [{"role": "system", "content": "..."}, ...]
+        >>> trimmed = trim_messages(messages, max_messages=50)
+    """
+    if max_messages is None or len(messages) <= max_messages:
+        return messages
+
+    # Separate system message if present and keep_system is True
+    system_msg = None
+    if keep_system and messages and messages[0].get("role") == "system":
+        system_msg = messages[0]
+        messages = messages[1:]
+        # Adjust limit to account for system message
+        max_messages = max_messages - 1
+
+    # Keep the most recent messages
+    trimmed = messages[-max_messages:] if max_messages > 0 else []
+
+    # Prepend system message if it was preserved
+    if system_msg is not None:
+        trimmed = [system_msg] + trimmed
+
+    return trimmed

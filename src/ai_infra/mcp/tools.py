@@ -73,19 +73,18 @@ async def load_mcp_tools_cached(
     key = cache_key or url
 
     # Create lock for this key if it doesn't exist
+    # Note: This dict access itself is not thread-safe, but asyncio Lock
+    # creation is idempotent and this is acceptable for the use case
     if key not in _locks:
         _locks[key] = asyncio.Lock()
 
-    # Check cache before acquiring lock (fast path)
-    if not force_refresh and key in _cached_tools:
-        logger.debug(f"Using cached MCP tools for {url}")
-        return _cached_tools[key]
-
-    # Acquire lock for loading
+    # Acquire lock for all cache operations to prevent race conditions
+    # Previous implementation had check-before-lock which could return
+    # stale data while another coroutine was updating
     async with _locks[key]:
-        # Double-check after lock (another coroutine may have loaded)
+        # Check cache inside lock to prevent race conditions
         if not force_refresh and key in _cached_tools:
-            logger.debug(f"Using cached MCP tools for {url} (after lock)")
+            logger.debug(f"Using cached MCP tools for {url}")
             return _cached_tools[key]
 
         # Load tools from MCP server

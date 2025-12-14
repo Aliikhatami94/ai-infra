@@ -352,8 +352,10 @@ class Agent(BaseLLM):
             validate_results=validate_tool_results,
         )
 
-        # Callbacks for observability
-        self._callbacks: Optional["CallbackManager"] = self._normalize_callbacks(callbacks)
+        # Callbacks for observability - use shared normalize_callbacks utility
+        from ai_infra.callbacks import normalize_callbacks
+
+        self._callbacks: Optional["CallbackManager"] = normalize_callbacks(callbacks)
 
         # DeepAgents mode config
         self._deep = deep
@@ -409,34 +411,6 @@ class Agent(BaseLLM):
 
         if tools:
             self.set_global_tools(tools)
-
-    def _normalize_callbacks(
-        self, callbacks: Optional[Union["Callbacks", "CallbackManager"]]
-    ) -> Optional["CallbackManager"]:
-        """Convert callbacks to CallbackManager.
-
-        Accepts either a single Callbacks instance or a CallbackManager,
-        and normalizes to CallbackManager for consistent dispatch.
-
-        Args:
-            callbacks: Single callback handler or manager
-
-        Returns:
-            CallbackManager or None
-        """
-        if callbacks is None:
-            return None
-
-        from ai_infra.callbacks import CallbackManager, Callbacks
-
-        if isinstance(callbacks, CallbackManager):
-            return callbacks
-        if isinstance(callbacks, Callbacks):
-            return CallbackManager([callbacks])
-        raise ValueError(
-            f"Invalid callbacks type: {type(callbacks)}. "
-            "Expected Callbacks or CallbackManager instance."
-        )
 
     def _wrap_tool_with_callbacks(self, tool: Any, callbacks: "CallbackManager") -> Any:
         """Wrap a tool to fire callback events on start/end/error.

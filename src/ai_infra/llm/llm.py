@@ -76,35 +76,10 @@ class LLM(BaseLLM):
                 Example: callbacks=MyCallbacks() or callbacks=CallbackManager([...])
         """
         super().__init__()
-        self._callbacks: Optional["CallbackManager"] = self._normalize_callbacks(callbacks)
+        # Use shared normalize_callbacks utility
+        from ai_infra.callbacks import normalize_callbacks
 
-    def _normalize_callbacks(
-        self, callbacks: Optional[Union["Callbacks", "CallbackManager"]]
-    ) -> Optional["CallbackManager"]:
-        """Convert callbacks to CallbackManager.
-
-        Accepts either a single Callbacks instance or a CallbackManager,
-        and normalizes to CallbackManager for consistent dispatch.
-
-        Args:
-            callbacks: Single callback handler or manager
-
-        Returns:
-            CallbackManager or None
-        """
-        if callbacks is None:
-            return None
-
-        from ai_infra.callbacks import CallbackManager, Callbacks
-
-        if isinstance(callbacks, CallbackManager):
-            return callbacks
-        if isinstance(callbacks, Callbacks):
-            return CallbackManager([callbacks])
-        raise ValueError(
-            f"Invalid callbacks type: {type(callbacks)}. "
-            "Expected Callbacks or CallbackManager instance."
-        )
+        self._callbacks: Optional["CallbackManager"] = normalize_callbacks(callbacks)
 
     # =========================================================================
     # Discovery API - Static methods for provider/model discovery
@@ -261,9 +236,6 @@ class LLM(BaseLLM):
                 model_kwargs.update(audio_output.to_openai_modalities())
             elif isinstance(audio_output, dict):
                 model_kwargs.update(audio_output)
-
-        # Resolve provider and model (auto-detect if not specified)
-        provider, model_name = self._resolve_provider_and_model(provider, model_name)
 
         # Create request context for logging hooks
         request_ctx = RequestContext(
@@ -433,9 +405,6 @@ class LLM(BaseLLM):
                 model_kwargs.update(audio_output.to_openai_modalities())
             elif isinstance(audio_output, dict):
                 model_kwargs.update(audio_output)
-
-        # Resolve provider and model (auto-detect if not specified)
-        provider, model_name = self._resolve_provider_and_model(provider, model_name)
 
         # Create request context for logging hooks
         request_ctx = RequestContext(
