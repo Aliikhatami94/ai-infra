@@ -702,9 +702,11 @@ class ToolExecutionError(ToolError):
         message: str,
         *,
         tool_name: Optional[str] = None,
+        original_error: Optional[Exception] = None,
         details: Optional[Dict[str, Any]] = None,
     ):
         self.tool_name = tool_name
+        self.original_error = original_error
 
         full_details = details or {}
         if tool_name:

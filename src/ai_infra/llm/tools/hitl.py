@@ -787,6 +787,7 @@ class _ExecutionConfigWrappedTool(BaseTool):
                     raise ToolExecutionError(
                         f"Tool '{self.name}' failed: {e}",
                         tool_name=self.name,
+                        original_error=e,
                     ) from e
                 return self._format_error(e)
 
@@ -846,6 +847,7 @@ class _ExecutionConfigWrappedTool(BaseTool):
                     raise ToolExecutionError(
                         f"Tool '{self.name}' failed: {e}",
                         tool_name=self.name,
+                        original_error=e,
                     ) from e
                 return self._format_error(e)
 
