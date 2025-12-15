@@ -633,7 +633,7 @@ def _run_repl(
                 )
 
                 # Get model with temperature
-                model = llm.set_model(
+                chat_model: Any = llm.set_model(
                     resolved_provider,
                     resolved_model,
                     temperature=current_temp,
@@ -645,7 +645,7 @@ def _run_repl(
 
                     async def stream_response():
                         nonlocal response_text
-                        async for event in model.astream(messages):
+                        async for event in chat_model.astream(messages):
                             text = getattr(event, "content", None)
                             if text:
                                 print(text, end="", flush=True)
@@ -655,7 +655,7 @@ def _run_repl(
                     typer.echo()  # Newline after streaming
                 else:
                     # Non-streaming response
-                    response = model.invoke(messages)
+                    response = chat_model.invoke(messages)
                     response_text = _extract_content(response)
                     typer.echo(response_text)
 

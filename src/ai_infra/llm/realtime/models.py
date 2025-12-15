@@ -25,10 +25,13 @@ class VADMode(str, Enum):
     - MANUAL: Client controls turn-taking explicitly
       - Call commit_audio() to signal end of user speech
       - Useful for push-to-talk interfaces
+    - DISABLED: VAD is disabled, no automatic turn detection
+      - User must call commit_audio() after each input
     """
 
     SERVER = "server"
     MANUAL = "manual"
+    DISABLED = "disabled"
 
 
 @runtime_checkable

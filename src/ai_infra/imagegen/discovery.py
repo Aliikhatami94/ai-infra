@@ -229,7 +229,7 @@ def _fetch_google_models() -> List[str]:
     # List models and filter for image generation
     image_models = []
     for model in client.models.list():
-        name = model.name
+        name = getattr(model, "name", None) or ""
         # Models that can generate images
         if "imagen" in name.lower() or "image" in name.lower():
             # Remove 'models/' prefix if present

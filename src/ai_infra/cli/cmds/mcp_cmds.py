@@ -322,7 +322,11 @@ def prompts_cmd(
                     "name": p.name,
                     "description": p.description,
                     "arguments": [
-                        {"name": a.name, "description": a.description, "required": a.required}
+                        {
+                            "name": a["name"],
+                            "description": a.get("description"),
+                            "required": a.get("required", False),
+                        }
                         for a in (p.arguments or [])
                     ],
                 }
@@ -347,7 +351,8 @@ def prompts_cmd(
                 args_str = ""
                 if prompt.arguments:
                     args_str = ", ".join(
-                        f"{a.name}*" if a.required else a.name for a in prompt.arguments
+                        f"{a['name']}*" if a.get("required") else a["name"]
+                        for a in prompt.arguments
                     )
 
                 table.add_row(prompt.name, desc, args_str)

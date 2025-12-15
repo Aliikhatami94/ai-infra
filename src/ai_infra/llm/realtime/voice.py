@@ -76,9 +76,13 @@ def _convert_tools_to_definitions(tools: list[Any]) -> list[ToolDefinition]:
         definitions = []
         for tool in lc_tools:
             # Extract JSON schema from the tool
-            schema = {}
-            if hasattr(tool, "args_schema") and tool.args_schema:
-                schema = tool.args_schema.model_json_schema()
+            schema: dict[str, Any] = {}
+            args_schema = getattr(tool, "args_schema", None)
+            if args_schema is not None:
+                from pydantic import BaseModel
+
+                if isinstance(args_schema, type) and issubclass(args_schema, BaseModel):
+                    schema = args_schema.model_json_schema()
 
             definitions.append(
                 ToolDefinition(
@@ -97,7 +101,7 @@ def _convert_tools_to_definitions(tools: list[Any]) -> list[ToolDefinition]:
         for func in tools:
             if callable(func):
                 sig = inspect.signature(func)
-                params = {
+                params: dict[str, Any] = {
                     "type": "object",
                     "properties": {},
                     "required": [],
@@ -507,7 +511,7 @@ class RealtimeVoice:
         self.provider.on_error(self._dispatch_error)
         self.provider.on_interrupted(self._dispatch_interrupted)
 
-        async for event in self.provider.run(audio_stream):
+        async for event in self.provider.run(audio_stream):  # type: ignore[attr-defined]
             yield event
 
 

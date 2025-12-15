@@ -1436,12 +1436,15 @@ class _LazyEmbeddings:
 
     def embed(self, text: str) -> list[float]:
         self._ensure_loaded()
+        assert self._embeddings is not None
         return self._embeddings.embed(text)
 
     def embed_batch(self, texts: list[str]) -> list[list[float]]:
         self._ensure_loaded()
+        assert self._embeddings is not None
         return self._embeddings.embed_batch(texts)
 
     async def aembed(self, text: str) -> list[float]:
         self._ensure_loaded()
+        assert self._embeddings is not None
         return await self._embeddings.aembed(text)

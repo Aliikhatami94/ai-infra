@@ -370,7 +370,7 @@ class MCPClient:
                     async with ClientSession(read, write) as session:
                         init_result = await session.initialize()
                         info = self._extract_server_info(init_result) or {}
-                        session.mcp_server_info = info
+                        session.mcp_server_info = info  # type: ignore[attr-defined]
                         yield session
 
             return ctx()
@@ -386,7 +386,7 @@ class MCPClient:
                     async with ClientSession(read, write) as session:
                         init_result = await session.initialize()
                         info = self._extract_server_info(init_result) or {}
-                        session.mcp_server_info = info
+                        session.mcp_server_info = info  # type: ignore[attr-defined]
                         yield session
 
             return ctx()
@@ -402,7 +402,7 @@ class MCPClient:
                     async with ClientSession(read, write) as session:
                         init_result = await session.initialize()
                         info = self._extract_server_info(init_result) or {}
-                        session.mcp_server_info = info
+                        session.mcp_server_info = info  # type: ignore[attr-defined]
                         yield session
 
             return ctx()

@@ -459,7 +459,12 @@ def _list_google_models() -> List[str]:
         api_key = get_api_key("google_genai")
         client = genai.Client(api_key=api_key)
         models = client.models.list()
-        return sorted(set(m.name.replace("models/", "") for m in models if hasattr(m, "name")))
+        names: list[str] = []
+        for m in models:
+            name = getattr(m, "name", None)
+            if isinstance(name, str):
+                names.append(name.replace("models/", ""))
+        return sorted(set(names))
     except Exception as e:
         log.warning(f"Failed to fetch Google GenAI models: {e}")
         return []

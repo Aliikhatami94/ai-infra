@@ -239,7 +239,17 @@ async def load_mcp_resources(
         # List all resources and get their URIs
         result = await session.list_resources()
         resources_list = getattr(result, "resources", result) or []
-        uri_list = [str(r.uri) for r in resources_list]
+        uri_list: list[str] = []
+        for r in resources_list:
+            uri: Any = None
+            if hasattr(r, "uri"):
+                uri = getattr(r, "uri")
+            elif isinstance(r, dict):
+                uri = r.get("uri")
+            elif isinstance(r, (tuple, list)) and len(r) >= 1:
+                uri = r[0]
+            if uri is not None:
+                uri_list.append(str(uri))
     elif isinstance(uris, str):
         uri_list = [uris]
     else:

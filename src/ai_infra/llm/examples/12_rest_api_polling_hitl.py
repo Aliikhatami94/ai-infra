@@ -199,8 +199,16 @@ async def run_agent_task(task_id: str, message: str):
         # Run the agent
         result = await agent.arun(message, session_id=session_id)
 
+        if isinstance(result, str):
+            tasks[task_id].status = TaskStatus.COMPLETED
+            tasks[task_id].updated_at = datetime.now()
+            tasks[task_id].result = result
+            return
+
+        from ai_infra.llm.session import SessionResult
+
         # Check if paused (awaiting approval)
-        while hasattr(result, "paused") and result.paused:
+        while isinstance(result, SessionResult) and result.paused:
             # Task is paused - create approval request
             tasks[task_id].status = TaskStatus.AWAITING_APPROVAL
             tasks[task_id].updated_at = datetime.now()
@@ -261,7 +269,7 @@ async def run_agent_task(task_id: str, message: str):
             )
 
         # Task completed
-        response_text = result.content if hasattr(result, "content") else str(result)
+        response_text = result.content if isinstance(result, SessionResult) else str(result)
         tasks[task_id].status = TaskStatus.COMPLETED
         tasks[task_id].result = response_text
         tasks[task_id].updated_at = datetime.now()

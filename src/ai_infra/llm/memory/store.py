@@ -301,7 +301,7 @@ class MemoryStore:
         if self._embeddings:
             # Embed the value content
             text = self._value_to_text(value)
-            embedding = self._embeddings.embed(text)
+            embedding = self._embeddings.embed(text)  # type: ignore[attr-defined]
 
         self._backend.put(item, embedding)
         return item
@@ -429,7 +429,7 @@ class MemoryStore:
         ns = self._normalize_namespace(namespace)
 
         # Generate query embedding
-        query_embedding = self._embeddings.embed(query)
+        query_embedding = self._embeddings.embed(query)  # type: ignore[attr-defined]
 
         # Search backend
         items = self._backend.search(

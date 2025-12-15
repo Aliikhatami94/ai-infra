@@ -115,9 +115,9 @@ class Graph:
         self._validate_state = validate_state
 
         # Normalize node definitions
-        nodes = normalize_node_definitions(nodes)
-        self.node_definitions = list(nodes.items())
-        node_names = list(nodes.keys())
+        normalized_nodes: Dict[str, Any] = normalize_node_definitions(nodes)
+        self.node_definitions = list(normalized_nodes.items())
+        node_names = list(normalized_nodes.keys())
 
         # Build edges with enhanced tuple support (including conditional)
         regular_edges, conditional_edges = build_edges_enhanced(node_names, edges, entry)

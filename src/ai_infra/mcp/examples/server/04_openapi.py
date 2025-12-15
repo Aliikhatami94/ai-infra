@@ -1,13 +1,15 @@
 import json
-import yaml
-import httpx
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
 
-from ai_infra.mcp import _mcp_from_openapi
+import httpx
+import yaml
+
+from ai_infra.mcp.server.openapi import _mcp_from_openapi
 
 OpenAPISpec = Dict[str, Any]
 path_to_spec = (Path(__file__).resolve().parents[1] / "resources" / "apiframeworks.json").resolve()
+
 
 def load_openapi(path_or_str: str | Path) -> OpenAPISpec:
     p = Path(path_or_str)
@@ -17,6 +19,7 @@ def load_openapi(path_or_str: str | Path) -> OpenAPISpec:
     except json.JSONDecodeError:
         return yaml.safe_load(text)
 
+
 spec = load_openapi(path_to_spec)
 
 client = httpx.AsyncClient(
@@ -24,6 +27,6 @@ client = httpx.AsyncClient(
     timeout=30.0,
 )
 
-mcp = _mcp_from_openapi(spec, client=client)   # <- injected client
+mcp, _cleanup, _report = _mcp_from_openapi(spec, client=client)
 streamable_app = mcp.streamable_http_app()
 streamable_app.state.session_manager = mcp.session_manager

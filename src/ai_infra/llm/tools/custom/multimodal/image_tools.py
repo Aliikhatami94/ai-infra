@@ -84,12 +84,20 @@ def generate_image(
 
     try:
         imagegen = ImageGen()
-        result = imagegen.generate(
+        results = imagegen.generate(
             prompt=prompt,
             style=style if style != "auto" else None,
             size=size,
         )
-        return f"Image generated: {result.url or result.path}"
+        if results:
+            result = results[0]
+            if result.url:
+                return f"Image generated: {result.url}"
+            elif result.data:
+                return "Image generated: [binary data available]"
+            else:
+                return "Image generated but no URL or data available"
+        return "Image generation returned no results"
     except Exception as e:
         return f"Error generating image: {e}"
 

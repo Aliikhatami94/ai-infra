@@ -241,14 +241,14 @@ class PostgresStorage:
             self._connection_string,
         )
         # Call setup to create tables if needed
-        self._checkpointer.setup()
+        self._checkpointer.setup()  # type: ignore[attr-defined]
 
         if self._enable_store:
             try:
                 from langgraph.store.postgres import PostgresStore
 
                 self._store = PostgresStore.from_conn_string(self._connection_string)
-                self._store.setup()
+                self._store.setup()  # type: ignore[attr-defined]
             except ImportError:
                 pass  # Store not available
 

@@ -29,7 +29,7 @@ Example:
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Any, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Literal, Optional, Union, cast
 
 from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, Field
@@ -265,8 +265,11 @@ def create_retriever_tool_async(
         )
 
         if structured:
+            from ai_infra.retriever.models import SearchResult
+
+            detailed_results = cast(list[SearchResult], results)
             return {
-                "results": [r.to_dict() for r in results],
+                "results": [r.to_dict() for r in detailed_results],
                 "query": query,
                 "count": len(results),
             }

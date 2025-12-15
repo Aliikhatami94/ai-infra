@@ -400,7 +400,7 @@ class ConversationMemory:
         # Store each chunk
         chunk_ids = []
         for chunk in chunks:
-            await self._store.aput(
+            await self._store.aput(  # type: ignore[attr-defined]
                 namespace=(user_id, "conversations"),
                 key=chunk.chunk_id,
                 value={
@@ -530,7 +530,7 @@ class ConversationMemory:
         """
         # Try semantic search if embeddings are configured
         if self._embedding_provider:
-            items = await self._store.asearch(
+            items = await self._store.asearch(  # type: ignore[attr-defined]
                 namespace=(user_id, "conversations"),
                 query=query,
                 limit=limit,

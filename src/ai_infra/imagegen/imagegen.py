@@ -328,7 +328,8 @@ class ImageGen:
         """Check if current model is a Gemini multimodal model."""
         from .models import GEMINI_IMAGE_MODELS
 
-        return self._model in GEMINI_IMAGE_MODELS or self._model.startswith("gemini-")
+        model = self._model or ""
+        return model in GEMINI_IMAGE_MODELS or model.startswith("gemini-")
 
     def _generate_google(
         self,
@@ -751,7 +752,8 @@ class ImageGen:
             if isinstance(image, str):
                 image_file.close()
             if mask is not None and isinstance(mask, str):
-                mask_file.close()
+                if mask_file is not None:
+                    mask_file.close()
 
     def variations(
         self,
