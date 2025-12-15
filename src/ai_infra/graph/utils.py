@@ -244,7 +244,6 @@ def build_edges_enhanced(node_names: Sequence[str], edges: Sequence[Any], entry:
                     )
                 # For simple bool conditions, route to target or END
                 # Router returns string names, path_map maps string to string
-                targets = [target, END]
                 path_map = {target: target, END: END}
 
                 def make_condition_router(fn, tgt):
@@ -279,8 +278,8 @@ def build_edges_enhanced(node_names: Sequence[str], edges: Sequence[Any], entry:
         # Find terminal nodes (nodes that don't have outgoing edges)
         sources = {s for s, _ in regular_edges if s != START}
         sources.update(s for s, _, _ in conditional_edges)
-        targets = {e for _, e in regular_edges if e != END}
-        terminal = sources - targets
+        target_nodes = {e for _, e in regular_edges if e != END}
+        terminal = sources - target_nodes
         if terminal:
             last = list(terminal)[-1]
             regular_edges.append((last, END))

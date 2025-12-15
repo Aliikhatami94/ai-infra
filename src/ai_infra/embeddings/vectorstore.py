@@ -136,7 +136,8 @@ class VectorStore:
         self._collection_name = collection_name
         self._persist_directory = persist_directory
 
-        # Initialize backend
+        # Initialize backend with union type annotation
+        self._backend: _VectorBackend
         if backend == "memory":
             self._backend = _InMemoryBackend(embeddings)
         elif backend == "chroma":

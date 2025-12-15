@@ -12,6 +12,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, Literal, Union
 from pydantic import BaseModel
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from ai_infra.callbacks import CallbackManager, Callbacks
 
 from ai_infra.llm.base import BaseLLM
@@ -195,12 +197,12 @@ class LLM(BaseLLM):
         provider: str | None = None,
         model_name: str | None = None,
         system: str | None = None,
-        extra: Dict[str, Any | None] = None,
+        extra: Dict[str, Any] | None = None,
         output_schema: Union[type[BaseModel], Dict[str, Any], None] = None,
         output_method: (
             Literal["json_schema", "json_mode", "function_calling", "prompt"] | None
         ) = "prompt",
-        images: List[Any | None] = None,
+        images: List[str | bytes | "Path"] | None = None,
         audio: Any | None = None,
         audio_output: Any | None = None,
         **model_kwargs,
@@ -280,8 +282,12 @@ class LLM(BaseLLM):
             else:
                 # otherwise: existing structured (json_mode/function_calling/json_schema) or plain
                 if output_schema is not None:
+                    # output_method is not "prompt" here (handled above)
+                    method_cast: Literal["json_schema", "json_mode", "function_calling"] | None = (
+                        output_method  # type: ignore[assignment]
+                    )
                     model = self.with_structured_output(
-                        provider, model_name, output_schema, method=output_method, **model_kwargs
+                        provider, model_name, output_schema, method=method_cast, **model_kwargs
                     )
                 else:
                     model = self.set_model(provider, model_name, **model_kwargs)
@@ -325,6 +331,8 @@ class LLM(BaseLLM):
                 )
 
             if output_schema is not None and is_pydantic_schema(output_schema):
+                # is_pydantic_schema confirms output_schema is type[BaseModel]
+                assert isinstance(output_schema, type)
                 return coerce_structured_result(output_schema, res)
 
             try:
@@ -364,12 +372,12 @@ class LLM(BaseLLM):
         provider: str | None = None,
         model_name: str | None = None,
         system: str | None = None,
-        extra: Dict[str, Any | None] = None,
+        extra: Dict[str, Any] | None = None,
         output_schema: Union[type[BaseModel], Dict[str, Any], None] = None,
         output_method: (
             Literal["json_schema", "json_mode", "function_calling", "prompt"] | None
         ) = "prompt",
-        images: List[Any | None] = None,
+        images: List[str | bytes | "Path"] | None = None,
         audio: Any | None = None,
         audio_output: Any | None = None,
         **model_kwargs,
@@ -447,8 +455,12 @@ class LLM(BaseLLM):
                 )
             else:
                 if output_schema is not None:
+                    # output_method is not "prompt" here (handled above)
+                    method_cast: Literal["json_schema", "json_mode", "function_calling"] | None = (
+                        output_method  # type: ignore[assignment]
+                    )
                     model = self.with_structured_output(
-                        provider, model_name, output_schema, method=output_method, **model_kwargs
+                        provider, model_name, output_schema, method=method_cast, **model_kwargs
                     )
                 else:
                     model = self.set_model(provider, model_name, **model_kwargs)
@@ -492,6 +504,8 @@ class LLM(BaseLLM):
                 )
 
             if output_schema is not None and is_pydantic_schema(output_schema):
+                # is_pydantic_schema confirms output_schema is type[BaseModel]
+                assert isinstance(output_schema, type)
                 return coerce_structured_result(output_schema, res)
 
             try:
@@ -535,7 +549,7 @@ class LLM(BaseLLM):
         temperature: float | None = None,
         top_p: float | None = None,
         max_tokens: int | None = None,
-        images: List[Any | None] = None,
+        images: List[str | bytes | "Path"] | None = None,
         **model_kwargs,
     ):
         """Stream tokens from the model.

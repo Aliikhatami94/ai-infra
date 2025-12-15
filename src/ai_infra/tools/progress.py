@@ -57,7 +57,7 @@ class ProgressEvent:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
-        result = {
+        result: dict[str, Any] = {
             "type": self.type,
             "tool": self.tool,
             "message": self.message,

@@ -153,14 +153,16 @@ def _get_model_fields(model: type) -> dict[str, tuple[type, Any]]:
                 col_type = _sqlalchemy_type_to_python(column.type)
 
             # Primary key and autoincrement fields have default
+            # Default to required (...), then override to None for optional fields
+            default: object
             if column.primary_key or column.autoincrement:
-                default = None
+                default = None  # type: ignore[assignment]
             elif column.default is not None:
-                default = None  # Has default
+                default = None  # type: ignore[assignment]  # Has default
             elif column.nullable:
-                default = None
+                default = None  # type: ignore[assignment]
             else:
-                default = ...  # Required
+                default = ...  # Required field
 
             fields[col_name] = (col_type, default)
         return fields

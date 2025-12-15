@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ _locks: Dict[str, asyncio.Lock] = {}
 async def load_mcp_tools_cached(
     url: str,
     *,
-    transport: str = "streamable_http",
+    transport: Literal["stdio", "streamable_http", "sse"] = "streamable_http",
     cache_key: Optional[str] = None,
     force_refresh: bool = False,
 ) -> List[Any]:

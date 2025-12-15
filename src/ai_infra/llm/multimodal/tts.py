@@ -88,9 +88,9 @@ def _detect_tts_provider() -> str:
 
 # Legacy constants (for backwards compatibility)
 TTS_PROVIDER_PRIORITY = ["openai", "elevenlabs", "google"]
-OPENAI_VOICES = ProviderRegistry.get("openai")
-if OPENAI_VOICES:
-    _cap = OPENAI_VOICES.get_capability(ProviderCapability.TTS)
+_openai_config = ProviderRegistry.get("openai")
+if _openai_config:
+    _cap = _openai_config.get_capability(ProviderCapability.TTS)
     OPENAI_VOICES = _cap.voices if _cap else ["alloy", "echo", "fable", "onyx", "nova", "shimmer"]
 else:
     OPENAI_VOICES = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"]

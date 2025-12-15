@@ -1,37 +1,66 @@
 from __future__ import annotations
 
-import re, json
+import json
+import re
+from typing import Any, Callable, Dict, List, Type, TypeVar
 
-from typing import List, TypeVar, Any, Type, Callable
-from pydantic import BaseModel, ValidationError
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langchain_core.output_parsers import PydanticOutputParser
+from pydantic import BaseModel, ValidationError
+
 
 def build_structured_messages(
-        *,
-        schema: Type[BaseModel],
-        user_msg: str,
-        system_preamble: str | None = None,
-        forbid_prose: bool = True,
-):
+    *,
+    schema: type[BaseModel] | Dict[str, Any],
+    user_msg: str,
+    system_preamble: str | None = None,
+    forbid_prose: bool = True,
+) -> List[BaseMessage]:
+    # If schema is a dict, we can't use PydanticOutputParser
+    if isinstance(schema, dict):
+        # For dict schemas, provide a simpler JSON format instruction
+        sys_lines: List[str] = []
+        if system_preamble:
+            sys_lines.append(system_preamble.strip())
+        sys_lines.append("Return ONLY a single JSON object matching the provided schema.")
+        if forbid_prose:
+            sys_lines.append("Do NOT include any prose, markdown, or extra keys. JSON only.")
+        sys_lines.append(f"Schema: {json.dumps(schema)}")
+        messages: List[BaseMessage] = [
+            SystemMessage(content="\n\n".join(sys_lines)),
+            HumanMessage(content=user_msg),
+        ]
+        return messages
+
     parser = PydanticOutputParser(pydantic_object=schema)
     fmt = parser.get_format_instructions()
 
-    sys_lines: List[str] = []
+    sys_lines = []
     if system_preamble:
         sys_lines.append(system_preamble.strip())
     sys_lines.append("Return ONLY a single JSON object that matches the schema below.")
     if forbid_prose:
         sys_lines.append("Do NOT include any prose, markdown, or extra keys. JSON only.")
     sys_lines.append(fmt)
-    messages = [
-        SystemMessage(content="\n\n".join(sys_lines)),
-        HumanMessage(content=user_msg)
-    ]
+    messages = [SystemMessage(content="\n\n".join(sys_lines)), HumanMessage(content=user_msg)]
     return messages
 
 
-def validate_or_raise(schema: type[BaseModel], raw_json: str) -> BaseModel:
+def validate_or_raise(
+    schema: type[BaseModel] | Dict[str, Any], raw_json: str
+) -> BaseModel | Dict[str, Any]:
+    """Validate raw JSON against a schema.
+
+    Args:
+        schema: Either a Pydantic model class or a JSON schema dict
+        raw_json: The raw JSON string to validate
+
+    Returns:
+        Validated Pydantic model or dict
+    """
+    if isinstance(schema, dict):
+        # For dict schemas, just parse and return the JSON
+        return json.loads(raw_json)
     try:
         return schema.model_validate_json(raw_json)
     except ValidationError:
@@ -39,10 +68,13 @@ def validate_or_raise(schema: type[BaseModel], raw_json: str) -> BaseModel:
         obj = json.loads(raw_json)
         return schema.model_validate(obj)
 
+
 def is_pydantic_schema(obj) -> bool:
     return isinstance(obj, type) and issubclass(obj, BaseModel)
 
+
 T = TypeVar("T", bound=BaseModel)
+
 
 def coerce_from_text_or_fragment(schema, text: str):
     """
@@ -65,6 +97,7 @@ def coerce_from_text_or_fragment(schema, text: str):
         return validate_or_raise(schema, json.dumps(cand))
     except Exception:
         return None
+
 
 def coerce_structured_result(schema: Type[T], res: Any) -> T:
     """Normalize arbitrary model output into a validated Pydantic object of type `schema`."""
@@ -100,6 +133,7 @@ def coerce_structured_result(schema: Type[T], res: Any) -> T:
     raise ValueError(
         f"Could not coerce model output into {schema.__name__}: {type(res)} / {preview} ..."
     )
+
 
 def _extract_json_candidate(text: str) -> Any | None:
     """
@@ -153,35 +187,41 @@ def _extract_json_candidate(text: str) -> Any | None:
                         return None
     return None
 
+
 def structured_mode_call_sync(
-        with_structured_output_fn: Callable[..., Any],
-        provider: str,
-        model_name: str,
-        schema,
-        messages,
-        model_kwargs,
+    with_structured_output_fn: Callable[..., Any],
+    provider: str,
+    model_name: str,
+    schema,
+    messages,
+    model_kwargs,
 ):
     """
     Single retry using provider's native structured mode ('json_mode') to coerce output.
     Raises if validation still fails.
     """
-    model2 = with_structured_output_fn(provider, model_name, schema, method="json_mode", **model_kwargs)
+    model2 = with_structured_output_fn(
+        provider, model_name, schema, method="json_mode", **model_kwargs
+    )
     res2 = model2.invoke(messages)
     content2 = getattr(res2, "content", None) or str(res2)
     return validate_or_raise(schema, content2)
 
+
 async def structured_mode_call_async(
-        with_structured_output_fn: Callable[..., Any],
-        provider: str,
-        model_name: str,
-        schema,
-        messages,
-        model_kwargs,
+    with_structured_output_fn: Callable[..., Any],
+    provider: str,
+    model_name: str,
+    schema,
+    messages,
+    model_kwargs,
 ):
     """
     Async counterpart of structured_mode_call_sync.
     """
-    model2 = with_structured_output_fn(provider, model_name, schema, method="json_mode", **model_kwargs)
+    model2 = with_structured_output_fn(
+        provider, model_name, schema, method="json_mode", **model_kwargs
+    )
     res2 = await model2.ainvoke(messages)
     content2 = getattr(res2, "content", None) or str(res2)
     return validate_or_raise(schema, content2)

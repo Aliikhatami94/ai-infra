@@ -319,7 +319,8 @@ class MCPClient:
         )
         if info is None:
             return None
-        if is_dataclass(info):
+        # is_dataclass returns True for both classes and instances, but asdict only works on instances
+        if is_dataclass(info) and not isinstance(info, type):
             return asdict(info)
         if hasattr(info, "model_dump"):
             return info.model_dump()
@@ -352,6 +353,10 @@ class MCPClient:
         t = cfg.transport
 
         if t == "stdio":
+            if not cfg.command:
+                raise ValueError(
+                    f"stdio transport requires command, got config: {self._cfg_identity(cfg)}"
+                )
             params = StdioServerParameters(
                 command=cfg.command,
                 args=cfg.args or [],

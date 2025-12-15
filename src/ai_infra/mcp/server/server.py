@@ -13,6 +13,7 @@ from ai_infra.mcp.server.tools import ToolDef, ToolFn, mcp_from_functions
 
 from .models import MCPMount
 
+Starlette: type | None
 try:
     from starlette.applications import Starlette
     from starlette.responses import JSONResponse
@@ -314,8 +315,10 @@ class MCPServer:
             resolved_spec = app.openapi()
         elif base_url:
             url = base_url.rstrip("/") + openapi_url
+            # verify defaults to True if not specified
+            verify_val = verify if verify is not None else True
             with httpx.Client(
-                headers=headers, timeout=timeout, verify=verify, auth=auth
+                headers=headers, timeout=timeout, verify=verify_val, auth=auth
             ) as sync_client:
                 resp = sync_client.get(url)
                 resp.raise_for_status()
@@ -325,6 +328,8 @@ class MCPServer:
 
         # ---------- resolve Async client for tools ----------
         own_client = False
+        # verify defaults to True if not specified
+        verify_val = verify if verify is not None else True
         if client is not None:
             tools_client = client
         elif client_factory is not None:
@@ -337,7 +342,7 @@ class MCPServer:
                 base_url=base_url or "http://app.local",
                 headers=headers,
                 timeout=timeout,
-                verify=verify,
+                verify=verify_val,
                 auth=auth,
             )
             own_client = True
@@ -346,7 +351,7 @@ class MCPServer:
                 base_url=base_url,
                 headers=headers,
                 timeout=timeout,
-                verify=verify,
+                verify=verify_val,
                 auth=auth,
             )
             own_client = True

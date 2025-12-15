@@ -1415,17 +1415,17 @@ class _LazyEmbeddings:
     until the user actually calls add() on the loaded retriever.
     """
 
-    def __init__(self, provider: str, model: str) -> None:
+    def __init__(self, provider: str | None = None, model: str | None = None) -> None:
         self._provider = provider
         self._model = model
-        self._embeddings = None
+        self._embeddings: "Embeddings" | None = None
 
     @property
-    def provider(self) -> str:
+    def provider(self) -> str | None:
         return self._provider
 
     @property
-    def model(self) -> str:
+    def model(self) -> str | None:
         return self._model
 
     def _ensure_loaded(self) -> None:

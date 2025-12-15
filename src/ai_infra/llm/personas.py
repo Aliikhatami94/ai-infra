@@ -164,7 +164,7 @@ class Persona:
         Returns:
             Dictionary representation
         """
-        result = {"name": self.name}
+        result: dict[str, Any] = {"name": self.name}
 
         if self.prompt:
             result["prompt"] = self.prompt

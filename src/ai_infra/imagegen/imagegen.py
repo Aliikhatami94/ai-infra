@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import base64
-from typing import Any, List, Literal, Optional, Union
+import io
+from typing import Any, BinaryIO, List, Literal, Optional, Union
 
 from ai_infra.imagegen.models import (
     AVAILABLE_MODELS,
@@ -708,24 +709,21 @@ class ImageGen:
         client = self._get_openai_client()
 
         # Handle image input
+        image_file: BinaryIO
         if isinstance(image, str):
             image_file = open(image, "rb")
         else:
-            import io
-
             image_file = io.BytesIO(image)
-            image_file.name = "image.png"
+            image_file.name = "image.png"  # type: ignore[attr-defined]
 
         # Handle mask input
-        mask_file = None
+        mask_file: BinaryIO | None = None
         if mask is not None:
             if isinstance(mask, str):
                 mask_file = open(mask, "rb")
             else:
-                import io
-
                 mask_file = io.BytesIO(mask)
-                mask_file.name = "mask.png"
+                mask_file.name = "mask.png"  # type: ignore[attr-defined]
 
         try:
             params: dict[str, Any] = {
@@ -782,13 +780,12 @@ class ImageGen:
         client = self._get_openai_client()
 
         # Handle image input
+        image_file: BinaryIO
         if isinstance(image, str):
             image_file = open(image, "rb")
         else:
-            import io
-
             image_file = io.BytesIO(image)
-            image_file.name = "image.png"
+            image_file.name = "image.png"  # type: ignore[attr-defined]
 
         try:
             response = client.images.create_variation(

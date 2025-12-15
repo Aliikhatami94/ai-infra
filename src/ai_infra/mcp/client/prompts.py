@@ -26,7 +26,7 @@ Example:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 
@@ -177,4 +177,5 @@ async def list_mcp_prompts(session: "ClientSession") -> list[PromptInfo]:
     """
     result = await session.list_prompts()
     prompts = getattr(result, "prompts", result) or []
-    return [PromptInfo.from_mcp_prompt(p) for p in prompts]
+    # Each p is expected to be a Prompt object
+    return [PromptInfo.from_mcp_prompt(cast("Prompt", p)) for p in prompts]

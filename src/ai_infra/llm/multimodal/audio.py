@@ -94,7 +94,9 @@ def create_audio_message(
         ```
     """
     content = build_audio_content(text, audio)
-    return HumanMessage(content=content)
+    # HumanMessage expects list[str | dict[Any, Any]] but we have list[dict[str, Any]]
+    # These are effectively compatible - dict[str, Any] is more specific
+    return HumanMessage(content=content)  # type: ignore[arg-type]
 
 
 def build_audio_content(

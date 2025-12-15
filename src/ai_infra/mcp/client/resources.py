@@ -30,11 +30,12 @@ from __future__ import annotations
 
 import base64
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from mcp import ClientSession
     from mcp.types import Resource
+    from pydantic import AnyUrl
 
 
 @dataclass
@@ -247,8 +248,9 @@ async def load_mcp_resources(
     # Load each resource
     resources = []
     for uri in uri_list:
-        result = await session.read_resource(uri)
-        contents_list = getattr(result, "contents", []) or []
+        # read_resource expects AnyUrl but we have str - cast for type checker
+        read_result = await session.read_resource(cast("AnyUrl", uri))
+        contents_list = getattr(read_result, "contents", []) or []
         for content in contents_list:
             resources.append(convert_mcp_resource(uri, content))
 
@@ -274,4 +276,5 @@ async def list_mcp_resources(session: "ClientSession") -> list[ResourceInfo]:
     """
     result = await session.list_resources()
     resources_list = getattr(result, "resources", result) or []
-    return [ResourceInfo.from_mcp_resource(r) for r in resources_list]
+    # Each r is expected to be a Resource object
+    return [ResourceInfo.from_mcp_resource(cast("Resource", r)) for r in resources_list]

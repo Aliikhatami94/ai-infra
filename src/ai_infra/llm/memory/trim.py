@@ -104,7 +104,9 @@ def trim_messages(
     elif strategy == "token":
         counter = token_counter or count_tokens_approximate
         # Account for system message tokens
-        available_tokens = max_tokens  # type: ignore
+        # max_tokens is guaranteed to be int here due to validation above
+        assert max_tokens is not None
+        available_tokens = max_tokens
         if system_msg and token_counter:
             system_tokens = counter([system_msg])
             available_tokens = max(0, available_tokens - system_tokens)

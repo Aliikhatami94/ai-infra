@@ -190,16 +190,14 @@ def get_storage() -> ChatStorage:
 
 
 def _get_llm(provider: Optional[str], model: Optional[str]):
-    """Get LLM instance with specified or auto-detected provider."""
+    """Get LLM instance.
+
+    Note: provider and model are not used here - they're passed to individual
+    calls like .chat() or .set_model(). This factory just creates the LLM instance.
+    """
     from ai_infra.llm import LLM
 
-    kwargs = {}
-    if provider:
-        kwargs["provider"] = provider
-    if model:
-        kwargs["model_name"] = model
-
-    return LLM(**kwargs)
+    return LLM()
 
 
 def _get_default_provider() -> str:
@@ -235,9 +233,9 @@ def _build_messages_with_history(
     Returns:
         List of LangChain message objects
     """
-    from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+    from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 
-    messages = []
+    messages: list[BaseMessage] = []
 
     # Add system message if provided
     if system:

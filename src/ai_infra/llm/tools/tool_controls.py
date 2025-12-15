@@ -1,22 +1,25 @@
 from __future__ import annotations
-from dataclasses import is_dataclass, asdict
-from typing import Any, Dict, Optional, Tuple, List
-from dataclasses import dataclass
+
+from dataclasses import asdict, dataclass, is_dataclass
+from typing import Any, Dict, List, Optional, Tuple
 
 from ai_infra.llm.providers import Providers
 
 
 @dataclass
 class ToolCallControls:
-    tool_choice: Optional[Dict[str, Any]] = None     # e.g. {"name":"my_tool"} | "none" | "auto" | "any"
+    tool_choice: Optional[Dict[str, Any]] = (
+        None  # e.g. {"name":"my_tool"} | "none" | "auto" | "any"
+    )
     parallel_tool_calls: bool = True
-    force_once: bool = False                         # Only enforce tool_choice for the first call in a run
+    force_once: bool = False  # Only enforce tool_choice for the first call in a run
 
 
 def _ensure_dict(obj: Any) -> Dict[str, Any] | None:
     if not obj:
         return None
-    if is_dataclass(obj):
+    # is_dataclass returns True for both classes and instances, but asdict only works on instances
+    if is_dataclass(obj) and not isinstance(obj, type):
         return asdict(obj)
     if isinstance(obj, dict):
         return obj
@@ -28,20 +31,22 @@ def _extract_name(tool_choice: Any) -> Optional[str]:
         return None
     return tool_choice.get("name") or (tool_choice.get("function") or {}).get("name")
 
+
 def no_tools() -> Dict[str, Any]:
     return {"tool_controls": {"tool_choice": "none"}}
 
-def force_tool(name: str, *, once: bool = False, parallel: bool = False) -> Dict[str, Any]:
-    return {"tool_controls": {
-        "tool_choice": {"name": name},
-        "force_once": once,
-        "parallel_tool_calls": parallel,
-    }}
 
-def normalize_tool_controls(
-        provider: str,
-        controls: Any
-) -> Tuple[Any, bool, bool]:
+def force_tool(name: str, *, once: bool = False, parallel: bool = False) -> Dict[str, Any]:
+    return {
+        "tool_controls": {
+            "tool_choice": {"name": name},
+            "force_once": once,
+            "parallel_tool_calls": parallel,
+        }
+    }
+
+
+def normalize_tool_controls(provider: str, controls: Any) -> Tuple[Any, bool, bool]:
     """
     Return (tool_choice, parallel_tool_calls, force_once) in the exact shape
     required by the *LangChain provider adapters*.
@@ -90,7 +95,7 @@ def normalize_tool_controls(
     elif provider == Providers.google_genai:
         # Gemini wants FunctionCallingConfig
         def gg(mode: str, names: Optional[List[str]] = None):
-            cfg = {"function_calling_config": {"mode": mode}}
+            cfg: Dict[str, Dict[str, Any]] = {"function_calling_config": {"mode": mode}}
             if names:
                 cfg["function_calling_config"]["allowed_function_names"] = names
             return cfg

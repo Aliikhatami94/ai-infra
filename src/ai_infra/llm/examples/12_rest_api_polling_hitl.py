@@ -209,12 +209,18 @@ async def run_agent_task(task_id: str, message: str):
             approval_id = str(uuid.uuid4())
 
             # Create approval request
+            # pending_action fields may be None in edge cases
+            tool_name = pending_action.tool_name if pending_action else "unknown"
+            tool_args = pending_action.args if pending_action else {}
+            context_str = (
+                str(pending_action.context) if pending_action and pending_action.context else ""
+            )
             approval = ApprovalRequest(
                 id=approval_id,
                 task_id=task_id,
-                tool_name=pending_action.tool_name,
-                tool_args=pending_action.args,
-                context={"messages": str(pending_action.context) if pending_action.context else ""},
+                tool_name=tool_name or "unknown",
+                tool_args=tool_args,
+                context={"messages": context_str},
                 created_at=datetime.now(),
                 expires_at=datetime.now() + timedelta(minutes=5),
             )

@@ -32,7 +32,7 @@ from __future__ import annotations
 import ast
 import uuid
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Literal, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -165,9 +165,13 @@ class OutputReviewResponse(BaseModel):
 
 # Type aliases for handlers
 ApprovalHandler = Callable[[ApprovalRequest], ApprovalResponse]
-AsyncApprovalHandler = Callable[[ApprovalRequest], "ApprovalResponse"]  # Returns awaitable
+AsyncApprovalHandler = Callable[
+    [ApprovalRequest], "Awaitable[ApprovalResponse]"
+]  # Returns awaitable
 OutputReviewer = Callable[[OutputReviewRequest], OutputReviewResponse]
-AsyncOutputReviewer = Callable[[OutputReviewRequest], "OutputReviewResponse"]  # Returns awaitable
+AsyncOutputReviewer = Callable[
+    [OutputReviewRequest], "Awaitable[OutputReviewResponse]"
+]  # Returns awaitable
 
 
 def console_approval_handler(request: ApprovalRequest) -> ApprovalResponse:

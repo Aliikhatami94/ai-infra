@@ -88,7 +88,9 @@ def create_vision_message(
         ```
     """
     content = build_vision_content(text, images)
-    return HumanMessage(content=content)
+    # HumanMessage expects list[str | dict[Any, Any]] but we have list[dict[str, Any]]
+    # These are effectively compatible - dict[str, Any] is more specific
+    return HumanMessage(content=content)  # type: ignore[arg-type]
 
 
 def build_vision_content(

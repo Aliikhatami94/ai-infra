@@ -43,7 +43,10 @@ import hashlib
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Literal, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Sequence, Union
+
+if TYPE_CHECKING:
+    from ai_infra.llm.llm import LLM
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langchain_core.tools import StructuredTool
@@ -227,7 +230,7 @@ class ConversationMemory:
             )
 
         # LLM for summaries (lazy init)
-        self._llm = None
+        self._llm: "LLM" | None = None
 
     @classmethod
     def sqlite(

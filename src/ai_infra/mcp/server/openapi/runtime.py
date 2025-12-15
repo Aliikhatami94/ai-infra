@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import re
 import time
@@ -296,13 +297,11 @@ class RateLimiter:
         self.burst = burst or rate
         self._tokens = self.burst
         self._last_update = time.time()
-        self._lock = None  # Lazy init for async
+        self._lock: asyncio.Lock | None = None  # Lazy init for async
 
     async def _get_lock(self):
         """Get or create async lock."""
         if self._lock is None:
-            import asyncio
-
             self._lock = asyncio.Lock()
         return self._lock
 

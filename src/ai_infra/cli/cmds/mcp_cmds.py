@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import List, Optional
+from typing import Any, List, Literal, Optional
 
 import typer
 from rich.console import Console
@@ -31,6 +31,12 @@ from ai_infra.mcp import MCPClient, MCPResource, McpServerConfig, PromptInfo, Re
 app = typer.Typer(help="MCP server debugging and testing commands")
 console = Console()
 
+# Type alias for transport options
+TransportType = Literal["stdio", "streamable_http", "sse"]
+
+# Valid transport values
+_VALID_TRANSPORTS = {"stdio", "streamable_http", "sse"}
+
 
 def _create_config(
     url: Optional[str] = None,
@@ -40,7 +46,17 @@ def _create_config(
     env: Optional[str] = None,
 ) -> McpServerConfig:
     """Create MCP server config from CLI options."""
-    if transport == "stdio":
+    # Validate transport
+    if transport not in _VALID_TRANSPORTS:
+        console.print(
+            f"[red]Error: Invalid transport '{transport}'. Must be one of: {', '.join(_VALID_TRANSPORTS)}[/red]"
+        )
+        raise typer.Exit(1)
+
+    # Cast to Literal type after validation
+    validated_transport: TransportType = transport  # type: ignore[assignment]
+
+    if validated_transport == "stdio":
         if not command:
             console.print("[red]Error: --command required for stdio transport[/red]")
             raise typer.Exit(1)
@@ -62,7 +78,7 @@ def _create_config(
 
         return McpServerConfig(
             name="cli-server",
-            transport=transport,
+            transport=validated_transport,
             url=url,
         )
 
@@ -725,7 +741,7 @@ def info_cmd(
 
     async def _get_info(client: MCPClient):
         # Get server info
-        info = {
+        info: dict[str, Any] = {
             "name": "cli-server",
             "transport": transport,
             "url": url if transport != "stdio" else None,

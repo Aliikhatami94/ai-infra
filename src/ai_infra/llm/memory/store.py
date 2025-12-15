@@ -41,7 +41,10 @@ import json
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+
+if TYPE_CHECKING:
+    from langchain_core.embeddings import Embeddings
 
 logger = logging.getLogger(__name__)
 
@@ -146,7 +149,7 @@ class MemoryStore:
         self._backend = self._create_backend()
 
         # Initialize embeddings if provider specified
-        self._embeddings = None
+        self._embeddings: "Embeddings" | None = None
         if embedding_provider:
             self._init_embeddings()
 
@@ -1167,7 +1170,7 @@ class _PostgresBackend(_MemoryBackend):
             FROM memories
             WHERE namespace = %s
         """
-        params = [ns_str]
+        params: list[str | int] = [ns_str]
         if limit:
             query += " LIMIT %s"
             params.append(limit)

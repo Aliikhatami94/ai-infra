@@ -1,10 +1,11 @@
 import asyncio
+from typing import Any
 
 from ai_infra import Providers
 from ai_infra.llm import Agent
 from ai_infra.mcp.client import MCPClient
 
-cfg = [
+cfg: list[dict[str, Any]] = [
     {
         "transport": "streamable_http",
         "url": "http://0.0.0.0:8000/streamable-app/mcp",

@@ -684,7 +684,8 @@ def _register_operation_tool(
                 style = p.get("style")
                 explode = p.get("explode")
                 # Use serialize_query_param for proper array handling
-                serialized = serialize_query_param(pname, value, style=style, explode=explode)
+                # pname is validated above (checked against payload keys)
+                serialized = serialize_query_param(str(pname), value, style=style, explode=explode)
                 query.update(serialized)
             elif p.get("required"):
                 errors.append(f"Missing required query param: {pname}")

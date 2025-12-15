@@ -176,6 +176,8 @@ class TranscriptionResult:
     @property
     def words(self) -> list[TranscriptionWord]:
         """Get all words from all segments."""
+        if not self.segments:
+            return []
         result = []
         for segment in self.segments:
             result.extend(segment.words)
