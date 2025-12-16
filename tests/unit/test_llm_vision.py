@@ -2,12 +2,6 @@
 
 from __future__ import annotations
 
-import base64
-from pathlib import Path
-from unittest.mock import MagicMock, patch
-
-import pytest
-
 from ai_infra.llm.multimodal.vision import build_vision_content, create_vision_message, encode_image
 
 

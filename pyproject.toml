@@ -34,6 +34,7 @@ python = ">=3.11,<4.0"
 fastapi = ">=0.110.0"
 pydantic = ">=2.0"
 python-dotenv = ">=1.0.0"
+pyyaml = ">=6.0"
 
 # LangChain ecosystem (v1)
 langgraph = ">=1.0.0"
@@ -88,9 +89,13 @@ pytest-asyncio = ">=0.23.0"
 ruff = ">=0.5.0"
 mypy = ">=1.10.0"
 pre-commit = ">=3.0.0"
+types-PyYAML = "*"
 
 [tool.poetry.scripts]
 ai-infra = "ai_infra.cli:main"
+
+[tool.ruff]
+target-version = "py311"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

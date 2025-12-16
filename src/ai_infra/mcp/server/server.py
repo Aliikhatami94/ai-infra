@@ -240,7 +240,7 @@ class MCPServer:
             except Exception:
                 pass
         else:
-            mcp, async_cleanup = res  # type: ignore[misc]
+            mcp, async_cleanup = res
             report = None
 
         return self.add_fastmcp(

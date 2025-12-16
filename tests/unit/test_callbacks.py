@@ -7,9 +7,6 @@ This module tests the core callback infrastructure including:
 - Built-in callbacks (LoggingCallbacks, MetricsCallbacks, PrintCallbacks)
 """
 
-import asyncio
-import time
-
 import pytest
 
 from ai_infra.callbacks import (

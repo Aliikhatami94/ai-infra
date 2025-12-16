@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from ai_infra.embeddings.embeddings import Embeddings
 
@@ -551,7 +551,7 @@ class _ChromaBackend(_VectorBackend):
         return True
 
     def count(self) -> int:
-        return self._collection.count()
+        return cast(int, self._collection.count())
 
 
 class _ChromaEmbeddingFunction:

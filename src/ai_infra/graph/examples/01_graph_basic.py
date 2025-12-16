@@ -27,7 +27,7 @@ def mul(state: MyState) -> MyState:
     return state
 
 
-def _trace(node_name, state, event):  # type: ignore[override]
+def _trace(node_name: str, state: MyState, event: str) -> None:
     print(f"{event.upper()} node={node_name} state={state}")
 
 

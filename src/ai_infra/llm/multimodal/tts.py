@@ -438,11 +438,13 @@ class TTS:
 
         response = client.audio.speech.create(
             model=model,
-            voice=voice,  # type: ignore
+            voice=voice,
             input=text,
-            response_format=response_format,  # type: ignore
+            response_format=response_format,
         )
-        return response.content
+        from typing import cast
+
+        return cast(bytes, response.content)
 
     async def _aspeak_openai(
         self, text: str, voice: str, model: str, output_format: AudioFormat
@@ -461,11 +463,13 @@ class TTS:
 
         response = await client.audio.speech.create(
             model=model,
-            voice=voice,  # type: ignore
+            voice=voice,
             input=text,
-            response_format=response_format,  # type: ignore
+            response_format=response_format,
         )
-        return response.content
+        from typing import cast
+
+        return cast(bytes, response.content)
 
     def _stream_openai(
         self, text: str, voice: str, model: str, output_format: AudioFormat
@@ -484,9 +488,9 @@ class TTS:
 
         with client.audio.speech.with_streaming_response.create(
             model=model,
-            voice=voice,  # type: ignore
+            voice=voice,
             input=text,
-            response_format=response_format,  # type: ignore
+            response_format=response_format,
         ) as response:
             for chunk in response.iter_bytes(chunk_size=4096):
                 yield chunk
@@ -508,9 +512,9 @@ class TTS:
 
         async with client.audio.speech.with_streaming_response.create(
             model=model,
-            voice=voice,  # type: ignore
+            voice=voice,
             input=text,
-            response_format=response_format,  # type: ignore
+            response_format=response_format,
         ) as response:
             async for chunk in response.iter_bytes(chunk_size=4096):
                 yield chunk
@@ -559,7 +563,9 @@ class TTS:
         # elevenlabs.generate returns an iterator, collect all bytes
         if hasattr(audio, "__iter__") and not isinstance(audio, bytes):
             return b"".join(audio)
-        return audio  # type: ignore
+        from typing import cast
+
+        return cast(bytes, audio)
 
     async def _aspeak_elevenlabs(
         self, text: str, voice: str, model: str, output_format: AudioFormat
@@ -590,10 +596,12 @@ class TTS:
 
         if hasattr(audio, "__iter__") and not isinstance(audio, bytes):
             chunks = []
-            async for chunk in audio:  # type: ignore
+            async for chunk in audio:
                 chunks.append(chunk)
             return b"".join(chunks)
-        return audio  # type: ignore
+        from typing import cast
+
+        return cast(bytes, audio)
 
     def _stream_elevenlabs(
         self, text: str, voice: str, model: str, output_format: AudioFormat
@@ -626,7 +634,9 @@ class TTS:
         if hasattr(audio, "__iter__") and not isinstance(audio, bytes):
             yield from audio
         else:
-            yield audio  # type: ignore
+            from typing import cast
+
+            yield cast(bytes, audio)
 
     async def _astream_elevenlabs(
         self, text: str, voice: str, model: str, output_format: AudioFormat
@@ -656,10 +666,12 @@ class TTS:
         )
 
         if hasattr(audio, "__iter__") and not isinstance(audio, bytes):
-            async for chunk in audio:  # type: ignore
+            async for chunk in audio:
                 yield chunk
         else:
-            yield audio  # type: ignore
+            from typing import cast
+
+            yield cast(bytes, audio)
 
     # =========================================================================
     # Google TTS Implementation
@@ -668,7 +680,7 @@ class TTS:
     def _speak_google(self, text: str, voice: str, model: str, output_format: AudioFormat) -> bytes:
         """Generate speech using Google Cloud TTS."""
         try:
-            from google.cloud import texttospeech
+            from google.cloud import texttospeech  # type: ignore[import-untyped]
         except ImportError:
             raise ImportError(
                 "google-cloud-texttospeech package required for Google TTS: "
@@ -705,7 +717,9 @@ class TTS:
             audio_config=audio_config,
         )
 
-        return response.audio_content
+        from typing import cast
+
+        return cast(bytes, response.audio_content)
 
     async def _aspeak_google(
         self, text: str, voice: str, model: str, output_format: AudioFormat

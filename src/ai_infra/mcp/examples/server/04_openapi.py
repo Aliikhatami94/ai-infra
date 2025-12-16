@@ -15,9 +15,11 @@ def load_openapi(path_or_str: str | Path) -> OpenAPISpec:
     p = Path(path_or_str)
     text = p.read_text(encoding="utf-8") if p.exists() else str(path_or_str)
     try:
-        return json.loads(text)
+        result: OpenAPISpec = json.loads(text)
+        return result
     except json.JSONDecodeError:
-        return yaml.safe_load(text)
+        result = yaml.safe_load(text)
+        return dict(result) if result else {}
 
 
 spec = load_openapi(path_to_spec)

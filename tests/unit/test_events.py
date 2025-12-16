@@ -4,7 +4,6 @@ These tests verify that approval events are properly created,
 emitted, and handled during approval workflows.
 """
 
-import asyncio
 from typing import List
 
 import pytest

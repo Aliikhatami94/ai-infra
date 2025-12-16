@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import asyncio
 from unittest.mock import AsyncMock
 
 import pytest
-from mcp.types import CallToolResult, TextContent
+from mcp.types import CallToolResult
 
 from ai_infra.mcp.client.interceptors import (
     CachingInterceptor,

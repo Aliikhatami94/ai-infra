@@ -7,19 +7,11 @@ Tests 3.5.1-3.5.4:
 - 3.5.4: Schema Handling
 """
 
-from typing import Any, Dict, List, Optional, Union
-from unittest.mock import AsyncMock, MagicMock, patch
+from typing import Any, Dict, Union
 
-import httpx
 import pytest
 
-from ai_infra.mcp.server.openapi import (
-    AuthConfig,
-    BuildReport,
-    OpenAPIOptions,
-    _mcp_from_openapi,
-    load_openapi,
-)
+from ai_infra.mcp.server.openapi import AuthConfig, OpenAPIOptions, _mcp_from_openapi, load_openapi
 from ai_infra.mcp.server.openapi.builder import (
     _merge_allof_schemas,
     _py_type_from_schema,
@@ -601,7 +593,7 @@ class TestSchemaHandling:
 
         # Should be Union[str, int]
         assert hasattr(result, "__origin__")
-        from typing import Union, get_origin
+        from typing import get_origin
 
         assert get_origin(result) is Union
 

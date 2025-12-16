@@ -280,7 +280,8 @@ def list_audio_input_models(provider: str = "openai") -> List[str]:
         )
     cap = config.get_capability(ProviderCapability.REALTIME)
     if cap and cap.extra:
-        return cap.extra.get("audio_input_models", [])
+        result = cap.extra.get("audio_input_models", [])
+        return list(result) if result else []
     return []
 
 
@@ -300,7 +301,8 @@ def list_audio_output_models(provider: str = "openai") -> List[str]:
         )
     cap = config.get_capability(ProviderCapability.REALTIME)
     if cap and cap.extra:
-        return cap.extra.get("audio_output_models", [])
+        result = cap.extra.get("audio_output_models", [])
+        return list(result) if result else []
     return []
 
 

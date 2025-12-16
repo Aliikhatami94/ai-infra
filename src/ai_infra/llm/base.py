@@ -266,11 +266,17 @@ class BaseLLM:
         # Try direct/fragment validation
         coerced = coerce_from_text_or_fragment(schema, content)
         if coerced is not None:
-            return coerced
+            if isinstance(coerced, BaseModel):
+                return coerced
+            # coerced is a dict - validate it
+            validated = validate_or_raise(schema, content)
+            if isinstance(validated, BaseModel):
+                return validated
+            raise ValueError(f"Expected BaseModel, got {type(validated)}")
 
         # Final fallback: provider structured mode (json_mode)
         try:
-            return structured_mode_call_sync(
+            result = structured_mode_call_sync(
                 self.with_structured_output,
                 provider,
                 model_name,
@@ -278,8 +284,17 @@ class BaseLLM:
                 messages,
                 model_kwargs,
             )
+            if isinstance(result, BaseModel):
+                return result
+            validated = validate_or_raise(schema, content)
+            if isinstance(validated, BaseModel):
+                return validated
+            raise ValueError(f"Expected BaseModel, got {type(validated)}")
         except Exception:
-            return validate_or_raise(schema, content)
+            validated = validate_or_raise(schema, content)
+            if isinstance(validated, BaseModel):
+                return validated
+            raise ValueError(f"Expected BaseModel, got {type(validated)}")
 
     async def _prompt_structured_async(
         self,
@@ -308,11 +323,17 @@ class BaseLLM:
         # Try direct/fragment validation
         coerced = coerce_from_text_or_fragment(schema, content)
         if coerced is not None:
-            return coerced
+            if isinstance(coerced, BaseModel):
+                return coerced
+            # coerced is a dict - validate it
+            validated = validate_or_raise(schema, content)
+            if isinstance(validated, BaseModel):
+                return validated
+            raise ValueError(f"Expected BaseModel, got {type(validated)}")
 
         # Final fallback: provider structured mode (json_mode)
         try:
-            return await structured_mode_call_async(
+            result = await structured_mode_call_async(
                 self.with_structured_output,
                 provider,
                 model_name,
@@ -320,5 +341,14 @@ class BaseLLM:
                 messages,
                 model_kwargs,
             )
+            if isinstance(result, BaseModel):
+                return result
+            validated = validate_or_raise(schema, content)
+            if isinstance(validated, BaseModel):
+                return validated
+            raise ValueError(f"Expected BaseModel, got {type(validated)}")
         except Exception:
-            return validate_or_raise(schema, content)
+            validated = validate_or_raise(schema, content)
+            if isinstance(validated, BaseModel):
+                return validated
+            raise ValueError(f"Expected BaseModel, got {type(validated)}")

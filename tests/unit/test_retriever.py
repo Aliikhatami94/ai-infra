@@ -894,16 +894,33 @@ class TestRetrieverPersistence:
     def test_save_unsupported_backend_raises(self) -> None:
         """Test save() raises for unsupported backends."""
         from ai_infra.retriever import Retriever
-        from ai_infra.retriever.backends import get_backend
+        from ai_infra.retriever.backends.base import BaseBackend
 
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "test.pkl"
 
-            # Create retriever with a backend that doesn't have _ids
+            # Create retriever with memory backend
             r = Retriever(backend="memory")
 
-            # Remove _ids to simulate unsupported backend
-            del r._backend._ids
+            # Replace with a mock backend that's not MemoryBackend
+            class FakeBackend(BaseBackend):
+                def add(self, ids, texts, embeddings, metadatas=None):
+                    pass
+
+                def search(self, embedding, k=5, filter_dict=None):
+                    return [], []
+
+                def delete(self, ids):
+                    pass
+
+                def count(self):
+                    return 0
+
+                def clear(self):
+                    pass
+
+            r._backend = FakeBackend()
+            r._backend_name = "fake"
 
             with pytest.raises(ValueError, match="doesn't support save"):
                 r.save(path)
@@ -937,7 +954,6 @@ class TestRetrieverLazyInit:
     def test_lazy_init_loads_on_add(self) -> None:
         """Test lazy_init loads model on first add."""
         from ai_infra.retriever import Retriever
-        from ai_infra.retriever.retriever import _LazyEmbeddings
 
         # Create with lazy_init=True and mock the internal loading
         r = Retriever(backend="memory", lazy_init=True, provider="huggingface")
@@ -964,7 +980,6 @@ class TestRetrieverLazyInit:
         r = Retriever(backend="memory", lazy_init=True, provider="huggingface")
 
         # Add some content manually to backend (bypass embedding)
-        import numpy as np
 
         r._backend.add(
             embeddings=[[0.1] * 384],
@@ -979,7 +994,7 @@ class TestRetrieverLazyInit:
         r._embeddings._embeddings = mock_embeddings
 
         # Search - should trigger initialization
-        results = r.search("test")
+        r.search("test")
 
         # Should be marked as initialized now
         assert r._initialized is True
@@ -1139,7 +1154,6 @@ class TestRetrieverSimilarityMetrics:
 
     def test_cosine_similarity_search(self) -> None:
         """Test search works with cosine similarity."""
-        import numpy as np
 
         from ai_infra.retriever.backends.memory import MemoryBackend
 

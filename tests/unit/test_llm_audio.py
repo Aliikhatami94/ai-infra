@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import base64
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -14,7 +13,6 @@ from ai_infra.llm.multimodal.audio import (
     build_audio_content,
     create_audio_message,
     encode_audio,
-    encode_audio_for_openai,
 )
 
 
@@ -131,7 +129,7 @@ class TestAudioConversion:
         try:
             import warnings
 
-            with warnings.catch_warnings(record=True) as w:
+            with warnings.catch_warnings(record=True):
                 warnings.simplefilter("always")
                 # This should warn about ffmpeg but still encode
                 result = encode_audio(path)

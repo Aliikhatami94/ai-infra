@@ -3,14 +3,10 @@
 Tests for Phase 6.4.3 - Conversation History RAG.
 """
 
-import time
-from unittest.mock import MagicMock, patch
-
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from ai_infra.llm.tools.custom.memory import (
-    ConversationChunk,
     ConversationMemory,
     SearchResult,
     create_memory_tool,

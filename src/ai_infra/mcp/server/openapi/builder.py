@@ -334,7 +334,7 @@ def _py_type_from_schema(
         # Use Union for multiple types
         from typing import Union
 
-        return Union[tuple(types)]  # type: ignore
+        return Union[tuple(types)]
 
     t = (schema or {}).get("type")
     fmt = (schema or {}).get("format")
@@ -346,7 +346,7 @@ def _py_type_from_schema(
 
         # Create Literal type for enum
         try:
-            return Literal[tuple(enum_values)]  # type: ignore
+            return Literal[tuple(enum_values)]
         except Exception:
             pass  # Fall through to regular type
 
@@ -369,7 +369,7 @@ def _py_type_from_schema(
 
         props = (schema or {}).get("properties") or {}
         reqs = set((schema or {}).get("required") or [])
-        fields: dict[str, tuple[object, object]] = {}
+        fields: dict[str, Any] = {}
 
         for k, v in props.items():
             prop_schema = v or {}
@@ -423,7 +423,7 @@ def _py_type_from_schema(
 def _build_input_model(
     op_ctx: OperationContext, path_item: dict, op: dict, spec: OpenAPISpec
 ) -> type[BaseModel]:
-    fields: dict[str, tuple[object, object]] = {}
+    fields: dict[str, Any] = {}
 
     def _extract_param_type(param: Dict[str, Any]) -> Any:
         schema = param.get("schema") or {}
@@ -502,7 +502,7 @@ def _build_output_model(op_ctx: OperationContext, op: dict, spec: OpenAPISpec) -
     """
     resp_schema, resp_ct = _pick_response_schema(op, spec)
 
-    fields: dict[str, tuple[object, object]] = {
+    fields: dict[str, Any] = {
         "status": (int, ...),
         "headers": (Dict[str, str], ...),
         "url": (str, ...),
@@ -512,7 +512,7 @@ def _build_output_model(op_ctx: OperationContext, op: dict, spec: OpenAPISpec) -
     # use internal names with alias="json"/"text"
     if resp_schema and (resp_ct == "application/json"):
         payload_type = _py_type_from_schema(resp_schema, spec)
-        fields["payload_json"] = (Optional[payload_type], Field(default=None, alias="json"))  # type: ignore[name-defined]
+        fields["payload_json"] = (Optional[payload_type], Field(default=None, alias="json"))
         fields["payload_text"] = (Optional[str], Field(default=None, alias="text"))
     else:
         fields["payload_json"] = (Optional[Any], Field(default=None, alias="json"))
@@ -642,7 +642,9 @@ def _register_operation_tool(
 
     async def tool(args: Optional[InputModel] = None) -> OutputModel:  # type: ignore[valid-type]
         # Allow completely empty calls (e.g., ping) by treating None as {}
-        payload = args.model_dump(by_alias=True, exclude_none=True) if args is not None else {}
+        payload: dict[str, Any] = (
+            args.model_dump(by_alias=True, exclude_none=True) if args is not None else {}
+        )
 
         url_base = (payload.pop("_base_url", None) or base_url).rstrip("/")
         api_key = payload.pop("_api_key", None)
@@ -651,7 +653,7 @@ def _register_operation_tool(
 
         if not url_base:
             # Keep structure consistent even on error: still return OutputModel
-            out = {
+            out_err: dict[str, Any] = {
                 "status": 0,
                 "headers": {},
                 "url": "",
@@ -659,7 +661,7 @@ def _register_operation_tool(
                 "json": None,
                 "text": "Error: no base URL provided (servers missing and _base_url not set).",
             }
-            return OutputModel.model_validate(out)
+            return OutputModel.model_validate(out_err)
 
         errors: list[str] = []
 
@@ -693,14 +695,16 @@ def _register_operation_tool(
         for p in op_ctx.header_params:
             pname = p.get("name")
             if pname in payload:
-                headers[pname] = str(payload.pop(pname))
+                if pname is not None:
+                    headers[pname] = str(payload.pop(pname))
             elif p.get("required"):
                 errors.append(f"Missing required header: {pname}")
 
         for p in op_ctx.cookie_params:
             pname = p.get("name")
             if pname in payload:
-                cookies[pname] = str(payload.pop(pname))
+                if pname is not None:
+                    cookies[pname] = str(payload.pop(pname))
             elif p.get("required"):
                 errors.append(f"Missing required cookie: {pname}")
 
@@ -733,7 +737,7 @@ def _register_operation_tool(
                         headers.setdefault("Content-Type", ct)
 
         if errors:
-            out = {
+            out_validation: dict[str, Any] = {
                 "status": 0,
                 "headers": {},
                 "url": f"{url_base}{url_path}",
@@ -741,7 +745,7 @@ def _register_operation_tool(
                 "json": None,
                 "text": "Validation errors:\n" + "\n".join(f" - {e}" for e in errors),
             }
-            return OutputModel(**out)
+            return OutputModel.model_validate(out_validation)
 
         # Apply auth from OpenAPI security schemes
         security.apply(
@@ -901,9 +905,12 @@ def _register_operation_tool(
 
                         # Replace items with all collected items
                         if pages_fetched > 1:
-                            out["json"][items_key] = all_items
-                            out["json"]["_paginated"] = True
-                            out["json"]["_pages_fetched"] = pages_fetched
+                            from typing import cast
+
+                            json_out = cast(dict[str, Any], out["json"])
+                            json_out[items_key] = all_items
+                            json_out["_paginated"] = True
+                            json_out["_pages_fetched"] = pages_fetched
 
             except Exception:
                 out["text"] = resp.text

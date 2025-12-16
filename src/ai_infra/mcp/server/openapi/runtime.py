@@ -105,7 +105,7 @@ def pick_effective_base_url_with_source(
 
 
 def collect_params(op: Operation) -> Dict[str, List[Dict[str, Any]]]:
-    out = {"path": [], "query": [], "header": []}
+    out: Dict[str, List[Dict[str, Any]]] = {"path": [], "query": [], "header": []}
     for p in op.get("parameters") or []:
         loc = p.get("in")
         if loc in out:
@@ -406,10 +406,10 @@ class RequestDeduplicator:
         async with lock:
             if key in self._pending:
                 # Another request is in progress, wait for it
-                future = self._pending[key]
+                pending_future = self._pending[key]
 
         if key in self._pending:
-            return await self._pending[key]
+            return await pending_future
 
         # We're the first, create future and execute
         async with lock:
@@ -417,15 +417,15 @@ class RequestDeduplicator:
                 # Race condition, another request started
                 return await self._pending[key]
 
-            future: asyncio.Future = asyncio.get_event_loop().create_future()
-            self._pending[key] = future
+            new_future: asyncio.Future = asyncio.get_event_loop().create_future()
+            self._pending[key] = new_future
 
         try:
             result = await fn()
-            future.set_result(result)
+            new_future.set_result(result)
             return result
         except Exception as e:
-            future.set_exception(e)
+            new_future.set_exception(e)
             raise
         finally:
             async with lock:

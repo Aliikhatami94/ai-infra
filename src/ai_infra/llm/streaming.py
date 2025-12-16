@@ -271,7 +271,7 @@ def filter_event_for_visibility(event: StreamEvent, visibility: str) -> StreamEv
 
     if visibility == "standard":
         # standard: Remove tool arguments, result, and preview
-        changes = {}
+        changes: dict[str, Any] = {}
         if event.arguments is not None:
             changes["arguments"] = None
         if event.result is not None:

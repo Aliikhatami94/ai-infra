@@ -1,9 +1,5 @@
 """Tests for MCP security auto-detection."""
 
-import os
-
-import pytest
-
 from ai_infra.mcp import MCPSecuritySettings, mcp_from_functions
 
 

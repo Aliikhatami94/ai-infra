@@ -2,7 +2,6 @@
 
 import logging
 import time
-from io import StringIO
 
 import pytest
 
@@ -12,7 +11,6 @@ from ai_infra.callbacks import (
     LLMEndEvent,
     LLMErrorEvent,
     LLMStartEvent,
-    LoggingCallbacks,
     MetricsCallbacks,
     ToolEndEvent,
     ToolStartEvent,
@@ -36,15 +34,7 @@ from ai_infra.logging import (
     configure_logging,
     get_logger,
 )
-from ai_infra.tracing import (
-    ConsoleExporter,
-    Span,
-    SpanContext,
-    Tracer,
-    configure_tracing,
-    get_tracer,
-    trace,
-)
+from ai_infra.tracing import ConsoleExporter, Span, Tracer, get_tracer, trace
 
 # =============================================================================
 # Error Tests

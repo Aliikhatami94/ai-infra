@@ -39,7 +39,7 @@ import pickle
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, overload
+from typing import TYPE_CHECKING, Any, Literal, cast, overload
 
 from ai_infra.retriever.backends import BaseBackend, get_backend
 from ai_infra.retriever.chunking import chunk_documents, chunk_text
@@ -302,6 +302,25 @@ class Retriever:
             >>> # Lazy initialization (fast startup)
             >>> r = Retriever(lazy_init=True)
         """
+        # Instance attributes (explicit for mypy; assigned below)
+        self._embeddings: Embeddings | _LazyEmbeddings
+        self._chunk_size: int
+        self._chunk_overlap: int
+        self._backend_name: str
+        self._backend: BaseBackend
+        self._doc_ids: set[str]
+
+        self._persist_path: Path | None
+        self._auto_save: bool
+        self._lazy_init: bool
+        self._initialized: bool
+        self._similarity: str
+
+        self._init_provider: str | None
+        self._init_model: str | None
+        self._init_embeddings: Embeddings | None
+        self._init_backend_config: dict[str, Any]
+
         # =====================================================================
         # Auto-configuration from environment
         # =====================================================================
@@ -396,7 +415,7 @@ class Retriever:
         self._backend = get_backend(backend, similarity=similarity, **backend_config)
 
         # Track added documents for deduplication
-        self._doc_ids: set[str] = set()
+        self._doc_ids = set()
 
         # Initialize embeddings (unless lazy)
         if lazy_init:
@@ -783,17 +802,20 @@ class Retriever:
         Note:
             This creates a new event loop. Do not call from within an async context.
         """
-        return _run_sync(
-            self.add_from_github(
-                repo=repo,
-                path=path,
-                branch=branch,
-                pattern=pattern,
-                token=token,
-                metadata=metadata,
-                chunk=chunk,
-                **loader_kwargs,
-            )
+        return cast(
+            list[str],
+            _run_sync(
+                self.add_from_github(
+                    repo=repo,
+                    path=path,
+                    branch=branch,
+                    pattern=pattern,
+                    token=token,
+                    metadata=metadata,
+                    chunk=chunk,
+                    **loader_kwargs,
+                )
+            ),
         )
 
     def add_from_url_sync(
@@ -810,13 +832,16 @@ class Retriever:
         Note:
             This creates a new event loop. Do not call from within an async context.
         """
-        return _run_sync(
-            self.add_from_url(
-                url=url,
-                metadata=metadata,
-                chunk=chunk,
-                **loader_kwargs,
-            )
+        return cast(
+            list[str],
+            _run_sync(
+                self.add_from_url(
+                    url=url,
+                    metadata=metadata,
+                    chunk=chunk,
+                    **loader_kwargs,
+                )
+            ),
         )
 
     def add_from_loader_sync(
@@ -832,7 +857,10 @@ class Retriever:
         Note:
             This creates a new event loop. Do not call from within an async context.
         """
-        return _run_sync(self.add_from_loader(loader=loader, metadata=metadata, chunk=chunk))
+        return cast(
+            list[str],
+            _run_sync(self.add_from_loader(loader=loader, metadata=metadata, chunk=chunk)),
+        )
 
     def _add_documents(
         self,
@@ -1167,9 +1195,8 @@ class Retriever:
         separator: str = "\n\n---\n\n",
     ) -> str:
         """Async version of get_context()."""
-        results = await self.asearch(query, k=k, filter=filter, detailed=False)
-        # results is list[str] here since detailed=False
-        return separator.join(results)  # type: ignore[arg-type]
+        results = cast(list[str], await self.asearch(query, k=k, filter=filter, detailed=False))
+        return separator.join(results)
 
     # =========================================================================
     # Management methods
@@ -1188,7 +1215,7 @@ class Retriever:
             >>> ids = r.add("Some temporary content")
             >>> r.delete(ids)
         """
-        deleted = self._backend.delete(ids)
+        deleted = cast(int, self._backend.delete(ids))
         self._doc_ids -= set(ids)
         return deleted
 
@@ -1256,12 +1283,16 @@ class Retriever:
             path.parent.mkdir(parents=True, exist_ok=True)
 
         # Get backend state (only memory backend supports this for now)
-        if not hasattr(self._backend, "_ids"):
+        from ai_infra.retriever.backends.memory import MemoryBackend
+
+        if not isinstance(self._backend, MemoryBackend):
             raise ValueError(
                 f"Backend '{self._backend_name}' doesn't support save(). "
                 f"Use a persistent backend like 'sqlite' or 'postgres' instead, "
                 f"or use 'memory' backend with save/load."
             )
+
+        backend = self._backend
 
         # Serialize the state
         state = {
@@ -1275,10 +1306,10 @@ class Retriever:
             "embeddings_model": self._embeddings.model,
             # Backend data (memory backend specific)
             "backend_data": {
-                "ids": self._backend._ids,
-                "texts": self._backend._texts,
-                "metadatas": self._backend._metadatas,
-                "embeddings": [e.tolist() for e in self._backend._embeddings],
+                "ids": backend._ids,
+                "texts": backend._texts,
+                "metadatas": backend._metadatas,
+                "embeddings": [e.tolist() for e in backend._embeddings],
             },
         }
 
@@ -1371,6 +1402,13 @@ class Retriever:
         if version != 1:
             raise ValueError(f"Unsupported save file version: {version}")
 
+        backend_name = state.get("backend_name")
+        if backend_name != "memory":
+            raise ValueError(
+                f"Unsupported backend for load(): {backend_name!r}. "
+                "Only 'memory' backend save/load is supported."
+            )
+
         # Create retriever instance without calling __init__
         # This avoids loading the embedding model (we have embeddings already)
         retriever = object.__new__(cls)
@@ -1392,18 +1430,22 @@ class Retriever:
         )
 
         # Initialize backend with loaded data (include similarity)
-        retriever._backend = get_backend(state["backend_name"], similarity=retriever._similarity)
+        retriever._backend = get_backend("memory", similarity=retriever._similarity)
 
         # Restore backend data
         backend_data = state["backend_data"]
         import numpy as np
 
-        retriever._backend._ids = backend_data["ids"]
-        retriever._backend._texts = backend_data["texts"]
-        retriever._backend._metadatas = backend_data["metadatas"]
-        retriever._backend._embeddings = [
-            np.array(e, dtype=np.float32) for e in backend_data["embeddings"]
-        ]
+        from ai_infra.retriever.backends.memory import MemoryBackend
+
+        if not isinstance(retriever._backend, MemoryBackend):
+            raise RuntimeError("Expected memory backend during load()")
+
+        backend = retriever._backend
+        backend._ids = backend_data["ids"]
+        backend._texts = backend_data["texts"]
+        backend._metadatas = backend_data["metadatas"]
+        backend._embeddings = [np.array(e, dtype=np.float32) for e in backend_data["embeddings"]]
 
         return retriever
 
@@ -1448,3 +1490,8 @@ class _LazyEmbeddings:
         self._ensure_loaded()
         assert self._embeddings is not None
         return await self._embeddings.aembed(text)
+
+    async def aembed_batch(self, texts: list[str]) -> list[list[float]]:
+        self._ensure_loaded()
+        assert self._embeddings is not None
+        return await self._embeddings.aembed_batch(texts)

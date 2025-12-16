@@ -130,10 +130,10 @@ def _get_model_fields(model: type) -> dict[str, tuple[type, Any]]:
             annotation = field_info.annotation or Any
             # Check for PydanticUndefined (required field with no default)
             if field_info.default is PydanticUndefined:
-                default = ...
+                field_default = ...
             else:
-                default = field_info.default
-            fields[name] = (annotation, default)
+                field_default = field_info.default
+            fields[name] = (annotation, field_default)
         return fields
 
     # Check if it's a SQLAlchemy model
@@ -154,17 +154,17 @@ def _get_model_fields(model: type) -> dict[str, tuple[type, Any]]:
 
             # Primary key and autoincrement fields have default
             # Default to required (...), then override to None for optional fields
-            default: object
+            column_default: object
             if column.primary_key or column.autoincrement:
-                default = None  # type: ignore[assignment]
+                column_default = None
             elif column.default is not None:
-                default = None  # type: ignore[assignment]  # Has default
+                column_default = None  # Has default
             elif column.nullable:
-                default = None  # type: ignore[assignment]
+                column_default = None
             else:
-                default = ...  # Required field
+                column_default = ...  # Required field
 
-            fields[col_name] = (col_type, default)
+            fields[col_name] = (col_type, column_default)
         return fields
 
     # Fallback: try to get type hints
@@ -226,7 +226,9 @@ def _create_get_tool(
     def get_func(id: int) -> dict[str, Any]:
         """Get a record by ID."""
         if executor:
-            return executor("get", model, id=id)
+            from typing import cast
+
+            return cast(dict[str, Any], executor("get", model, id=id))
         return {"error": "No executor configured", "id": id}
 
     tool_name = config.name_pattern.format(action="get", model=model_name)
@@ -278,17 +280,22 @@ def _create_list_tool(
 
     ListParams = create_model(f"List{model_name.title()}sParams", **filter_fields)
 
-    def list_func(**kwargs) -> list[dict[str, Any]]:
+    def list_func(**kwargs: Any) -> list[dict[str, Any]]:
         """List records with optional filters."""
         # Extract pagination
-        limit = kwargs.pop("limit", config.default_limit)
-        offset = kwargs.pop("offset", 0)
+        limit = int(kwargs.pop("limit", config.default_limit))
+        offset = int(kwargs.pop("offset", 0))
         # Remove None filters
         filters = {k: v for k, v in kwargs.items() if v is not None}
 
         if executor:
-            return executor("list", model, limit=limit, offset=offset, **filters)
-        return {"error": "No executor configured", "filters": filters}
+            from typing import cast
+
+            return cast(
+                list[dict[str, Any]],
+                executor("list", model, limit=limit, offset=offset, **filters),
+            )
+        return [{"error": "No executor configured", "filters": filters}]
 
     tool_name = config.name_pattern.format(action="list", model=f"{model_name}s")
 
@@ -326,7 +333,9 @@ def _create_create_tool(
     def create_func(**kwargs) -> dict[str, Any]:
         """Create a new record."""
         if executor:
-            return executor("create", model, **kwargs)
+            from typing import cast
+
+            return cast(dict[str, Any], executor("create", model, **kwargs))
         return {"error": "No executor configured", "data": kwargs}
 
     tool_name = config.name_pattern.format(action="create", model=model_name)
@@ -363,14 +372,16 @@ def _create_update_tool(
 
     UpdateParams = create_model(f"Update{model_name.title()}Params", **update_fields)
 
-    def update_func(**kwargs) -> dict[str, Any]:
+    def update_func(**kwargs: Any) -> dict[str, Any]:
         """Update a record by ID."""
-        id = kwargs.pop("id")
+        id = int(kwargs.pop("id"))
         # Remove None values (not being updated)
         updates = {k: v for k, v in kwargs.items() if v is not None}
 
         if executor:
-            return executor("update", model, id=id, **updates)
+            from typing import cast
+
+            return cast(dict[str, Any], executor("update", model, id=id, **updates))
         return {"error": "No executor configured", "id": id, "updates": updates}
 
     tool_name = config.name_pattern.format(action="update", model=model_name)
@@ -399,7 +410,9 @@ def _create_delete_tool(
     def delete_func(id: int) -> dict[str, Any]:
         """Delete a record by ID."""
         if executor:
-            return executor("delete", model, id=id)
+            from typing import cast
+
+            return cast(dict[str, Any], executor("delete", model, id=id))
         return {"error": "No executor configured", "id": id}
 
     tool_name = config.name_pattern.format(action="delete", model=model_name)
@@ -421,7 +434,7 @@ def tools_from_models(
     name_pattern: str = "{action}_{model}",
     default_limit: int = 20,
     max_limit: int = 100,
-) -> list[Callable[..., Any]]:
+) -> list[StructuredTool]:
     """
     Generate CRUD tools from SQLAlchemy or Pydantic models.
 
@@ -516,7 +529,7 @@ def tools_from_models_sql(
     max_limit: int = 100,
     soft_delete: bool = False,
     id_attr: str = "id",
-) -> list[Callable[..., Any]]:
+) -> list[StructuredTool]:
     """
     Generate CRUD tools from SQLAlchemy models with automatic database execution.
 
@@ -673,10 +686,14 @@ def _model_to_dict(obj: Any) -> dict[str, Any]:
         return {c.name: getattr(obj, c.name) for c in obj.__table__.columns}
     elif hasattr(obj, "model_dump"):
         # Pydantic v2
-        return obj.model_dump()
+        from typing import cast
+
+        return cast(dict[str, Any], obj.model_dump())
     elif hasattr(obj, "dict"):
         # Pydantic v1
-        return obj.dict()
+        from typing import cast
+
+        return cast(dict[str, Any], obj.dict())
     elif hasattr(obj, "__dict__"):
         return {k: v for k, v in obj.__dict__.items() if not k.startswith("_")}
     else:

@@ -137,13 +137,13 @@ def summarize_messages(
 
     # If not enough messages to summarize, return as-is
     if len(work_messages) <= keep_last:
-        result_messages = list(normalized)
+        early_messages = list(normalized)
         return SummarizeResult(
-            messages=result_messages,
+            messages=early_messages,
             summary="",
             original_count=len(normalized),
             summarized_count=0,
-            kept_count=len(result_messages),
+            kept_count=len(early_messages),
         )
 
     # Split into messages to summarize and messages to keep
@@ -222,13 +222,13 @@ async def asummarize_messages(
 
     # If not enough messages to summarize, return as-is
     if len(work_messages) <= keep_last:
-        result_messages = list(normalized)
+        early_messages = list(normalized)
         return SummarizeResult(
-            messages=result_messages,
+            messages=early_messages,
             summary="",
             original_count=len(normalized),
             summarized_count=0,
-            kept_count=len(result_messages),
+            kept_count=len(early_messages),
         )
 
     # Split into messages to summarize and messages to keep

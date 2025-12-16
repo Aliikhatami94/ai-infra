@@ -53,7 +53,12 @@ from .utils import with_retry as _with_retry_util
 # =============================================================================
 
 try:
-    from deepagents import CompiledSubAgent, FilesystemMiddleware, SubAgent, SubAgentMiddleware
+    from deepagents import (  # type: ignore[import-untyped]
+        CompiledSubAgent,
+        FilesystemMiddleware,
+        SubAgent,
+        SubAgentMiddleware,
+    )
     from deepagents import create_deep_agent as _create_deep_agent
     from langchain.agents.middleware.types import AgentMiddleware
 
@@ -370,7 +375,7 @@ class Agent(BaseLLM):
             self._workspace.configure_proj_mgmt()
 
         # Persona support (set by from_persona)
-        self._tool_filter: Callable[[str | None, bool]] = None
+        self._tool_filter: Callable[[str], bool] | None = None
         self._persona: Any | None = None  # Persona object if loaded
 
         # Set up approval config
@@ -483,8 +488,8 @@ class Agent(BaseLLM):
                     raise
 
             # Monkey-patch the methods
-            tool._run = wrapped_run
-            tool._arun = wrapped_arun
+            tool._run = wrapped_run  # type: ignore[method-assign]
+            tool._arun = wrapped_arun  # type: ignore[method-assign]
             return tool
 
         # For plain functions, wrap them as before
@@ -814,9 +819,9 @@ class Agent(BaseLLM):
             msgs = result["messages"]
             if msgs:
                 last_msg = msgs[-1]
-                return getattr(last_msg, "content", str(last_msg))
+                return str(getattr(last_msg, "content", str(last_msg)))
         if hasattr(result, "content"):
-            return result.content
+            return str(result.content)
         return str(result)
 
     def _convert_subagents(self, subagents: List[Union["Agent", Any]]) -> List[Any]:

@@ -10,12 +10,8 @@ Tests cover:
 import os
 from unittest.mock import patch
 
-import pytest
-
 from ai_infra.providers import (
-    CapabilityConfig,
     ProviderCapability,
-    ProviderConfig,
     ProviderRegistry,
     get_provider,
     is_provider_configured,

@@ -17,14 +17,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from ai_infra.llm.realtime import (
-    AudioChunk,
     GeminiRealtimeProvider,
     OpenAIRealtimeProvider,
     RealtimeConfig,
     RealtimeError,
     RealtimeVoice,
     ToolCallRequest,
-    TranscriptDelta,
 )
 
 # Skip markers

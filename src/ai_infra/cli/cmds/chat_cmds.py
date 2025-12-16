@@ -102,7 +102,8 @@ class ChatStorage:
         if not path.exists():
             return None
         with open(path) as f:
-            return json.load(f)
+            result = json.load(f)
+            return dict(result) if isinstance(result, dict) else None
 
     def load(self, session_id: str) -> Optional[Dict[str, Any]]:
         """Load a chat session.
@@ -212,9 +213,9 @@ def _extract_content(response) -> str:
     if isinstance(response, str):
         return response
     if hasattr(response, "content"):
-        return response.content
+        return str(response.content)
     if isinstance(response, dict):
-        return response.get("content", str(response))
+        return str(response.get("content", str(response)))
     return str(response)
 
 

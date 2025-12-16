@@ -109,11 +109,11 @@ def _convert_tools_to_definitions(tools: list[Any]) -> list[ToolDefinition]:
                 for name, param in sig.parameters.items():
                     param_type = "string"
                     if param.annotation != inspect.Parameter.empty:
-                        if param.annotation == int:
+                        if param.annotation is int:
                             param_type = "integer"
-                        elif param.annotation == float:
+                        elif param.annotation is float:
                             param_type = "number"
-                        elif param.annotation == bool:
+                        elif param.annotation is bool:
                             param_type = "boolean"
                     params["properties"][name] = {"type": param_type}
                     if param.default == inspect.Parameter.empty:
@@ -511,7 +511,7 @@ class RealtimeVoice:
         self.provider.on_error(self._dispatch_error)
         self.provider.on_interrupted(self._dispatch_interrupted)
 
-        async for event in self.provider.run(audio_stream):  # type: ignore[attr-defined]
+        async for event in self.provider.run(audio_stream):
             yield event
 
 

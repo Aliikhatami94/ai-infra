@@ -5,13 +5,7 @@ from typing import Optional
 import pytest
 from pydantic import BaseModel, Field
 
-from ai_infra.tools.schema_tools import (
-    GeneratedTool,
-    ToolConfig,
-    _get_model_fields,
-    _get_model_name,
-    tools_from_models,
-)
+from ai_infra.tools.schema_tools import _get_model_fields, _get_model_name, tools_from_models
 
 
 # Test models
@@ -75,9 +69,9 @@ class TestGetModelFields:
         assert "is_active" in fields
 
         # Check types
-        assert fields["id"][0] == int
-        assert fields["name"][0] == str
-        assert fields["is_active"][0] == bool
+        assert fields["id"][0] is int
+        assert fields["name"][0] is str
+        assert fields["is_active"][0] is bool
 
     def test_optional_field_has_default(self):
         fields = _get_model_fields(User)
@@ -290,10 +284,6 @@ class TestPaginationConfig:
     def test_max_limit(self):
         tools = tools_from_models(User, max_limit=500)
         list_tool = next(t for t in tools if t.name == "list_users")
-
-        params_fields = list_tool.args_schema.model_fields
-        limit_field = params_fields["limit"]
-
         # Check that max is set in JSON schema
         schema = list_tool.args_schema.model_json_schema()
         assert schema["properties"]["limit"]["maximum"] == 500
@@ -317,7 +307,7 @@ class TestToolsFromModelsSql:
     @pytest.mark.asyncio
     async def test_generates_tools_with_mock_session(self):
         """Test tool generation with a mock session."""
-        from unittest.mock import AsyncMock, MagicMock
+        from unittest.mock import MagicMock
 
         from ai_infra.tools.schema_tools import tools_from_models_sql
 

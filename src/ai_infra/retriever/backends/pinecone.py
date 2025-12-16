@@ -195,7 +195,7 @@ class PineconeBackend(BaseBackend):
         """
         stats = self._index.describe_index_stats()
         namespace_stats = stats.get("namespaces", {}).get(self._namespace, {})
-        return namespace_stats.get("vector_count", 0)
+        return int(namespace_stats.get("vector_count", 0) or 0)
 
     @staticmethod
     def _flatten_metadata(metadata: dict[str, Any]) -> dict[str, Any]:

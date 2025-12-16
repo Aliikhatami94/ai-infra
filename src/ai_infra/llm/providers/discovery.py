@@ -33,7 +33,7 @@ import logging
 import time
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, cast
 
 from ai_infra.providers import ProviderCapability, ProviderRegistry
 
@@ -521,7 +521,7 @@ def _load_cache() -> Dict[str, Any]:
         return {}
     try:
         with open(CACHE_FILE) as f:
-            return json.load(f)
+            return cast(Dict[str, Any], json.load(f))
     except Exception:
         return {}
 
@@ -543,7 +543,10 @@ def _is_cache_valid(cache: Dict[str, Any], provider: str) -> bool:
     entry = cache[provider]
     if "timestamp" not in entry:
         return False
-    age = time.time() - entry["timestamp"]
+    timestamp = entry.get("timestamp")
+    if not isinstance(timestamp, (int, float)):
+        return False
+    age = time.time() - float(timestamp)
     return age < CACHE_TTL_SECONDS
 
 
@@ -609,7 +612,12 @@ def list_models(
         cache = _load_cache()
         if _is_cache_valid(cache, provider):
             log.debug(f"Using cached models for {provider}")
-            models = cache[provider]["models"]
+            cached = cache.get(provider, {}).get("models")
+            models: list[str]
+            if isinstance(cached, list) and all(isinstance(m, str) for m in cached):
+                models = cached
+            else:
+                models = []
             if capability:
                 return filter_models_by_capability(models, provider, capability)
             return models

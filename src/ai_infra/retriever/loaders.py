@@ -216,7 +216,7 @@ def load_csv(path: str) -> list[LoadedDocument]:
         if text.strip():
             metadata = {
                 "source": path,
-                "row_index": int(i),  # type: ignore[arg-type]
+                "row_index": int(i) if isinstance(i, int) else str(i),
                 "file_type": ".csv",
             }
             documents.append((text, metadata))

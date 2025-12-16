@@ -30,7 +30,7 @@ from __future__ import annotations
 import logging
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 from ai_infra.providers import ProviderCapability, ProviderRegistry
 
@@ -163,7 +163,7 @@ def _load_cache() -> Dict[str, Any]:
             import json
 
             with open(cache_path) as f:
-                return json.load(f)
+                return cast(Dict[str, Any], json.load(f))
         except Exception:
             return {}
     return {}
@@ -188,7 +188,10 @@ def _is_cache_valid(cache: Dict[str, Any], provider: str) -> bool:
     entry = cache[provider]
     if "timestamp" not in entry or "models" not in entry:
         return False
-    return time.time() - entry["timestamp"] < CACHE_TTL
+    timestamp = entry.get("timestamp")
+    if not isinstance(timestamp, (int, float)):
+        return False
+    return time.time() - float(timestamp) < CACHE_TTL
 
 
 def clear_cache() -> None:
@@ -327,7 +330,9 @@ def list_available_models(
         cache = _load_cache()
         if _is_cache_valid(cache, provider):
             log.debug(f"Using cached models for {provider}")
-            return cache[provider]["models"]
+            models = cache.get(provider, {}).get("models")
+            if isinstance(models, list) and all(isinstance(m, str) for m in models):
+                return models
 
     # Fetch from API
     log.info(f"Fetching image models from {provider}...")

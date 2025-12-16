@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any, Callable, Dict, List, Type, TypeVar
+from typing import Any, Callable, Dict, List, Type, TypeVar, cast, overload
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langchain_core.output_parsers import PydanticOutputParser
@@ -46,6 +46,16 @@ def build_structured_messages(
     return messages
 
 
+@overload
+def validate_or_raise(schema: type[BaseModel], raw_json: str) -> BaseModel:
+    pass
+
+
+@overload
+def validate_or_raise(schema: Dict[str, Any], raw_json: str) -> Dict[str, Any]:
+    pass
+
+
 def validate_or_raise(
     schema: type[BaseModel] | Dict[str, Any], raw_json: str
 ) -> BaseModel | Dict[str, Any]:
@@ -60,7 +70,7 @@ def validate_or_raise(
     """
     if isinstance(schema, dict):
         # For dict schemas, just parse and return the JSON
-        return json.loads(raw_json)
+        return cast(Dict[str, Any], json.loads(raw_json))
     try:
         return schema.model_validate_json(raw_json)
     except ValidationError:
@@ -106,27 +116,27 @@ def coerce_structured_result(schema: Type[T], res: Any) -> T:
         return res
     # Plain dict
     if isinstance(res, dict):
-        return schema.model_validate(res)
+        return cast(T, schema.model_validate(res))
 
     # AIMessage-like or str: prefer robust text path
     content = getattr(res, "content", None)
     if isinstance(content, str) and content.strip():
         obj = coerce_from_text_or_fragment(schema, content)
         if obj is not None:
-            return obj
+            return cast(T, obj)
         # Fall through to hard-fail with context
 
     if isinstance(res, str):
         obj = coerce_from_text_or_fragment(schema, res)
         if obj is not None:
-            return obj
+            return cast(T, obj)
         # Fall through to hard-fail with context
 
     # Last resorts: stringify and try again with the text pipeline
     text = str(res)
     obj = coerce_from_text_or_fragment(schema, text)
     if obj is not None:
-        return obj
+        return cast(T, obj)
 
     # Make failure explicit and helpful
     preview = (content if isinstance(content, str) and content.strip() else text)[:200]

@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from ai_infra.llm.multimodal.discovery import (
-    get_default_tts_provider,
     is_tts_configured,
     list_tts_models,
     list_tts_providers,

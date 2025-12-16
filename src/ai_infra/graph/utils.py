@@ -95,7 +95,7 @@ def make_trace_fn(trace, sync=False):
 def make_trace_wrapper(name, fn, on_enter, on_exit, trace, sync):
     if sync:
 
-        def wrapped(state):
+        def wrapped_sync(state):
             if on_enter:
                 on_enter(name, state)
             if trace:
@@ -107,9 +107,9 @@ def make_trace_wrapper(name, fn, on_enter, on_exit, trace, sync):
                 trace(name, result, "exit")
             return result
 
-        return wrapped
+        return wrapped_sync
 
-    async def wrapped(state):
+    async def wrapped_async(state):
         if on_enter:
             await on_enter(name, state)
         if trace:
@@ -121,7 +121,7 @@ def make_trace_wrapper(name, fn, on_enter, on_exit, trace, sync):
             await trace(name, result, "exit")
         return result
 
-    return wrapped
+    return wrapped_async
 
 
 # ---- new helpers ---------------------------------------------------------------

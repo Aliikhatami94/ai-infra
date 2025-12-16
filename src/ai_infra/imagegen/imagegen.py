@@ -715,7 +715,7 @@ class ImageGen:
             image_file = open(image, "rb")
         else:
             image_file = io.BytesIO(image)
-            image_file.name = "image.png"  # type: ignore[attr-defined]
+            image_file.name = "image.png"
 
         # Handle mask input
         mask_file: BinaryIO | None = None
@@ -724,7 +724,7 @@ class ImageGen:
                 mask_file = open(mask, "rb")
             else:
                 mask_file = io.BytesIO(mask)
-                mask_file.name = "mask.png"  # type: ignore[attr-defined]
+                mask_file.name = "mask.png"
 
         try:
             params: dict[str, Any] = {
@@ -787,7 +787,7 @@ class ImageGen:
             image_file = open(image, "rb")
         else:
             image_file = io.BytesIO(image)
-            image_file.name = "image.png"  # type: ignore[attr-defined]
+            image_file.name = "image.png"
 
         try:
             response = client.images.create_variation(

@@ -6,13 +6,13 @@ but we test them to ensure the underlying functionality works.
 """
 
 import time
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 # Public API imports
-from ai_infra import MemoryItem, MemoryStore, count_tokens, count_tokens_approximate
+from ai_infra import MemoryStore, count_tokens, count_tokens_approximate
 from ai_infra.llm.memory.summarize import (
     SummarizationMiddleware,
     SummarizeResult,

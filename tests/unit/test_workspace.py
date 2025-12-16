@@ -2,8 +2,6 @@
 
 from pathlib import Path
 
-import pytest
-
 from ai_infra.llm.workspace import Workspace, workspace
 
 
@@ -126,10 +124,7 @@ class TestWorkspaceProjMgmtIntegration:
 
     def test_configure_proj_mgmt_virtual_sets_none(self, tmp_path):
         """Virtual mode should set workspace root to None."""
-        from ai_infra.llm.tools.custom.proj_mgmt.utils import (
-            _set_workspace_root,
-            get_workspace_root,
-        )
+        from ai_infra.llm.tools.custom.proj_mgmt.utils import _set_workspace_root
 
         # Set a path first to verify it gets cleared
         _set_workspace_root(tmp_path)

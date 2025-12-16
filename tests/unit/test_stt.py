@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from ai_infra.llm.multimodal.discovery import (
-    get_default_stt_provider,
     get_stt_provider_info,
     is_stt_configured,
     list_stt_models,

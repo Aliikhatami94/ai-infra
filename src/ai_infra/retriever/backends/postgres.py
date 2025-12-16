@@ -282,7 +282,7 @@ class PostgresBackend(BaseBackend):
                 f"DELETE FROM {self._table_name} WHERE id = ANY(%s)",
                 (ids,),
             )
-            deleted = cur.rowcount
+            deleted = int(cur.rowcount or 0)
             self._conn.commit()
 
         return deleted

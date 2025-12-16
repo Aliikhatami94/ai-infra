@@ -419,7 +419,7 @@ class STT:
 
             return TranscriptionResult(
                 text=response.text,
-                segments=segments if segments else None,
+                segments=segments,
                 language=getattr(response, "language", language),
                 duration=getattr(response, "duration", None),
                 provider=STTProvider.OPENAI,
@@ -477,7 +477,7 @@ class STT:
 
             return TranscriptionResult(
                 text=response.text,
-                segments=segments if segments else None,
+                segments=segments,
                 language=getattr(response, "language", language),
                 duration=getattr(response, "duration", None),
                 provider=STTProvider.OPENAI,
@@ -581,7 +581,7 @@ class STT:
 
         return TranscriptionResult(
             text=full_text,
-            segments=segments if segments else None,
+            segments=segments,
             language=language,
             duration=result.metadata.duration if result and result.metadata else None,
             provider=STTProvider.DEEPGRAM,
@@ -668,7 +668,7 @@ class STT:
 
         return TranscriptionResult(
             text=full_text,
-            segments=segments if segments else None,
+            segments=segments,
             language=language,
             duration=result.metadata.duration if result and result.metadata else None,
             provider=STTProvider.DEEPGRAM,
@@ -735,7 +735,7 @@ class STT:
     ) -> TranscriptionResult:
         """Transcribe using Google Cloud Speech-to-Text."""
         try:
-            from google.cloud import speech
+            from google.cloud import speech  # type: ignore[import-untyped]
         except ImportError:
             raise ImportError(
                 "google-cloud-speech package required for Google STT: "
@@ -789,7 +789,7 @@ class STT:
 
         return TranscriptionResult(
             text=full_text,
-            segments=segments if segments else None,
+            segments=segments,
             language=language or "en-US",
             provider=STTProvider.GOOGLE,
         )

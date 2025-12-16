@@ -251,4 +251,5 @@ class QdrantBackend(BaseBackend):
             Total number of chunks.
         """
         info = self._client.get_collection(self._collection_name)
-        return info.points_count
+        points_count = getattr(info, "points_count", 0) or 0
+        return int(points_count)

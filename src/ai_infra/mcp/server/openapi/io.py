@@ -95,14 +95,18 @@ def _fetch_openapi_url(
                 # Try JSON first
                 if "json" in content_type or url.endswith(".json"):
                     try:
-                        return resp.json()
+                        from typing import cast
+
+                        return cast(OpenAPISpec, resp.json())
                     except json.JSONDecodeError as e:
                         raise OpenAPIParseError(f"Invalid JSON: {e}") from e
 
                 # Try YAML
                 if "yaml" in content_type or url.endswith((".yaml", ".yml")):
                     try:
-                        return yaml.safe_load(resp.text)
+                        from typing import cast
+
+                        return cast(OpenAPISpec, yaml.safe_load(resp.text))
                     except yaml.YAMLError as e:
                         raise OpenAPIParseError(f"Invalid YAML: {e}") from e
 
@@ -135,9 +139,13 @@ def _load_openapi_file(path: Path) -> OpenAPISpec:
     text = path.read_text(encoding="utf-8")
 
     if path.suffix == ".json":
-        return json.loads(text)
+        from typing import cast
+
+        return cast(OpenAPISpec, json.loads(text))
     elif path.suffix in (".yaml", ".yml"):
-        return yaml.safe_load(text)
+        from typing import cast
+
+        return cast(OpenAPISpec, yaml.safe_load(text))
     else:
         # Auto-detect
         return _parse_openapi_string(text)
@@ -146,9 +154,13 @@ def _load_openapi_file(path: Path) -> OpenAPISpec:
 def _parse_openapi_string(text: str) -> OpenAPISpec:
     """Parse OpenAPI spec from raw JSON or YAML string."""
     try:
-        return json.loads(text)
+        from typing import cast
+
+        return cast(OpenAPISpec, json.loads(text))
     except json.JSONDecodeError:
-        return yaml.safe_load(text)
+        from typing import cast
+
+        return cast(OpenAPISpec, yaml.safe_load(text))
 
 
 def load_spec(source: Union[str, Path, dict]) -> OpenAPISpec:

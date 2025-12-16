@@ -239,7 +239,7 @@ class MemoryStore:
         """Initialize embeddings for semantic search."""
         from ai_infra import Embeddings
 
-        self._embeddings = Embeddings(
+        self._embeddings = Embeddings(  # type: ignore[assignment]
             provider=self._embedding_provider,
             model=self._embedding_model,
         )
@@ -1154,7 +1154,7 @@ class _PostgresBackend(_MemoryBackend):
         )
         self._conn.commit()
 
-        return cursor.rowcount > 0
+        return bool(cursor.rowcount > 0)
 
     def list(
         self,

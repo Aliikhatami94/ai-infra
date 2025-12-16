@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import os
-from typing import Any
+from typing import Any, cast
 
 from ai_infra.providers import ProviderCapability, ProviderRegistry
 
@@ -270,7 +270,7 @@ class Embeddings:
             print(f"Dimensions: {len(vector)}")
             ```
         """
-        return self._lc_embeddings.embed_query(text)
+        return cast(list[float], self._lc_embeddings.embed_query(text))
 
     async def aembed(self, text: str) -> list[float]:
         """Async embed a single text.
@@ -286,7 +286,7 @@ class Embeddings:
             vector = await embeddings.aembed("Hello, world!")
             ```
         """
-        return await self._lc_embeddings.aembed_query(text)
+        return cast(list[float], await self._lc_embeddings.aembed_query(text))
 
     def embed_batch(
         self,
@@ -317,7 +317,7 @@ class Embeddings:
         all_embeddings: list[list[float]] = []
         for i in range(0, len(texts), batch_size):
             batch = texts[i : i + batch_size]
-            batch_embeddings = self._lc_embeddings.embed_documents(batch)
+            batch_embeddings = cast(list[list[float]], self._lc_embeddings.embed_documents(batch))
             all_embeddings.extend(batch_embeddings)
 
         return all_embeddings
@@ -352,7 +352,7 @@ class Embeddings:
 
         async def process_batch(batch: list[str]) -> list[list[float]]:
             async with semaphore:
-                return await self._lc_embeddings.aembed_documents(batch)
+                return cast(list[list[float]], await self._lc_embeddings.aembed_documents(batch))
 
         results = await asyncio.gather(*[process_batch(b) for b in batches])
 

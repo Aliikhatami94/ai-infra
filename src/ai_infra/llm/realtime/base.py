@@ -162,7 +162,7 @@ class BaseRealtimeProvider(ABC):
         ...
 
     @abstractmethod
-    async def run(
+    def run(
         self,
         audio_stream: AsyncIterator[bytes],
     ) -> AsyncIterator["AudioChunk | TranscriptDelta"]:

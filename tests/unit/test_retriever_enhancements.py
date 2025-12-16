@@ -12,13 +12,11 @@ Tests cover:
 from __future__ import annotations
 
 import json
-import os
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from ai_infra.retriever.models import Chunk, SearchResult
+from ai_infra.retriever.models import SearchResult
 from ai_infra.retriever.retriever import (
     KNOWN_EMBEDDING_DIMENSIONS,
     Retriever,

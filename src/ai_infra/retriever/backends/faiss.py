@@ -12,7 +12,7 @@ from __future__ import annotations
 import pickle
 import uuid
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from .base import BaseBackend
 
@@ -176,7 +176,7 @@ class FAISSBackend(BaseBackend):
         norms = self._np.linalg.norm(vectors, axis=1, keepdims=True)
         # Avoid division by zero
         norms = self._np.where(norms == 0, 1, norms)
-        return vectors / norms
+        return cast("np.ndarray", vectors / norms)
 
     def add(
         self,
@@ -399,4 +399,4 @@ class FAISSBackend(BaseBackend):
 
     def count(self) -> int:
         """Return number of vectors in the index."""
-        return self._index.ntotal
+        return cast(int, self._index.ntotal)

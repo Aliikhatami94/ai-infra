@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -335,7 +334,6 @@ class TestVectorStoreBackends:
 
     def test_chroma_import_error(self) -> None:
         """Test Chroma import error message."""
-        mock_emb = MockEmbeddings()
         with patch.dict("sys.modules", {"chromadb": None}):
             with patch("importlib.import_module") as mock_import:
                 mock_import.side_effect = ImportError("No module")
@@ -344,5 +342,4 @@ class TestVectorStoreBackends:
 
     def test_faiss_import_error(self) -> None:
         """Test FAISS import error message."""
-        mock_emb = MockEmbeddings()
         # Similar pattern for FAISS

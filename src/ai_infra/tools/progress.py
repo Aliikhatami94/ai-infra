@@ -33,7 +33,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import wraps
-from typing import Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
+
+if TYPE_CHECKING:
+    from langchain_core.tools import StructuredTool
 
 
 @dataclass
@@ -146,7 +149,7 @@ async def _noop_callback(event: ProgressEvent) -> None:
     pass
 
 
-def progress(fn: Callable) -> Callable:
+def progress(fn: Callable[..., Any]) -> StructuredTool:
     """
     Decorator to enable progress streaming from a tool.
 
@@ -205,7 +208,7 @@ def progress(fn: Callable) -> Callable:
         hints = {}
 
     # Build fields for all parameters except 'stream'
-    fields = {}
+    fields: dict[str, Any] = {}
     for param_name, param in sig.parameters.items():
         if param_name == "stream":
             continue  # Skip stream parameter
@@ -233,7 +236,7 @@ def progress(fn: Callable) -> Callable:
 
     # Create the wrapper that injects stream
     @wraps(fn)
-    async def async_wrapper(**kwargs):
+    async def async_wrapper(**kwargs: Any) -> Any:
         # Get progress callback from kwargs (injected by agent) or use noop
         callback = kwargs.pop("_progress_callback", None)
         stream = ProgressStream(fn.__name__, callback or _noop_callback)
@@ -243,7 +246,7 @@ def progress(fn: Callable) -> Callable:
 
     # Create sync wrapper for StructuredTool
     # This handles being called from a thread pool without an event loop
-    def sync_wrapper(**kwargs):
+    def sync_wrapper(**kwargs: Any) -> Any:
         import asyncio
 
         try:

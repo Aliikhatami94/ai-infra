@@ -139,7 +139,7 @@ class Graph:
         )
 
     def _build_graph(self, node_items=None, sync: bool = False) -> StateGraph:
-        wf = StateGraph(self.state_type)
+        wf = StateGraph(self.state_type)  # type: ignore[type-var]
         node_items = node_items or self.node_definitions
         for name, fn in node_items:
             wf.add_node(name, wrap_node(fn, sync))
@@ -290,7 +290,7 @@ class Graph:
         }
         # reachability
         reachable = set(entry_points)
-        edges_map = {start: [] for start, _ in self.edges}
+        edges_map: dict[str, list[str]] = {start: [] for start, _ in self.edges}
         for start, end in self.edges:
             edges_map.setdefault(start, []).append(end)
         queue = list(entry_points)

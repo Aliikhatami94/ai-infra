@@ -203,19 +203,43 @@ def _get_status_code(error: Exception) -> Optional[int]:
     """Extract HTTP status code from error."""
     # Direct attribute
     if hasattr(error, "status_code"):
-        return error.status_code
+        val = getattr(error, "status_code")
+        if isinstance(val, int):
+            return val
+        try:
+            return int(val)
+        except Exception:
+            return None
 
     # Response attribute
     if hasattr(error, "response"):
         resp = error.response
         if hasattr(resp, "status_code"):
-            return resp.status_code
+            val = getattr(resp, "status_code")
+            if isinstance(val, int):
+                return val
+            try:
+                return int(val)
+            except Exception:
+                return None
         if hasattr(resp, "status"):
-            return resp.status
+            val = getattr(resp, "status")
+            if isinstance(val, int):
+                return val
+            try:
+                return int(val)
+            except Exception:
+                return None
 
     # httpx style
     if hasattr(error, "code"):
-        return error.code
+        val = getattr(error, "code")
+        if isinstance(val, int):
+            return val
+        try:
+            return int(val)
+        except Exception:
+            return None
 
     return None
 

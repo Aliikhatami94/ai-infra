@@ -65,7 +65,6 @@ def _create_config(
         env_dict = json.loads(env) if env else None
 
         return McpServerConfig(
-            name="cli-server",
             transport="stdio",
             command=command,
             args=args_list,
@@ -77,7 +76,6 @@ def _create_config(
             raise typer.Exit(1)
 
         return McpServerConfig(
-            name="cli-server",
             transport=validated_transport,
             url=url,
         )

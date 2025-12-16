@@ -1,5 +1,9 @@
 from __future__ import annotations
-import errno, json, os, stat
+
+import errno
+import json
+import os
+import stat
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 
@@ -26,19 +30,22 @@ const child = spawn(UVX, args, {{ stdio: "inherit", shell: process.platform === 
 child.on("exit", code => process.exit(code));
 """
 
+
 def _load_json(p: Path) -> Dict:
     return json.loads(p.read_text()) if p.exists() else {}
+
 
 def _dump_json(p: Path, data: Dict) -> None:
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(data, indent=2) + "\n")
 
+
 def _resolve_paths(
-        *,
-        base_dir: Optional[Path],
-        package_json: Path,
-        bin_dir: Path,
-        tool_name: str,
+    *,
+    base_dir: Optional[Path],
+    package_json: Path,
+    bin_dir: Path,
+    tool_name: str,
 ) -> Tuple[Path, Path]:
     root = base_dir.resolve() if base_dir else Path.cwd()
     package_json = (root / package_json).resolve()
@@ -46,21 +53,23 @@ def _resolve_paths(
     shim_path = bin_dir / f"{tool_name}.js"
     return package_json, shim_path
 
+
 def ensure_executable(p: Path) -> None:
     p.chmod(p.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
+
 def add_shim(
-        *,
-        tool_name: str,
-        module: str,
-        repo: str,
-        ref: str = "main",
-        package_json: Path = Path("package.json"),
-        bin_dir: Path = Path("mcp-shim") / "bin",
-        package_name: str = "mcp-shims",
-        force: bool = False,
-        base_dir: Optional[Path] = None,
-        dry_run: bool = False,
+    *,
+    tool_name: str,
+    module: str,
+    repo: str,
+    ref: str = "main",
+    package_json: Path = Path("package.json"),
+    bin_dir: Path = Path("mcp-shim") / "bin",
+    package_name: str = "mcp-shims",
+    force: bool = False,
+    base_dir: Optional[Path] = None,
+    dry_run: bool = False,
 ) -> Dict:
     try:
         package_json, shim_path = _resolve_paths(
@@ -142,17 +151,19 @@ def add_shim(
             "base_dir": str(base_dir) if base_dir else None,
             "suggestion": (
                 "Pass a writable base_dir or set dry_run=True and apply emitted files in a writable repo."
-                if readonly else "Check paths/permissions."
+                if readonly
+                else "Check paths/permissions."
             ),
         }
 
+
 def remove_shim(
-        *,
-        tool_name: str,
-        package_json: Path = Path("package.json"),
-        bin_dir: Path = Path("mcp-shim") / "bin",
-        delete_file: bool = False,
-        base_dir: Optional[Path] = None,
+    *,
+    tool_name: str,
+    package_json: Path = Path("package.json"),
+    bin_dir: Path = Path("mcp-shim") / "bin",
+    delete_file: bool = False,
+    base_dir: Optional[Path] = None,
 ) -> Dict:
     try:
         package_json, shim_path = _resolve_paths(
@@ -190,6 +201,7 @@ def remove_shim(
             "tool_name": tool_name,
             "package_json": str(package_json),
         }
+
 
 __all__ = [
     "add_shim",

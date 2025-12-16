@@ -176,11 +176,11 @@ class MCPClient:
             return None
         try:
             if isinstance(maybe_model, type) and issubclass(maybe_model, BaseModel):
-                return maybe_model.model_json_schema()
+                return dict(maybe_model.model_json_schema())
             if hasattr(maybe_model, "model_json_schema"):
-                return maybe_model.model_json_schema()
+                return dict(maybe_model.model_json_schema())
             if isinstance(maybe_model, dict):
-                return maybe_model
+                return dict(maybe_model)
             return None
         except Exception:
             return None
@@ -321,11 +321,11 @@ class MCPClient:
             return None
         # is_dataclass returns True for both classes and instances, but asdict only works on instances
         if is_dataclass(info) and not isinstance(info, type):
-            return asdict(info)
+            return dict(asdict(info))
         if hasattr(info, "model_dump"):
-            return info.model_dump()
+            return dict(info.model_dump())
         if isinstance(info, dict):
-            return info
+            return dict(info)
         return None
 
     @staticmethod
@@ -487,7 +487,7 @@ class MCPClient:
         if strict and failures:
             raise ExceptionGroup(f"MCP discovery failed for {len(failures)} server(s)", failures)
 
-        return name_map
+        return dict(name_map)
 
     def server_names(self) -> List[str]:
         return list(self._by_name.keys())
@@ -565,20 +565,20 @@ class MCPClient:
             if cfg.transport == "streamable_http":
                 mapping[name] = StreamableHttpConnection(
                     transport="streamable_http",
-                    url=cfg.url,  # type: ignore[arg-type]
+                    url=cfg.url or "",
                     headers=cfg.headers or None,
                 )
             elif cfg.transport == "stdio":
                 mapping[name] = StdioConnection(
                     transport="stdio",
-                    command=cfg.command,  # type: ignore[arg-type]
+                    command=cfg.command or "",
                     args=cfg.args or [],
                     env=cfg.env or {},
                 )
             elif cfg.transport == "sse":
                 mapping[name] = SSEConnection(
                     transport="sse",
-                    url=cfg.url,  # type: ignore[arg-type]
+                    url=cfg.url or "",
                     headers=cfg.headers or None,
                 )
             else:
@@ -662,7 +662,7 @@ class MCPClient:
             server_name=server_name,
         )
 
-        async def _do_call():
+        async def _do_call() -> Dict[str, Any]:
             res = await handler(request)
             if getattr(res, "structuredContent", None):
                 return {"structured": res.structuredContent}
@@ -1030,7 +1030,11 @@ class MCPClient:
         cfg = self._by_name[target]
         ms_client = await self.list_clients()
 
-        tools, prompts, resources, templates, roots = [], [], [], [], []
+        tools: List[Dict[str, Any]] = []
+        prompts: List[Dict[str, Any]] = []
+        resources: List[Dict[str, Any]] = []
+        templates: List[Dict[str, Any]] = []
+        roots: List[Dict[str, Any]] = []
         server_info: Dict[str, Any] = {}
 
         async with ms_client.session(target) as session:
@@ -1039,12 +1043,12 @@ class MCPClient:
 
             # tools
             try:
-                listed = await session.list_tools()
+                list_tools_res = await session.list_tools()
                 # allow both raw list and typed response with `.tools`
-                listed = getattr(listed, "tools", listed) or []
+                listed_tools = getattr(list_tools_res, "tools", list_tools_res) or []
             except Exception:
-                listed = []
-            for t in listed:
+                listed_tools = []
+            for t in listed_tools:
                 tool_name = getattr(t, "name", None)
                 tools.append(
                     {
@@ -1066,9 +1070,9 @@ class MCPClient:
 
             # prompts
             try:
-                pl = await session.list_prompts()
-                pl = getattr(pl, "prompts", pl) or []
-                for p in pl:
+                prompts_result = await session.list_prompts()
+                prompts_list = getattr(prompts_result, "prompts", prompts_result) or []
+                for p in prompts_list:
                     prompts.append(
                         {
                             "name": getattr(p, "name", None),
@@ -1083,9 +1087,9 @@ class MCPClient:
 
             # resources
             try:
-                rl = await session.list_resources()
-                rl = getattr(rl, "resources", rl) or []
-                for r in rl:
+                resources_result = await session.list_resources()
+                resources_list = getattr(resources_result, "resources", resources_result) or []
+                for r in resources_list:
                     resources.append(
                         {
                             "uri": getattr(r, "uri", None),
@@ -1100,9 +1104,13 @@ class MCPClient:
 
             # resource templates
             try:
-                tl = await session.list_resource_templates()
-                tl = getattr(tl, "resource_templates", tl) or tl or []
-                for tpl in tl:
+                templates_result = await session.list_resource_templates()
+                templates_list = (
+                    getattr(templates_result, "resource_templates", templates_result)
+                    or templates_result
+                    or []
+                )
+                for tpl in templates_list:
                     vars_in = getattr(tpl, "variables", None) or []
                     variables = [
                         {
@@ -1126,16 +1134,17 @@ class MCPClient:
 
             # roots
             try:
-                base_roots = await session.list_roots()
-                base_roots = getattr(base_roots, "roots", base_roots) or []
-                for root in base_roots:
-                    roots.append(
-                        {
-                            "uri": getattr(root, "uri", None),
-                            "name": getattr(root, "name", None),
-                            "description": self._safe_text(getattr(root, "description", None)),
-                        }
-                    )
+                if hasattr(session, "list_roots"):
+                    roots_result = await session.list_roots()
+                    roots_list = getattr(roots_result, "roots", roots_result) or []
+                    for root in roots_list:
+                        roots.append(
+                            {
+                                "uri": getattr(root, "uri", None),
+                                "name": getattr(root, "name", None),
+                                "description": self._safe_text(getattr(root, "description", None)),
+                            }
+                        )
             except Exception:
                 pass
 

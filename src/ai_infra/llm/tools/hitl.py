@@ -22,10 +22,22 @@ import asyncio
 import inspect
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, Optional, Sequence, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Awaitable,
+    Callable,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Sequence,
+    Union,
+    cast,
+)
 
 from langchain_core.tools import BaseTool
-from langchain_core.tools import tool as lc_tool  # type: ignore
+from langchain_core.tools import tool as lc_tool
 
 # Import tool errors from central location
 from ai_infra.errors import ToolExecutionError, ToolTimeoutError, ToolValidationError
@@ -145,13 +157,13 @@ class _HITLWrappedTool(BaseTool):
         self._hitl = hitl
         # preserve args schema if present
         if hasattr(base, "args_schema") and base.args_schema is not None:
-            self.args_schema = base.args_schema  # type: ignore[attr-defined]
+            self.args_schema = base.args_schema
 
     # Disallow sync path to avoid StructuredTool sync errors
-    def _run(self, *args, **kwargs):  # type: ignore[override]
+    def _run(self, *args, **kwargs):
         raise NotImplementedError("HITL-wrapped tools are async-only. Use ainvoke/_arun.")
 
-    async def _arun(self, *args, **kwargs):  # type: ignore[override]
+    async def _arun(self, *args, **kwargs):
         args_dict = dict(kwargs) if kwargs else {}
         try:
             decision = await self._hitl.call_tool(self.name, args_dict)
@@ -282,8 +294,8 @@ class ApprovalConfig:
         if self.approval_handler_async:
             result = self.approval_handler_async(request)
             if inspect.isawaitable(result):
-                return await result
-            return result  # type: ignore
+                return await cast(Awaitable[ApprovalResponse], result)
+            return cast(ApprovalResponse, result)
         elif self.approval_handler:
             return await asyncio.to_thread(self.approval_handler, request)
         else:
@@ -295,8 +307,8 @@ class ApprovalConfig:
         if self.output_reviewer_async:
             result = self.output_reviewer_async(request)
             if inspect.isawaitable(result):
-                return await result
-            return result  # type: ignore
+                return await cast(Awaitable[OutputReviewResponse], result)
+            return cast(OutputReviewResponse, result)
         elif self.output_reviewer:
             return await asyncio.to_thread(self.output_reviewer, request)
         else:
@@ -315,12 +327,12 @@ class _ApprovalWrappedTool(BaseTool):
         self._config = config
         # Preserve args schema if present
         if hasattr(base, "args_schema") and base.args_schema is not None:
-            self.args_schema = base.args_schema  # type: ignore[attr-defined]
+            self.args_schema = base.args_schema
 
-    def _run(self, *args, **kwargs):  # type: ignore[override]
+    def _run(self, *args, **kwargs):
         raise NotImplementedError("Approval-wrapped tools are async-only. Use ainvoke/_arun.")
 
-    async def _arun(self, *args, **kwargs):  # type: ignore[override]
+    async def _arun(self, *args, **kwargs):
         from .events import ApprovalEvent
 
         args_dict = dict(kwargs) if kwargs else {}
@@ -476,11 +488,11 @@ def apply_output_gate(ai_msg: Any, hitl: Optional[HITLConfig | Dict[str, Any]]) 
                 if isinstance(last_msg, dict) and "content" in last_msg:
                     last_msg["content"] = replacement
                 elif hasattr(last_msg, "content"):
-                    last_msg.content = replacement  # type: ignore[attr-defined]
+                    setattr(last_msg, "content", replacement)
                 else:
                     ai_msg["messages"][-1] = {"role": "ai", "content": replacement}
             elif hasattr(ai_msg, "content"):
-                ai_msg.content = replacement  # type: ignore[attr-defined]
+                setattr(ai_msg, "content", replacement)
             else:
                 ai_msg = (
                     {"role": "ai", "content": replacement}
@@ -509,11 +521,11 @@ async def apply_output_gate_async(ai_msg: Any, hitl: Optional[HITLConfig]) -> An
                 if isinstance(last_msg, dict) and "content" in last_msg:
                     last_msg["content"] = replacement
                 elif hasattr(last_msg, "content"):
-                    last_msg.content = replacement  # type: ignore
+                    setattr(last_msg, "content", replacement)
                 else:
                     ai_msg["messages"][-1] = {"role": "ai", "content": replacement}
             elif hasattr(ai_msg, "content"):
-                ai_msg.content = replacement  # type: ignore
+                setattr(ai_msg, "content", replacement)
             else:
                 ai_msg = (
                     {"role": "ai", "content": replacement}
@@ -670,7 +682,7 @@ class _ExecutionConfigWrappedTool(BaseTool):
         self._expected_return_type = expected_return_type
         # Preserve args schema if present
         if hasattr(base, "args_schema") and base.args_schema is not None:
-            self.args_schema = base.args_schema  # type: ignore[attr-defined]
+            self.args_schema = base.args_schema
 
     def _validate_result(self, result: Any) -> None:
         """Validate the result matches expected type."""

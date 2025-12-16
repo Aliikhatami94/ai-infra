@@ -15,24 +15,24 @@ class FallbackError(RuntimeError):
 # Py3.11+ has typing.assert_never
 try:
     from typing import assert_never
-except Exception:  # Py3.10 compatibility
-    from typing_extensions import assert_never  # type: ignore
+except ImportError:  # Py3.10 compatibility
+    from typing_extensions import assert_never
 
 
 def _resolve_candidate(c: Candidate) -> Tuple[str, str, dict]:
     """Normalize a candidate to (provider, model_name, overrides)."""
     if isinstance(c, tuple):
-        prov, model = c
-        return prov, model, {}
+        provider, model_name = c
+        return provider, model_name, {}
     if isinstance(c, dict):
-        prov: str | None = c.get("provider")
-        model: str | None = c.get("model_name") or c.get("model")
-        if not prov or not model:
+        provider_val: str | None = c.get("provider")
+        model_name_val: str | None = c.get("model_name") or c.get("model")
+        if not provider_val or not model_name_val:
             raise ValueError(
                 "Candidate dict must include 'provider' and 'model_name' (or 'model')."
             )
         overrides = {k: v for k, v in c.items() if k not in ("provider", "model_name", "model")}
-        return prov, model, overrides
+        return provider_val, model_name_val, overrides
     # statically “unreachable”, but keep the guard for runtime safety
     assert_never(c)  # will raise TypeError if ever reached
 

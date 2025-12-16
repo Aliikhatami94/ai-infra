@@ -52,7 +52,7 @@ def analyze_image(
             images=[image_path],
             model_name="gpt-4o",  # Use vision-capable model
         )
-        return response.content
+        return str(response.content)
     except Exception as e:
         return f"Error analyzing image: {e}"
 
@@ -141,6 +141,6 @@ def compare_images(
             images=[image1_path, image2_path],
             model_name="gpt-4o",
         )
-        return response.content
+        return str(response.content)
     except Exception as e:
         return f"Error comparing images: {e}"

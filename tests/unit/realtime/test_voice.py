@@ -9,14 +9,12 @@ Tests cover:
 """
 
 import os
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from ai_infra.llm.realtime import (
     AudioChunk,
     AudioFormat,
-    BaseRealtimeProvider,
     RealtimeConfig,
     RealtimeConnectionError,
     RealtimeError,
@@ -25,7 +23,6 @@ from ai_infra.llm.realtime import (
     ToolDefinition,
     TranscriptDelta,
     VADMode,
-    VoiceSession,
 )
 
 # ─────────────────────────────────────────────────────────────────────────────

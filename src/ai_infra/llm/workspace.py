@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Union
 
 if TYPE_CHECKING:
-    from deepagents.backends import BaseBackend
+    from deepagents.backends import BaseBackend  # type: ignore[import-untyped]
 
 WorkspaceMode = Literal["virtual", "sandboxed", "full"]
 
