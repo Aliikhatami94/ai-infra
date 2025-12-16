@@ -1,0 +1,246 @@
+{
+  "files": {
+    "callbacks.md": {
+      "created": "2025-11-27",
+      "lastUpdated": "2025-12-04",
+      "updateCount": 4,
+      "title": "Callbacks"
+    },
+    "cli.md": {
+      "created": "2025-12-01",
+      "lastUpdated": "2025-12-03",
+      "updateCount": 2,
+      "title": "CLI Reference"
+    },
+    "core/agents.md": {
+      "created": "2025-12-01",
+      "lastUpdated": "2025-12-07",
+      "updateCount": 4,
+      "title": "Agent Class"
+    },
+    "core/graph.md": {
+      "created": "2025-12-01",
+      "lastUpdated": "2025-12-01",
+      "updateCount": 1,
+      "title": "Graph Class"
+    },
+    "core/llm.md": {
+      "created": "2025-12-01",
+      "lastUpdated": "2025-12-01",
+      "updateCount": 1,
+      "title": "LLM Class"
+    },
+    "core/providers.md": {
+      "created": "2025-12-01",
+      "lastUpdated": "2025-12-01",
+      "updateCount": 1,
+      "title": "Provider Registry"
+    },
+    "embeddings/embeddings.md": {
+      "created": "2025-12-01",
+      "lastUpdated": "2025-12-01",
+      "updateCount": 1,
+      "title": "Embeddings"
+    },
+    "embeddings/retriever.md": {
+      "created": "2025-12-01",
+      "lastUpdated": "2025-12-12",
+      "updateCount": 4,
+      "title": "Retriever (RAG)"
+    },
+    "embeddings/vectorstore.md": {
+      "created": "2025-12-01",
+      "lastUpdated": "2025-12-01",
+      "updateCount": 1,
+      "title": "VectorStore"
+    },
+    "features/deep-agent.md": {
+      "created": "2025-12-01",
+      "lastUpdated": "2025-12-11",
+      "updateCount": 2,
+      "title": "Deep Agent"
+    },
+    "features/personas.md": {
+      "created": "2025-12-01",
+      "lastUpdated": "2025-12-01",
+      "updateCount": 1,
+      "title": "Agent Personas"
+    },
+    "features/replay.md": {
+      "created": "2025-12-01",
+      "lastUpdated": "2025-12-11",
+      "updateCount": 2,
+      "title": "Workflow Replay"
+    },
+    "features/workspace.md": {
+      "created": "2025-12-01",
+      "lastUpdated": "2025-12-01",
+      "updateCount": 1,
+      "title": "Workspace"
+    },
+    "getting-started.md": {
+      "created": "2025-12-01",
+      "lastUpdated": "2025-12-13",
+      "updateCount": 2,
+      "title": "Getting Started with ai-infra"
+    },
+    "imagegen/imagegen.md": {
+      "created": "2025-12-01",
+      "lastUpdated": "2025-12-11",
+      "updateCount": 2,
+      "title": "Image Generation"
+    },
+    "index.md": {
+      "created": "2025-12-01",
+      "lastUpdated": "2025-12-11",
+      "updateCount": 5,
+      "title": "ai-infra Documentation"
+    },
+    "infrastructure/errors.md": {
+      "created": "2025-12-01",
+      "lastUpdated": "2025-12-01",
+      "updateCount": 1,
+      "title": "Error Handling"
+    },
+    "infrastructure/logging.md": {
+      "created": "2025-12-01",
+      "lastUpdated": "2025-12-01",
+      "updateCount": 1,
+      "title": "Logging"
+    },
+    "infrastructure/tracing.md": {
+      "created": "2025-12-01",
+      "lastUpdated": "2025-12-01",
+      "updateCount": 1,
+      "title": "Distributed Tracing"
+    },
+    "infrastructure/validation.md": {
+      "created": "2025-12-01",
+      "lastUpdated": "2025-12-01",
+      "updateCount": 1,
+      "title": "Input Validation"
+    },
+    "mcp/client.md": {
+      "created": "2025-12-01",
+      "lastUpdated": "2025-12-03",
+      "updateCount": 2,
+      "title": "MCP Client"
+    },
+    "mcp/openapi.md": {
+      "created": "2025-12-01",
+      "lastUpdated": "2025-12-01",
+      "updateCount": 1,
+      "title": "OpenAPI to MCP"
+    },
+    "mcp/server.md": {
+      "created": "2025-12-01",
+      "lastUpdated": "2025-12-05",
+      "updateCount": 2,
+      "title": "MCP Server"
+    },
+    "memory.md": {
+      "created": "2025-12-02",
+      "lastUpdated": "2025-12-11",
+      "updateCount": 3,
+      "title": "Memory Management"
+    },
+    "multimodal/realtime.md": {
+      "created": "2025-12-01",
+      "lastUpdated": "2025-12-11",
+      "updateCount": 2,
+      "title": "Realtime Voice API"
+    },
+    "multimodal/stt.md": {
+      "created": "2025-12-01",
+      "lastUpdated": "2025-12-01",
+      "updateCount": 1,
+      "title": "Speech-to-Text (STT)"
+    },
+    "multimodal/tts.md": {
+      "created": "2025-12-01",
+      "lastUpdated": "2025-12-01",
+      "updateCount": 1,
+      "title": "Text-to-Speech (TTS)"
+    },
+    "multimodal/vision.md": {
+      "created": "2025-12-01",
+      "lastUpdated": "2025-12-01",
+      "updateCount": 1,
+      "title": "Vision"
+    },
+    "streaming.md": {
+      "created": "2025-12-07",
+      "lastUpdated": "2025-12-11",
+      "updateCount": 4,
+      "title": "Streaming Guide"
+    },
+    "tools/progress.md": {
+      "created": "2025-12-01",
+      "lastUpdated": "2025-12-01",
+      "updateCount": 1,
+      "title": "Progress Streaming"
+    },
+    "tools/schema-tools.md": {
+      "created": "2025-12-01",
+      "lastUpdated": "2025-12-01",
+      "updateCount": 1,
+      "title": "Schema Tools"
+    }
+  },
+  "history": [
+    {
+      "date": "2025-12-07",
+      "file": "streaming.md",
+      "type": "new",
+      "title": "Streaming Guide"
+    },
+    {
+      "date": "2025-12-11",
+      "file": "multimodal/realtime.md",
+      "type": "updated",
+      "title": "Realtime Voice API"
+    },
+    {
+      "date": "2025-12-02",
+      "file": "memory.md",
+      "type": "new",
+      "title": "Memory Management"
+    },
+    {
+      "date": "2025-12-11",
+      "file": "index.md",
+      "type": "updated",
+      "title": "ai-infra Documentation"
+    },
+    {
+      "date": "2025-12-01",
+      "file": "imagegen/imagegen.md",
+      "type": "new",
+      "title": "Image Generation"
+    },
+    {
+      "date": "2025-12-13",
+      "file": "getting-started.md",
+      "type": "updated",
+      "title": "Getting Started with ai-infra"
+    },
+    {
+      "date": "2025-12-11",
+      "file": "features/replay.md",
+      "type": "updated",
+      "title": "Workflow Replay"
+    },
+    {
+      "date": "2025-12-11",
+      "file": "features/deep-agent.md",
+      "type": "updated",
+      "title": "Deep Agent"
+    },
+    {
+      "date": "2025-12-12",
+      "file": "embeddings/retriever.md",
+      "type": "updated",
+      "title": "Retriever (RAG)"
+    }
+  ]
+}

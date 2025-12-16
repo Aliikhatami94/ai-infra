@@ -111,3 +111,9 @@ clean:
 clean-pycache:
 	@echo "[clean] Removing all __pycache__ directories recursively"
 	@find . -type d -name '__pycache__' -prune -exec rm -rf {} +
+
+# --- Docs Changelog ---
+.PHONY: docs-changelog
+
+docs-changelog: ## Generate/update docs/CHANGELOG.json for What's New page
+	@./scripts/docs-changelog.sh
