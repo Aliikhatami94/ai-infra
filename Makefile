@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: help unit unitv test lint type format clean clean-pycache install
+.PHONY: help unit unitv test lint type typecheck format format-check clean clean-pycache install check ci
 
 help: ## Show available commands
 	@echo "Available commands:"
@@ -12,9 +12,12 @@ help: ## Show available commands
 	@echo ""
 	@echo "Code Quality:"
 	@echo "  format            Format code with ruff"
+	@echo "  format-check      Check formatting (ruff format --check)"
 	@echo "  lint              Lint code with ruff"
 	@echo "  type              Type check with mypy"
+	@echo "  typecheck         Alias for 'type'"
 	@echo "  check             Run lint + type checks"
+	@echo "  ci                Run checks + tests"
 	@echo ""
 	@echo "Setup:"
 	@echo "  install           Install dependencies with poetry"
@@ -68,6 +71,14 @@ format:
 	fi; \
 	poetry run ruff format .
 
+format-check:
+	@echo "[format] Checking formatting (ruff format --check)"
+	@if ! command -v poetry >/dev/null 2>&1; then \
+		echo "[format] Poetry is not installed. Please install Poetry (https://python-poetry.org/docs/#installation)"; \
+		exit 2; \
+	fi; \
+	poetry run ruff format --check .
+
 lint:
 	@echo "[lint] Running ruff check"
 	@if ! command -v poetry >/dev/null 2>&1; then \
@@ -84,8 +95,13 @@ type:
 	fi; \
 	poetry run mypy src
 
+typecheck: type
+
 check: lint type
 	@echo "[check] All checks passed"
+
+ci: check test
+	@echo "[ci] All checks + tests passed"
 
 # --- Cleanup helpers ---
 clean:
