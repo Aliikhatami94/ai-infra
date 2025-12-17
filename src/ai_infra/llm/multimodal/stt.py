@@ -757,7 +757,7 @@ class STT:
     ) -> TranscriptionResult:
         """Transcribe using Google Cloud Speech-to-Text."""
         try:
-            from google.cloud import speech  # type: ignore[import-untyped]
+            from google.cloud import speech
         except ImportError:
             raise ImportError(
                 "google-cloud-speech package required for Google STT: "

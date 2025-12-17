@@ -704,7 +704,7 @@ class TTS:
     ) -> bytes:
         """Generate speech using Google Cloud TTS."""
         try:
-            from google.cloud import texttospeech  # type: ignore[import-untyped]
+            from google.cloud import texttospeech
         except ImportError:
             raise ImportError(
                 "google-cloud-texttospeech package required for Google TTS: "
