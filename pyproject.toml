@@ -17,15 +17,17 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
     "Framework :: FastAPI",
     "Typing :: Typed"
 ]
 
 [tool.poetry.urls]
-Homepage = "https://github.com/your-org/ai-infra"
-Repository = "https://github.com/your-org/ai-infra"
-Issues = "https://github.com/your-org/ai-infra/issues"
-Documentation = "https://github.com/your-org/ai-infra#readme"
+Homepage = "https://github.com/nfraxio/ai-infra"
+Repository = "https://github.com/nfraxio/ai-infra"
+Issues = "https://github.com/nfraxio/ai-infra/issues"
+Documentation = "https://nfrax.dev/ai-infra"
 
 [tool.poetry.dependencies]
 python = ">=3.11,<4.0"
@@ -36,33 +38,43 @@ pydantic = ">=2.0"
 python-dotenv = ">=1.0.0"
 pyyaml = ">=6.0"
 
-# LangChain ecosystem (v1)
+# LangChain core (always required)
 langgraph = ">=1.0.0"
 langchain = ">=1.0.0"
 langchain-openai = ">=1.0.0"
-langchain-xai = ">=1.0.0"
-langchain-anthropic = ">=1.0.0"
-langchain-google-genai = ">=3.0.0"
 langchain-mcp-adapters = ">=0.1.0"
 langsmith = ">=0.4.0"
+
+# Optional LLM provider packages (install via extras)
+langchain-xai = { version = ">=1.0.0", optional = true }
+langchain-anthropic = { version = ">=1.0.0", optional = true }
+langchain-google-genai = { version = ">=3.0.0", optional = true }
 
 # MCP integration
 mcp = {extras = ["cli"], version = ">=1.0.0"}
 
 # Raw provider SDKs for models.list() discovery
-google-genai = ">=1.0.0"
+google-genai = { version = ">=1.0.0", optional = true }
 
 # DeepAgents - autonomous agent orchestration (0.2.x adds backends module)
 deepagents = ">=0.2.0"
 
-# Retriever backends (optional)
+# Retriever backends
 numpy = ">=1.24.0"
 langchain-text-splitters = ">=0.3.0"
-langchain-huggingface = ">=1.0.0"
-sentence-transformers = ">=5.0.0"
 svc-infra = ">=0.1.0"
 
+# Optional local embeddings (install via extras)
+langchain-huggingface = { version = ">=1.0.0", optional = true }
+sentence-transformers = { version = ">=5.0.0", optional = true }
+
 [tool.poetry.extras]
+# LLM providers (optional - install based on which API key you have)
+anthropic = ["langchain-anthropic"]
+google = ["langchain-google-genai", "google-genai"]
+xai = ["langchain-xai"]
+# All LLM providers
+llm-all = ["langchain-anthropic", "langchain-google-genai", "google-genai", "langchain-xai"]
 # Retriever storage backends
 postgres = ["pgvector", "psycopg2-binary"]
 sqlite = ["sqlite-vss"]
