@@ -25,6 +25,14 @@ from ai_infra.llm.realtime import (
     VADMode,
 )
 
+
+@pytest.fixture
+def mock_openai_key(monkeypatch):
+    """Set a fake OPENAI_API_KEY for tests requiring provider initialization."""
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-fake-key-for-unit-tests")
+    yield
+    # Cleanup happens automatically via monkeypatch
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Model Tests
 # ─────────────────────────────────────────────────────────────────────────────
@@ -209,24 +217,24 @@ class TestProviderDiscovery:
 class TestRealtimeVoice:
     """Test RealtimeVoice facade class."""
 
-    def test_auto_select_provider(self):
+    def test_auto_select_provider(self, mock_openai_key):
         """Test that provider is auto-selected based on env."""
         voice = RealtimeVoice()
         assert voice.provider_name in ["openai", "gemini"]
 
-    def test_explicit_provider(self):
+    def test_explicit_provider(self, mock_openai_key):
         """Test explicit provider selection."""
         voice = RealtimeVoice(provider="openai")
         assert voice.provider_name == "openai"
 
-    def test_with_config(self):
+    def test_with_config(self, mock_openai_key):
         """Test creating voice with config."""
         config = RealtimeConfig(voice="nova", temperature=0.5)
         voice = RealtimeVoice(config=config)
         assert voice.config.voice == "nova"
         assert voice.config.temperature == 0.5
 
-    def test_tool_conversion(self):
+    def test_tool_conversion(self, mock_openai_key):
         """Test that tool functions are converted to ToolDefinition."""
 
         def get_weather(city: str) -> str:
@@ -245,7 +253,7 @@ class TestRealtimeVoice:
 class TestCallbackRegistration:
     """Test callback registration on RealtimeVoice."""
 
-    def test_on_audio_decorator(self):
+    def test_on_audio_decorator(self, mock_openai_key):
         voice = RealtimeVoice()
 
         @voice.on_audio
@@ -254,7 +262,7 @@ class TestCallbackRegistration:
 
         assert len(voice._audio_callbacks) == 1
 
-    def test_on_transcript_decorator(self):
+    def test_on_transcript_decorator(self, mock_openai_key):
         voice = RealtimeVoice()
 
         @voice.on_transcript
@@ -263,7 +271,7 @@ class TestCallbackRegistration:
 
         assert len(voice._transcript_callbacks) == 1
 
-    def test_on_error_decorator(self):
+    def test_on_error_decorator(self, mock_openai_key):
         voice = RealtimeVoice()
 
         @voice.on_error
@@ -272,7 +280,7 @@ class TestCallbackRegistration:
 
         assert len(voice._error_callbacks) == 1
 
-    def test_multiple_callbacks(self):
+    def test_multiple_callbacks(self, mock_openai_key):
         voice = RealtimeVoice()
 
         @voice.on_audio
@@ -290,7 +298,7 @@ class TestToolExecution:
     """Test tool execution in RealtimeVoice."""
 
     @pytest.mark.asyncio
-    async def test_sync_tool_execution(self):
+    async def test_sync_tool_execution(self, mock_openai_key):
         """Test executing a sync tool function."""
 
         def get_time() -> str:
@@ -306,7 +314,7 @@ class TestToolExecution:
         assert result == "12:00 PM"
 
     @pytest.mark.asyncio
-    async def test_async_tool_execution(self):
+    async def test_async_tool_execution(self, mock_openai_key):
         """Test executing an async tool function."""
 
         async def async_search(query: str) -> str:
@@ -326,7 +334,7 @@ class TestToolExecution:
         assert result == "Results for: test"
 
     @pytest.mark.asyncio
-    async def test_tool_with_callback_fallback(self):
+    async def test_tool_with_callback_fallback(self, mock_openai_key):
         """Test that callback is used when tool not found."""
         voice = RealtimeVoice()
 
