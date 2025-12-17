@@ -91,7 +91,12 @@ def add_shim(
         if dry_run:
             pkg = _load_json(package_json)
             if not pkg:
-                pkg = {"name": package_name, "version": "0.0.0", "private": True, "bin": {}}
+                pkg = {
+                    "name": package_name,
+                    "version": "0.0.0",
+                    "private": True,
+                    "bin": {},
+                }
             if "bin" not in pkg or not isinstance(pkg["bin"], dict):
                 pkg["bin"] = {}
             pkg["bin"][tool_name] = rel_for_bin

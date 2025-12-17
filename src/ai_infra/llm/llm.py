@@ -283,11 +283,15 @@ class LLM(BaseLLM):
                 # otherwise: existing structured (json_mode/function_calling/json_schema) or plain
                 if output_schema is not None:
                     # output_method is not "prompt" here (handled above)
-                    method_cast: Literal["json_schema", "json_mode", "function_calling"] | None = (
-                        output_method  # type: ignore[assignment]
-                    )
+                    method_cast: (
+                        Literal["json_schema", "json_mode", "function_calling"] | None
+                    ) = output_method  # type: ignore[assignment]
                     model = self.with_structured_output(
-                        provider, model_name, output_schema, method=method_cast, **model_kwargs
+                        provider,
+                        model_name,
+                        output_schema,
+                        method=method_cast,
+                        **model_kwargs,
                     )
                 else:
                     model = self.set_model(provider, model_name, **model_kwargs)
@@ -456,11 +460,15 @@ class LLM(BaseLLM):
             else:
                 if output_schema is not None:
                     # output_method is not "prompt" here (handled above)
-                    method_cast: Literal["json_schema", "json_mode", "function_calling"] | None = (
-                        output_method  # type: ignore[assignment]
-                    )
+                    method_cast: (
+                        Literal["json_schema", "json_mode", "function_calling"] | None
+                    ) = output_method  # type: ignore[assignment]
                     model = self.with_structured_output(
-                        provider, model_name, output_schema, method=method_cast, **model_kwargs
+                        provider,
+                        model_name,
+                        output_schema,
+                        method=method_cast,
+                        **model_kwargs,
                     )
                 else:
                     model = self.set_model(provider, model_name, **model_kwargs)

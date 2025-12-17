@@ -151,7 +151,8 @@ class _HITLWrappedTool(BaseTool):
 
     def __init__(self, base: BaseTool, hitl: HITLConfig):
         super().__init__(
-            name=getattr(base, "name", "tool"), description=getattr(base, "description", "") or ""
+            name=getattr(base, "name", "tool"),
+            description=getattr(base, "description", "") or "",
         )
         self._base = base
         self._hitl = hitl

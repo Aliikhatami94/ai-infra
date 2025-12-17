@@ -138,7 +138,10 @@ class SecurityResolver:
                             elif where == "query":
                                 query_keys.append(keyname)
         return cls(
-            header_api_keys=header_keys, query_api_keys=query_keys, bearer=bearer, basic=basic
+            header_api_keys=header_keys,
+            query_api_keys=query_keys,
+            bearer=bearer,
+            basic=basic,
         )
 
     def as_dict(self) -> Dict[str, Any]:
@@ -450,10 +453,16 @@ def _build_input_model(
         fields["body"] = (body_typ, ... if op_ctx.body_required else None)
 
         if op_ctx.body_content_type == "multipart/form-data":
-            fields["files"] = (Optional[Dict[str, Any]], Field(default=None, alias="_files"))
+            fields["files"] = (
+                Optional[Dict[str, Any]],
+                Field(default=None, alias="_files"),
+            )
 
     BasicAuthList = conlist(str, min_length=2, max_length=2)
-    fields["headers"] = (Optional[Dict[str, str]], Field(default=None, alias="_headers"))
+    fields["headers"] = (
+        Optional[Dict[str, str]],
+        Field(default=None, alias="_headers"),
+    )
     fields["api_key"] = (Optional[str], Field(default=None, alias="_api_key"))
     fields["basic_auth"] = (
         Optional[Union[str, BasicAuthList]],
@@ -512,7 +521,10 @@ def _build_output_model(op_ctx: OperationContext, op: dict, spec: OpenAPISpec) -
     # use internal names with alias="json"/"text"
     if resp_schema and (resp_ct == "application/json"):
         payload_type = _py_type_from_schema(resp_schema, spec)
-        fields["payload_json"] = (Optional[payload_type], Field(default=None, alias="json"))
+        fields["payload_json"] = (
+            Optional[payload_type],
+            Field(default=None, alias="json"),
+        )
         fields["payload_text"] = (Optional[str], Field(default=None, alias="text"))
     else:
         fields["payload_json"] = (Optional[Any], Field(default=None, alias="json"))
@@ -749,7 +761,9 @@ def _register_operation_tool(
 
         # Apply auth from OpenAPI security schemes
         security.apply(
-            headers, query, {"_api_key": api_key, "_basic_auth": basic_auth, "_headers": headers_in}
+            headers,
+            query,
+            {"_api_key": api_key, "_basic_auth": basic_auth, "_headers": headers_in},
         )
 
         # Apply auth from auth_config (overrides/supplements security schemes)

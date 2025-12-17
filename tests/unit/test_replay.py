@@ -375,7 +375,10 @@ class TestReplayResult:
         steps = [
             WorkflowStep(0, "tool_call", datetime.now(), {"name": "tool1"}),
             WorkflowStep(
-                1, "tool_result", datetime.now(), {"name": "tool1", "result": {"data": 123}}
+                1,
+                "tool_result",
+                datetime.now(),
+                {"name": "tool1", "result": {"data": 123}},
             ),
         ]
 

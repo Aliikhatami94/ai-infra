@@ -6,7 +6,11 @@ from typing import Any, Callable
 
 
 async def with_retry(
-    afn: Callable[[], Any], *, max_tries: int = 3, base: float = 0.5, jitter: float = 0.2
+    afn: Callable[[], Any],
+    *,
+    max_tries: int = 3,
+    base: float = 0.5,
+    jitter: float = 0.2,
 ):
     """Exponential backoff around an awaited call factory."""
     last: BaseException | None = None

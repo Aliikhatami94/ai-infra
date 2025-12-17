@@ -32,7 +32,12 @@ COHERE = ProviderConfig(
                     "embed-english-light-v3.0": 384,
                     "embed-multilingual-light-v3.0": 384,
                 },
-                "input_types": ["search_document", "search_query", "classification", "clustering"],
+                "input_types": [
+                    "search_document",
+                    "search_query",
+                    "classification",
+                    "clustering",
+                ],
             },
         ),
     },

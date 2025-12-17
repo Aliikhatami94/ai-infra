@@ -95,7 +95,11 @@ def pick_effective_base_url_with_source(
     """
     if override:
         return override.rstrip("/"), "override"
-    for source, node in (("operation", op or {}), ("path", path_item or {}), ("root", spec or {})):
+    for source, node in (
+        ("operation", op or {}),
+        ("path", path_item or {}),
+        ("root", spec or {}),
+    ):
         servers = node.get("servers") or []
         if servers:
             url = str(servers[0].get("url", "")).rstrip("/")

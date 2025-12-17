@@ -1,8 +1,9 @@
 import asyncio
 
 from langchain_mcp_adapters.tools import load_mcp_tools
-from mcp.client.sse import sse_client
 from mcp import ClientSession
+from mcp.client.sse import sse_client
+
 
 async def main():
     url = "http://0.0.0.0:8000/sse-demo/sse"
@@ -13,6 +14,7 @@ async def main():
             await session.initialize()
             tools = await load_mcp_tools(session)
             print(tools)
+
 
 if __name__ == "__main__":
     asyncio.run(main())

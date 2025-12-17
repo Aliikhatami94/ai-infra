@@ -240,8 +240,14 @@ OPENAI_CAPABILITY_PATTERNS = [
     ("moderation", {ModelCapability.MODERATION}),
     ("omni-moderation", {ModelCapability.MODERATION}),
     # GPT-4o series (multimodal: chat + vision + audio)
-    ("gpt-4o-audio", {ModelCapability.CHAT, ModelCapability.VISION, ModelCapability.AUDIO}),
-    ("gpt-4o-realtime", {ModelCapability.CHAT, ModelCapability.REALTIME, ModelCapability.AUDIO}),
+    (
+        "gpt-4o-audio",
+        {ModelCapability.CHAT, ModelCapability.VISION, ModelCapability.AUDIO},
+    ),
+    (
+        "gpt-4o-realtime",
+        {ModelCapability.CHAT, ModelCapability.REALTIME, ModelCapability.AUDIO},
+    ),
     ("gpt-4o", {ModelCapability.CHAT, ModelCapability.VISION}),
     # GPT-4 variants
     ("gpt-4-turbo", {ModelCapability.CHAT, ModelCapability.VISION}),
@@ -598,7 +604,7 @@ def list_models(
     """
     if provider not in SUPPORTED_PROVIDERS:
         raise ValueError(
-            f"Unknown provider: {provider}. " f"Supported: {', '.join(SUPPORTED_PROVIDERS)}"
+            f"Unknown provider: {provider}. Supported: {', '.join(SUPPORTED_PROVIDERS)}"
         )
 
     if not is_provider_configured(provider):

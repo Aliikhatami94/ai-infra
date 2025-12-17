@@ -1807,7 +1807,10 @@ class Agent(BaseLLM):
             return
         last_values = None
         async for mode, chunk in agent.astream(
-            {"messages": messages}, context=context, config=merged_config, stream_mode=modes
+            {"messages": messages},
+            context=context,
+            config=merged_config,
+            stream_mode=modes,
         ):
             if mode == "values":
                 last_values = chunk

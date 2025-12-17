@@ -368,7 +368,6 @@ class TestMultiApprovalRequest:
     """Test MultiApprovalRequest model."""
 
     def test_creation(self):
-
         req = MultiApprovalRequest(
             tool_name="delete_all",
             args={"confirm": True},
@@ -379,7 +378,6 @@ class TestMultiApprovalRequest:
         assert req.get_pending_approvers() == ["admin", "cto"]
 
     def test_add_approval(self):
-
         req = MultiApprovalRequest(
             tool_name="delete_all",
             args={},
@@ -401,7 +399,6 @@ class TestMultiApprovalRequest:
         assert req.is_approved is True
 
     def test_add_rejection(self):
-
         req = MultiApprovalRequest(
             tool_name="delete_all",
             args={},
@@ -420,7 +417,6 @@ class TestMultiApprovalRequest:
         assert req.is_approved is False
 
     def test_to_final_response_approved(self):
-
         req = MultiApprovalRequest(
             tool_name="transfer",
             args={"amount": 1000},
@@ -434,7 +430,6 @@ class TestMultiApprovalRequest:
         assert "manager" in (final.reason or "")
 
     def test_to_final_response_rejected(self):
-
         req = MultiApprovalRequest(
             tool_name="delete",
             args={},
@@ -452,7 +447,6 @@ class TestRuleBasedHandler:
     """Test create_rule_based_handler."""
 
     def test_no_approval_rule(self):
-
         rules = {
             "read_file": ApprovalRule.no_approval(),
             "delete_file": ApprovalRule.any_approver(),
@@ -465,7 +459,6 @@ class TestRuleBasedHandler:
         assert "No approval required" in resp.reason
 
     def test_any_approver_rule(self):
-
         rules = {
             "delete_file": ApprovalRule.any_approver(),
         }
@@ -476,7 +469,6 @@ class TestRuleBasedHandler:
         assert resp.approved is True
 
     def test_default_rule_no_approval(self):
-
         # No rules, default = no approval
         handler = create_rule_based_handler({})
 
@@ -485,7 +477,6 @@ class TestRuleBasedHandler:
         assert resp.approved is True  # Default: no approval required
 
     def test_specific_approver_validation(self):
-
         rules = {
             "admin_action": ApprovalRule.specific_approvers(["admin"]),
         }

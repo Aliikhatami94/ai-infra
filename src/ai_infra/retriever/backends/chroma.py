@@ -48,7 +48,7 @@ class ChromaBackend(BaseBackend):
             from chromadb.config import Settings
         except ImportError as e:
             raise ImportError(
-                "Chroma backend requires chromadb. " "Install with: pip install chromadb"
+                "Chroma backend requires chromadb. Install with: pip install chromadb"
             ) from e
 
         self._collection_name = collection_name

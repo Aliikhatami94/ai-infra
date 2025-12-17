@@ -46,7 +46,7 @@ def get_backend(name: str, **config) -> BaseBackend:
     factory = backends.get(name.lower())
     if factory is None:
         available = ", ".join(sorted(backends.keys()))
-        raise ValueError(f"Unknown backend: {name!r}\n" f"Available backends: {available}")
+        raise ValueError(f"Unknown backend: {name!r}\nAvailable backends: {available}")
 
     return factory(**config)
 
@@ -74,7 +74,7 @@ def _get_sqlite_backend(**config) -> BaseBackend:
         from ai_infra.retriever.backends.sqlite import SQLiteBackend
     except ImportError as e:
         raise ImportError(
-            "SQLite backend requires sqlite-vss. " "Install with: pip install sqlite-vss"
+            "SQLite backend requires sqlite-vss. Install with: pip install sqlite-vss"
         ) from e
     return SQLiteBackend(**config)
 
@@ -85,7 +85,7 @@ def _get_chroma_backend(**config) -> BaseBackend:
         from ai_infra.retriever.backends.chroma import ChromaBackend
     except ImportError as e:
         raise ImportError(
-            "Chroma backend requires chromadb. " "Install with: pip install chromadb"
+            "Chroma backend requires chromadb. Install with: pip install chromadb"
         ) from e
     return ChromaBackend(**config)
 
@@ -119,6 +119,6 @@ def _get_faiss_backend(**config) -> BaseBackend:
         from ai_infra.retriever.backends.faiss import FAISSBackend
     except ImportError as e:
         raise ImportError(
-            "FAISS backend requires faiss-cpu. " "Install with: pip install faiss-cpu"
+            "FAISS backend requires faiss-cpu. Install with: pip install faiss-cpu"
         ) from e
     return FAISSBackend(**config)

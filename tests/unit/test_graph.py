@@ -177,7 +177,10 @@ class TestZeroConfigGraphBuilding:
 
         # Use nodes that accumulate state rather than replace
         def analyze(state):
-            return {"analysis": f"analyzed: {state.get('input', '')}", "input": state.get("input")}
+            return {
+                "analysis": f"analyzed: {state.get('input', '')}",
+                "input": state.get("input"),
+            }
 
         def decide(state):
             should_execute = "good" in state.get("analysis", "")

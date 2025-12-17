@@ -28,7 +28,11 @@ STABILITY = ProviderConfig(
             features=["img2img", "inpainting", "upscaling", "outpainting"],
             extra={
                 "sizes": {
-                    "stable-diffusion-xl-1024-v1-0": ["1024x1024", "1152x896", "896x1152"],
+                    "stable-diffusion-xl-1024-v1-0": [
+                        "1024x1024",
+                        "1152x896",
+                        "896x1152",
+                    ],
                 },
                 "style_presets": [
                     "3d-model",

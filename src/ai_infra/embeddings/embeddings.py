@@ -15,10 +15,16 @@ from ai_infra.providers import ProviderCapability, ProviderRegistry
 # LangChain package/class mappings (implementation detail, not config)
 _LANGCHAIN_MAPPINGS: dict[str, dict[str, str]] = {
     "openai": {"package": "langchain_openai", "class": "OpenAIEmbeddings"},
-    "google_genai": {"package": "langchain_google_genai", "class": "GoogleGenerativeAIEmbeddings"},
+    "google_genai": {
+        "package": "langchain_google_genai",
+        "class": "GoogleGenerativeAIEmbeddings",
+    },
     "voyage": {"package": "langchain_voyageai", "class": "VoyageAIEmbeddings"},
     "cohere": {"package": "langchain_cohere", "class": "CohereEmbeddings"},
-    "huggingface": {"package": "langchain_huggingface", "class": "HuggingFaceEmbeddings"},
+    "huggingface": {
+        "package": "langchain_huggingface",
+        "class": "HuggingFaceEmbeddings",
+    },
 }
 
 # Provider aliases for backwards compatibility

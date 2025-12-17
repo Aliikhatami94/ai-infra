@@ -457,7 +457,10 @@ def _run_repl(
                 elif cmd == "system":
                     if arg:
                         current_system = arg
-                        typer.secho(f"✓ System prompt set: {arg[:50]}...", fg=typer.colors.YELLOW)
+                        typer.secho(
+                            f"✓ System prompt set: {arg[:50]}...",
+                            fg=typer.colors.YELLOW,
+                        )
                     else:
                         if current_system:
                             typer.echo(f"Current system prompt: {current_system}")
@@ -488,7 +491,10 @@ def _run_repl(
                     new_id = arg.strip() if arg else current_session_id
                     current_session_id = new_id
                     _save_session()
-                    typer.secho(f"✓ Session saved as: {current_session_id}", fg=typer.colors.GREEN)
+                    typer.secho(
+                        f"✓ Session saved as: {current_session_id}",
+                        fg=typer.colors.GREEN,
+                    )
                     continue
 
                 elif cmd == "load":
@@ -598,11 +604,13 @@ def _run_repl(
                         try:
                             current_temp = float(arg)
                             typer.secho(
-                                f"✓ Temperature set to: {current_temp}", fg=typer.colors.YELLOW
+                                f"✓ Temperature set to: {current_temp}",
+                                fg=typer.colors.YELLOW,
                             )
                         except ValueError:
                             typer.secho(
-                                "✗ Invalid temperature. Use a number 0.0-2.0", fg=typer.colors.RED
+                                "✗ Invalid temperature. Use a number 0.0-2.0",
+                                fg=typer.colors.RED,
                             )
                     else:
                         typer.echo(f"Current temperature: {current_temp}")
@@ -610,7 +618,8 @@ def _run_repl(
 
                 else:
                     typer.secho(
-                        f"Unknown command: /{cmd}. Type /help for commands.", fg=typer.colors.RED
+                        f"Unknown command: /{cmd}. Type /help for commands.",
+                        fg=typer.colors.RED,
                     )
                     continue
 

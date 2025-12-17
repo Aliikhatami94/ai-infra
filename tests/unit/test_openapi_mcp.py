@@ -151,7 +151,10 @@ def complex_schema_spec() -> Dict[str, Any]:
                 },
                 "Result": {
                     "oneOf": [
-                        {"type": "object", "properties": {"success": {"type": "boolean"}}},
+                        {
+                            "type": "object",
+                            "properties": {"success": {"type": "boolean"}},
+                        },
                         {"type": "object", "properties": {"error": {"type": "string"}}},
                     ],
                 },

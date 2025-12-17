@@ -22,7 +22,12 @@ def main():
         schema=UserInfo,
     )
     resp = structured.invoke(
-        [{"role": "user", "content": "I'm Jane Smith, 28 years old, email jane@example.com"}]
+        [
+            {
+                "role": "user",
+                "content": "I'm Jane Smith, 28 years old, email jane@example.com",
+            }
+        ]
     )
     print("Raw response:", resp)
     # Access fields directly

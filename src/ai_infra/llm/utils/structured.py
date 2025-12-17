@@ -42,7 +42,10 @@ def build_structured_messages(
     if forbid_prose:
         sys_lines.append("Do NOT include any prose, markdown, or extra keys. JSON only.")
     sys_lines.append(fmt)
-    messages = [SystemMessage(content="\n\n".join(sys_lines)), HumanMessage(content=user_msg)]
+    messages = [
+        SystemMessage(content="\n\n".join(sys_lines)),
+        HumanMessage(content=user_msg),
+    ]
     return messages
 
 

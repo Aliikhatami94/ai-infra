@@ -2,9 +2,11 @@ from mcp.server.fastmcp import FastMCP
 
 _f = FastMCP("from-module-asgi")
 
+
 def hi(name: str) -> str:
     """Say hi (prebuilt ASGI)."""
     return f"hi {name}"
+
 
 _f.add_tool(hi)
 

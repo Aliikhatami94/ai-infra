@@ -45,7 +45,10 @@ def merge_overrides(
     overrides: Dict[str, Any],
 ) -> Tuple[Dict[str, Any], Dict[str, Any], Optional[List[Any]], Optional[Any]]:
     eff_extra = {**(base_extra or {}), **overrides.get("extra", {})}
-    eff_model_kwargs = {**(base_model_kwargs or {}), **overrides.get("model_kwargs", {})}
+    eff_model_kwargs = {
+        **(base_model_kwargs or {}),
+        **overrides.get("model_kwargs", {}),
+    }
     eff_tools = overrides.get("tools", base_tools)
     eff_tool_controls = overrides.get("tool_controls", base_tool_controls)
     return eff_extra, eff_model_kwargs, eff_tools, eff_tool_controls

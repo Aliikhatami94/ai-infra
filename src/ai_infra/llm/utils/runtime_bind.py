@@ -201,7 +201,8 @@ def _normalize_tool(t):
         return lc_tool(t)
     if isinstance(t, dict):  # leave dict (ignored by ToolNode) but log
         _logger.warning(
-            "Dict-shaped tool provided and will be ignored by ToolNode: keys=%s", list(t.keys())
+            "Dict-shaped tool provided and will be ignored by ToolNode: keys=%s",
+            list(t.keys()),
         )
         return None
     _logger.warning("Unsupported tool type ignored: %r", type(t))

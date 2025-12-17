@@ -1080,7 +1080,8 @@ class Retriever:
         else:  # directory
             loop = asyncio.get_event_loop()
             return await loop.run_in_executor(
-                None, lambda: self.add_directory(content, metadata=metadata, chunk=chunk)
+                None,
+                lambda: self.add_directory(content, metadata=metadata, chunk=chunk),
             )
 
     async def aadd_text(

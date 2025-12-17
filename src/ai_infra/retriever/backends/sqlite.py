@@ -38,7 +38,11 @@ class SQLiteBackend(BaseBackend):
     """
 
     # All three metrics are supported
-    supported_metrics: tuple[SimilarityMetric, ...] = ("cosine", "euclidean", "dot_product")
+    supported_metrics: tuple[SimilarityMetric, ...] = (
+        "cosine",
+        "euclidean",
+        "dot_product",
+    )
 
     def __init__(
         self,

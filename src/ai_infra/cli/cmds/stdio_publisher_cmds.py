@@ -20,7 +20,8 @@ def add_cmd(
     tool_name: str = typer.Option(..., help="CLI name to publish (e.g. auth-infra-mcp)"),
     module: str = typer.Option(..., help="Python module to run (e.g. svc_infra.auth.mcp)"),
     repo: str = typer.Option(
-        ..., help="Git repo URL or GitHub shorthand (owner/repo, github:owner/repo, SSH, or HTTPS)"
+        ...,
+        help="Git repo URL or GitHub shorthand (owner/repo, github:owner/repo, SSH, or HTTPS)",
     ),
     ref: str = typer.Option("main", help="Git ref/branch/tag (default: main)"),
     package_json: Path = typer.Option(Path("package.json"), help="Path to root package.json"),

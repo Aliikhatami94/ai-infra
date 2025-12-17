@@ -224,7 +224,10 @@ def progress(fn: Callable[..., Any]) -> StructuredTool:
             continue
 
         if param.default is inspect.Parameter.empty:
-            fields[param_name] = (param_type, Field(..., description=f"The {param_name}"))
+            fields[param_name] = (
+                param_type,
+                Field(..., description=f"The {param_name}"),
+            )
         else:
             fields[param_name] = (
                 param_type,

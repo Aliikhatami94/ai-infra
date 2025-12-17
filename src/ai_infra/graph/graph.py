@@ -203,7 +203,14 @@ class Graph:
 
     # ---- invoke -----------------------------------------------------------------
     async def arun(
-        self, initial_state=None, *, config=None, on_enter=None, on_exit=None, trace=None, **kwargs
+        self,
+        initial_state=None,
+        *,
+        config=None,
+        on_enter=None,
+        on_exit=None,
+        trace=None,
+        **kwargs,
     ) -> Any:
         compiled, initial_state, config = self._prepare_run(
             initial_state,
@@ -221,7 +228,14 @@ class Graph:
         )
 
     def run(
-        self, initial_state=None, *, config=None, on_enter=None, on_exit=None, trace=None, **kwargs
+        self,
+        initial_state=None,
+        *,
+        config=None,
+        on_enter=None,
+        on_exit=None,
+        trace=None,
+        **kwargs,
     ) -> Any:
         compiled, initial_state, config = self._prepare_run(
             initial_state,

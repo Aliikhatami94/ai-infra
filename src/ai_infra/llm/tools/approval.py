@@ -157,7 +157,10 @@ class OutputReviewResponse(BaseModel):
 
     @classmethod
     def block(
-        cls, replacement: str = "[Content blocked by reviewer]", *, reason: Optional[str] = None
+        cls,
+        replacement: str = "[Content blocked by reviewer]",
+        *,
+        reason: Optional[str] = None,
     ) -> "OutputReviewResponse":
         """Block the output."""
         return cls(action="block", replacement=replacement, reason=reason)

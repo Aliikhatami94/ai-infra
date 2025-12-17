@@ -125,7 +125,9 @@ def trim_messages(
     return result
 
 
-def _normalize_messages(messages: Sequence[Union[BaseMessage, dict]]) -> List[BaseMessage]:
+def _normalize_messages(
+    messages: Sequence[Union[BaseMessage, dict]],
+) -> List[BaseMessage]:
     """Convert dict messages to BaseMessage objects."""
     result = []
     for msg in messages:

@@ -53,7 +53,7 @@ def load_file(path: str) -> list[LoadedDocument]:
     loader = loaders.get(ext)
     if loader is None:
         supported = ", ".join(sorted(loaders.keys()))
-        raise ValueError(f"Unsupported file type: {ext}\n" f"Supported types: {supported}")
+        raise ValueError(f"Unsupported file type: {ext}\nSupported types: {supported}")
 
     return loader(path)
 
@@ -122,7 +122,7 @@ def load_pdf(path: str) -> list[LoadedDocument]:
         from pypdf import PdfReader
     except ImportError as e:
         raise ImportError(
-            "pypdf is required for PDF loading. " "Install it with: pip install pypdf"
+            "pypdf is required for PDF loading. Install it with: pip install pypdf"
         ) from e
 
     documents: list[LoadedDocument] = []
@@ -202,7 +202,7 @@ def load_csv(path: str) -> list[LoadedDocument]:
         import pandas as pd
     except ImportError as e:
         raise ImportError(
-            "pandas is required for CSV loading. " "Install it with: pip install pandas"
+            "pandas is required for CSV loading. Install it with: pip install pandas"
         ) from e
 
     df = pd.read_csv(path)

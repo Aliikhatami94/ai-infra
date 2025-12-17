@@ -362,7 +362,8 @@ class TestChromaBackendWithMocks:
     def test_init_in_memory(self, mock_chromadb: MagicMock) -> None:
         """Test in-memory initialization."""
         with patch.dict(
-            "sys.modules", {"chromadb": mock_chromadb, "chromadb.config": mock_chromadb.config}
+            "sys.modules",
+            {"chromadb": mock_chromadb, "chromadb.config": mock_chromadb.config},
         ):
             # Force reimport
             import importlib
@@ -378,7 +379,8 @@ class TestChromaBackendWithMocks:
     def test_init_persistent(self, mock_chromadb: MagicMock) -> None:
         """Test persistent initialization."""
         with patch.dict(
-            "sys.modules", {"chromadb": mock_chromadb, "chromadb.config": mock_chromadb.config}
+            "sys.modules",
+            {"chromadb": mock_chromadb, "chromadb.config": mock_chromadb.config},
         ):
             import importlib
 

@@ -26,7 +26,11 @@ class BaseBackend(ABC):
     similarity: SimilarityMetric = "cosine"
 
     # Metrics supported by this backend (override in subclasses)
-    supported_metrics: tuple[SimilarityMetric, ...] = ("cosine", "euclidean", "dot_product")
+    supported_metrics: tuple[SimilarityMetric, ...] = (
+        "cosine",
+        "euclidean",
+        "dot_product",
+    )
 
     @abstractmethod
     def add(

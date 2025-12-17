@@ -32,7 +32,13 @@ GOOGLE = ProviderConfig(
                 "gemini-1.0-pro",
             ],
             default_model="gemini-3-pro-preview",
-            features=["streaming", "function_calling", "vision", "audio_input", "grounding"],
+            features=[
+                "streaming",
+                "function_calling",
+                "vision",
+                "audio_input",
+                "grounding",
+            ],
             extra={
                 "context_window": {
                     "gemini-2.0-flash": 1048576,
@@ -78,7 +84,12 @@ GOOGLE = ProviderConfig(
         ProviderCapability.STT: CapabilityConfig(
             models=["default", "latest_long", "latest_short"],
             default_model="default",
-            features=["streaming", "timestamps", "speaker_diarization", "automatic_punctuation"],
+            features=[
+                "streaming",
+                "timestamps",
+                "speaker_diarization",
+                "automatic_punctuation",
+            ],
             extra={
                 "env_var_override": "GOOGLE_APPLICATION_CREDENTIALS",
             },

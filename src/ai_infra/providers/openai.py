@@ -32,7 +32,13 @@ OPENAI = ProviderConfig(
                 "o1-preview",
             ],
             default_model="gpt-5.1",
-            features=["streaming", "function_calling", "vision", "json_mode", "structured_output"],
+            features=[
+                "streaming",
+                "function_calling",
+                "vision",
+                "json_mode",
+                "structured_output",
+            ],
         ),
         ProviderCapability.EMBEDDINGS: CapabilityConfig(
             models=[
@@ -79,7 +85,16 @@ OPENAI = ProviderConfig(
                 "gpt-4o-realtime-preview-2024-12-17",
             ],
             default_model="gpt-4o-realtime-preview",
-            voices=["alloy", "ash", "ballad", "coral", "echo", "sage", "shimmer", "verse"],
+            voices=[
+                "alloy",
+                "ash",
+                "ballad",
+                "coral",
+                "echo",
+                "sage",
+                "shimmer",
+                "verse",
+            ],
             default_voice="alloy",
             features=["vad", "function_calling", "transcription", "interruption"],
             extra={

@@ -133,7 +133,11 @@ class MCPServer:
         # If it's a FastMCP (has .streamable_http_app), respect transport given
         if transport and hasattr(obj, "streamable_http_app"):
             return self.add_fastmcp(
-                obj, path, transport=transport, name=name, require_manager=require_manager
+                obj,
+                path,
+                transport=transport,
+                name=name,
+                require_manager=require_manager,
             )
         # Else assume it's an ASGI app
         return self.add_app(path, obj, name=name, require_manager=require_manager)
@@ -406,7 +410,10 @@ class MCPServer:
 
             # Skip when not required or when auto-mode found none
             if not m.require_manager:
-                log.debug("[MCP] Mount '%s' does not require a session manager; skipping.", m.path)
+                log.debug(
+                    "[MCP] Mount '%s' does not require a session manager; skipping.",
+                    m.path,
+                )
                 continue
             if m.require_manager and sm is None:
                 msg = f"[MCP] Sub-app at '{m.path}' has no session_manager."

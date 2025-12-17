@@ -24,7 +24,10 @@ async def main():
     agent = Agent()
     resp = await agent.arun_agent(
         messages=[
-            {"role": "user", "content": "What is the capital of france? use wikipedia to find out."}
+            {
+                "role": "user",
+                "content": "What is the capital of france? use wikipedia to find out.",
+            }
         ],
         provider=Providers.openai,
         model_name="gpt-4o",

@@ -52,9 +52,11 @@ def _get_default_voice(provider: str) -> str:
         if cap and cap.default_voice:
             return cap.default_voice
     # Fallback defaults
-    return {"openai": "alloy", "elevenlabs": "Rachel", "google": "en-US-Standard-C"}.get(
-        provider, "default"
-    )
+    return {
+        "openai": "alloy",
+        "elevenlabs": "Rachel",
+        "google": "en-US-Standard-C",
+    }.get(provider, "default")
 
 
 def _get_default_model(provider: str) -> str:
@@ -67,9 +69,11 @@ def _get_default_model(provider: str) -> str:
         if cap and cap.default_model:
             return cap.default_model
     # Fallback defaults
-    return {"openai": "tts-1", "elevenlabs": "eleven_monolingual_v1", "google": "standard"}.get(
-        provider, "default"
-    )
+    return {
+        "openai": "tts-1",
+        "elevenlabs": "eleven_monolingual_v1",
+        "google": "standard",
+    }.get(provider, "default")
 
 
 def _detect_tts_provider() -> str:
