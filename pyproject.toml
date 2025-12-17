@@ -24,10 +24,10 @@ classifiers = [
 ]
 
 [tool.poetry.urls]
-Homepage = "https://github.com/nfraxio/ai-infra"
-Repository = "https://github.com/nfraxio/ai-infra"
-Issues = "https://github.com/nfraxio/ai-infra/issues"
-Documentation = "https://nfrax.dev/ai-infra"
+Homepage = "https://github.com/nfraxlab/ai-infra"
+Repository = "https://github.com/nfraxlab/ai-infra"
+Issues = "https://github.com/nfraxlab/ai-infra/issues"
+Documentation = "https://nfrax.com/ai-infra"
 
 [tool.poetry.dependencies]
 python = ">=3.11,<4.0"
