@@ -17,6 +17,13 @@ import pytest
 from ai_infra.imagegen import GeneratedImage, ImageGen, ImageGenProvider
 from ai_infra.imagegen.models import AVAILABLE_MODELS, DEFAULT_MODELS
 
+# Check if google.genai is available
+try:
+    from google import genai  # noqa: F401
+
+    HAS_GOOGLE_GENAI = True
+except ImportError:  # pragma: no cover
+    HAS_GOOGLE_GENAI = False
 # =============================================================================
 # Fixtures
 # =============================================================================
@@ -190,6 +197,7 @@ class TestGenerateOpenAI:
             assert call_kwargs["style"] == "vivid"
 
 
+@pytest.mark.skipif(not HAS_GOOGLE_GENAI, reason="google-genai not installed")
 class TestGenerateGoogle:
     """Tests for Google Imagen generation."""
 

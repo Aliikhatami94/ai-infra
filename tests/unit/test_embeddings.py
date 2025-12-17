@@ -9,6 +9,14 @@ import pytest
 from ai_infra.embeddings import Embeddings, VectorStore
 from ai_infra.embeddings.vectorstore import Document, SearchResult
 
+# Check if langchain_huggingface is available
+try:
+    import langchain_huggingface  # noqa: F401
+
+    HAS_HUGGINGFACE = True
+except ImportError:  # pragma: no cover
+    HAS_HUGGINGFACE = False
+
 # =============================================================================
 # Embeddings Tests
 # =============================================================================
@@ -46,6 +54,9 @@ class TestEmbeddingsProviders:
         with pytest.raises(ValueError, match="Unknown provider"):
             Embeddings(provider="invalid")
 
+    @pytest.mark.skipif(
+        not HAS_HUGGINGFACE, reason="langchain-huggingface not installed"
+    )
     def test_no_provider_available(self) -> None:
         """Test fallback to huggingface when no API keys set."""
         with patch.dict("os.environ", {}, clear=True):

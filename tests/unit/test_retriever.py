@@ -770,8 +770,9 @@ class TestRetrieverPersistence:
         """Create a Retriever with mocked embeddings."""
         from ai_infra.retriever import Retriever
 
-        r = Retriever(backend="memory")
-        r._embeddings = mock_embeddings
+        # Patch embeddings initialization to avoid needing huggingface
+        with patch("ai_infra.embeddings.Embeddings", return_value=mock_embeddings):
+            r = Retriever(backend="memory")
         return r
 
     def test_save_creates_files(
@@ -854,14 +855,15 @@ class TestRetrieverPersistence:
             path = Path(tmpdir) / "auto_load.pkl"
 
             # Create and save first retriever
-            r1 = Retriever(backend="memory")
-            r1._embeddings = mock_embeddings
+            with patch("ai_infra.embeddings.Embeddings", return_value=mock_embeddings):
+                r1 = Retriever(backend="memory")
             r1.add_text("Persisted content")
             r1.save(path)
             original_count = r1.count
 
             # Create new retriever with persist_path - should auto-load
-            r2 = Retriever(backend="memory", persist_path=path)
+            with patch("ai_infra.embeddings.Embeddings", return_value=mock_embeddings):
+                r2 = Retriever(backend="memory", persist_path=path)
 
             # Should have loaded the data
             assert r2.count == original_count
@@ -874,8 +876,8 @@ class TestRetrieverPersistence:
             path = Path(tmpdir) / "auto_save.pkl"
 
             # Create retriever with persist_path (file doesn't exist yet)
-            r1 = Retriever(backend="memory", persist_path=path)
-            r1._embeddings = mock_embeddings
+            with patch("ai_infra.embeddings.Embeddings", return_value=mock_embeddings):
+                r1 = Retriever(backend="memory", persist_path=path)
 
             # File shouldn't exist yet
             assert not path.exists()
@@ -898,8 +900,8 @@ class TestRetrieverPersistence:
             path = Path(tmpdir) / "no_auto_save.pkl"
 
             # Create retriever with auto_save=False
-            r1 = Retriever(backend="memory", persist_path=path, auto_save=False)
-            r1._embeddings = mock_embeddings
+            with patch("ai_infra.embeddings.Embeddings", return_value=mock_embeddings):
+                r1 = Retriever(backend="memory", persist_path=path, auto_save=False)
 
             # Add content
             r1.add_text("Not auto-saved")
@@ -911,7 +913,7 @@ class TestRetrieverPersistence:
             r1.save(path)
             assert path.exists()
 
-    def test_save_unsupported_backend_raises(self) -> None:
+    def test_save_unsupported_backend_raises(self, mock_embeddings: MagicMock) -> None:
         """Test save() raises for unsupported backends."""
         from ai_infra.retriever import Retriever
         from ai_infra.retriever.backends.base import BaseBackend
@@ -920,7 +922,8 @@ class TestRetrieverPersistence:
             path = Path(tmpdir) / "test.pkl"
 
             # Create retriever with memory backend
-            r = Retriever(backend="memory")
+            with patch("ai_infra.embeddings.Embeddings", return_value=mock_embeddings):
+                r = Retriever(backend="memory")
 
             # Replace with a mock backend that's not MemoryBackend
             class FakeBackend(BaseBackend):
