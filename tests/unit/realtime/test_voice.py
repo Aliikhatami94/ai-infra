@@ -33,6 +33,7 @@ def mock_openai_key(monkeypatch):
     yield
     # Cleanup happens automatically via monkeypatch
 
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Model Tests
 # ─────────────────────────────────────────────────────────────────────────────
