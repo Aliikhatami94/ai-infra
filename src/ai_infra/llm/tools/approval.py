@@ -185,7 +185,7 @@ def console_approval_handler(request: ApprovalRequest) -> ApprovalResponse:
     Prompts user in terminal with y/n choice.
     """
     prompt = request.to_console_prompt()
-    print("\n🔔 Tool Approval Required")
+    print("\nTool Approval Required")
     print(f"   {prompt}")
 
     try:
@@ -559,7 +559,7 @@ def create_rule_based_handler(
 
         # Collect approvals from each required approver
         for approver in rule.approvers:
-            print(f"\n📋 Approval needed from: {approver}")
+            print(f"\nApproval needed from: {approver}")
             sub_request = multi_request.to_approval_request()
             sub_request.metadata["current_approver"] = approver
 

@@ -885,27 +885,27 @@ class PrintCallbacks(Callbacks):
         self.verbose = verbose
 
     def on_llm_start(self, event: LLMStartEvent) -> None:
-        print(f"🚀 LLM call: {event.provider}/{event.model}")
+        print(f"LLM call started: {event.provider}/{event.model}")
 
     def on_llm_end(self, event: LLMEndEvent) -> None:
         tokens = f" ({event.total_tokens} tokens)" if event.total_tokens else ""
-        print(f"✅ LLM done: {event.latency_ms:.0f}ms{tokens}")
+        print(f"LLM call completed in {event.latency_ms:.0f}ms{tokens}")
         if self.verbose and event.response:
             print(f"   Response: {event.response[:100]}...")
 
     def on_llm_error(self, event: LLMErrorEvent) -> None:
-        print(f"❌ LLM error: {event.error}")
+        print(f"[ERROR] LLM call failed: {event.error}")
 
     def on_tool_start(self, event: ToolStartEvent) -> None:
-        print(f"🔧 Tool: {event.tool_name}")
+        print(f"Tool call started: {event.tool_name}")
         if self.verbose:
             print(f"   Args: {event.arguments}")
 
     def on_tool_end(self, event: ToolEndEvent) -> None:
-        print(f"✅ Tool done: {event.latency_ms:.0f}ms")
+        print(f"Tool call completed in {event.latency_ms:.0f}ms")
 
     def on_tool_error(self, event: ToolErrorEvent) -> None:
-        print(f"❌ Tool error: {event.tool_name}: {event.error}")
+        print(f"[ERROR] Tool call failed: {event.tool_name}: {event.error}")
 
 
 # =============================================================================

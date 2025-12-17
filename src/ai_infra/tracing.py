@@ -284,8 +284,8 @@ class ConsoleExporter(SpanExporter):
         self.verbose = verbose
 
     def export(self, span: Span) -> None:
-        status_emoji = "✅" if span._status == "ok" else "❌"
-        print(f"{status_emoji} {span.name}: {span.duration_ms:.1f}ms")
+        status = "[OK]" if span._status == "ok" else "[ERROR]"
+        print(f"{status} {span.name}: {span.duration_ms:.1f}ms")
         if self.verbose:
             for key, value in span._attributes.items():
                 print(f"   {key}: {value}")
