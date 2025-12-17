@@ -12,7 +12,14 @@ from pydantic import BaseModel, ConfigDict, Field, conlist, create_model
 
 from .constants import ALLOWED_METHODS
 from .io import load_openapi
-from .models import AuthConfig, BuildReport, OpenAPIOptions, OpenAPISpec, OperationContext, OpReport
+from .models import (
+    AuthConfig,
+    BuildReport,
+    OpenAPIOptions,
+    OpenAPISpec,
+    OperationContext,
+    OpReport,
+)
 from .runtime import (
     extract_body_content_type,
     has_request_body,
@@ -102,7 +109,9 @@ def _maybe_log_report(report: BuildReport, report_log: bool) -> None:
 
 
 class SecurityResolver:
-    def __init__(self, header_api_keys=None, query_api_keys=None, bearer=False, basic=False):
+    def __init__(
+        self, header_api_keys=None, query_api_keys=None, bearer=False, basic=False
+    ):
         self.header_api_keys = header_api_keys or []
         self.query_api_keys = query_api_keys or []
         self.bearer = bearer
@@ -213,14 +222,18 @@ async def _apply_auth_config(
 # ---------------------- Context helpers ----------------------
 
 
-def _make_operation_context(path: str, method: str, path_item: dict, op: dict) -> OperationContext:
+def _make_operation_context(
+    path: str, method: str, path_item: dict, op: dict
+) -> OperationContext:
     merged = merge_parameters(path_item, op)
     path_params, query_params, header_params, cookie_params = split_params(merged)
     wants_body = has_request_body(op)
     body_ct = extract_body_content_type(op) if wants_body else None
     return OperationContext(
         name=op_tool_name(path, method, op.get("operationId")),
-        description=op.get("summary") or op.get("description") or f"{method.upper()} {path}",
+        description=op.get("summary")
+        or op.get("description")
+        or f"{method.upper()} {path}",
         method=method.upper(),
         path=path,
         path_params=path_params,
@@ -229,7 +242,9 @@ def _make_operation_context(path: str, method: str, path_item: dict, op: dict) -
         cookie_params=cookie_params,
         wants_body=wants_body,
         body_content_type=body_ct,
-        body_required=bool(op.get("requestBody", {}).get("required")) if wants_body else False,
+        body_required=bool(op.get("requestBody", {}).get("required"))
+        if wants_body
+        else False,
     )
 
 
@@ -274,7 +289,9 @@ def _resolve_ref(
     return schema
 
 
-def _merge_allof_schemas(schemas: List[Dict[str, Any]], spec: OpenAPISpec) -> Dict[str, Any]:
+def _merge_allof_schemas(
+    schemas: List[Dict[str, Any]], spec: OpenAPISpec
+) -> Dict[str, Any]:
     """Merge allOf schemas into a single schema."""
     result: Dict[str, Any] = {"type": "object", "properties": {}, "required": []}
 
@@ -432,7 +449,12 @@ def _build_input_model(
         schema = param.get("schema") or {}
         return _py_type_from_schema(schema, spec)
 
-    for p in op_ctx.path_params + op_ctx.query_params + op_ctx.header_params + op_ctx.cookie_params:
+    for p in (
+        op_ctx.path_params
+        + op_ctx.query_params
+        + op_ctx.header_params
+        + op_ctx.cookie_params
+    ):
         name = p.get("name")
         if not name:
             continue
@@ -479,7 +501,9 @@ def _build_input_model(
     return Model
 
 
-def _pick_response_schema(op: dict, spec: OpenAPISpec) -> tuple[Optional[dict], Optional[str]]:
+def _pick_response_schema(
+    op: dict, spec: OpenAPISpec
+) -> tuple[Optional[dict], Optional[str]]:
     responses = op.get("responses") or {}
     for status, resp in sorted(responses.items(), key=lambda kv: kv[0]):
         try:
@@ -502,7 +526,9 @@ def _pick_response_schema(op: dict, spec: OpenAPISpec) -> tuple[Optional[dict], 
     return (None, None)
 
 
-def _build_output_model(op_ctx: OperationContext, op: dict, spec: OpenAPISpec) -> type[BaseModel]:
+def _build_output_model(
+    op_ctx: OperationContext, op: dict, spec: OpenAPISpec
+) -> type[BaseModel]:
     """
     Envelope: status, headers, url, method, and payload as either:
       - alias 'json' (typed if we discovered a schema), OR
@@ -568,7 +594,11 @@ def _register_operation_tool(
     security = SecurityResolver.from_spec(spec, op)
 
     media_types = list(((op.get("requestBody") or {}).get("content") or {}).keys())
-    if op_ctx.wants_body and media_types and op_ctx.body_content_type not in media_types:
+    if (
+        op_ctx.wants_body
+        and media_types
+        and op_ctx.body_content_type not in media_types
+    ):
         warnings.append(
             f"Chosen content-type {op_ctx.body_content_type!r} not present in requestBody keys={media_types!r}"
         )
@@ -601,13 +631,17 @@ def _register_operation_tool(
         ):
             warnings.append(f"Unrecognized style={style!r} for param '{p.get('name')}'")
         if explode not in (None, True, False):
-            warnings.append(f"Unrecognized explode={explode!r} for param '{p.get('name')}'")
+            warnings.append(
+                f"Unrecognized explode={explode!r} for param '{p.get('name')}'"
+            )
 
     def _has_var(url: str) -> bool:
         return "{" in url and "}" in url
 
     if base_url and _has_var(base_url):
-        warnings.append(f"Base URL contains server variables; not expanded: {base_url!r}")
+        warnings.append(
+            f"Base URL contains server variables; not expanded: {base_url!r}"
+        )
 
     if op_ctx.wants_body and op_ctx.body_content_type not in (
         None,
@@ -655,7 +689,9 @@ def _register_operation_tool(
     async def tool(args: Optional[InputModel] = None) -> OutputModel:  # type: ignore[valid-type]
         # Allow completely empty calls (e.g., ping) by treating None as {}
         payload: dict[str, Any] = (
-            args.model_dump(by_alias=True, exclude_none=True) if args is not None else {}
+            args.model_dump(by_alias=True, exclude_none=True)
+            if args is not None
+            else {}
         )
 
         url_base = (payload.pop("_base_url", None) or base_url).rstrip("/")
@@ -699,7 +735,9 @@ def _register_operation_tool(
                 explode = p.get("explode")
                 # Use serialize_query_param for proper array handling
                 # pname is validated above (checked against payload keys)
-                serialized = serialize_query_param(str(pname), value, style=style, explode=explode)
+                serialized = serialize_query_param(
+                    str(pname), value, style=style, explode=explode
+                )
                 query.update(serialized)
             elif p.get("required"):
                 errors.append(f"Missing required query param: {pname}")
@@ -732,7 +770,9 @@ def _register_operation_tool(
                     headers.setdefault("Content-Type", "application/json")
                 elif ct == "application/x-www-form-urlencoded":
                     data = body_arg
-                    headers.setdefault("Content-Type", "application/x-www-form-urlencoded")
+                    headers.setdefault(
+                        "Content-Type", "application/x-www-form-urlencoded"
+                    )
                 elif ct == "multipart/form-data":
                     files = payload.pop("_files", None)
                     if files is None:
@@ -1169,9 +1209,7 @@ def _mcp_from_openapi(
                 report.registered_tools += 1
             except Exception as e:
                 report.skipped_ops += 1
-                warn = (
-                    f"Failed to register tool for {method.upper()} {path}: {type(e).__name__}: {e}"
-                )
+                warn = f"Failed to register tool for {method.upper()} {path}: {type(e).__name__}: {e}"
                 report.warnings.append(warn)
                 log.debug(warn, exc_info=True)
 

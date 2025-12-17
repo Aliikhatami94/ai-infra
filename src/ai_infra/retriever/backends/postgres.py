@@ -95,7 +95,8 @@ class PostgresBackend(BaseBackend):
             import logging
 
             logging.getLogger(__name__).warning(
-                f"PostgreSQL backend only supports cosine similarity, " f"ignoring {similarity!r}"
+                f"PostgreSQL backend only supports cosine similarity, "
+                f"ignoring {similarity!r}"
             )
 
         # Connect to database

@@ -89,7 +89,9 @@ class AudioSegment:
             f.write(self.data)
 
     @classmethod
-    def from_file(cls, path: str | Path, format: Optional[AudioFormat] = None) -> "AudioSegment":
+    def from_file(
+        cls, path: str | Path, format: Optional[AudioFormat] = None
+    ) -> "AudioSegment":
         """Load audio from a file.
 
         Args:

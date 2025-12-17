@@ -30,7 +30,13 @@ from __future__ import annotations
 
 from typing import Any, List, Literal, Optional, Sequence, Union
 
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import (
+    AIMessage,
+    BaseMessage,
+    HumanMessage,
+    SystemMessage,
+    ToolMessage,
+)
 
 from ai_infra.llm.memory.tokens import count_tokens_approximate
 
@@ -116,7 +122,9 @@ def trim_messages(
             available_tokens = max(0, available_tokens - system_tokens)
         result = _trim_by_tokens(work_messages, available_tokens, counter)
     else:
-        raise ValueError(f"Unknown strategy: {strategy}. Use 'last', 'first', or 'token'")
+        raise ValueError(
+            f"Unknown strategy: {strategy}. Use 'last', 'first', or 'token'"
+        )
 
     # Prepend system message if preserved
     if system_msg:

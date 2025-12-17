@@ -257,7 +257,9 @@ class TestProgressIntegration:
             return {"results": results, "count": len(results)}
 
         items = ["a", "b", "c", "d", "e"]
-        result = await process_data._async_wrapper(items=items, _progress_callback=collect_events)
+        result = await process_data._async_wrapper(
+            items=items, _progress_callback=collect_events
+        )
 
         assert result["count"] == 5
         assert result["results"] == ["A", "B", "C", "D", "E"]

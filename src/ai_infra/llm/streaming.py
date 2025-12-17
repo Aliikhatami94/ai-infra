@@ -102,7 +102,9 @@ class StreamEvent:
     tool_id: Optional[str] = None  # tool call ID
     arguments: Optional[Dict[str, Any]] = None  # tool arguments (detailed+)
     result: Optional[Union[str, Dict[str, Any]]] = None  # tool result (detailed+)
-    result_structured: bool = False  # True if result is structured dict (from retriever tool)
+    result_structured: bool = (
+        False  # True if result is structured dict (from retriever tool)
+    )
     preview: Optional[str] = None  # truncated result preview (debug only, for UI)
     latency_ms: Optional[float] = None  # tool execution time
     model: Optional[str] = None  # model name (thinking event)
@@ -137,7 +139,11 @@ class StreamEvent:
         d: Dict[str, Any] = {"type": self.type}
 
         # Handle structured tool results specially
-        if self.type == "tool_end" and self.result_structured and self.result is not None:
+        if (
+            self.type == "tool_end"
+            and self.result_structured
+            and self.result is not None
+        ):
             # Include structured result directly for frontend parsing
             d["structured_result"] = self.result
             d["result_structured"] = True
@@ -167,7 +173,9 @@ class StreamEvent:
         parts = [f"type={self.type!r}"]
         if self.content is not None:
             # Truncate long content
-            content = self.content[:50] + "..." if len(self.content) > 50 else self.content
+            content = (
+                self.content[:50] + "..." if len(self.content) > 50 else self.content
+            )
             parts.append(f"content={content!r}")
         if self.tool is not None:
             parts.append(f"tool={self.tool!r}")

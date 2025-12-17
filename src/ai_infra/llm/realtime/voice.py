@@ -206,7 +206,9 @@ class RealtimeVoice:
             self._provider = self._auto_select_provider()
 
     @classmethod
-    def register_provider(cls, name: str, provider_class: type[BaseRealtimeProvider]) -> None:
+    def register_provider(
+        cls, name: str, provider_class: type[BaseRealtimeProvider]
+    ) -> None:
         """
         Register a provider class for auto-selection.
 
@@ -241,7 +243,9 @@ class RealtimeVoice:
 
         # Use central registry if available
         if _HAS_PROVIDER_REGISTRY:
-            realtime_providers = ProviderRegistry.list_for_capability(ProviderCapability.REALTIME)
+            realtime_providers = ProviderRegistry.list_for_capability(
+                ProviderCapability.REALTIME
+            )
             for name in realtime_providers:
                 if ProviderRegistry.is_configured(name):
                     # Map registry names to local provider names

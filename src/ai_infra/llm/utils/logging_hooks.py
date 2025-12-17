@@ -47,13 +47,19 @@ class RequestContext:
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            "user_msg": self.user_msg[:200] + "..." if len(self.user_msg) > 200 else self.user_msg,
+            "user_msg": self.user_msg[:200] + "..."
+            if len(self.user_msg) > 200
+            else self.user_msg,
             "system": (
-                self.system[:100] + "..." if self.system and len(self.system) > 100 else self.system
+                self.system[:100] + "..."
+                if self.system and len(self.system) > 100
+                else self.system
             ),
             "provider": self.provider,
             "model_name": self.model_name,
-            "model_kwargs": {k: v for k, v in self.model_kwargs.items() if k != "api_key"},
+            "model_kwargs": {
+                k: v for k, v in self.model_kwargs.items() if k != "api_key"
+            },
             "timestamp": self.timestamp,
         }
 

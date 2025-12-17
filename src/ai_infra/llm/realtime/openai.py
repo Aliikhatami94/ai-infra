@@ -292,7 +292,8 @@ class OpenAIRealtimeProvider(BaseRealtimeProvider):
                     "type": "function",
                     "name": tool.name,
                     "description": tool.description or "",
-                    "parameters": tool.parameters or {"type": "object", "properties": {}},
+                    "parameters": tool.parameters
+                    or {"type": "object", "properties": {}},
                 }
                 for tool in self.config.tools
             ]
@@ -307,7 +308,9 @@ class OpenAIRealtimeProvider(BaseRealtimeProvider):
         if msg_type == "session.created":
             if self._session:
                 self._session._session_id = message.get("session", {}).get("id")
-            logger.debug("Session created: %s", self._session.session_id if self._session else "")
+            logger.debug(
+                "Session created: %s", self._session.session_id if self._session else ""
+            )
 
         elif msg_type == "session.updated":
             logger.debug("Session updated")
@@ -365,7 +368,9 @@ class OpenAIRealtimeProvider(BaseRealtimeProvider):
                         "item": {
                             "type": "function_call_output",
                             "call_id": call_id,
-                            "output": json.dumps(result) if result is not None else "null",
+                            "output": json.dumps(result)
+                            if result is not None
+                            else "null",
                         },
                     }
                 )
@@ -551,7 +556,9 @@ class OpenAIRealtimeProvider(BaseRealtimeProvider):
             AudioChunk and TranscriptDelta events.
         """
         # Queue to collect events
-        event_queue: asyncio.Queue[AudioChunk | TranscriptDelta | None] = asyncio.Queue()
+        event_queue: asyncio.Queue[AudioChunk | TranscriptDelta | None] = (
+            asyncio.Queue()
+        )
 
         # Override callbacks to queue events
         original_audio_callbacks = self._audio_callbacks.copy()

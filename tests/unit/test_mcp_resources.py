@@ -258,7 +258,9 @@ class TestLoadMcpResources:
         """Test loading a specific resource by URI."""
         session = AsyncMock()
         session.read_resource.return_value = MockReadResourceResult(
-            contents=[MockTextResourceContents(text="Hello, World!", mime_type="text/plain")]
+            contents=[
+                MockTextResourceContents(text="Hello, World!", mime_type="text/plain")
+            ]
         )
 
         resources = await load_mcp_resources(session, uris="file:///test.txt")
@@ -274,14 +276,20 @@ class TestLoadMcpResources:
         session = AsyncMock()
         session.read_resource.side_effect = [
             MockReadResourceResult(
-                contents=[MockTextResourceContents(text="File 1", mime_type="text/plain")]
+                contents=[
+                    MockTextResourceContents(text="File 1", mime_type="text/plain")
+                ]
             ),
             MockReadResourceResult(
-                contents=[MockTextResourceContents(text="File 2", mime_type="text/plain")]
+                contents=[
+                    MockTextResourceContents(text="File 2", mime_type="text/plain")
+                ]
             ),
         ]
 
-        resources = await load_mcp_resources(session, uris=["file:///a.txt", "file:///b.txt"])
+        resources = await load_mcp_resources(
+            session, uris=["file:///a.txt", "file:///b.txt"]
+        )
 
         assert len(resources) == 2
         assert resources[0].data == "File 1"
@@ -401,7 +409,9 @@ class TestResourcesIntegration:
         # Load text resource
         config_json = '{"app": "test", "version": "1.0"}'
         session.read_resource.return_value = MockReadResourceResult(
-            contents=[MockTextResourceContents(text=config_json, mime_type="application/json")]
+            contents=[
+                MockTextResourceContents(text=config_json, mime_type="application/json")
+            ]
         )
 
         loaded = await load_mcp_resources(session, uris="file:///app/config.json")

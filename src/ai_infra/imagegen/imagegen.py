@@ -62,7 +62,9 @@ class ImageGen:
             api_key: API key. Uses env var if not specified.
             **kwargs: Additional provider-specific options.
         """
-        self._provider, self._api_key = self._resolve_provider_and_key(provider, api_key)
+        self._provider, self._api_key = self._resolve_provider_and_key(
+            provider, api_key
+        )
         self._model = model or self._get_default_model(self._provider)
         self._kwargs = kwargs
         self._client: Any = None
@@ -347,7 +349,9 @@ class ImageGen:
             return self._generate_google_gemini(client, prompt, n=n, **kwargs)
         else:
             # Use generate_images API for Imagen models
-            return self._generate_google_imagen(client, prompt, size=size, n=n, **kwargs)
+            return self._generate_google_imagen(
+                client, prompt, size=size, n=n, **kwargs
+            )
 
     def _generate_google_gemini(
         self,
@@ -405,7 +409,9 @@ class ImageGen:
 
         return [
             GeneratedImage(
-                data=base64.b64decode(img.image.image_bytes) if hasattr(img, "image") else None,
+                data=base64.b64decode(img.image.image_bytes)
+                if hasattr(img, "image")
+                else None,
                 model=self._model,
                 provider=ImageGenProvider.GOOGLE,
             )
@@ -430,7 +436,9 @@ class ImageGen:
             return await self._agenerate_google_gemini(client, prompt, n=n, **kwargs)
         else:
             # Use generate_images API for Imagen models
-            return await self._agenerate_google_imagen(client, prompt, size=size, n=n, **kwargs)
+            return await self._agenerate_google_imagen(
+                client, prompt, size=size, n=n, **kwargs
+            )
 
     async def _agenerate_google_gemini(
         self,
@@ -488,7 +496,9 @@ class ImageGen:
 
         return [
             GeneratedImage(
-                data=base64.b64decode(img.image.image_bytes) if hasattr(img, "image") else None,
+                data=base64.b64decode(img.image.image_bytes)
+                if hasattr(img, "image")
+                else None,
                 model=self._model,
                 provider=ImageGenProvider.GOOGLE,
             )
@@ -777,7 +787,9 @@ class ImageGen:
             List of GeneratedImage objects.
         """
         if self._provider != ImageGenProvider.OPENAI:
-            raise NotImplementedError(f"variations() not supported for {self._provider}")
+            raise NotImplementedError(
+                f"variations() not supported for {self._provider}"
+            )
 
         client = self._get_openai_client()
 

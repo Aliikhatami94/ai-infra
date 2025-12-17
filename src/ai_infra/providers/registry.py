@@ -132,7 +132,11 @@ class ProviderRegistry:
             ['elevenlabs', 'google_genai', 'openai']
         """
         cls._ensure_initialized()
-        return sorted(name for name, config in cls._providers.items() if config.has_capability(cap))
+        return sorted(
+            name
+            for name, config in cls._providers.items()
+            if config.has_capability(cap)
+        )
 
     @classmethod
     def list_configured_for_capability(cls, cap: ProviderCapability) -> list[str]:
@@ -148,7 +152,9 @@ class ProviderRegistry:
             >>> ProviderRegistry.list_configured_for_capability(ProviderCapability.CHAT)
             ['openai']  # Only if OPENAI_API_KEY is set
         """
-        return [name for name in cls.list_for_capability(cap) if cls.is_configured(name)]
+        return [
+            name for name in cls.list_for_capability(cap) if cls.is_configured(name)
+        ]
 
     @classmethod
     def is_configured(cls, name: str) -> bool:
@@ -392,7 +398,9 @@ def get_provider(name: str) -> Optional[ProviderConfig]:
     return ProviderRegistry.get(name)
 
 
-def get_provider_config(name: str, capability: ProviderCapability) -> Optional[CapabilityConfig]:
+def get_provider_config(
+    name: str, capability: ProviderCapability
+) -> Optional[CapabilityConfig]:
     """Get capability configuration for a provider.
 
     Args:

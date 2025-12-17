@@ -570,7 +570,9 @@ def log_function(
             try:
                 result = fn(*args, **kwargs)
                 elapsed = (time.time() - start) * 1000
-                _logger._log(level, f"Exiting {fn.__name__}", latency_ms=round(elapsed, 2))
+                _logger._log(
+                    level, f"Exiting {fn.__name__}", latency_ms=round(elapsed, 2)
+                )
                 return result
             except Exception as e:
                 elapsed = (time.time() - start) * 1000
@@ -602,7 +604,9 @@ def log_async_function(
             try:
                 result = await fn(*args, **kwargs)
                 elapsed = (time.time() - start) * 1000
-                _logger._log(level, f"Exiting {fn.__name__}", latency_ms=round(elapsed, 2))
+                _logger._log(
+                    level, f"Exiting {fn.__name__}", latency_ms=round(elapsed, 2)
+                )
                 return result
             except Exception as e:
                 elapsed = (time.time() - start) * 1000

@@ -36,7 +36,9 @@ def no_tools() -> Dict[str, Any]:
     return {"tool_controls": {"tool_choice": "none"}}
 
 
-def force_tool(name: str, *, once: bool = False, parallel: bool = False) -> Dict[str, Any]:
+def force_tool(
+    name: str, *, once: bool = False, parallel: bool = False
+) -> Dict[str, Any]:
     return {
         "tool_controls": {
             "tool_choice": {"name": name},

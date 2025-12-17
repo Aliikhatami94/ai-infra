@@ -18,7 +18,12 @@ from .logging_hooks import ErrorContext, LoggingHooks, RequestContext, ResponseC
 from .messages import is_valid_response, make_messages
 from .model_init import build_model_key, initialize_model, sanitize_model_kwargs
 from .retry import with_retry
-from .runtime_bind import ModelRegistry, bind_model_with_tools, make_agent_with_context, tool_used
+from .runtime_bind import (
+    ModelRegistry,
+    bind_model_with_tools,
+    make_agent_with_context,
+    tool_used,
+)
 from .settings import ModelSettings
 from .validation import validate_provider
 

@@ -65,7 +65,11 @@ def is_valid_response(res: Any) -> bool:
     content = getattr(res, "content", None)
     if content is not None:
         return str(content).strip() != ""
-    if isinstance(res, dict) and isinstance(res.get("messages"), list) and res["messages"]:
+    if (
+        isinstance(res, dict)
+        and isinstance(res.get("messages"), list)
+        and res["messages"]
+    ):
         last = res["messages"][-1]
         if hasattr(last, "content"):
             return str(getattr(last, "content", "")).strip() != ""

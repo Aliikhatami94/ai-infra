@@ -483,7 +483,11 @@ class TestGraphAnalysis:
         diagram = graph.get_arch_diagram()
         assert isinstance(diagram, str)
         # Mermaid diagrams typically start with graph or flowchart
-        assert "graph" in diagram.lower() or "flowchart" in diagram.lower() or "---" in diagram
+        assert (
+            "graph" in diagram.lower()
+            or "flowchart" in diagram.lower()
+            or "---" in diagram
+        )
 
 
 # ============================================================================

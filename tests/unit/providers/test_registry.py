@@ -167,7 +167,9 @@ class TestProviderConfig:
         # Check CHAT capability
         chat = config.get_capability(ProviderCapability.CHAT)
         assert chat is not None
-        assert "claude-sonnet-4-20250514" in chat.models or any("claude" in m for m in chat.models)
+        assert "claude-sonnet-4-20250514" in chat.models or any(
+            "claude" in m for m in chat.models
+        )
 
     def test_google_config(self):
         """Test Google/Gemini provider config."""

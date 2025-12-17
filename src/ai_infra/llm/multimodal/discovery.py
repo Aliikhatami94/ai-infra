@@ -128,7 +128,9 @@ def list_tts_voices(provider: str = "openai") -> List[str]:
     """
     config = ProviderRegistry.get(provider)
     if not config:
-        raise ValueError(f"Unknown TTS provider: {provider}. Available: {list_tts_providers()}")
+        raise ValueError(
+            f"Unknown TTS provider: {provider}. Available: {list_tts_providers()}"
+        )
     cap = config.get_capability(ProviderCapability.TTS)
     if not cap:
         raise ValueError(f"Provider {provider} does not support TTS")
@@ -146,7 +148,9 @@ def list_tts_models(provider: str = "openai") -> List[str]:
     """
     config = ProviderRegistry.get(provider)
     if not config:
-        raise ValueError(f"Unknown TTS provider: {provider}. Available: {list_tts_providers()}")
+        raise ValueError(
+            f"Unknown TTS provider: {provider}. Available: {list_tts_providers()}"
+        )
     cap = config.get_capability(ProviderCapability.TTS)
     if not cap:
         raise ValueError(f"Provider {provider} does not support TTS")
@@ -215,7 +219,9 @@ def list_stt_models(provider: str = "openai") -> List[str]:
     """
     config = ProviderRegistry.get(provider)
     if not config:
-        raise ValueError(f"Unknown STT provider: {provider}. Available: {list_stt_providers()}")
+        raise ValueError(
+            f"Unknown STT provider: {provider}. Available: {list_stt_providers()}"
+        )
     cap = config.get_capability(ProviderCapability.STT)
     if not cap:
         raise ValueError(f"Provider {provider} does not support STT")

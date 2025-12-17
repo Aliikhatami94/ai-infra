@@ -6,7 +6,11 @@ from typing import Optional
 
 import typer
 
-from ai_infra.llm.tools.custom.stdio_publisher import add_shim, ensure_executable, remove_shim
+from ai_infra.llm.tools.custom.stdio_publisher import (
+    add_shim,
+    ensure_executable,
+    remove_shim,
+)
 
 
 def _echo(obj, as_json: bool):
@@ -17,14 +21,20 @@ def _echo(obj, as_json: bool):
 
 
 def add_cmd(
-    tool_name: str = typer.Option(..., help="CLI name to publish (e.g. auth-infra-mcp)"),
-    module: str = typer.Option(..., help="Python module to run (e.g. svc_infra.auth.mcp)"),
+    tool_name: str = typer.Option(
+        ..., help="CLI name to publish (e.g. auth-infra-mcp)"
+    ),
+    module: str = typer.Option(
+        ..., help="Python module to run (e.g. svc_infra.auth.mcp)"
+    ),
     repo: str = typer.Option(
         ...,
         help="Git repo URL or GitHub shorthand (owner/repo, github:owner/repo, SSH, or HTTPS)",
     ),
     ref: str = typer.Option("main", help="Git ref/branch/tag (default: main)"),
-    package_json: Path = typer.Option(Path("package.json"), help="Path to root package.json"),
+    package_json: Path = typer.Option(
+        Path("package.json"), help="Path to root package.json"
+    ),
     bin_dir: Path = typer.Option(
         Path("mcp-shim") / "bin", help="Where to write shims (default: mcp-shim/bin)"
     ),
@@ -35,8 +45,12 @@ def add_cmd(
     base_dir: Optional[Path] = typer.Option(
         None, help="Write under this repo root (useful in sandboxed runners)"
     ),
-    dry_run: bool = typer.Option(False, help="Emit file contents without touching disk"),
-    json_out: bool = typer.Option(True, help="Print machine-readable JSON (default: true)"),
+    dry_run: bool = typer.Option(
+        False, help="Emit file contents without touching disk"
+    ),
+    json_out: bool = typer.Option(
+        True, help="Print machine-readable JSON (default: true)"
+    ),
 ):
     """
     Add a CLI shim to package.json and create the shim file for mcp stdio publishing.
@@ -85,7 +99,9 @@ def remove_cmd(
 
 
 def chmod_cmd(
-    path: Path = typer.Argument(..., help="Shim file path (e.g. mcp-shim/bin/auth-infra-mcp.js)"),
+    path: Path = typer.Argument(
+        ..., help="Shim file path (e.g. mcp-shim/bin/auth-infra-mcp.js)"
+    ),
     json_out: bool = typer.Option(True),
 ):
     """

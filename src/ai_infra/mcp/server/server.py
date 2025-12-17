@@ -77,7 +77,9 @@ class MCPServer:
         if transport == "streamable_http":
             sub_app = mcp.streamable_http_app()
             sm = getattr(mcp, "session_manager", None)
-            if sm and not getattr(getattr(sub_app, "state", object()), "session_manager", None):
+            if sm and not getattr(
+                getattr(sub_app, "state", object()), "session_manager", None
+            ):
                 setattr(sub_app.state, "session_manager", sm)
             if require_manager is None:
                 require_manager = True
@@ -328,7 +330,9 @@ class MCPServer:
                 resp.raise_for_status()
                 resolved_spec = resp.json()
         else:
-            raise ValueError("You must provide either `app`, `base_url`, or an explicit `spec`.")
+            raise ValueError(
+                "You must provide either `app`, `base_url`, or an explicit `spec`."
+            )
 
         # ---------- resolve Async client for tools ----------
         own_client = False
@@ -383,7 +387,9 @@ class MCPServer:
         )
 
         async_cleanup = tools_client.aclose if own_client else None
-        resolved_name = name or (getattr(app, "title", None) if app is not None else None)
+        resolved_name = name or (
+            getattr(app, "title", None) if app is not None else None
+        )
 
         return self.add_fastmcp(
             mcp,
@@ -398,7 +404,11 @@ class MCPServer:
     def mount_all(self, root_app: Any) -> None:
         for m in self._mounts:
             root_app.mount(m.path, m.app)
-            label = m.name or getattr(getattr(m.app, "state", object()), "mcp_name", None) or "mcp"
+            label = (
+                m.name
+                or getattr(getattr(m.app, "state", object()), "mcp_name", None)
+                or "mcp"
+            )
             log.info("Mounted MCP app '%s' at %s", label, m.path)
 
     def _iter_unique_session_managers(self) -> Iterable[tuple[str, Any]]:
@@ -574,11 +584,15 @@ class MCPServer:
 
         app = Starlette(routes=[], lifespan=self.lifespan)
         if self._health_path:
-            app.router.routes.append(Route(self._health_path, endpoint=health, methods=["GET"]))
+            app.router.routes.append(
+                Route(self._health_path, endpoint=health, methods=["GET"])
+            )
         self.mount_all(app)
         return app
 
-    def run_uvicorn(self, host: str = "0.0.0.0", port: int = 8000, log_level: str = "info"):
+    def run_uvicorn(
+        self, host: str = "0.0.0.0", port: int = 8000, log_level: str = "info"
+    ):
         import uvicorn
 
         uvicorn.run(self.build_asgi_root(), host=host, port=port, log_level=log_level)

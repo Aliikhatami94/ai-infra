@@ -250,7 +250,9 @@ def mcp_from_functions(
             if fn is None:
                 continue  # or raise ValueError("ToolDef.fn is required")
             tool_name = getattr(item, "name", None) or fn.__name__
-            desc = (getattr(item, "description", None) or _describe(fn, tool_name)).strip()
+            desc = (
+                getattr(item, "description", None) or _describe(fn, tool_name)
+            ).strip()
         else:
             fn = item
             tool_name = fn.__name__

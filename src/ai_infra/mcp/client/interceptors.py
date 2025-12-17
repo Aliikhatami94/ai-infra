@@ -202,7 +202,9 @@ class CachingInterceptor:
     """
 
     ttl_seconds: int = 300
-    _cache: dict[str, tuple[CallToolResult, float]] = field(default_factory=dict, repr=False)
+    _cache: dict[str, tuple[CallToolResult, float]] = field(
+        default_factory=dict, repr=False
+    )
 
     async def __call__(
         self,

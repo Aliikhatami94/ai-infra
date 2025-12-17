@@ -101,7 +101,8 @@ class FAISSBackend(BaseBackend):
 
         else:
             raise ValueError(
-                f"Unknown index_type: {self._index_type}. " "Options: 'flat', 'ivf', 'hnsw'"
+                f"Unknown index_type: {self._index_type}. "
+                "Options: 'flat', 'ivf', 'hnsw'"
             )
 
     def _create_or_load_index(self) -> "faiss.Index":

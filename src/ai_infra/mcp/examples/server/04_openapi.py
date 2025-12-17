@@ -8,7 +8,9 @@ import yaml
 from ai_infra.mcp.server.openapi import _mcp_from_openapi
 
 OpenAPISpec = Dict[str, Any]
-path_to_spec = (Path(__file__).resolve().parents[1] / "resources" / "apiframeworks.json").resolve()
+path_to_spec = (
+    Path(__file__).resolve().parents[1] / "resources" / "apiframeworks.json"
+).resolve()
 
 
 def load_openapi(path_or_str: str | Path) -> OpenAPISpec:

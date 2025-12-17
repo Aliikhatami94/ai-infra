@@ -22,9 +22,13 @@ def build_structured_messages(
         sys_lines: List[str] = []
         if system_preamble:
             sys_lines.append(system_preamble.strip())
-        sys_lines.append("Return ONLY a single JSON object matching the provided schema.")
+        sys_lines.append(
+            "Return ONLY a single JSON object matching the provided schema."
+        )
         if forbid_prose:
-            sys_lines.append("Do NOT include any prose, markdown, or extra keys. JSON only.")
+            sys_lines.append(
+                "Do NOT include any prose, markdown, or extra keys. JSON only."
+            )
         sys_lines.append(f"Schema: {json.dumps(schema)}")
         messages: List[BaseMessage] = [
             SystemMessage(content="\n\n".join(sys_lines)),
@@ -40,7 +44,9 @@ def build_structured_messages(
         sys_lines.append(system_preamble.strip())
     sys_lines.append("Return ONLY a single JSON object that matches the schema below.")
     if forbid_prose:
-        sys_lines.append("Do NOT include any prose, markdown, or extra keys. JSON only.")
+        sys_lines.append(
+            "Do NOT include any prose, markdown, or extra keys. JSON only."
+        )
     sys_lines.append(fmt)
     messages = [
         SystemMessage(content="\n\n".join(sys_lines)),

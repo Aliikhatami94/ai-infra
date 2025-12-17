@@ -47,7 +47,10 @@ Example - Production config:
 """
 
 # Re-export from llm/tools/custom for convenience
-from ai_infra.llm.tools.custom.retriever import create_retriever_tool, create_retriever_tool_async
+from ai_infra.llm.tools.custom.retriever import (
+    create_retriever_tool,
+    create_retriever_tool_async,
+)
 from ai_infra.retriever.models import Chunk, SearchResult
 from ai_infra.retriever.retriever import Retriever
 

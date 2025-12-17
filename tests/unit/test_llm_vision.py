@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from ai_infra.llm.multimodal.vision import build_vision_content, create_vision_message, encode_image
+from ai_infra.llm.multimodal.vision import (
+    build_vision_content,
+    create_vision_message,
+    encode_image,
+)
 
 
 class TestEncodeImage:

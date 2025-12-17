@@ -75,7 +75,10 @@ from ai_infra.llm.memory import (
 from ai_infra.llm.personas import Persona
 from ai_infra.llm.providers import Providers
 from ai_infra.llm.streaming import StreamConfig, StreamEvent
-from ai_infra.llm.tools.custom.retriever import create_retriever_tool, create_retriever_tool_async
+from ai_infra.llm.tools.custom.retriever import (
+    create_retriever_tool,
+    create_retriever_tool_async,
+)
 from ai_infra.logging import configure_logging, get_logger
 from ai_infra.mcp import (
     CachingInterceptor,

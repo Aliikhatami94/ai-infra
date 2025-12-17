@@ -89,7 +89,9 @@ class TestPromptInfo:
         )
         assert info.name == "test-prompt"
         assert info.description == "A test prompt"
-        assert info.arguments == [{"name": "arg1", "description": "First arg", "required": True}]
+        assert info.arguments == [
+            {"name": "arg1", "description": "First arg", "required": True}
+        ]
 
     def test_from_mcp_prompt(self):
         """Test creating PromptInfo from MCP Prompt."""

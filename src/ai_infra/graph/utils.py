@@ -25,13 +25,17 @@ def validate_edges(edges, all_nodes):
     for start, end in edges:
         for endpoint in (start, end):
             if endpoint not in all_nodes and endpoint not in (START, END):
-                raise ValueError(f"Edge endpoint '{endpoint}' is not a known node or START/END")
+                raise ValueError(
+                    f"Edge endpoint '{endpoint}' is not a known node or START/END"
+                )
 
 
 def validate_conditional_edges(conditional_edges, all_nodes):
     for start, router_fn, path_map in conditional_edges:
         if start not in all_nodes and start not in (START, END):
-            raise ValueError(f"Conditional edge start '{start}' is not a known node or START/END")
+            raise ValueError(
+                f"Conditional edge start '{start}' is not a known node or START/END"
+            )
         for target in path_map.values():
             if target not in all_nodes and target not in (START, END):
                 raise ValueError(
@@ -58,10 +62,16 @@ def make_hook(hook, event=None, sync=False):
         if sync:
 
             def sync_hook(node, state):
-                return asyncio.run(hook(node, state) if event is None else hook(node, state, event))
+                return asyncio.run(
+                    hook(node, state) if event is None else hook(node, state, event)
+                )
 
             return sync_hook
-        return lambda node, state: hook(node, state) if event is None else hook(node, state, event)
+        return (
+            lambda node, state: hook(node, state)
+            if event is None
+            else hook(node, state, event)
+        )
 
     async def async_hook(node, state):
         return hook(node, state) if event is None else hook(node, state, event)
@@ -194,7 +204,9 @@ def build_edges(node_names: Sequence[str], edges: Sequence[Any]):
     return regular_edges, conditional_edges
 
 
-def build_edges_enhanced(node_names: Sequence[str], edges: Sequence[Any], entry: str | None = None):
+def build_edges_enhanced(
+    node_names: Sequence[str], edges: Sequence[Any], entry: str | None = None
+):
     """
     Enhanced edge building with tuple support for zero-config API.
 
@@ -257,7 +269,9 @@ def build_edges_enhanced(node_names: Sequence[str], edges: Sequence[Any], entry:
                     (start, make_condition_router(condition_fn, target), path_map)
                 )
             else:
-                raise ValueError(f"Edge tuple must have 2 or 3 elements, got {len(edge)}")
+                raise ValueError(
+                    f"Edge tuple must have 2 or 3 elements, got {len(edge)}"
+                )
         else:
             raise ValueError(f"Unknown edge type: {edge}")
 
@@ -319,7 +333,9 @@ def validate_state_against_schema(state: dict, schema: type) -> None:
             origin = getattr(expected_type, "__origin__", None)
             if origin is None:
                 # Simple type like str, int, etc.
-                if expected_type is not type(None) and not isinstance(value, expected_type):
+                if expected_type is not type(None) and not isinstance(
+                    value, expected_type
+                ):
                     raise ValueError(
                         f"State key '{key}' has type {type(value).__name__}, "
                         f"expected {expected_type.__name__}"

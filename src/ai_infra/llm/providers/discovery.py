@@ -123,7 +123,9 @@ def is_provider_configured(provider: str) -> bool:
     config = ProviderRegistry.get(provider)
     if not config:
         supported = ProviderRegistry.list_for_capability(ProviderCapability.CHAT)
-        raise ValueError(f"Unknown provider: {provider}. Supported: {', '.join(supported)}")
+        raise ValueError(
+            f"Unknown provider: {provider}. Supported: {', '.join(supported)}"
+        )
     return ProviderRegistry.is_configured(provider)
 
 
@@ -362,7 +364,9 @@ def detect_model_capabilities(model_id: str, provider: str) -> Set[ModelCapabili
             # (legacy/code models don't support chat completions or vision)
             if is_non_chat_model:
                 caps_to_add = {
-                    c for c in caps if c not in (ModelCapability.CHAT, ModelCapability.VISION)
+                    c
+                    for c in caps
+                    if c not in (ModelCapability.CHAT, ModelCapability.VISION)
                 }
                 capabilities.update(caps_to_add)
             else:

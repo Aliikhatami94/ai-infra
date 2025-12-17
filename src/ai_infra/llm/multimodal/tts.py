@@ -95,7 +95,9 @@ TTS_PROVIDER_PRIORITY = ["openai", "elevenlabs", "google"]
 _openai_config = ProviderRegistry.get("openai")
 if _openai_config:
     _cap = _openai_config.get_capability(ProviderCapability.TTS)
-    OPENAI_VOICES = _cap.voices if _cap else ["alloy", "echo", "fable", "onyx", "nova", "shimmer"]
+    OPENAI_VOICES = (
+        _cap.voices if _cap else ["alloy", "echo", "fable", "onyx", "nova", "shimmer"]
+    )
 else:
     OPENAI_VOICES = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"]
 OPENAI_MODELS = ["tts-1", "tts-1-hd"]
@@ -288,7 +290,9 @@ class TTS:
             yield from self._stream_elevenlabs(text, voice, model, output_format)
         else:
             # Fallback: return entire audio as single chunk
-            yield self.speak(text, voice=voice, model=model, output_format=output_format)
+            yield self.speak(
+                text, voice=voice, model=model, output_format=output_format
+            )
 
     async def astream(
         self,
@@ -316,11 +320,15 @@ class TTS:
             async for chunk in self._astream_openai(text, voice, model, output_format):
                 yield chunk
         elif self._provider == "elevenlabs":
-            async for chunk in self._astream_elevenlabs(text, voice, model, output_format):
+            async for chunk in self._astream_elevenlabs(
+                text, voice, model, output_format
+            ):
                 yield chunk
         else:
             # Fallback: return entire audio as single chunk
-            yield await self.aspeak(text, voice=voice, model=model, output_format=output_format)
+            yield await self.aspeak(
+                text, voice=voice, model=model, output_format=output_format
+            )
 
     @staticmethod
     def list_voices(provider: Optional[str] = None) -> List[Voice]:
@@ -361,7 +369,9 @@ class TTS:
                     )
 
         if provider is None or provider == "google":
-            if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") or os.environ.get("GOOGLE_API_KEY"):
+            if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") or os.environ.get(
+                "GOOGLE_API_KEY"
+            ):
                 # Google has many voices, just show some common ones
                 google_voices = [
                     ("en-US-Standard-A", "English US Standard A"),
@@ -398,7 +408,9 @@ class TTS:
             providers.append("openai")
         if os.environ.get("ELEVEN_API_KEY") or os.environ.get("ELEVENLABS_API_KEY"):
             providers.append("elevenlabs")
-        if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") or os.environ.get("GOOGLE_API_KEY"):
+        if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") or os.environ.get(
+            "GOOGLE_API_KEY"
+        ):
             providers.append("google")
         return providers
 
@@ -411,7 +423,9 @@ class TTS:
         try:
             from openai import OpenAI
         except ImportError:
-            raise ImportError("openai package required for OpenAI TTS: pip install openai")
+            raise ImportError(
+                "openai package required for OpenAI TTS: pip install openai"
+            )
 
         api_key = self._api_key or os.environ.get("OPENAI_API_KEY")
         return OpenAI(api_key=api_key)
@@ -421,12 +435,16 @@ class TTS:
         try:
             from openai import AsyncOpenAI
         except ImportError:
-            raise ImportError("openai package required for OpenAI TTS: pip install openai")
+            raise ImportError(
+                "openai package required for OpenAI TTS: pip install openai"
+            )
 
         api_key = self._api_key or os.environ.get("OPENAI_API_KEY")
         return AsyncOpenAI(api_key=api_key)
 
-    def _speak_openai(self, text: str, voice: str, model: str, output_format: AudioFormat) -> bytes:
+    def _speak_openai(
+        self, text: str, voice: str, model: str, output_format: AudioFormat
+    ) -> bytes:
         """Generate speech using OpenAI TTS."""
         client = self._get_openai_client()
 
@@ -681,7 +699,9 @@ class TTS:
     # Google TTS Implementation
     # =========================================================================
 
-    def _speak_google(self, text: str, voice: str, model: str, output_format: AudioFormat) -> bytes:
+    def _speak_google(
+        self, text: str, voice: str, model: str, output_format: AudioFormat
+    ) -> bytes:
         """Generate speech using Google Cloud TTS."""
         try:
             from google.cloud import texttospeech  # type: ignore[import-untyped]

@@ -29,7 +29,9 @@ class SearchResult:
     def __repr__(self) -> str:
         text_preview = self.text[:50] + "..." if len(self.text) > 50 else self.text
         source_info = f", source={self.source!r}" if self.source else ""
-        return f"SearchResult(score={self.score:.3f}, text={text_preview!r}{source_info})"
+        return (
+            f"SearchResult(score={self.score:.3f}, text={text_preview!r}{source_info})"
+        )
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API responses.

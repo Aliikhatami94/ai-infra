@@ -173,7 +173,8 @@ def load_docx(path: str) -> list[LoadedDocument]:
         from docx import Document
     except ImportError as e:
         raise ImportError(
-            "python-docx is required for DOCX loading. " "Install it with: pip install python-docx"
+            "python-docx is required for DOCX loading. "
+            "Install it with: pip install python-docx"
         ) from e
 
     doc = Document(path)

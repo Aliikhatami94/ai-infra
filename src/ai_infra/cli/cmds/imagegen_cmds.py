@@ -137,7 +137,9 @@ def models_cmd(
 
         if live:
             if not is_provider_configured(provider):
-                typer.echo(f"Error: Provider '{provider}' is not configured (no API key)")
+                typer.echo(
+                    f"Error: Provider '{provider}' is not configured (no API key)"
+                )
                 raise typer.Exit(1)
 
             try:

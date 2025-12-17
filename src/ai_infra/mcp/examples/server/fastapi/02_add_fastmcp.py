@@ -29,7 +29,9 @@ def ping(text: str = "pong") -> str:
 m2.add_tool(ping)
 
 # Tell MCPServer which transport to build
-mcp_server.add_fastmcp(m1, "/streamable", transport="streamable_http")  # lifecycle auto-managed
+mcp_server.add_fastmcp(
+    m1, "/streamable", transport="streamable_http"
+)  # lifecycle auto-managed
 mcp_server.add_fastmcp(m2, "/sse", transport="sse")  # no manager required
 
 mcp_server.attach_to_fastapi(app)

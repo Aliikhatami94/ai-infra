@@ -106,7 +106,9 @@ class ProviderConfig:
     display_name: str
     env_var: str
     alt_env_vars: list[str] = field(default_factory=list)
-    capabilities: dict[ProviderCapability, CapabilityConfig] = field(default_factory=dict)
+    capabilities: dict[ProviderCapability, CapabilityConfig] = field(
+        default_factory=dict
+    )
     base_url: Optional[str] = None
 
     def has_capability(self, cap: ProviderCapability) -> bool:

@@ -34,7 +34,11 @@ import os
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Union
 
-from ai_infra.llm.multimodal.models import STTProvider, TranscriptionResult, TranscriptionSegment
+from ai_infra.llm.multimodal.models import (
+    STTProvider,
+    TranscriptionResult,
+    TranscriptionSegment,
+)
 from ai_infra.providers import ProviderCapability, ProviderRegistry
 
 # Provider aliases for backwards compatibility
@@ -151,9 +155,13 @@ class STT:
         language = language or self._language
 
         if self._provider == "openai":
-            return self._transcribe_openai(audio, language, timestamps, word_timestamps, prompt)
+            return self._transcribe_openai(
+                audio, language, timestamps, word_timestamps, prompt
+            )
         elif self._provider == "deepgram":
-            return self._transcribe_deepgram(audio, language, timestamps, word_timestamps)
+            return self._transcribe_deepgram(
+                audio, language, timestamps, word_timestamps
+            )
         elif self._provider == "google":
             return self._transcribe_google(audio, language, timestamps, word_timestamps)
         else:
@@ -187,9 +195,13 @@ class STT:
                 audio, language, timestamps, word_timestamps, prompt
             )
         elif self._provider == "deepgram":
-            return await self._atranscribe_deepgram(audio, language, timestamps, word_timestamps)
+            return await self._atranscribe_deepgram(
+                audio, language, timestamps, word_timestamps
+            )
         elif self._provider == "google":
-            return await self._atranscribe_google(audio, language, timestamps, word_timestamps)
+            return await self._atranscribe_google(
+                audio, language, timestamps, word_timestamps
+            )
         else:
             raise ValueError(f"Unsupported STT provider: {self._provider}")
 
@@ -266,7 +278,9 @@ class STT:
             providers.append("openai")
         if os.environ.get("DEEPGRAM_API_KEY"):
             providers.append("deepgram")
-        if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") or os.environ.get("GOOGLE_API_KEY"):
+        if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") or os.environ.get(
+            "GOOGLE_API_KEY"
+        ):
             providers.append("google")
         return providers
 
@@ -312,7 +326,9 @@ class STT:
                     )
 
         if provider is None or provider == "google":
-            if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") or os.environ.get("GOOGLE_API_KEY"):
+            if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") or os.environ.get(
+                "GOOGLE_API_KEY"
+            ):
                 models.append(
                     {
                         "provider": "google",
@@ -354,7 +370,9 @@ class STT:
         try:
             from openai import OpenAI
         except ImportError:
-            raise ImportError("openai package required for OpenAI STT: pip install openai")
+            raise ImportError(
+                "openai package required for OpenAI STT: pip install openai"
+            )
 
         api_key = self._api_key or os.environ.get("OPENAI_API_KEY")
         return OpenAI(api_key=api_key)
@@ -364,7 +382,9 @@ class STT:
         try:
             from openai import AsyncOpenAI
         except ImportError:
-            raise ImportError("openai package required for OpenAI STT: pip install openai")
+            raise ImportError(
+                "openai package required for OpenAI STT: pip install openai"
+            )
 
         api_key = self._api_key or os.environ.get("OPENAI_API_KEY")
         return AsyncOpenAI(api_key=api_key)
@@ -553,9 +573,9 @@ class STT:
                         current_segment_text.append(word.word)
 
                         # Create segment on punctuation or at regular intervals
-                        if (word.punctuated_word and word.punctuated_word[-1] in ".!?") or len(
-                            current_segment_text
-                        ) >= 20:
+                        if (
+                            word.punctuated_word and word.punctuated_word[-1] in ".!?"
+                        ) or len(current_segment_text) >= 20:
                             segments.append(
                                 TranscriptionSegment(
                                     text=" ".join(current_segment_text),
@@ -618,7 +638,9 @@ class STT:
             options.utterances = True
 
         source = {"buffer": audio_bytes}
-        response = await client.listen.asyncprerecorded.v("1").transcribe_file(source, options)
+        response = await client.listen.asyncprerecorded.v("1").transcribe_file(
+            source, options
+        )
 
         # Parse response same as sync version
         result = response.results
@@ -641,9 +663,9 @@ class STT:
                         segment_end = word.end
                         current_segment_text.append(word.word)
 
-                        if (word.punctuated_word and word.punctuated_word[-1] in ".!?") or len(
-                            current_segment_text
-                        ) >= 20:
+                        if (
+                            word.punctuated_word and word.punctuated_word[-1] in ".!?"
+                        ) or len(current_segment_text) >= 20:
                             segments.append(
                                 TranscriptionSegment(
                                     text=" ".join(current_segment_text),

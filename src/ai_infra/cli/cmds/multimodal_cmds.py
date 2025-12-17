@@ -63,7 +63,9 @@ def tts_providers_cmd(
         typer.echo(json.dumps(providers, indent=2))
     else:
         if not providers:
-            typer.echo("No TTS providers configured. Set API key environment variables.")
+            typer.echo(
+                "No TTS providers configured. Set API key environment variables."
+            )
             raise typer.Exit(1)
 
         typer.echo("\nTTS Providers:")
@@ -174,7 +176,9 @@ def stt_providers_cmd(
         typer.echo(json.dumps(providers, indent=2))
     else:
         if not providers:
-            typer.echo("No STT providers configured. Set API key environment variables.")
+            typer.echo(
+                "No STT providers configured. Set API key environment variables."
+            )
             raise typer.Exit(1)
 
         typer.echo("\nSTT Providers:")
@@ -270,7 +274,9 @@ def audio_models_cmd(
 
 def register(parent: typer.Typer):
     """Register multimodal commands with the parent CLI app."""
-    parent.add_typer(app, name="multimodal", help="Multimodal discovery (TTS, STT, Audio)")
+    parent.add_typer(
+        app, name="multimodal", help="Multimodal discovery (TTS, STT, Audio)"
+    )
     # Also add as top-level commands for convenience
     parent.command("tts-providers")(tts_providers_cmd)
     parent.command("tts-voices")(tts_voices_cmd)

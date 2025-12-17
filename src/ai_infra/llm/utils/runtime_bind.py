@@ -147,14 +147,18 @@ def make_agent_with_context(
                 len(global_tools),
             )
 
-    effective_tools = [nt for nt in (_normalize_tool(t) for t in effective_tools) if nt is not None]
+    effective_tools = [
+        nt for nt in (_normalize_tool(t) for t in effective_tools) if nt is not None
+    ]
 
     if hitl_tool_wrapper is not None:
         wrapped_tools: List[Any] = []
         for t in effective_tools:
             try:
                 w = hitl_tool_wrapper(t)
-                wrapped_tools.append(w if w is not None else t)  # fallback to original tool
+                wrapped_tools.append(
+                    w if w is not None else t
+                )  # fallback to original tool
             except Exception:
                 wrapped_tools.append(t)  # defensive fallback
         effective_tools = wrapped_tools

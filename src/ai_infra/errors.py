@@ -247,7 +247,9 @@ class AuthenticationError(ProviderError):
             hint = "Set OPENAI_API_KEY environment variable or pass api_key parameter"
             docs_url = "https://platform.openai.com/api-keys"
         elif provider == "anthropic":
-            hint = "Set ANTHROPIC_API_KEY environment variable or pass api_key parameter"
+            hint = (
+                "Set ANTHROPIC_API_KEY environment variable or pass api_key parameter"
+            )
             docs_url = "https://console.anthropic.com/settings/keys"
 
         super().__init__(
@@ -361,7 +363,9 @@ class OutputValidationError(LLMError):
 
         full_details = details or {}
         if schema:
-            full_details["schema"] = schema.__name__ if hasattr(schema, "__name__") else str(schema)
+            full_details["schema"] = (
+                schema.__name__ if hasattr(schema, "__name__") else str(schema)
+            )
         if errors:
             full_details["validation_errors"] = errors
 

@@ -221,7 +221,9 @@ def _read_small(path: Path, max_bytes: int) -> tuple[str | bytes, bool]:
     return (data.decode("utf-8", errors="replace") if is_text else data, truncated)
 
 
-def _walk(root: Path, max_depth: int, exclude_globs: Sequence[str] | None) -> Iterable[Path]:
+def _walk(
+    root: Path, max_depth: int, exclude_globs: Sequence[str] | None
+) -> Iterable[Path]:
     root = root.resolve()
     if max_depth < 0:
         return
@@ -229,11 +231,15 @@ def _walk(root: Path, max_depth: int, exclude_globs: Sequence[str] | None) -> It
     while stack:
         d, depth = stack.pop()
         try:
-            for p in sorted(d.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower())):
+            for p in sorted(
+                d.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower())
+            ):
                 name = p.name
                 if name in _IGNORED_DIRS:
                     continue
-                if exclude_globs and any(p.match(g) or name == g for g in exclude_globs):
+                if exclude_globs and any(
+                    p.match(g) or name == g for g in exclude_globs
+                ):
                     continue
                 yield p
                 if p.is_dir() and depth < max_depth:
@@ -249,7 +255,9 @@ def _tree(root: Path, max_depth: int, max_entries_per_dir: int = 80) -> str:
         try:
             entries = [
                 p
-                for p in sorted(d.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower()))
+                for p in sorted(
+                    d.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower())
+                )
                 if p.name not in _IGNORED_DIRS
             ]
         except Exception:
@@ -307,7 +315,11 @@ def _detect_tasks(root: Path) -> dict[str, list[str]]:
 
             data = tomllib.loads(pp.read_text(errors="ignore"))
             scr = list(
-                sorted(((data.get("tool") or {}).get("poetry") or {}).get("scripts", {}).keys())
+                sorted(
+                    ((data.get("tool") or {}).get("poetry") or {})
+                    .get("scripts", {})
+                    .keys()
+                )
             )
             if scr:
                 out["poetry"] = scr[:30]

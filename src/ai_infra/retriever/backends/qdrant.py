@@ -56,7 +56,8 @@ class QdrantBackend(BaseBackend):
             from qdrant_client.models import Distance, VectorParams
         except ImportError as e:
             raise ImportError(
-                "Qdrant backend requires qdrant-client. " "Install with: pip install qdrant-client"
+                "Qdrant backend requires qdrant-client. "
+                "Install with: pip install qdrant-client"
             ) from e
 
         self._collection_name = collection_name
@@ -109,7 +110,8 @@ class QdrantBackend(BaseBackend):
             from qdrant_client.models import PointStruct
         except ImportError as e:
             raise ImportError(
-                "Qdrant backend requires qdrant-client. " "Install with: pip install qdrant-client"
+                "Qdrant backend requires qdrant-client. "
+                "Install with: pip install qdrant-client"
             ) from e
 
         # Generate IDs if not provided
@@ -215,7 +217,8 @@ class QdrantBackend(BaseBackend):
             from qdrant_client.models import PointIdsList
         except ImportError as e:
             raise ImportError(
-                "Qdrant backend requires qdrant-client. " "Install with: pip install qdrant-client"
+                "Qdrant backend requires qdrant-client. "
+                "Install with: pip install qdrant-client"
             ) from e
 
         self._client.delete(
@@ -231,7 +234,8 @@ class QdrantBackend(BaseBackend):
             from qdrant_client.models import Distance, VectorParams
         except ImportError as e:
             raise ImportError(
-                "Qdrant backend requires qdrant-client. " "Install with: pip install qdrant-client"
+                "Qdrant backend requires qdrant-client. "
+                "Install with: pip install qdrant-client"
             ) from e
 
         # Recreate collection

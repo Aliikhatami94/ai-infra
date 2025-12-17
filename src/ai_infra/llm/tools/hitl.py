@@ -162,7 +162,9 @@ class _HITLWrappedTool(BaseTool):
 
     # Disallow sync path to avoid StructuredTool sync errors
     def _run(self, *args, **kwargs):
-        raise NotImplementedError("HITL-wrapped tools are async-only. Use ainvoke/_arun.")
+        raise NotImplementedError(
+            "HITL-wrapped tools are async-only. Use ainvoke/_arun."
+        )
 
     async def _arun(self, *args, **kwargs):
         args_dict = dict(kwargs) if kwargs else {}
@@ -256,17 +258,25 @@ class ApprovalConfig:
     approval_handler_async: Optional[AsyncApprovalHandler] = None
     output_reviewer: Optional[OutputReviewer] = None
     output_reviewer_async: Optional[AsyncOutputReviewer] = None
-    require_approval: Union[bool, List[str], Callable[[str, Dict[str, Any]], bool]] = False
+    require_approval: Union[bool, List[str], Callable[[str, Dict[str, Any]], bool]] = (
+        False
+    )
     auto_approve: bool = False
     events: Optional["ApprovalEvents"] = None  # Event hooks for observability
 
     def __post_init__(self):
         # If require_approval is True but no handler, use console
-        if self.require_approval and not self.approval_handler and not self.approval_handler_async:
+        if (
+            self.require_approval
+            and not self.approval_handler
+            and not self.approval_handler_async
+        ):
             if not self.auto_approve:
                 self.approval_handler = console_approval_handler
 
-    def needs_approval(self, tool_name: str, args: Optional[Dict[str, Any]] = None) -> bool:
+    def needs_approval(
+        self, tool_name: str, args: Optional[Dict[str, Any]] = None
+    ) -> bool:
         """Check if a tool needs approval.
 
         Args:
@@ -301,7 +311,9 @@ class ApprovalConfig:
             return await asyncio.to_thread(self.approval_handler, request)
         else:
             # No handler, auto-approve
-            return ApprovalResponse.approve(reason="No handler configured", approver="auto")
+            return ApprovalResponse.approve(
+                reason="No handler configured", approver="auto"
+            )
 
     async def review_output(self, request: OutputReviewRequest) -> OutputReviewResponse:
         """Review model output."""
@@ -331,7 +343,9 @@ class _ApprovalWrappedTool(BaseTool):
             self.args_schema = base.args_schema
 
     def _run(self, *args, **kwargs):
-        raise NotImplementedError("Approval-wrapped tools are async-only. Use ainvoke/_arun.")
+        raise NotImplementedError(
+            "Approval-wrapped tools are async-only. Use ainvoke/_arun."
+        )
 
     async def _arun(self, *args, **kwargs):
         from .events import ApprovalEvent
@@ -473,7 +487,11 @@ def apply_output_gate(ai_msg: Any, hitl: Optional[HITLConfig | Dict[str, Any]]) 
     """
     if not hitl:
         return ai_msg
-    on_out = hitl.on_model_output if isinstance(hitl, HITLConfig) else hitl.get("on_model_output")
+    on_out = (
+        hitl.on_model_output
+        if isinstance(hitl, HITLConfig)
+        else hitl.get("on_model_output")
+    )
     if not on_out:
         return ai_msg
     try:
@@ -654,7 +672,9 @@ class ToolExecutionConfig:
     timeout: Optional[float] = None
     validate_results: bool = False
     on_timeout: Literal["return_error", "abort"] = "return_error"
-    max_result_chars: Optional[int] = 60000  # ~15k tokens, safe for most context windows
+    max_result_chars: Optional[int] = (
+        60000  # ~15k tokens, safe for most context windows
+    )
 
     def __post_init__(self):
         if self.max_retries < 0:
@@ -712,7 +732,10 @@ class _ExecutionConfigWrappedTool(BaseTool):
         # Handle string results
         if isinstance(result, str):
             if len(result) > max_chars:
-                return result[:max_chars] + f"\n\n[TRUNCATED: Result exceeded {max_chars} chars]"
+                return (
+                    result[:max_chars]
+                    + f"\n\n[TRUNCATED: Result exceeded {max_chars} chars]"
+                )
             return result
 
         # Handle dict/list by converting to string for size check
@@ -734,7 +757,10 @@ class _ExecutionConfigWrappedTool(BaseTool):
         # For other types, convert to string and check
         result_str = str(result)
         if len(result_str) > max_chars:
-            return result_str[:max_chars] + f"\n\n[TRUNCATED: Result exceeded {max_chars} chars]"
+            return (
+                result_str[:max_chars]
+                + f"\n\n[TRUNCATED: Result exceeded {max_chars} chars]"
+            )
         return result
 
     def _format_error(self, error: Exception) -> str:
@@ -842,7 +868,9 @@ class _ExecutionConfigWrappedTool(BaseTool):
                     if hasattr(self._base, "ainvoke"):
                         result = await self._base.ainvoke(kwargs or {})
                     else:
-                        result = await asyncio.to_thread(self._base.invoke, kwargs or {})
+                        result = await asyncio.to_thread(
+                            self._base.invoke, kwargs or {}
+                        )
 
                 # Validate result
                 self._validate_result(result)

@@ -5,7 +5,11 @@ from typing import Optional
 import pytest
 from pydantic import BaseModel, Field
 
-from ai_infra.tools.schema_tools import _get_model_fields, _get_model_name, tools_from_models
+from ai_infra.tools.schema_tools import (
+    _get_model_fields,
+    _get_model_name,
+    tools_from_models,
+)
 
 
 # Test models
@@ -349,7 +353,9 @@ class TestToolsFromModelsSql:
         from ai_infra.tools.schema_tools import tools_from_models_sql
 
         mock_session = MagicMock()
-        tools = tools_from_models_sql(User, session=mock_session, operations=["get", "create"])
+        tools = tools_from_models_sql(
+            User, session=mock_session, operations=["get", "create"]
+        )
 
         assert len(tools) == 2
         tool_names = [t.name for t in tools]

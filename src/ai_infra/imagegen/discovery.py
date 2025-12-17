@@ -135,7 +135,9 @@ def list_models(provider: str) -> List[str]:
     registry_name = _PROVIDER_ALIASES.get(provider, provider)
     config = ProviderRegistry.get(registry_name)
     if not config:
-        raise ValueError(f"Unknown provider: {provider}. Supported: {', '.join(list_providers())}")
+        raise ValueError(
+            f"Unknown provider: {provider}. Supported: {', '.join(list_providers())}"
+        )
 
     cap = config.get_capability(ProviderCapability.IMAGEGEN)
     if not cap:
@@ -216,7 +218,9 @@ def _fetch_openai_models() -> List[str]:
 
     # Filter to image generation models
     image_models = [
-        m.id for m in models.data if m.id.startswith("dall-e") or "image" in m.id.lower()
+        m.id
+        for m in models.data
+        if m.id.startswith("dall-e") or "image" in m.id.lower()
     ]
 
     return sorted(image_models)
@@ -387,7 +391,9 @@ def list_all_available_models(
                 continue
 
         try:
-            models = list_available_models(provider, refresh=refresh, use_cache=use_cache)
+            models = list_available_models(
+                provider, refresh=refresh, use_cache=use_cache
+            )
             result[provider] = models
         except Exception as e:
             log.warning(f"Failed to list models for {provider}: {e}")

@@ -108,7 +108,8 @@ def _get_qdrant_backend(**config) -> BaseBackend:
         from ai_infra.retriever.backends.qdrant import QdrantBackend
     except ImportError as e:
         raise ImportError(
-            "Qdrant backend requires qdrant-client. " "Install with: pip install qdrant-client"
+            "Qdrant backend requires qdrant-client. "
+            "Install with: pip install qdrant-client"
         ) from e
     return QdrantBackend(**config)
 

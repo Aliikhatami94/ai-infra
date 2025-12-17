@@ -6,7 +6,13 @@ from pathlib import Path
 
 import pytest
 
-from ai_infra.replay import MemoryStorage, ReplayResult, WorkflowRecorder, WorkflowStep, replay
+from ai_infra.replay import (
+    MemoryStorage,
+    ReplayResult,
+    WorkflowRecorder,
+    WorkflowStep,
+    replay,
+)
 from ai_infra.replay.replay import delete_recording, get_recording, list_recordings
 from ai_infra.replay.storage import SQLiteStorage
 
@@ -363,8 +369,12 @@ class TestReplayResult:
         steps = [
             WorkflowStep(0, "llm_call", datetime.now(), {}),
             WorkflowStep(1, "tool_call", datetime.now(), {"name": "tool1"}),
-            WorkflowStep(2, "tool_result", datetime.now(), {"name": "tool1", "result": 42}),
-            WorkflowStep(3, "agent_response", datetime.now(), {"content": "Final answer"}),
+            WorkflowStep(
+                2, "tool_result", datetime.now(), {"name": "tool1", "result": 42}
+            ),
+            WorkflowStep(
+                3, "agent_response", datetime.now(), {"content": "Final answer"}
+            ),
         ]
 
         result = ReplayResult("test", steps=steps)
@@ -389,9 +399,15 @@ class TestReplayResult:
     def test_tool_calls(self):
         steps = [
             WorkflowStep(0, "llm_call", datetime.now(), {}),
-            WorkflowStep(1, "tool_call", datetime.now(), {"name": "tool1", "args": {"a": 1}}),
-            WorkflowStep(2, "tool_result", datetime.now(), {"name": "tool1", "result": {}}),
-            WorkflowStep(3, "tool_call", datetime.now(), {"name": "tool2", "args": {"b": 2}}),
+            WorkflowStep(
+                1, "tool_call", datetime.now(), {"name": "tool1", "args": {"a": 1}}
+            ),
+            WorkflowStep(
+                2, "tool_result", datetime.now(), {"name": "tool1", "result": {}}
+            ),
+            WorkflowStep(
+                3, "tool_call", datetime.now(), {"name": "tool2", "args": {"b": 2}}
+            ),
         ]
 
         result = ReplayResult("test", steps=steps)
@@ -404,9 +420,13 @@ class TestReplayResult:
     def test_tool_results(self):
         steps = [
             WorkflowStep(0, "tool_call", datetime.now(), {"name": "tool1"}),
-            WorkflowStep(1, "tool_result", datetime.now(), {"name": "tool1", "result": "r1"}),
+            WorkflowStep(
+                1, "tool_result", datetime.now(), {"name": "tool1", "result": "r1"}
+            ),
             WorkflowStep(2, "tool_call", datetime.now(), {"name": "tool2"}),
-            WorkflowStep(3, "tool_result", datetime.now(), {"name": "tool2", "result": "r2"}),
+            WorkflowStep(
+                3, "tool_result", datetime.now(), {"name": "tool2", "result": "r2"}
+            ),
         ]
 
         result = ReplayResult("test", steps=steps)

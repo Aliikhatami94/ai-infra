@@ -37,7 +37,9 @@ try:
     from fastapi import FastAPI, WebSocket, WebSocketDisconnect
     from fastapi.responses import HTMLResponse
 except ImportError:
-    raise ImportError("FastAPI not installed. Install with: pip install fastapi uvicorn websockets")
+    raise ImportError(
+        "FastAPI not installed. Install with: pip install fastapi uvicorn websockets"
+    )
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -126,7 +128,9 @@ async def websocket_approval_handler(request: ApprovalRequest) -> ApprovalRespon
     # Get the WebSocket for this session
     websocket = active_connections.get(session_id)
     if not websocket:
-        logger.warning(f"No WebSocket connection for session {session_id}, auto-rejecting")
+        logger.warning(
+            f"No WebSocket connection for session {session_id}, auto-rejecting"
+        )
         return ApprovalResponse(
             approved=False,
             reason="No active WebSocket connection",
@@ -426,5 +430,7 @@ if __name__ == "__main__":
     import uvicorn
 
     print("Starting HITL WebSocket Demo at http://localhost:8000")
-    print("Open in your browser and try asking the agent to perform sensitive operations.")
+    print(
+        "Open in your browser and try asking the agent to perform sensitive operations."
+    )
     uvicorn.run(app, host="0.0.0.0", port=8000)

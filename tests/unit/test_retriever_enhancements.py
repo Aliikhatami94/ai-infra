@@ -89,7 +89,10 @@ class TestGetEmbeddingDimension:
     def test_returns_known_dimension_for_huggingface(self) -> None:
         """Test returns dimension for known HuggingFace models."""
         assert (
-            _get_embedding_dimension("huggingface", "sentence-transformers/all-MiniLM-L6-v2") == 384
+            _get_embedding_dimension(
+                "huggingface", "sentence-transformers/all-MiniLM-L6-v2"
+            )
+            == 384
         )
 
     def test_raises_for_unknown_model(self) -> None:
@@ -542,7 +545,9 @@ class TestModuleExports:
     def test_embeddings_search_result_still_available(self) -> None:
         """Test embeddings SearchResult is still at top level."""
         from ai_infra import SearchResult
-        from ai_infra.embeddings.vectorstore import SearchResult as EmbeddingsSearchResult
+        from ai_infra.embeddings.vectorstore import (
+            SearchResult as EmbeddingsSearchResult,
+        )
 
         assert SearchResult is EmbeddingsSearchResult
 

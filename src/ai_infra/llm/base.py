@@ -160,8 +160,12 @@ class BaseLLM:
             >>> response = model.invoke([HumanMessage(content="Hello")])
         """
         # Resolve provider and model (auto-detect if not specified)
-        resolved_provider, resolved_model = self._resolve_provider_and_model(provider, model_name)
-        return self.registry.get_or_create(resolved_provider, resolved_model, **model_kwargs)
+        resolved_provider, resolved_model = self._resolve_provider_and_model(
+            provider, model_name
+        )
+        return self.registry.get_or_create(
+            resolved_provider, resolved_model, **model_kwargs
+        )
 
     def with_structured_output(
         self,
@@ -169,7 +173,8 @@ class BaseLLM:
         model_name: str,
         schema: Union[type[BaseModel], Dict[str, Any]],
         *,
-        method: Literal["json_schema", "json_mode", "function_calling"] | None = "json_mode",
+        method: Literal["json_schema", "json_mode", "function_calling"]
+        | None = "json_mode",
         **model_kwargs,
     ):
         model = self.registry.get_or_create(provider, model_name, **model_kwargs)

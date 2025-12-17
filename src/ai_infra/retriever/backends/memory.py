@@ -62,7 +62,8 @@ class MemoryBackend(BaseBackend):
             import numpy as np
         except ImportError as e:
             raise ImportError(
-                "numpy is required for the memory backend. " "Install with: pip install numpy"
+                "numpy is required for the memory backend. "
+                "Install with: pip install numpy"
             ) from e
 
         self._np = np
@@ -102,7 +103,9 @@ class MemoryBackend(BaseBackend):
             metadatas = [{} for _ in embeddings]
 
         # Add to storage
-        for i, (emb, text, meta, doc_id) in enumerate(zip(embeddings, texts, metadatas, ids)):
+        for i, (emb, text, meta, doc_id) in enumerate(
+            zip(embeddings, texts, metadatas, ids)
+        ):
             self._ids.append(doc_id)
             self._texts.append(text)
             self._metadatas.append(meta)

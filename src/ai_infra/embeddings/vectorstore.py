@@ -153,7 +153,9 @@ class VectorStore:
                 **kwargs,
             )
         else:
-            raise ValueError(f"Unknown backend: {backend}. Available: memory, chroma, faiss")
+            raise ValueError(
+                f"Unknown backend: {backend}. Available: memory, chroma, faiss"
+            )
 
     @property
     def backend(self) -> str:
@@ -291,7 +293,10 @@ class VectorStore:
         return self._backend.count()
 
     def __repr__(self) -> str:
-        return f"VectorStore(backend={self._backend_name!r}, " f"embeddings={self._embeddings!r})"
+        return (
+            f"VectorStore(backend={self._backend_name!r}, "
+            f"embeddings={self._embeddings!r})"
+        )
 
 
 # =============================================================================
@@ -515,10 +520,16 @@ class _ChromaBackend(_VectorBackend):
         if results["documents"] and results["documents"][0]:
             docs = results["documents"][0]
             ids = results["ids"][0] if results["ids"] else [None] * len(docs)
-            metadatas = results["metadatas"][0] if results["metadatas"] else [{}] * len(docs)
-            distances = results["distances"][0] if results["distances"] else [0.0] * len(docs)
+            metadatas = (
+                results["metadatas"][0] if results["metadatas"] else [{}] * len(docs)
+            )
+            distances = (
+                results["distances"][0] if results["distances"] else [0.0] * len(docs)
+            )
 
-            for text, doc_id, metadata, distance in zip(docs, ids, metadatas, distances):
+            for text, doc_id, metadata, distance in zip(
+                docs, ids, metadatas, distances
+            ):
                 # Convert distance to similarity (Chroma uses L2 distance)
                 # Smaller distance = higher similarity
                 score = 1.0 / (1.0 + distance)
@@ -585,7 +596,9 @@ class _FAISSBackend(_VectorBackend):
             try:
                 import faiss
             except ImportError as e:
-                raise ImportError("FAISS backend requires: pip install faiss-cpu") from e
+                raise ImportError(
+                    "FAISS backend requires: pip install faiss-cpu"
+                ) from e
 
             self._dimension = dimension
             self._index = faiss.IndexFlatIP(dimension)  # Inner product (cosine)

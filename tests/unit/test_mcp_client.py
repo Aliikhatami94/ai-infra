@@ -147,7 +147,9 @@ class TestMCPClientHelpers:
 
     def test_cfg_identity_stdio(self):
         """Test config identity for stdio transport."""
-        client = MCPClient([{"transport": "stdio", "command": "npx", "args": ["-y", "server"]}])
+        client = MCPClient(
+            [{"transport": "stdio", "command": "npx", "args": ["-y", "server"]}]
+        )
         identity = client._cfg_identity(client._configs[0])
         assert "stdio" in identity
         assert "npx" in identity
@@ -155,7 +157,9 @@ class TestMCPClientHelpers:
 
     def test_cfg_identity_http(self):
         """Test config identity for HTTP transport."""
-        client = MCPClient([{"transport": "streamable_http", "url": "http://localhost:3000"}])
+        client = MCPClient(
+            [{"transport": "streamable_http", "url": "http://localhost:3000"}]
+        )
         identity = client._cfg_identity(client._configs[0])
         assert "streamable_http" in identity
         assert "localhost:3000" in identity

@@ -595,7 +595,8 @@ def tools_from_models_sql(
         from svc_infra.db.sql.repository import SqlRepository
     except ImportError as e:
         raise ImportError(
-            "tools_from_models_sql requires svc-infra. " "Install with: pip install svc-infra"
+            "tools_from_models_sql requires svc-infra. "
+            "Install with: pip install svc-infra"
         ) from e
 
     # Cache repositories per model for efficiency
@@ -628,13 +629,17 @@ def tools_from_models_sql(
 
         elif operation == "create":
             # Remove operation metadata from kwargs
-            create_data = {k: v for k, v in kwargs.items() if k not in ("limit", "offset")}
+            create_data = {
+                k: v for k, v in kwargs.items() if k not in ("limit", "offset")
+            }
             result = await repo.create(session, create_data)
             return _model_to_dict(result)
 
         elif operation == "update":
             id_value = kwargs.pop("id")
-            update_data = {k: v for k, v in kwargs.items() if k not in ("limit", "offset")}
+            update_data = {
+                k: v for k, v in kwargs.items() if k not in ("limit", "offset")
+            }
             result = await repo.update(session, id_value, update_data)
             if result is None:
                 return {"error": f"Not found: id={id_value}"}
@@ -662,7 +667,9 @@ def tools_from_models_sql(
             import concurrent.futures
 
             with concurrent.futures.ThreadPoolExecutor() as pool:
-                future = pool.submit(asyncio.run, async_executor(operation, model, **kwargs))
+                future = pool.submit(
+                    asyncio.run, async_executor(operation, model, **kwargs)
+                )
                 return future.result()
         else:
             # No running loop - run directly

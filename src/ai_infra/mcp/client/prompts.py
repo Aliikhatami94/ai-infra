@@ -123,7 +123,9 @@ def convert_mcp_prompt_to_message(message: "PromptMessage") -> BaseMessage:
     if role == "system":
         return SystemMessage(content=text)
 
-    raise ValueError(f"Unsupported prompt role: {role}. Expected 'user', 'assistant', or 'system'.")
+    raise ValueError(
+        f"Unsupported prompt role: {role}. Expected 'user', 'assistant', or 'system'."
+    )
 
 
 async def load_mcp_prompt(

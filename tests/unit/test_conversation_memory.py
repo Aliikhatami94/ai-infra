@@ -568,7 +568,10 @@ class TestConversationMemoryIntegration:
         )
 
         assert len(results) >= 1
-        assert "import" in results[0].context.lower() or "python" in results[0].context.lower()
+        assert (
+            "import" in results[0].context.lower()
+            or "python" in results[0].context.lower()
+        )
 
         # Delete
         deleted = memory.delete_conversation("user_123", "session_456")

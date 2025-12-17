@@ -67,7 +67,8 @@ def temporary_api_key(provider: str, api_key: str):
     env_var = PROVIDER_ENV_VARS.get(provider_lower)
     if not env_var:
         raise ValueError(
-            f"Unknown provider: {provider}. " f"Known providers: {list(PROVIDER_ENV_VARS.keys())}"
+            f"Unknown provider: {provider}. "
+            f"Known providers: {list(PROVIDER_ENV_VARS.keys())}"
         )
 
     # Save original value

@@ -89,7 +89,9 @@ class ChatStorage:
             "session_id": session_id,
             "messages": messages,
             "metadata": metadata or {},
-            "created_at": existing.get("created_at") if existing else datetime.now().isoformat(),
+            "created_at": existing.get("created_at")
+            if existing
+            else datetime.now().isoformat(),
             "updated_at": datetime.now().isoformat(),
         }
 
@@ -234,7 +236,12 @@ def _build_messages_with_history(
     Returns:
         List of LangChain message objects
     """
-    from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
+    from langchain_core.messages import (
+        AIMessage,
+        BaseMessage,
+        HumanMessage,
+        SystemMessage,
+    )
 
     messages: list[BaseMessage] = []
 
@@ -298,7 +305,9 @@ def _print_welcome(provider: str, model: str, session_id: str, message_count: in
     typer.echo(f"  Model:    {model}")
     typer.echo(f"  Session:  {session_id}")
     if message_count > 0:
-        typer.secho(f"  Memory:   {message_count} messages restored", fg=typer.colors.GREEN)
+        typer.secho(
+            f"  Memory:   {message_count} messages restored", fg=typer.colors.GREEN
+        )
     typer.echo()
     typer.secho("  Commands:", fg=typer.colors.BRIGHT_BLACK)
     typer.secho("    /help     Show all commands", fg=typer.colors.BRIGHT_BLACK)
@@ -319,7 +328,9 @@ def _print_help():
     typer.echo()
     typer.secho("Session Commands:", bold=True)
     typer.echo("  /sessions          List all saved sessions")
-    typer.echo("  /save [name]       Save current session (auto-generates name if omitted)")
+    typer.echo(
+        "  /save [name]       Save current session (auto-generates name if omitted)"
+    )
     typer.echo("  /load <name>       Load a saved session")
     typer.echo("  /new               Start a new session (current is auto-saved)")
     typer.echo("  /delete <name>     Delete a saved session")
@@ -477,7 +488,11 @@ def _run_repl(
                         typer.echo()
                         typer.secho("Saved Sessions:", bold=True)
                         for s in sessions:
-                            active = " (current)" if s["session_id"] == current_session_id else ""
+                            active = (
+                                " (current)"
+                                if s["session_id"] == current_session_id
+                                else ""
+                            )
                             provider_info = s.get("provider") or "auto"
                             time_ago = _format_time_ago(s.get("updated_at"))
                             typer.echo(
@@ -503,7 +518,9 @@ def _run_repl(
                         continue
                     load_id = arg.strip()
                     if not storage.exists(load_id):
-                        typer.secho(f"✗ Session not found: {load_id}", fg=typer.colors.RED)
+                        typer.secho(
+                            f"✗ Session not found: {load_id}", fg=typer.colors.RED
+                        )
                         typer.echo("Use /sessions to list available sessions")
                         continue
                     # Save current session before switching
@@ -536,12 +553,16 @@ def _run_repl(
                     current_session_id = arg.strip() if arg else _generate_session_id()
                     conversation = []
                     current_system = system  # Reset to original system prompt
-                    typer.secho(f"✓ New session: {current_session_id}", fg=typer.colors.GREEN)
+                    typer.secho(
+                        f"✓ New session: {current_session_id}", fg=typer.colors.GREEN
+                    )
                     continue
 
                 elif cmd == "delete":
                     if not arg:
-                        typer.secho("Usage: /delete <session_name>", fg=typer.colors.RED)
+                        typer.secho(
+                            "Usage: /delete <session_name>", fg=typer.colors.RED
+                        )
                         continue
                     delete_id = arg.strip()
                     if delete_id == current_session_id:
@@ -551,9 +572,13 @@ def _run_repl(
                         )
                         continue
                     if storage.delete(delete_id):
-                        typer.secho(f"✓ Deleted session: {delete_id}", fg=typer.colors.GREEN)
+                        typer.secho(
+                            f"✓ Deleted session: {delete_id}", fg=typer.colors.GREEN
+                        )
                     else:
-                        typer.secho(f"✗ Session not found: {delete_id}", fg=typer.colors.RED)
+                        typer.secho(
+                            f"✗ Session not found: {delete_id}", fg=typer.colors.RED
+                        )
                     continue
 
                 elif cmd == "rename":
@@ -580,7 +605,9 @@ def _run_repl(
                 elif cmd == "model":
                     if arg:
                         current_model = arg
-                        typer.secho(f"✓ Model changed to: {arg}", fg=typer.colors.YELLOW)
+                        typer.secho(
+                            f"✓ Model changed to: {arg}", fg=typer.colors.YELLOW
+                        )
                     else:
                         display = current_model or "default (auto)"
                         typer.echo(f"Current model: {display}")
@@ -591,11 +618,17 @@ def _run_repl(
                         current_provider = arg
                         try:
                             llm = _get_llm(current_provider, current_model)
-                            typer.secho(f"✓ Provider changed to: {arg}", fg=typer.colors.YELLOW)
+                            typer.secho(
+                                f"✓ Provider changed to: {arg}", fg=typer.colors.YELLOW
+                            )
                         except Exception as e:
-                            typer.secho(f"✗ Failed to change provider: {e}", fg=typer.colors.RED)
+                            typer.secho(
+                                f"✗ Failed to change provider: {e}", fg=typer.colors.RED
+                            )
                     else:
-                        display = current_provider or _get_default_provider() + " (auto)"
+                        display = (
+                            current_provider or _get_default_provider() + " (auto)"
+                        )
                         typer.echo(f"Current provider: {display}")
                     continue
 

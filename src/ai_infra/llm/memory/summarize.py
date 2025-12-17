@@ -157,7 +157,9 @@ def summarize_messages(
         llm = LLM()
 
     conversation_text = _format_messages_for_summary(to_summarize)
-    prompt = (summarize_prompt or DEFAULT_SUMMARIZE_PROMPT).format(conversation=conversation_text)
+    prompt = (summarize_prompt or DEFAULT_SUMMARIZE_PROMPT).format(
+        conversation=conversation_text
+    )
 
     response = llm.chat(prompt)
     # Extract content from response (could be AIMessage or string)
@@ -242,7 +244,9 @@ async def asummarize_messages(
         llm = LLM()
 
     conversation_text = _format_messages_for_summary(to_summarize)
-    prompt = (summarize_prompt or DEFAULT_SUMMARIZE_PROMPT).format(conversation=conversation_text)
+    prompt = (summarize_prompt or DEFAULT_SUMMARIZE_PROMPT).format(
+        conversation=conversation_text
+    )
 
     response = await llm.achat(prompt)
     # Extract content from response (could be AIMessage or string)
@@ -380,7 +384,9 @@ class SummarizationMiddleware:
         if not self.should_summarize(messages):
             return messages
 
-        logger.info(f"Summarizing {len(messages)} messages (keeping last {self.keep_messages})")
+        logger.info(
+            f"Summarizing {len(messages)} messages (keeping last {self.keep_messages})"
+        )
 
         result = summarize_messages(
             messages,
@@ -404,7 +410,9 @@ class SummarizationMiddleware:
         if not self.should_summarize(messages):
             return messages
 
-        logger.info(f"Summarizing {len(messages)} messages (keeping last {self.keep_messages})")
+        logger.info(
+            f"Summarizing {len(messages)} messages (keeping last {self.keep_messages})"
+        )
 
         result = await asummarize_messages(
             messages,

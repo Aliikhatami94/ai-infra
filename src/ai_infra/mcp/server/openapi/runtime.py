@@ -129,7 +129,9 @@ def extract_body_content_type(op: Operation) -> str:
     return next(iter(content.keys())) if content else "application/json"
 
 
-def merge_parameters(path_item: Dict[str, Any] | None, op: Operation) -> List[Dict[str, Any]]:
+def merge_parameters(
+    path_item: Dict[str, Any] | None, op: Operation
+) -> List[Dict[str, Any]]:
     merged: List[Dict[str, Any]] = []
     seen: set[tuple[str, str]] = set()
     for src in (path_item.get("parameters") if path_item else []) or []:
@@ -227,7 +229,9 @@ class ResponseCache:
         """Check if method should be cached."""
         return method.upper() in self.methods
 
-    def make_key(self, method: str, url: str, params: Optional[Dict[str, Any]] = None) -> str:
+    def make_key(
+        self, method: str, url: str, params: Optional[Dict[str, Any]] = None
+    ) -> str:
         """Generate cache key from request details."""
         key_parts = [method.upper(), url]
         if params:
@@ -256,7 +260,9 @@ class ResponseCache:
         if len(self._cache) >= self.max_size:
             # Remove ~10% of oldest entries
             to_remove = self.max_size // 10 or 1
-            sorted_keys = sorted(self._cache.keys(), key=lambda k: self._cache[k][0])[:to_remove]
+            sorted_keys = sorted(self._cache.keys(), key=lambda k: self._cache[k][0])[
+                :to_remove
+            ]
             for k in sorted_keys:
                 del self._cache[k]
 

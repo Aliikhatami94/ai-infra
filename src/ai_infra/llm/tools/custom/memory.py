@@ -368,7 +368,9 @@ class ConversationMemory:
             chunk_ids.append(chunk.chunk_id)
             logger.debug(f"Indexed chunk {chunk.chunk_id} for user {user_id}")
 
-        logger.info(f"Indexed {len(chunk_ids)} chunks for user={user_id}, session={session_id}")
+        logger.info(
+            f"Indexed {len(chunk_ids)} chunks for user={user_id}, session={session_id}"
+        )
         return chunk_ids
 
     async def aindex_conversation(
@@ -414,7 +416,9 @@ class ConversationMemory:
             )
             chunk_ids.append(chunk.chunk_id)
 
-        logger.info(f"Indexed {len(chunk_ids)} chunks for user={user_id}, session={session_id}")
+        logger.info(
+            f"Indexed {len(chunk_ids)} chunks for user={user_id}, session={session_id}"
+        )
         return chunk_ids
 
     def search(
@@ -491,7 +495,9 @@ class ConversationMemory:
                 continue
 
             # Reconstruct messages
-            messages = [self._dict_to_message(m) for m in item.value.get("messages", [])]
+            messages = [
+                self._dict_to_message(m) for m in item.value.get("messages", [])
+            ]
 
             chunk = ConversationChunk(
                 chunk_id=item.key,
@@ -562,7 +568,9 @@ class ConversationMemory:
             if session_id and item.value.get("session_id") != session_id:
                 continue
 
-            messages = [self._dict_to_message(m) for m in item.value.get("messages", [])]
+            messages = [
+                self._dict_to_message(m) for m in item.value.get("messages", [])
+            ]
 
             chunk = ConversationChunk(
                 chunk_id=item.key,
@@ -865,9 +873,7 @@ def create_memory_tool(
     def search_conversations(query: str) -> str:
         """Search past conversations for relevant context."""
         if not _user_id:
-            return (
-                "Error: user_id not provided when creating the tool. Cannot search conversations."
-            )
+            return "Error: user_id not provided when creating the tool. Cannot search conversations."
 
         # Search
         results = _memory.search(
@@ -949,9 +955,7 @@ def create_memory_tool_async(
     async def search_conversations_async(query: str) -> str:
         """Search past conversations for relevant context (async)."""
         if not _user_id:
-            return (
-                "Error: user_id not provided when creating the tool. Cannot search conversations."
-            )
+            return "Error: user_id not provided when creating the tool. Cannot search conversations."
 
         results = await _memory.asearch(
             user_id=_user_id,

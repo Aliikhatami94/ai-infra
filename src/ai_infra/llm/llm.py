@@ -19,7 +19,11 @@ if TYPE_CHECKING:
 from ai_infra.llm.base import BaseLLM
 from ai_infra.llm.tools import apply_output_gate, apply_output_gate_async
 from ai_infra.llm.utils.error_handler import translate_provider_error
-from ai_infra.llm.utils.logging_hooks import ErrorContext, RequestContext, ResponseContext
+from ai_infra.llm.utils.logging_hooks import (
+    ErrorContext,
+    RequestContext,
+    ResponseContext,
+)
 from ai_infra.llm.utils.structured import coerce_structured_result, is_pydantic_schema
 
 from .utils import make_messages as _make_messages
@@ -304,7 +308,11 @@ class LLM(BaseLLM):
                     return model.invoke(messages)
 
                 retry_cfg = (extra or {}).get("retry") if extra else None
-                res = _call() if not retry_cfg else self._run_with_retry_sync(_call, retry_cfg)
+                res = (
+                    _call()
+                    if not retry_cfg
+                    else self._run_with_retry_sync(_call, retry_cfg)
+                )
 
             # Call response hook
             duration_ms = (time.time() - start_time) * 1000
@@ -327,9 +335,15 @@ class LLM(BaseLLM):
                         provider=provider,
                         model=model_name or "",
                         response=getattr(res, "content", str(res)),
-                        input_tokens=getattr(usage, "input_tokens", None) if usage else None,
-                        output_tokens=getattr(usage, "output_tokens", None) if usage else None,
-                        total_tokens=getattr(usage, "total_tokens", None) if usage else None,
+                        input_tokens=getattr(usage, "input_tokens", None)
+                        if usage
+                        else None,
+                        output_tokens=getattr(usage, "output_tokens", None)
+                        if usage
+                        else None,
+                        total_tokens=getattr(usage, "total_tokens", None)
+                        if usage
+                        else None,
                         latency_ms=duration_ms,
                     )
                 )
@@ -368,7 +382,9 @@ class LLM(BaseLLM):
                 )
 
             # Translate provider error to ai-infra error
-            raise translate_provider_error(e, provider=provider, model=model_name) from e
+            raise translate_provider_error(
+                e, provider=provider, model=model_name
+            ) from e
 
     async def achat(
         self,
@@ -481,7 +497,9 @@ class LLM(BaseLLM):
                     return await model.ainvoke(messages)
 
                 retry_cfg = (extra or {}).get("retry") if extra else None
-                res = await (_with_retry_util(_call, **retry_cfg) if retry_cfg else _call())
+                res = await (
+                    _with_retry_util(_call, **retry_cfg) if retry_cfg else _call()
+                )
 
             # Call response hook
             duration_ms = (time.time() - start_time) * 1000
@@ -504,9 +522,15 @@ class LLM(BaseLLM):
                         provider=provider,
                         model=model_name or "",
                         response=getattr(res, "content", str(res)),
-                        input_tokens=getattr(usage, "input_tokens", None) if usage else None,
-                        output_tokens=getattr(usage, "output_tokens", None) if usage else None,
-                        total_tokens=getattr(usage, "total_tokens", None) if usage else None,
+                        input_tokens=getattr(usage, "input_tokens", None)
+                        if usage
+                        else None,
+                        output_tokens=getattr(usage, "output_tokens", None)
+                        if usage
+                        else None,
+                        total_tokens=getattr(usage, "total_tokens", None)
+                        if usage
+                        else None,
                         latency_ms=duration_ms,
                     )
                 )
@@ -545,7 +569,9 @@ class LLM(BaseLLM):
                 )
 
             # Translate provider error to ai-infra error
-            raise translate_provider_error(e, provider=provider, model=model_name) from e
+            raise translate_provider_error(
+                e, provider=provider, model=model_name
+            ) from e
 
     async def stream_tokens(
         self,

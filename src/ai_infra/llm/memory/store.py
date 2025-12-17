@@ -1229,7 +1229,9 @@ class _PostgresBackend(_MemoryBackend):
                     MemoryItem(
                         namespace=namespace,
                         key=row[0],
-                        value=row[1] if isinstance(row[1], dict) else json.loads(row[1]),
+                        value=row[1]
+                        if isinstance(row[1], dict)
+                        else json.loads(row[1]),
                         created_at=row[2],
                         updated_at=row[3],
                         expires_at=row[4],

@@ -11,7 +11,12 @@ from typing import Any, Dict, Union
 
 import pytest
 
-from ai_infra.mcp.server.openapi import AuthConfig, OpenAPIOptions, _mcp_from_openapi, load_openapi
+from ai_infra.mcp.server.openapi import (
+    AuthConfig,
+    OpenAPIOptions,
+    _mcp_from_openapi,
+    load_openapi,
+)
 from ai_infra.mcp.server.openapi.builder import (
     _merge_allof_schemas,
     _py_type_from_schema,
@@ -478,7 +483,9 @@ class TestAuthentication:
         )
 
         # Test the matching logic
-        assert options.get_auth_for_path("/users").headers == {"Authorization": "Bearer default"}
+        assert options.get_auth_for_path("/users").headers == {
+            "Authorization": "Bearer default"
+        }
 
         admin_auth = options.get_auth_for_path("/admin/settings")
         assert admin_auth.headers == {"Authorization": "Bearer admin-token"}
@@ -632,7 +639,9 @@ class TestSchemaHandling:
         mcp, cleanup, report = _mcp_from_openapi(complex_schema_spec)
 
         assert report.registered_tools == 2  # createEmployee, getStatus
-        assert len(report.warnings) == 0 or all("base URL" not in w for w in report.warnings[:5])
+        assert len(report.warnings) == 0 or all(
+            "base URL" not in w for w in report.warnings[:5]
+        )
 
 
 # =============================================================================
@@ -670,7 +679,9 @@ class TestOpenAPIOptions:
         options = OpenAPIOptions(exclude_tags=["deprecated"])
 
         assert options.should_include_operation("/users", "GET", {"tags": ["users"]})
-        assert not options.should_include_operation("/old", "GET", {"tags": ["deprecated"]})
+        assert not options.should_include_operation(
+            "/old", "GET", {"tags": ["deprecated"]}
+        )
 
     def test_get_tool_name_with_prefix(self):
         """Prefix is applied to tool name."""
@@ -688,7 +699,9 @@ class TestOpenAPIOptions:
 
     def test_get_tool_name_prefix_with_custom_fn(self):
         """Prefix is applied after custom function."""
-        options = OpenAPIOptions(tool_prefix="api", tool_name_fn=lambda m, p, o: f"{m.lower()}_op")
+        options = OpenAPIOptions(
+            tool_prefix="api", tool_name_fn=lambda m, p, o: f"{m.lower()}_op"
+        )
 
         name = options.get_tool_name("getUser", "GET", "/users", {})
         assert name == "api_get_op"
@@ -748,7 +761,9 @@ class TestResponseCache:
         cache = ResponseCache(ttl=60)
 
         key1 = cache.make_key("GET", "/users", {"page": 1, "limit": 10})
-        key2 = cache.make_key("GET", "/users", {"limit": 10, "page": 1})  # Different order
+        key2 = cache.make_key(
+            "GET", "/users", {"limit": 10, "page": 1}
+        )  # Different order
 
         assert key1 == key2  # Same params, same key
 

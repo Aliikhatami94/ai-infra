@@ -26,7 +26,13 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.tree import Tree
 
-from ai_infra.mcp import MCPClient, MCPResource, McpServerConfig, PromptInfo, ResourceInfo
+from ai_infra.mcp import (
+    MCPClient,
+    MCPResource,
+    McpServerConfig,
+    PromptInfo,
+    ResourceInfo,
+)
 
 app = typer.Typer(help="MCP server debugging and testing commands")
 console = Console()
@@ -259,7 +265,9 @@ def tools_cmd(
                         if "properties" in schema:
                             param_names = list(schema["properties"].keys())
                             required = schema.get("required", [])
-                            params = ", ".join(f"{p}*" if p in required else p for p in param_names)
+                            params = ", ".join(
+                                f"{p}*" if p in required else p for p in param_names
+                            )
                     table.add_row(tool.name, desc, params)
                 else:
                     table.add_row(tool.name, desc)
@@ -429,7 +437,9 @@ def resources_cmd(
             for resource in resources:
                 table.add_row(
                     resource.name,
-                    resource.uri[:50] + "..." if len(resource.uri) > 50 else resource.uri,
+                    resource.uri[:50] + "..."
+                    if len(resource.uri) > 50
+                    else resource.uri,
                     resource.mime_type or "-",
                 )
 
@@ -524,7 +534,9 @@ def call_cmd(
             else:
                 console.print(str(result))
 
-    asyncio.run(_run_with_client(config, timeout, f"Call tool '{tool_name}'", _call_tool))
+    asyncio.run(
+        _run_with_client(config, timeout, f"Call tool '{tool_name}'", _call_tool)
+    )
 
 
 # =============================================================================
@@ -578,7 +590,9 @@ def prompt_cmd(
         raise typer.Exit(1)
 
     async def _get_prompt(client: MCPClient):
-        messages = await client.get_prompt("cli-server", prompt_name, arguments=parsed_args)
+        messages = await client.get_prompt(
+            "cli-server", prompt_name, arguments=parsed_args
+        )
 
         if output_json:
             messages_data = [{"role": m.type, "content": m.content} for m in messages]
@@ -598,7 +612,9 @@ def prompt_cmd(
                 console.print(f"\n[{role_color}]{msg.type.upper()}:[/{role_color}]")
                 console.print(msg.content)
 
-    asyncio.run(_run_with_client(config, timeout, f"Get prompt '{prompt_name}'", _get_prompt))
+    asyncio.run(
+        _run_with_client(config, timeout, f"Get prompt '{prompt_name}'", _get_prompt)
+    )
 
 
 # =============================================================================
@@ -650,7 +666,9 @@ def resource_cmd(
     config = _create_config(url, transport, command, args)
 
     async def _get_resource(client: MCPClient):
-        resources: List[MCPResource] = await client.get_resources("cli-server", uris=resource_uri)
+        resources: List[MCPResource] = await client.get_resources(
+            "cli-server", uris=resource_uri
+        )
 
         if not resources:
             console.print(f"[red]Resource not found: {resource_uri}[/red]")
@@ -696,9 +714,15 @@ def resource_cmd(
                 else:
                     console.print(content)
             else:
-                console.print(f"[dim]Binary content: {len(resource.as_bytes())} bytes[/dim]")
+                console.print(
+                    f"[dim]Binary content: {len(resource.as_bytes())} bytes[/dim]"
+                )
 
-    asyncio.run(_run_with_client(config, timeout, f"Get resource '{resource_uri}'", _get_resource))
+    asyncio.run(
+        _run_with_client(
+            config, timeout, f"Get resource '{resource_uri}'", _get_resource
+        )
+    )
 
 
 # =============================================================================

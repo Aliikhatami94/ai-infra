@@ -151,7 +151,9 @@ class OutputReviewResponse(BaseModel):
         return cls(action="pass")
 
     @classmethod
-    def modify(cls, replacement: str, *, reason: Optional[str] = None) -> "OutputReviewResponse":
+    def modify(
+        cls, replacement: str, *, reason: Optional[str] = None
+    ) -> "OutputReviewResponse":
         """Modify the output."""
         return cls(action="modify", replacement=replacement, reason=reason)
 
@@ -192,7 +194,9 @@ def console_approval_handler(request: ApprovalRequest) -> ApprovalResponse:
             if ans in ("y", "yes"):
                 return ApprovalResponse.approve(approver="console")
             elif ans in ("n", "no"):
-                return ApprovalResponse.reject(reason="Rejected by user", approver="console")
+                return ApprovalResponse.reject(
+                    reason="Rejected by user", approver="console"
+                )
             elif ans in ("m", "modify"):
                 print(f"   Current args: {request.args}")
                 # Simple modification: let user enter new args as Python dict literal
@@ -209,11 +213,15 @@ def console_approval_handler(request: ApprovalRequest) -> ApprovalResponse:
                     print("   Invalid: must be a dict")
                 except (ValueError, SyntaxError) as e:
                     print(f"   Error parsing args: {e}")
-                    print("   Hint: Only dict literals allowed, e.g. {'key': 'value', 'count': 42}")
+                    print(
+                        "   Hint: Only dict literals allowed, e.g. {'key': 'value', 'count': 42}"
+                    )
             else:
                 print("   Please enter y, n, or m")
     except EOFError:
-        return ApprovalResponse.reject(reason="EOF - no input available", approver="console")
+        return ApprovalResponse.reject(
+            reason="EOF - no input available", approver="console"
+        )
     except KeyboardInterrupt:
         return ApprovalResponse.reject(reason="Cancelled by user", approver="console")
 
@@ -255,7 +263,9 @@ def create_selective_handler(
     def selective_handler(request: ApprovalRequest) -> ApprovalResponse:
         if request.tool_name in tools_requiring_approval:
             return handler(request)
-        return ApprovalResponse.approve(reason="Tool not in approval list", approver="auto")
+        return ApprovalResponse.approve(
+            reason="Tool not in approval list", approver="auto"
+        )
 
     return selective_handler
 
@@ -458,10 +468,14 @@ class MultiApprovalRequest(BaseModel):
                     modified = r.modified_args
                     break
 
-            approvers = [r.approver for r in self.received_approvals if r.approved and r.approver]
+            approvers = [
+                r.approver for r in self.received_approvals if r.approved and r.approver
+            ]
             return ApprovalResponse.approve(
                 modified_args=modified,
-                reason=f"Approved by: {', '.join(approvers)}" if approvers else "Approved",
+                reason=f"Approved by: {', '.join(approvers)}"
+                if approvers
+                else "Approved",
                 approver=approvers[0] if approvers else None,
             )
         else:

@@ -187,7 +187,9 @@ def create_retriever_tool(
 
     def search_documents(query: str) -> Union[str, dict[str, Any]]:
         """Search the retriever for relevant documents."""
-        results = retriever.search(query, k=k, min_score=min_score, filter=filter, detailed=True)
+        results = retriever.search(
+            query, k=k, min_score=min_score, filter=filter, detailed=True
+        )
 
         if structured:
             return {

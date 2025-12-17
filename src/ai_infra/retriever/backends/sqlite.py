@@ -67,7 +67,8 @@ class SQLiteBackend(BaseBackend):
             import numpy as np
         except ImportError as e:
             raise ImportError(
-                "numpy is required for the SQLite backend. " "Install with: pip install numpy"
+                "numpy is required for the SQLite backend. "
+                "Install with: pip install numpy"
             ) from e
 
         self._np = np
@@ -169,7 +170,9 @@ class SQLiteBackend(BaseBackend):
         query_vec = self._np.array(query_embedding, dtype=self._np.float32)
 
         # Fetch all rows (SQLite doesn't have native vector search)
-        cursor = self._conn.execute(f"SELECT id, text, metadata, embedding FROM {self._table_name}")
+        cursor = self._conn.execute(
+            f"SELECT id, text, metadata, embedding FROM {self._table_name}"
+        )
 
         scores: list[tuple[str, str, dict[str, Any], float]] = []
         for row in cursor:
@@ -180,7 +183,9 @@ class SQLiteBackend(BaseBackend):
                 if not self._matches_filter(metadata, filter):
                     continue
 
-            embedding = self._np.array(json.loads(row["embedding"]), dtype=self._np.float32)
+            embedding = self._np.array(
+                json.loads(row["embedding"]), dtype=self._np.float32
+            )
             score = self._compute_similarity(query_vec, embedding)
             scores.append((row["id"], row["text"], metadata, score))
 

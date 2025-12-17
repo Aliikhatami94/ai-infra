@@ -131,7 +131,9 @@ class Span:
         self._attributes.update(attributes)
         return self
 
-    def add_event(self, name: str, attributes: Optional[Dict[str, Any]] = None) -> "Span":
+    def add_event(
+        self, name: str, attributes: Optional[Dict[str, Any]] = None
+    ) -> "Span":
         """Add an event to the span."""
         self._events.append(
             {
@@ -360,7 +362,9 @@ class OpenTelemetryExporter(SpanExporter):
         if self._tracer is None:
             try:
                 from opentelemetry import trace
-                from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+                from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
+                    OTLPSpanExporter,
+                )
                 from opentelemetry.sdk.resources import Resource
                 from opentelemetry.sdk.trace import TracerProvider
                 from opentelemetry.sdk.trace.export import BatchSpanProcessor

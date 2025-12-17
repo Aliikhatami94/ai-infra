@@ -120,7 +120,9 @@ class Graph:
         node_names = list(normalized_nodes.keys())
 
         # Build edges with enhanced tuple support (including conditional)
-        regular_edges, conditional_edges = build_edges_enhanced(node_names, edges, entry)
+        regular_edges, conditional_edges = build_edges_enhanced(
+            node_names, edges, entry
+        )
         self.edges = regular_edges
         self.conditional_edges = conditional_edges
 
@@ -269,12 +271,18 @@ class Graph:
         self, initial_state=None, *, config=None, stream_mode=("updates", "values")
     ) -> Iterator[tuple[str, Any]]:
         stream_mode = normalize_stream_mode(stream_mode)
-        compiled, initial_state, config = self._prepare_run(initial_state, config=config, sync=True)
-        for mode, chunk in compiled.stream(initial_state, config=config, stream_mode=stream_mode):
+        compiled, initial_state, config = self._prepare_run(
+            initial_state, config=config, sync=True
+        )
+        for mode, chunk in compiled.stream(
+            initial_state, config=config, stream_mode=stream_mode
+        ):
             yield mode, chunk
 
     async def astream_values(self, initial_state=None, *, config=None):
-        async for _, chunk in self.astream(initial_state, config=config, stream_mode="values"):
+        async for _, chunk in self.astream(
+            initial_state, config=config, stream_mode="values"
+        ):
             yield chunk
 
     def stream_values(self, initial_state=None, *, config=None):
@@ -323,7 +331,9 @@ class Graph:
             nodes=nodes,
             edge_count=len(self.edges),
             edges=self.edges,
-            conditional_edge_count=len(self.conditional_edges) if self.conditional_edges else 0,
+            conditional_edge_count=len(self.conditional_edges)
+            if self.conditional_edges
+            else 0,
             conditional_edges=conditional_edges_data,
             entry_points=entry_points,
             exit_points=exit_points,

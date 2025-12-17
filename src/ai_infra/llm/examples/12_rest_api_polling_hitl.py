@@ -43,7 +43,9 @@ try:
     from fastapi import BackgroundTasks, FastAPI, HTTPException
     from fastapi.responses import HTMLResponse
 except ImportError:
-    raise ImportError("FastAPI not installed. Install with: pip install fastapi uvicorn")
+    raise ImportError(
+        "FastAPI not installed. Install with: pip install fastapi uvicorn"
+    )
 
 
 # ============================================================================
@@ -221,7 +223,9 @@ async def run_agent_task(task_id: str, message: str):
             tool_name = pending_action.tool_name if pending_action else "unknown"
             tool_args = pending_action.args if pending_action else {}
             context_str = (
-                str(pending_action.context) if pending_action and pending_action.context else ""
+                str(pending_action.context)
+                if pending_action and pending_action.context
+                else ""
             )
             approval = ApprovalRequest(
                 id=approval_id,
@@ -248,7 +252,9 @@ async def run_agent_task(task_id: str, message: str):
                 decision = approval_decisions.get(approval_id)
                 if decision is not None:
                     approval.status = (
-                        ApprovalStatus.APPROVED if decision.approved else ApprovalStatus.REJECTED
+                        ApprovalStatus.APPROVED
+                        if decision.approved
+                        else ApprovalStatus.REJECTED
                     )
                     break
 
@@ -269,7 +275,9 @@ async def run_agent_task(task_id: str, message: str):
             )
 
         # Task completed
-        response_text = result.content if isinstance(result, SessionResult) else str(result)
+        response_text = (
+            result.content if isinstance(result, SessionResult) else str(result)
+        )
         tasks[task_id].status = TaskStatus.COMPLETED
         tasks[task_id].result = response_text
         tasks[task_id].updated_at = datetime.now()
@@ -336,7 +344,8 @@ async def get_task_approvals(task_id: str):
     return [
         pending_approvals[aid]
         for aid in tasks[task_id].pending_approvals
-        if aid in pending_approvals and pending_approvals[aid].status == ApprovalStatus.PENDING
+        if aid in pending_approvals
+        and pending_approvals[aid].status == ApprovalStatus.PENDING
     ]
 
 
@@ -364,7 +373,9 @@ async def submit_approval(approval_id: str, decision: ApprovalDecision):
     approval_decisions[approval_id] = decision
 
     # Update status (will be picked up by the background task)
-    approval.status = ApprovalStatus.APPROVED if decision.approved else ApprovalStatus.REJECTED
+    approval.status = (
+        ApprovalStatus.APPROVED if decision.approved else ApprovalStatus.REJECTED
+    )
 
     return approval
 

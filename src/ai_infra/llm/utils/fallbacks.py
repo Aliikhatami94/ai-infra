@@ -31,7 +31,9 @@ def _resolve_candidate(c: Candidate) -> Tuple[str, str, dict]:
             raise ValueError(
                 "Candidate dict must include 'provider' and 'model_name' (or 'model')."
             )
-        overrides = {k: v for k, v in c.items() if k not in ("provider", "model_name", "model")}
+        overrides = {
+            k: v for k, v in c.items() if k not in ("provider", "model_name", "model")
+        }
         return provider_val, model_name_val, overrides
     # statically “unreachable”, but keep the guard for runtime safety
     assert_never(c)  # will raise TypeError if ever reached
@@ -59,7 +61,9 @@ def run_with_fallbacks(
     run_single: Callable[[str, str, dict], Any],
     *,
     validate: Optional[Callable[[Any], bool]] = None,
-    should_retry: Optional[Callable[[Optional[BaseException], Any, int, str, str], bool]] = None,
+    should_retry: Optional[
+        Callable[[Optional[BaseException], Any, int, str, str], bool]
+    ] = None,
     on_attempt: Optional[Callable[[int, str, str], None]] = None,
 ) -> Any:
     """
@@ -114,7 +118,9 @@ async def arun_with_fallbacks(
     run_single_async: Callable[[str, str, dict], Any],
     *,
     validate: Optional[Callable[[Any], bool]] = None,
-    should_retry: Optional[Callable[[Optional[BaseException], Any, int, str, str], bool]] = None,
+    should_retry: Optional[
+        Callable[[Optional[BaseException], Any, int, str, str], bool]
+    ] = None,
     on_attempt: Optional[Callable[[int, str, str], None]] = None,
 ) -> Any:
     errs: List[BaseException] = []

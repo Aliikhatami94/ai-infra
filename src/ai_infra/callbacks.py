@@ -492,7 +492,9 @@ class CallbackManager:
                 if handler:
                     handler(event)
             except Exception as e:
-                logger.warning(f"Callback error in {callback.__class__.__name__}.{method}: {e}")
+                logger.warning(
+                    f"Callback error in {callback.__class__.__name__}.{method}: {e}"
+                )
 
     async def _dispatch_async(self, method: str, event: Any) -> None:
         """Dispatch async event to all callbacks.
@@ -524,7 +526,9 @@ class CallbackManager:
                 if handler:
                     await handler(event)
             except Exception as e:
-                logger.warning(f"Callback error in {callback.__class__.__name__}.{method}: {e}")
+                logger.warning(
+                    f"Callback error in {callback.__class__.__name__}.{method}: {e}"
+                )
 
     # LLM events
     def on_llm_start(self, event: LLMStartEvent) -> None:

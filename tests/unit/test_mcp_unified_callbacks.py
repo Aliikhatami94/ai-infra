@@ -6,7 +6,12 @@ callback system for progress and logging events.
 
 import pytest
 
-from ai_infra.callbacks import CallbackManager, Callbacks, MCPLoggingEvent, MCPProgressEvent
+from ai_infra.callbacks import (
+    CallbackManager,
+    Callbacks,
+    MCPLoggingEvent,
+    MCPProgressEvent,
+)
 from ai_infra.mcp import MCPClient
 
 

@@ -11,7 +11,18 @@ import asyncio
 import logging
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, Sequence, Tuple, Type, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Literal,
+    Sequence,
+    Tuple,
+    Type,
+    Union,
+)
 
 if TYPE_CHECKING:
     from ai_infra.callbacks import CallbackManager, Callbacks
@@ -40,7 +51,9 @@ from ai_infra.llm.tools import (
 from ai_infra.llm.tools.approval import ApprovalHandler, AsyncApprovalHandler
 from ai_infra.llm.tools.tool_controls import ToolCallControls
 from ai_infra.llm.utils.error_handler import translate_provider_error
-from ai_infra.llm.utils.runtime_bind import make_agent_with_context as rb_make_agent_with_context
+from ai_infra.llm.utils.runtime_bind import (
+    make_agent_with_context as rb_make_agent_with_context,
+)
 
 from .utils import arun_with_fallbacks as _arun_fallbacks_util
 from .utils import is_valid_response as _is_valid_response
@@ -69,7 +82,8 @@ except ImportError:
     # Define placeholders when deepagents is not installed
     def _missing_deepagents(*args, **kwargs):
         raise ImportError(
-            "DeepAgents requires 'deepagents' package. " "Install with: pip install deepagents"
+            "DeepAgents requires 'deepagents' package. "
+            "Install with: pip install deepagents"
         )
 
     class SubAgent(dict):  # type: ignore[no-redef]
@@ -237,7 +251,9 @@ class Agent(BaseLLM):
         validate_tool_results: bool = False,
         max_tool_retries: int = 1,
         # Approval config
-        require_approval: Union[bool, List[str], Callable[[str, Dict[str, Any]], bool]] = False,
+        require_approval: Union[
+            bool, List[str], Callable[[str, Dict[str, Any]], bool]
+        ] = False,
         approval_handler: Union[ApprovalHandler, AsyncApprovalHandler] | None = None,
         # Session config (for persistence and pause/resume)
         session: SessionStorage | None = None,
@@ -434,7 +450,9 @@ class Agent(BaseLLM):
             original_arun = tool._arun if hasattr(tool, "_arun") else None
 
             def wrapped_run(*args, **kwargs):
-                callbacks.on_tool_start(ToolStartEvent(tool_name=tool_name, arguments=kwargs))
+                callbacks.on_tool_start(
+                    ToolStartEvent(tool_name=tool_name, arguments=kwargs)
+                )
                 start_time = time.time()
                 try:
                     result = original_run(*args, **kwargs)
@@ -500,7 +518,9 @@ class Agent(BaseLLM):
             # Async tool wrapper
             @functools.wraps(func)
             async def async_wrapper(*args, **kwargs):
-                callbacks.on_tool_start(ToolStartEvent(tool_name=tool_name, arguments=kwargs))
+                callbacks.on_tool_start(
+                    ToolStartEvent(tool_name=tool_name, arguments=kwargs)
+                )
                 start_time = time.time()
                 try:
                     result = await func(*args, **kwargs)
@@ -540,7 +560,9 @@ class Agent(BaseLLM):
             # Sync tool wrapper
             @functools.wraps(func)
             def sync_wrapper(*args, **kwargs):
-                callbacks.on_tool_start(ToolStartEvent(tool_name=tool_name, arguments=kwargs))
+                callbacks.on_tool_start(
+                    ToolStartEvent(tool_name=tool_name, arguments=kwargs)
+                )
                 start_time = time.time()
                 try:
                     result = func(*args, **kwargs)
@@ -765,7 +787,9 @@ class Agent(BaseLLM):
         # Resolve provider and model
         eff_provider = provider or self._default_provider
         eff_model = model_name or self._default_model_name
-        eff_provider, eff_model = self._resolve_provider_and_model(eff_provider, eff_model)
+        eff_provider, eff_model = self._resolve_provider_and_model(
+            eff_provider, eff_model
+        )
 
         # Merge model kwargs
         eff_kwargs = {**self._default_model_kwargs, **model_kwargs}
@@ -924,7 +948,9 @@ class Agent(BaseLLM):
         # Resolve provider and model
         eff_provider = provider or self._default_provider
         eff_model = model_name or self._default_model_name
-        eff_provider, eff_model = self._resolve_provider_and_model(eff_provider, eff_model)
+        eff_provider, eff_model = self._resolve_provider_and_model(
+            eff_provider, eff_model
+        )
 
         # Merge model kwargs
         eff_kwargs = {**self._default_model_kwargs, **model_kwargs}
@@ -1066,7 +1092,9 @@ class Agent(BaseLLM):
         # Resolve provider and model
         eff_provider = provider or self._default_provider
         eff_model = model_name or self._default_model_name
-        eff_provider, eff_model = self._resolve_provider_and_model(eff_provider, eff_model)
+        eff_provider, eff_model = self._resolve_provider_and_model(
+            eff_provider, eff_model
+        )
 
         # Merge model kwargs
         eff_kwargs = {**self._default_model_kwargs, **model_kwargs}
@@ -1079,8 +1107,12 @@ class Agent(BaseLLM):
 
         # State for tool call accumulation
         pending_tool_calls: Dict[str, float] = {}  # tool_call_id -> start_time
-        emitted_tool_starts: set = set()  # Track which tool_starts we've already emitted
-        accumulating_tool_calls: Dict[int, Dict[str, Any]] = {}  # index -> {id, name, args_str}
+        emitted_tool_starts: set = (
+            set()
+        )  # Track which tool_starts we've already emitted
+        accumulating_tool_calls: Dict[
+            int, Dict[str, Any]
+        ] = {}  # index -> {id, name, args_str}
         tools_called = 0
 
         # Emit "thinking" event at start
@@ -1162,7 +1194,9 @@ class Agent(BaseLLM):
                                     tool=acc_name,
                                     tool_id=acc_id,
                                     arguments=(
-                                        tc_args if eff_visibility in ("detailed", "debug") else None
+                                        tc_args
+                                        if eff_visibility in ("detailed", "debug")
+                                        else None
                                     ),
                                 )
                                 yield filter_event_for_visibility(event, eff_visibility)
@@ -1198,7 +1232,11 @@ class Agent(BaseLLM):
 
                     # Skip if no name, no args (incomplete chunk), or already emitted
                     # Empty args {} means LLM hasn't streamed the arguments yet
-                    if not tc_name or tc_name == "unknown" or tc_id in emitted_tool_starts:
+                    if (
+                        not tc_name
+                        or tc_name == "unknown"
+                        or tc_id in emitted_tool_starts
+                    ):
                         continue
                     if not tc_args or (isinstance(tc_args, dict) and len(tc_args) == 0):
                         # Skip incomplete tool calls with empty args (streaming in progress)
@@ -1213,12 +1251,16 @@ class Agent(BaseLLM):
                     elif not isinstance(tc_args, dict):
                         tc_args = {}
 
-                    if cfg.include_tool_events and should_emit_event("tool_start", eff_visibility):
+                    if cfg.include_tool_events and should_emit_event(
+                        "tool_start", eff_visibility
+                    ):
                         event = StreamEvent(
                             type="tool_start",
                             tool=tc_name,
                             tool_id=tc_id,
-                            arguments=tc_args if eff_visibility in ("detailed", "debug") else None,
+                            arguments=tc_args
+                            if eff_visibility in ("detailed", "debug")
+                            else None,
                         )
                         yield filter_event_for_visibility(event, eff_visibility)
 
@@ -1245,7 +1287,9 @@ class Agent(BaseLLM):
                     del accumulating_tool_calls[idx_to_remove]
 
                 # Emit tool_end
-                if cfg.include_tool_events and should_emit_event("tool_end", eff_visibility):
+                if cfg.include_tool_events and should_emit_event(
+                    "tool_end", eff_visibility
+                ):
                     # Get result from tool - may be string or structured dict
                     raw_result = token.content
 
@@ -1272,7 +1316,9 @@ class Agent(BaseLLM):
                     if eff_visibility == "debug" and not is_structured:
                         result_str = str(raw_result)
                         if len(result_str) > cfg.tool_result_preview_length:
-                            preview = result_str[: cfg.tool_result_preview_length] + "..."
+                            preview = (
+                                result_str[: cfg.tool_result_preview_length] + "..."
+                            )
                         else:
                             preview = result_str
 
@@ -1294,11 +1340,15 @@ class Agent(BaseLLM):
             if isinstance(token, AIMessageChunk) and token.content:
                 # Content can be str or list - convert to string
                 content = (
-                    str(token.content) if not isinstance(token.content, str) else token.content
+                    str(token.content)
+                    if not isinstance(token.content, str)
+                    else token.content
                 )
             elif hasattr(token, "content") and token.content:
                 content = (
-                    str(token.content) if not isinstance(token.content, str) else token.content
+                    str(token.content)
+                    if not isinstance(token.content, str)
+                    else token.content
                 )
             elif isinstance(token, str) and token:
                 content = token
@@ -1351,7 +1401,9 @@ class Agent(BaseLLM):
         # Resolve provider and model
         eff_provider = provider or self._default_provider
         eff_model = model_name or self._default_model_name
-        eff_provider, eff_model = self._resolve_provider_and_model(eff_provider, eff_model)
+        eff_provider, eff_model = self._resolve_provider_and_model(
+            eff_provider, eff_model
+        )
 
         # Build resume command
         decision = ResumeDecision(
@@ -1411,7 +1463,9 @@ class Agent(BaseLLM):
         # Resolve provider and model
         eff_provider = provider or self._default_provider
         eff_model = model_name or self._default_model_name
-        eff_provider, eff_model = self._resolve_provider_and_model(eff_provider, eff_model)
+        eff_provider, eff_model = self._resolve_provider_and_model(
+            eff_provider, eff_model
+        )
 
         # Build resume command
         decision = ResumeDecision(
@@ -1605,7 +1659,9 @@ class Agent(BaseLLM):
             interrupt_on=interrupt_on,
         )
 
-    def _get_model_for_deep_agent(self, provider: str, model_name: str | None = None) -> Any:
+    def _get_model_for_deep_agent(
+        self, provider: str, model_name: str | None = None
+    ) -> Any:
         """Get a LangChain chat model instance for deep agent.
 
         Args:
@@ -1619,7 +1675,9 @@ class Agent(BaseLLM):
         eff_provider, eff_model = self._resolve_provider_and_model(provider, model_name)
 
         # Get or create model from registry (same as get_model())
-        return self.registry.get_or_create(eff_provider, eff_model, **self._default_model_kwargs)
+        return self.registry.get_or_create(
+            eff_provider, eff_model, **self._default_model_kwargs
+        )
 
     async def arun_agent(
         self,
@@ -1646,7 +1704,8 @@ class Agent(BaseLLM):
                     model=model_name or "",
                     messages=messages,
                     tools=[
-                        {"name": getattr(t, "name", str(t))} for t in (tools or self.tools or [])
+                        {"name": getattr(t, "name", str(t))}
+                        for t in (tools or self.tools or [])
                     ],
                 )
             )
@@ -1654,7 +1713,9 @@ class Agent(BaseLLM):
         start_time = time.time()
 
         async def _call():
-            return await agent.ainvoke({"messages": messages}, context=context, config=config)
+            return await agent.ainvoke(
+                {"messages": messages}, context=context, config=config
+            )
 
         try:
             retry_cfg = (extra or {}).get("retry") if extra else None
@@ -1689,7 +1750,9 @@ class Agent(BaseLLM):
                     )
                 )
             # Translate provider errors to ai-infra errors
-            raise translate_provider_error(e, provider=provider, model=model_name) from e
+            raise translate_provider_error(
+                e, provider=provider, model=model_name
+            ) from e
         ai_msg = await apply_output_gate_async(res, self._hitl)
         return ai_msg
 
@@ -1718,7 +1781,8 @@ class Agent(BaseLLM):
                     model=model_name or "",
                     messages=messages,
                     tools=[
-                        {"name": getattr(t, "name", str(t))} for t in (tools or self.tools or [])
+                        {"name": getattr(t, "name", str(t))}
+                        for t in (tools or self.tools or [])
                     ],
                 )
             )
@@ -1728,7 +1792,9 @@ class Agent(BaseLLM):
 
         start_time = time.time()
         try:
-            res = agent.invoke({"messages": messages}, context=context, config=merged_config)
+            res = agent.invoke(
+                {"messages": messages}, context=context, config=merged_config
+            )
 
             # Fire LLM end callback
             if self._callbacks:
@@ -1756,7 +1822,9 @@ class Agent(BaseLLM):
                     )
                 )
             # Translate provider errors to ai-infra errors
-            raise translate_provider_error(e, provider=provider, model=model_name) from e
+            raise translate_provider_error(
+                e, provider=provider, model=model_name
+            ) from e
         ai_msg = apply_output_gate(res, self._hitl)
         return ai_msg
 
@@ -1868,7 +1936,9 @@ class Agent(BaseLLM):
         extra: Dict[str, Any] | None = None,
         model_kwargs: Dict[str, Any] | None = None,
     ):
-        return self._make_agent_with_context(provider, model_name, tools, extra, model_kwargs)
+        return self._make_agent_with_context(
+            provider, model_name, tools, extra, model_kwargs
+        )
 
     # ---------- fallbacks (sync) ----------
     def run_with_fallbacks(
@@ -1882,8 +1952,8 @@ class Agent(BaseLLM):
         config: Dict[str, Any] | None = None,
     ):
         def _run_single(provider: str, model_name: str, overrides: Dict[str, Any]):
-            eff_extra, eff_model_kwargs, eff_tools, eff_tool_controls = _merge_overrides(
-                extra, model_kwargs, tools, tool_controls, overrides
+            eff_extra, eff_model_kwargs, eff_tools, eff_tool_controls = (
+                _merge_overrides(extra, model_kwargs, tools, tool_controls, overrides)
             )
             return self.run_agent(
                 messages=messages,
@@ -1913,9 +1983,11 @@ class Agent(BaseLLM):
         tool_controls: ToolCallControls | Dict[str, Any] | None = None,
         config: Dict[str, Any] | None = None,
     ):
-        async def _run_single(provider: str, model_name: str, overrides: Dict[str, Any]):
-            eff_extra, eff_model_kwargs, eff_tools, eff_tool_controls = _merge_overrides(
-                extra, model_kwargs, tools, tool_controls, overrides
+        async def _run_single(
+            provider: str, model_name: str, overrides: Dict[str, Any]
+        ):
+            eff_extra, eff_model_kwargs, eff_tools, eff_tool_controls = (
+                _merge_overrides(extra, model_kwargs, tools, tool_controls, overrides)
             )
             return await self.arun_agent(
                 messages=messages,

@@ -168,7 +168,8 @@ def encode_image(image: ImageInput) -> Dict[str, Any]:
         return _encode_path_image(image)
     else:
         raise TypeError(
-            f"Unsupported image type: {type(image)}. " "Expected str (URL or path), bytes, or Path."
+            f"Unsupported image type: {type(image)}. "
+            "Expected str (URL or path), bytes, or Path."
         )
 
 
