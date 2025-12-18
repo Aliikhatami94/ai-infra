@@ -185,9 +185,45 @@
       "lastUpdated": "2025-12-01",
       "updateCount": 1,
       "title": "Schema Tools"
+    },
+    "error-handling.md": {
+      "created": "2025-12-18",
+      "lastUpdated": "2025-12-18",
+      "updateCount": 1,
+      "title": "Error Handling Guide"
+    },
+    "migration.md": {
+      "created": "2025-12-18",
+      "lastUpdated": "2025-12-18",
+      "updateCount": 1,
+      "title": "Migration Guide"
+    },
+    "reference/api.md": {
+      "created": "2025-12-18",
+      "lastUpdated": "2025-12-18",
+      "updateCount": 1,
+      "title": "API Reference"
     }
   },
   "history": [
+    {
+      "date": "2025-12-18",
+      "file": "reference/api.md",
+      "type": "new",
+      "title": "API Reference"
+    },
+    {
+      "date": "2025-12-18",
+      "file": "migration.md",
+      "type": "new",
+      "title": "Migration Guide"
+    },
+    {
+      "date": "2025-12-18",
+      "file": "error-handling.md",
+      "type": "new",
+      "title": "Error Handling Guide"
+    },
     {
       "date": "2025-12-07",
       "file": "streaming.md",
