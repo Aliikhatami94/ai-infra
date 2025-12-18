@@ -193,14 +193,14 @@ def test_realtime_integration():
 
     print(f"\n✓ OpenAI Realtime models (module): {OPENAI_REALTIME_MODELS}")
     print(f"✓ OpenAI Realtime models (registry): {rt_cap.models}")
-    assert OPENAI_REALTIME_MODELS == rt_cap.models, "OpenAI realtime models mismatch"
+    assert rt_cap.models == OPENAI_REALTIME_MODELS, "OpenAI realtime models mismatch"
 
     print(f"✓ OpenAI Realtime voices (module): {OPENAI_REALTIME_VOICES}")
     print(f"✓ OpenAI Realtime voices (registry): {rt_cap.voices}")
-    assert OPENAI_REALTIME_VOICES == rt_cap.voices, "OpenAI realtime voices mismatch"
+    assert rt_cap.voices == OPENAI_REALTIME_VOICES, "OpenAI realtime voices mismatch"
 
     print(f"✓ OpenAI default model: {OPENAI_DEFAULT}")
-    assert OPENAI_DEFAULT == rt_cap.default_model
+    assert rt_cap.default_model == OPENAI_DEFAULT
 
     # Test Gemini realtime config
     gemini_rt = ProviderRegistry.get("google_genai")
@@ -210,14 +210,14 @@ def test_realtime_integration():
 
     print(f"\n✓ Gemini Realtime models (module): {GEMINI_LIVE_MODELS}")
     print(f"✓ Gemini Realtime models (registry): {grt_cap.models}")
-    assert GEMINI_LIVE_MODELS == grt_cap.models, "Gemini realtime models mismatch"
+    assert grt_cap.models == GEMINI_LIVE_MODELS, "Gemini realtime models mismatch"
 
     print(f"✓ Gemini voices (module): {GEMINI_VOICES}")
     print(f"✓ Gemini voices (registry): {grt_cap.voices}")
-    assert GEMINI_VOICES == grt_cap.voices, "Gemini realtime voices mismatch"
+    assert grt_cap.voices == GEMINI_VOICES, "Gemini realtime voices mismatch"
 
     print(f"✓ Gemini default model: {GEMINI_DEFAULT}")
-    assert GEMINI_DEFAULT == grt_cap.default_model
+    assert grt_cap.default_model == GEMINI_DEFAULT
 
     print("\n✅ Realtime Voice integration: PASSED")
     return True
@@ -329,17 +329,17 @@ def test_provider_config_completeness():
         for cap_name, cap_config in config.capabilities.items():
             assert cap_config.models is not None, f"{name}.{cap_name} missing models"
             assert cap_config.default_model, f"{name}.{cap_name} missing default_model"
-            assert (
-                cap_config.default_model in cap_config.models
-            ), f"{name}.{cap_name} default_model not in models list"
+            assert cap_config.default_model in cap_config.models, (
+                f"{name}.{cap_name} default_model not in models list"
+            )
 
             # For TTS, check voices
             if cap_name == ProviderCapability.TTS:
                 assert cap_config.voices, f"{name}.TTS missing voices"
                 if cap_config.default_voice:
-                    assert (
-                        cap_config.default_voice in cap_config.voices
-                    ), f"{name}.TTS default_voice not in voices list"
+                    assert cap_config.default_voice in cap_config.voices, (
+                        f"{name}.TTS default_voice not in voices list"
+                    )
 
         print(f"✓ {name}: {len(config.capabilities)} capabilities OK")
 

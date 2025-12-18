@@ -8,7 +8,6 @@ Run with: poetry run python scripts/test_unified_callbacks_live.py
 """
 
 import asyncio
-from typing import List
 
 import pytest
 
@@ -48,7 +47,7 @@ def test_1_llm_callbacks():
     from ai_infra import LLM
     from ai_infra.callbacks import Callbacks, LLMEndEvent, LLMErrorEvent, LLMStartEvent
 
-    events: List[str] = []
+    events: list[str] = []
 
     class TestCallbacks(Callbacks):
         def on_llm_start(self, event: LLMStartEvent) -> None:
@@ -93,7 +92,7 @@ async def test_2_async_llm_callbacks():
     from ai_infra import LLM
     from ai_infra.callbacks import Callbacks, LLMEndEvent, LLMStartEvent
 
-    events: List[str] = []
+    events: list[str] = []
 
     class AsyncTestCallbacks(Callbacks):
         async def on_llm_start_async(self, event: LLMStartEvent) -> None:
@@ -131,8 +130,8 @@ async def test_3_streaming_callbacks():
     from ai_infra import LLM
     from ai_infra.callbacks import Callbacks, LLMEndEvent, LLMStartEvent, LLMTokenEvent
 
-    events: List[str] = []
-    tokens_received: List[str] = []
+    events: list[str] = []
+    tokens_received: list[str] = []
 
     class StreamingCallbacks(Callbacks):
         async def on_llm_start_async(self, event: LLMStartEvent) -> None:
@@ -185,7 +184,7 @@ def test_4_agent_with_tools():
         ToolStartEvent,
     )
 
-    events: List[str] = []
+    events: list[str] = []
 
     class AgentCallbacks(Callbacks):
         def on_llm_start(self, event: LLMStartEvent) -> None:
@@ -249,8 +248,8 @@ def test_5_callback_manager():
     from ai_infra import LLM
     from ai_infra.callbacks import CallbackManager, Callbacks, LLMEndEvent, LLMStartEvent
 
-    handler1_events: List[str] = []
-    handler2_events: List[str] = []
+    handler1_events: list[str] = []
+    handler2_events: list[str] = []
 
     class Handler1(Callbacks):
         def on_llm_start(self, event: LLMStartEvent) -> None:
@@ -398,7 +397,7 @@ def test_8_mcp_client_callbacks():
     from ai_infra.callbacks import CallbackManager, Callbacks, MCPLoggingEvent, MCPProgressEvent
     from ai_infra.mcp import MCPClient
 
-    events: List[str] = []
+    events: list[str] = []
 
     class MCPCallbacks(Callbacks):
         async def on_mcp_progress_async(self, event: MCPProgressEvent) -> None:
@@ -426,12 +425,12 @@ def test_8_mcp_client_callbacks():
     log("✓ MCPClient accepts CallbackManager", GREEN)
 
     # Test normalization (check both mcp and mcp2)
-    assert isinstance(
-        mcp._callbacks, CallbackManager
-    ), "Callbacks not normalized to CallbackManager"
-    assert isinstance(
-        mcp2._callbacks, CallbackManager
-    ), "CallbackManager not passed through correctly"
+    assert isinstance(mcp._callbacks, CallbackManager), (
+        "Callbacks not normalized to CallbackManager"
+    )
+    assert isinstance(mcp2._callbacks, CallbackManager), (
+        "CallbackManager not passed through correctly"
+    )
     log("✓ Callbacks normalized to CallbackManager internally", GREEN)
 
     log("\n✓ MCPClient unified callbacks work correctly", GREEN)

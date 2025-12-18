@@ -5,7 +5,7 @@ import logging
 import os
 from collections.abc import Awaitable, Callable
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import httpx
 from mcp.server.fastmcp import FastMCP
@@ -405,11 +405,11 @@ def _py_type_from_schema(
                 else:
                     if description:
                         fields[k] = (
-                            Optional[typ],
+                            typ | None,
                             PydanticField(default=None, description=description),
                         )
                     else:
-                        fields[k] = (Optional[typ], None)
+                        fields[k] = (typ | None, None)
 
         # Generate unique model name to avoid conflicts
         model_name = schema.get("title") or "AnonModel"
@@ -460,21 +460,21 @@ def _build_input_model(
 
         if op_ctx.body_content_type == "multipart/form-data":
             fields["files"] = (
-                Optional[dict[str, Any]],
+                dict[str, Any] | None,
                 Field(default=None, alias="_files"),
             )
 
     BasicAuthList = conlist(str, min_length=2, max_length=2)
     fields["headers"] = (
-        Optional[dict[str, str]],
+        dict[str, str] | None,
         Field(default=None, alias="_headers"),
     )
-    fields["api_key"] = (Optional[str], Field(default=None, alias="_api_key"))
+    fields["api_key"] = (str | None, Field(default=None, alias="_api_key"))
     fields["basic_auth"] = (
-        Optional[str | BasicAuthList],
+        str | BasicAuthList | None,
         Field(default=None, alias="_basic_auth"),
     )
-    fields["base_url"] = (Optional[str], Field(default=None, alias="_base_url"))
+    fields["base_url"] = (str | None, Field(default=None, alias="_base_url"))
 
     Model = create_model(
         "Input_" + op_ctx.name,
@@ -528,13 +528,13 @@ def _build_output_model(op_ctx: OperationContext, op: dict, spec: OpenAPISpec) -
     if resp_schema and (resp_ct == "application/json"):
         payload_type = _py_type_from_schema(resp_schema, spec)
         fields["payload_json"] = (
-            Optional[payload_type],
+            payload_type | None,
             Field(default=None, alias="json"),
         )
-        fields["payload_text"] = (Optional[str], Field(default=None, alias="text"))
+        fields["payload_text"] = (str | None, Field(default=None, alias="text"))
     else:
-        fields["payload_json"] = (Optional[Any], Field(default=None, alias="json"))
-        fields["payload_text"] = (Optional[str], Field(default=None, alias="text"))
+        fields["payload_json"] = (Any | None, Field(default=None, alias="json"))
+        fields["payload_text"] = (str | None, Field(default=None, alias="text"))
 
     Model = create_model(
         "Output_" + op_ctx.name,
@@ -959,7 +959,7 @@ def _register_operation_tool(
         return OutputModel.model_validate(out)
 
     # expose schemas to MCP (input/outputSchema) via annotations
-    tool.__annotations__ = {"args": Optional[InputModel], "return": OutputModel}
+    tool.__annotations__ = {"args": InputModel | None, "return": OutputModel}
     mcp.add_tool(name=op_ctx.name, description=op_ctx.full_description(), fn=tool)
 
     op_rep.warnings.extend(warnings)

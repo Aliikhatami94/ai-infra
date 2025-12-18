@@ -229,9 +229,8 @@ async def main():
 
     # Test retriever module exports
     print("\n📦 ai_infra.retriever exports:")
-    from ai_infra.retriever import Chunk
+    from ai_infra.retriever import Chunk, SearchResult
     from ai_infra.retriever import Retriever as R
-    from ai_infra.retriever import SearchResult
 
     print(f"   Retriever: {R}")
     print(f"   SearchResult: {SearchResult}")

@@ -1,7 +1,5 @@
 """Tests for schema_tools - tools_from_models() function."""
 
-from typing import Optional
-
 import pytest
 from pydantic import BaseModel, Field
 
@@ -19,7 +17,7 @@ class User(BaseModel):
     id: int
     name: str
     email: str
-    age: Optional[int] = None
+    age: int | None = None
     is_active: bool = True
 
 

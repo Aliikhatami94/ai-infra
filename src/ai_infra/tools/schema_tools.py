@@ -56,7 +56,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Any, Optional, TypeVar, get_type_hints
+from typing import Any, TypeVar, get_type_hints
 
 from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, Field, create_model
@@ -275,7 +275,7 @@ def _create_list_tool(
             continue
         # Make optional for filtering
         filter_fields[field_name] = (
-            Optional[field_type],
+            field_type | None,
             Field(default=None, description=f"Filter by {field_name}"),
         )
 
@@ -325,7 +325,7 @@ def _create_create_tool(
         if field_name == "id":
             continue
         create_fields[field_name] = (
-            field_type if default is ... else Optional[field_type],
+            field_type if default is ... else field_type | None,
             Field(default=default, description=f"The {field_name}"),
         )
 
@@ -367,7 +367,7 @@ def _create_update_tool(
         if field_name == "id":
             continue
         update_fields[field_name] = (
-            Optional[field_type],
+            field_type | None,
             Field(default=None, description=f"New value for {field_name}"),
         )
 

@@ -241,7 +241,7 @@ class MCPServer:
             mcp, async_cleanup, report = res
             # optional: stash report for later introspection
             try:
-                mcp.openapi_build_report = report
+                mcp.openapi_build_report = report  # type: ignore[attr-defined]
             except Exception:
                 pass
         else:
