@@ -113,7 +113,17 @@ clean-pycache:
 	@find . -type d -name '__pycache__' -prune -exec rm -rf {} +
 
 # --- Docs Changelog ---
-.PHONY: docs-changelog
+.PHONY: docs-changelog docs docs-serve docs-build
 
 docs-changelog: ## Generate/update docs/CHANGELOG.json for What's New page
 	@./scripts/docs-changelog.sh
+
+docs: docs-serve ## Alias for docs-serve
+
+docs-serve: ## Serve documentation locally with live reload
+	@echo "[docs] Starting documentation server..."
+	poetry run mkdocs serve
+
+docs-build: ## Build documentation for production
+	@echo "[docs] Building documentation..."
+	poetry run mkdocs build

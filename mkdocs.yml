@@ -1,0 +1,112 @@
+site_name: ai-infra Documentation
+site_description: Python AI SDK that simplifies AI/LLM integrations for any application
+site_url: https://nfrax.com/ai-infra
+repo_url: https://github.com/nfraxlab/ai-infra
+repo_name: nfraxlab/ai-infra
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: deep-purple
+      accent: deep-purple
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: deep-purple
+      accent: deep-purple
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.tabs.link
+    - content.code.copy
+    - content.code.annotate
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            show_source: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            members_order: source
+            merge_init_into_class: true
+            separate_signature: true
+            signature_crossrefs: true
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
+  - admonition
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Quick Start: getting-started.md
+      - CLI: cli.md
+  - Core:
+      - LLM: core/llm.md
+      - Agents: core/agents.md
+      - Graph: core/graph.md
+  - Features:
+      - Streaming: streaming.md
+      - Callbacks: callbacks.md
+      - Memory: memory.md
+      - Embeddings: embeddings/index.md
+      - Image Generation: imagegen/index.md
+      - Multimodal: multimodal/index.md
+  - Tools:
+      - Overview: tools/index.md
+      - Custom Tools: tools/custom.md
+      - Human-in-the-Loop: tools/hitl.md
+  - MCP:
+      - Overview: mcp/index.md
+      - Client: mcp/client.md
+      - Server: mcp/server.md
+  - Cost Management:
+      - Tracking: cost/index.md
+      - Budgets: cost/budgets.md
+  - Integration:
+      - Overview: integration/index.md
+      - LangChain: integration/langchain.md
+      - LangGraph: integration/langgraph.md
+  - Production:
+      - Deployment: production/index.md
+      - Security: security/index.md
+      - Testing: testing/index.md
+  - Migration:
+      - Upgrade Guide: migration/index.md
+  - Reference:
+      - API Reference: reference/api.md
+      - Infrastructure: infrastructure/index.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/nfraxlab/ai-infra
