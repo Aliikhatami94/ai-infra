@@ -430,9 +430,7 @@ class TestBuiltInCallbacks:
         assert callbacks is not None
         # Should handle events without error
         callbacks.on_llm_start(LLMStartEvent("openai", "gpt-4o", []))
-        callbacks.on_llm_end(
-            LLMEndEvent("openai", "gpt-4o", "response", total_tokens=10)
-        )
+        callbacks.on_llm_end(LLMEndEvent("openai", "gpt-4o", "response", total_tokens=10))
 
     def test_print_callbacks_instantiation(self):
         """Test PrintCallbacks can be instantiated."""

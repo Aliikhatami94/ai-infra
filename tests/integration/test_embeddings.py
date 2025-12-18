@@ -280,9 +280,7 @@ class TestVectorStoreIntegration:
 
         assert len(results) > 0
         # First result should be about Python
-        assert (
-            "python" in results[0][0].lower() or "programming" in results[0][0].lower()
-        )
+        assert "python" in results[0][0].lower() or "programming" in results[0][0].lower()
 
     def test_search_with_metadata(self):
         """Test search returns metadata."""

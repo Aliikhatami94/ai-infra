@@ -472,9 +472,7 @@ class TestHeaderInjectionInterceptor:
             captured_request = request
             return mock_result
 
-        inject = HeaderInjectionInterceptor(
-            headers={"X-API-Key": "secret", "X-Custom": "value"}
-        )
+        inject = HeaderInjectionInterceptor(headers={"X-API-Key": "secret", "X-Custom": "value"})
         req = MCPToolCallRequest(name="tool", args={}, server_name="server")
 
         await inject(req, handler)

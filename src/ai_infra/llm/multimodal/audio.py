@@ -166,8 +166,7 @@ def encode_audio(audio: AudioInput) -> dict[str, Any]:
         return _encode_path_audio(audio)
     else:
         raise TypeError(
-            f"Unsupported audio type: {type(audio)}. "
-            "Expected str (URL or path), bytes, or Path."
+            f"Unsupported audio type: {type(audio)}. Expected str (URL or path), bytes, or Path."
         )
 
 

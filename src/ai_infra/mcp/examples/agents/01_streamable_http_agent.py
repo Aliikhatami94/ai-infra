@@ -4,11 +4,7 @@ from ai_infra.llm import Agent, Providers
 from ai_infra.mcp.client import MCPClient
 from ai_infra.mcp.client.models import McpServerConfig
 
-cfg = [
-    McpServerConfig(
-        transport="streamable_http", url="http://0.0.0.0:8000/streamable-app/mcp"
-    )
-]
+cfg = [McpServerConfig(transport="streamable_http", url="http://0.0.0.0:8000/streamable-app/mcp")]
 
 
 async def main():

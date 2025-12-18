@@ -21,9 +21,7 @@ def main():
     graph = Graph(
         state_type=MyState,
         node_definitions=[inc],
-        edges=[
-            Edge(start="inc", end="inc")
-        ],  # simple loop; rely on user to break (example)
+        edges=[Edge(start="inc", end="inc")],  # simple loop; rely on user to break (example)
     )
     # For demonstration, manually break after 5 iterations
     iterations = 0

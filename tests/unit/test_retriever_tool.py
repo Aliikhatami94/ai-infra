@@ -195,9 +195,7 @@ class TestCreateRetrieverToolAsync:
         assert tool.description == "Async document search"
 
     @pytest.mark.asyncio
-    async def test_async_returns_search_results(
-        self, mock_retriever: MagicMock
-    ) -> None:
+    async def test_async_returns_search_results(self, mock_retriever: MagicMock) -> None:
         """Test that async tool returns search results."""
         tool = create_retriever_tool_async(mock_retriever)
         result = await tool.ainvoke({"query": "async test"})
@@ -217,9 +215,7 @@ class TestCreateRetrieverToolAsync:
         )
 
     @pytest.mark.asyncio
-    async def test_async_returns_no_results_message(
-        self, empty_mock_retriever: MagicMock
-    ) -> None:
+    async def test_async_returns_no_results_message(self, empty_mock_retriever: MagicMock) -> None:
         """Test that async tool returns appropriate message when no results."""
         tool = create_retriever_tool_async(empty_mock_retriever)
         result = await tool.ainvoke({"query": "nonexistent"})
@@ -308,9 +304,7 @@ class TestEdgeCases:
             "test", k=10, min_score=None, filter=None, detailed=True
         )
 
-    def test_min_score_parameter_passed_to_retriever(
-        self, mock_retriever: MagicMock
-    ) -> None:
+    def test_min_score_parameter_passed_to_retriever(self, mock_retriever: MagicMock) -> None:
         """Test that min_score parameter is correctly passed to retriever."""
         tool = create_retriever_tool(mock_retriever, min_score=0.75)
         tool.invoke({"query": "test"})
@@ -319,9 +313,7 @@ class TestEdgeCases:
             "test", k=5, min_score=0.75, filter=None, detailed=True
         )
 
-    def test_filter_parameter_passed_to_retriever(
-        self, mock_retriever: MagicMock
-    ) -> None:
+    def test_filter_parameter_passed_to_retriever(self, mock_retriever: MagicMock) -> None:
         """Test that filter parameter is correctly passed to retriever."""
         filter_dict = {"type": "docs", "package": "svc-infra"}
         tool = create_retriever_tool(mock_retriever, filter=filter_dict)
@@ -369,9 +361,7 @@ class TestFormattingOptions:
 
     def test_format_markdown(self, mock_retriever: MagicMock) -> None:
         """Test markdown format."""
-        tool = create_retriever_tool(
-            mock_retriever, format="markdown", return_scores=True
-        )
+        tool = create_retriever_tool(mock_retriever, format="markdown", return_scores=True)
         result = tool.invoke({"query": "test"})
 
         # Markdown format uses headers
@@ -409,9 +399,7 @@ class TestFormattingOptions:
 
     def test_format_markdown_without_scores(self, mock_retriever: MagicMock) -> None:
         """Test markdown format without scores."""
-        tool = create_retriever_tool(
-            mock_retriever, format="markdown", return_scores=False
-        )
+        tool = create_retriever_tool(mock_retriever, format="markdown", return_scores=False)
         result = tool.invoke({"query": "test"})
 
         assert "### Result 1" in result
@@ -423,9 +411,7 @@ class TestFormattingOptions:
         """Test JSON format works with async tool."""
         import json
 
-        tool = create_retriever_tool_async(
-            mock_retriever, format="json", return_scores=True
-        )
+        tool = create_retriever_tool_async(mock_retriever, format="json", return_scores=True)
         result = await tool.ainvoke({"query": "test"})
 
         data = json.loads(result)

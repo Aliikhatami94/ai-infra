@@ -54,9 +54,7 @@ class TestEmbeddingsProviders:
         with pytest.raises(ValueError, match="Unknown provider"):
             Embeddings(provider="invalid")
 
-    @pytest.mark.skipif(
-        not HAS_HUGGINGFACE, reason="langchain-huggingface not installed"
-    )
+    @pytest.mark.skipif(not HAS_HUGGINGFACE, reason="langchain-huggingface not installed")
     def test_no_provider_available(self) -> None:
         """Test fallback to huggingface when no API keys set."""
         with patch.dict("os.environ", {}, clear=True):

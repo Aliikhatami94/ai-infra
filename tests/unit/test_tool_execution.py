@@ -214,9 +214,7 @@ class TestResultValidation:
     def test_validation_disabled_by_default(self):
         """Validation is disabled by default."""
         config = ToolExecutionConfig()
-        wrapped = wrap_tool_with_execution_config(
-            wrong_type_tool, config, expected_return_type=str
-        )
+        wrapped = wrap_tool_with_execution_config(wrong_type_tool, config, expected_return_type=str)
         # Should not raise even though wrong type returned
         result = wrapped.invoke({"x": 5})
         assert result == 123
@@ -224,9 +222,7 @@ class TestResultValidation:
     def test_validation_enabled_raises(self):
         """With validate_results=True, wrong type raises ToolValidationError."""
         config = ToolExecutionConfig(validate_results=True)
-        wrapped = wrap_tool_with_execution_config(
-            wrong_type_tool, config, expected_return_type=str
-        )
+        wrapped = wrap_tool_with_execution_config(wrong_type_tool, config, expected_return_type=str)
         with pytest.raises(ToolValidationError) as exc_info:
             wrapped.invoke({"x": 5})
         assert exc_info.value.tool_name == "wrong_type_tool"
@@ -236,9 +232,7 @@ class TestResultValidation:
     def test_validation_passes_correct_type(self):
         """Validation passes when types match."""
         config = ToolExecutionConfig(validate_results=True)
-        wrapped = wrap_tool_with_execution_config(
-            successful_tool, config, expected_return_type=str
-        )
+        wrapped = wrap_tool_with_execution_config(successful_tool, config, expected_return_type=str)
         result = wrapped.invoke({"x": 5})
         assert result == "Result: 10"
 

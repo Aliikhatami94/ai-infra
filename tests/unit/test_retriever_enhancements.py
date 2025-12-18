@@ -89,10 +89,7 @@ class TestGetEmbeddingDimension:
     def test_returns_known_dimension_for_huggingface(self) -> None:
         """Test returns dimension for known HuggingFace models."""
         assert (
-            _get_embedding_dimension(
-                "huggingface", "sentence-transformers/all-MiniLM-L6-v2"
-            )
-            == 384
+            _get_embedding_dimension("huggingface", "sentence-transformers/all-MiniLM-L6-v2") == 384
         )
 
     def test_raises_for_unknown_model(self) -> None:

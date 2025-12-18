@@ -14,9 +14,7 @@ def main():
     async def _run():
         print(">>> Token deltas:\n")
         async for token, meta in agent.astream_agent_tokens(
-            messages=[
-                {"role": "user", "content": "List three colors separated by commas."}
-            ],
+            messages=[{"role": "user", "content": "List three colors separated by commas."}],
             provider=Providers.openai,
             model_name="gpt-4.1-mini",
         ):

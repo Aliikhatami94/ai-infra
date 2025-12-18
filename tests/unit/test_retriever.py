@@ -451,9 +451,7 @@ class TestRetrieverWithMocks:
         ids = retriever.add("This is plain text, not a file path.")
         assert len(ids) >= 1
 
-    def test_add_with_metadata(
-        self, retriever: Any, mock_embeddings: MagicMock
-    ) -> None:
+    def test_add_with_metadata(self, retriever: Any, mock_embeddings: MagicMock) -> None:
         """Test adding text with metadata."""
         ids = retriever.add_text(
             "Hello world",
@@ -485,9 +483,7 @@ class TestRetrieverWithMocks:
             assert hasattr(results[0], "score")
             assert hasattr(results[0], "metadata")
 
-    def test_search_k_parameter(
-        self, retriever: Any, mock_embeddings: MagicMock
-    ) -> None:
+    def test_search_k_parameter(self, retriever: Any, mock_embeddings: MagicMock) -> None:
         """Test search respects k parameter."""
         # Add several texts
         for i in range(10):
@@ -504,9 +500,7 @@ class TestRetrieverWithMocks:
         context = retriever.get_context("color of sky", k=2)
         assert isinstance(context, str)
 
-    def test_get_context_custom_separator(
-        self, retriever: Any, mock_embeddings: MagicMock
-    ) -> None:
+    def test_get_context_custom_separator(self, retriever: Any, mock_embeddings: MagicMock) -> None:
         """Test get_context with custom separator."""
         retriever.add_text("First fact")
         retriever.add_text("Second fact")
@@ -540,9 +534,7 @@ class TestRetrieverWithMocks:
         # Count might be chunks, not documents
         assert retriever.count >= 1  # count is a property
 
-    def test_embeddings_internal(
-        self, retriever: Any, mock_embeddings: MagicMock
-    ) -> None:
+    def test_embeddings_internal(self, retriever: Any, mock_embeddings: MagicMock) -> None:
         """Test _embeddings stores the embeddings instance."""
         assert retriever._embeddings is mock_embeddings
 
@@ -594,9 +586,7 @@ class TestRetrieverAsync:
         assert isinstance(results, list)
 
     @pytest.mark.asyncio
-    async def test_aget_context(
-        self, retriever: Any, mock_embeddings: MagicMock
-    ) -> None:
+    async def test_aget_context(self, retriever: Any, mock_embeddings: MagicMock) -> None:
         """Test async get_context."""
         retriever.add_text("Context document")
 
@@ -677,9 +667,7 @@ class TestRetrieverFileLoading:
             # Should load both files
             assert len(ids) >= 2
 
-    def test_add_directory_with_pattern(
-        self, retriever: Any, mock_embeddings: MagicMock
-    ) -> None:
+    def test_add_directory_with_pattern(self, retriever: Any, mock_embeddings: MagicMock) -> None:
         """Test adding directory with file pattern."""
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create mixed files
@@ -697,9 +685,7 @@ class TestRetrieverFileLoading:
         with pytest.raises(FileNotFoundError):
             retriever.add("./nonexistent_file.pdf")
 
-    def test_add_file_explicit(
-        self, retriever: Any, mock_embeddings: MagicMock
-    ) -> None:
+    def test_add_file_explicit(self, retriever: Any, mock_embeddings: MagicMock) -> None:
         """Test add_file() method."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
             f.write("Explicit file content")
@@ -775,9 +761,7 @@ class TestRetrieverPersistence:
             r = Retriever(backend="memory")
         return r
 
-    def test_save_creates_files(
-        self, retriever: Any, mock_embeddings: MagicMock
-    ) -> None:
+    def test_save_creates_files(self, retriever: Any, mock_embeddings: MagicMock) -> None:
         """Test save() creates pickle and JSON files."""
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "test_save.pkl"
@@ -804,9 +788,7 @@ class TestRetrieverPersistence:
             assert metadata["chunk_count"] == 2
             assert "created_at" in metadata
 
-    def test_save_to_directory(
-        self, retriever: Any, mock_embeddings: MagicMock
-    ) -> None:
+    def test_save_to_directory(self, retriever: Any, mock_embeddings: MagicMock) -> None:
         """Test save() to a directory creates default filename."""
         with tempfile.TemporaryDirectory() as tmpdir:
             retriever.add_text("Test content")
@@ -818,9 +800,7 @@ class TestRetrieverPersistence:
             assert saved_path == Path(tmpdir) / "retriever.pkl"
             assert saved_path.exists()
 
-    def test_load_restores_data(
-        self, retriever: Any, mock_embeddings: MagicMock
-    ) -> None:
+    def test_load_restores_data(self, retriever: Any, mock_embeddings: MagicMock) -> None:
         """Test load() restores saved data."""
         from ai_infra.retriever import Retriever
 

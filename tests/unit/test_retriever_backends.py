@@ -425,9 +425,7 @@ class TestPineconeBackendWithMocks:
             )
         )
         mock_index.delete = MagicMock()
-        mock_index.describe_index_stats = MagicMock(
-            return_value=MagicMock(total_vector_count=10)
-        )
+        mock_index.describe_index_stats = MagicMock(return_value=MagicMock(total_vector_count=10))
 
         # Mock Pinecone class
         mock_pc = MagicMock()

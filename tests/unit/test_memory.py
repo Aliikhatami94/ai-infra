@@ -77,9 +77,7 @@ class TestTrimMessages:
             HumanMessage(content="msg1"),
             AIMessage(content="msg2"),
         ]
-        result = trim_messages(
-            messages, strategy="last", max_messages=1, preserve_system=False
-        )
+        result = trim_messages(messages, strategy="last", max_messages=1, preserve_system=False)
         assert len(result) == 1
         assert result[0].content == "msg2"
 
@@ -460,9 +458,7 @@ class TestMemoryStoreSearch:
 
         store.put(("user_1", "prefs"), "key", {"value": "test"})
 
-        with pytest.raises(
-            ValueError, match="Semantic search requires embedding_provider"
-        ):
+        with pytest.raises(ValueError, match="Semantic search requires embedding_provider"):
             store.search(("user_1", "prefs"), "test query")
 
     def test_search_with_mock_embeddings(self):

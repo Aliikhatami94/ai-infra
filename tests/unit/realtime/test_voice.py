@@ -382,9 +382,7 @@ class TestBaseRealtimeProvider:
         """Test provider info methods."""
         from ai_infra.llm.realtime.openai import OpenAIRealtimeProvider
 
-        assert OpenAIRealtimeProvider.is_configured() == bool(
-            os.environ.get("OPENAI_API_KEY")
-        )
+        assert OpenAIRealtimeProvider.is_configured() == bool(os.environ.get("OPENAI_API_KEY"))
 
         models = OpenAIRealtimeProvider.list_models()
         assert isinstance(models, list)

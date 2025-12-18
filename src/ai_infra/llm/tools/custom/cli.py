@@ -42,9 +42,7 @@ async def run_cli(command: str) -> str:
     err = (stderr_b or b"").decode(errors="replace")
 
     if code != 0:
-        raise RuntimeError(
-            f"Command failed with code {code}\nSTDOUT:\n{out}\nSTDERR:\n{err}"
-        )
+        raise RuntimeError(f"Command failed with code {code}\nSTDOUT:\n{out}\nSTDERR:\n{err}")
     return out.strip()
 
 

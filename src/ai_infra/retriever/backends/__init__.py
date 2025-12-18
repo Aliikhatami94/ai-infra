@@ -96,8 +96,7 @@ def _get_pinecone_backend(**config) -> BaseBackend:
         from ai_infra.retriever.backends.pinecone import PineconeBackend
     except ImportError as e:
         raise ImportError(
-            "Pinecone backend requires pinecone-client. "
-            "Install with: pip install pinecone-client"
+            "Pinecone backend requires pinecone-client. Install with: pip install pinecone-client"
         ) from e
     return PineconeBackend(**config)
 
@@ -108,8 +107,7 @@ def _get_qdrant_backend(**config) -> BaseBackend:
         from ai_infra.retriever.backends.qdrant import QdrantBackend
     except ImportError as e:
         raise ImportError(
-            "Qdrant backend requires qdrant-client. "
-            "Install with: pip install qdrant-client"
+            "Qdrant backend requires qdrant-client. Install with: pip install qdrant-client"
         ) from e
     return QdrantBackend(**config)
 

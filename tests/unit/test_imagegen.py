@@ -222,9 +222,7 @@ class TestGenerateGoogle:
         mock_response.candidates = [mock_candidate]
 
         with patch.object(gen, "_get_google_client") as mock_client:
-            mock_client.return_value.models.generate_content.return_value = (
-                mock_response
-            )
+            mock_client.return_value.models.generate_content.return_value = mock_response
 
             images = gen.generate("A mountain landscape")
 
@@ -266,9 +264,7 @@ class TestGeneratedImage:
             mock_response.content = b"downloaded image data"
             mock_response.raise_for_status = MagicMock()
 
-            mock_client.return_value.__aenter__ = AsyncMock(
-                return_value=mock_client.return_value
-            )
+            mock_client.return_value.__aenter__ = AsyncMock(return_value=mock_client.return_value)
             mock_client.return_value.__aexit__ = AsyncMock()
             mock_client.return_value.get = AsyncMock(return_value=mock_response)
 
