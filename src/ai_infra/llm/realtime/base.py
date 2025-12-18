@@ -16,7 +16,8 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING, Any, AsyncIterator, Awaitable, Callable
+from typing import TYPE_CHECKING, Any
+from collections.abc import AsyncIterator, Awaitable, Callable
 
 if TYPE_CHECKING:
     from ai_infra.llm.realtime.models import (

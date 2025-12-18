@@ -24,7 +24,7 @@ Example:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from ai_infra.providers import ProviderCapability, ProviderRegistry
 
@@ -33,7 +33,7 @@ from ai_infra.providers import ProviderCapability, ProviderRegistry
 # =============================================================================
 
 
-def _build_tts_providers() -> Dict[str, Dict[str, Any]]:
+def _build_tts_providers() -> dict[str, dict[str, Any]]:
     """Build TTS_PROVIDERS dict from registry."""
     result = {}
     for name in ProviderRegistry.list_for_capability(ProviderCapability.TTS):
@@ -54,7 +54,7 @@ def _build_tts_providers() -> Dict[str, Dict[str, Any]]:
     return result
 
 
-def _build_stt_providers() -> Dict[str, Dict[str, Any]]:
+def _build_stt_providers() -> dict[str, dict[str, Any]]:
     """Build STT_PROVIDERS dict from registry."""
     result = {}
     for name in ProviderRegistry.list_for_capability(ProviderCapability.STT):
@@ -74,7 +74,7 @@ def _build_stt_providers() -> Dict[str, Dict[str, Any]]:
     return result
 
 
-def _build_audio_llms() -> Dict[str, Dict[str, Any]]:
+def _build_audio_llms() -> dict[str, dict[str, Any]]:
     """Build AUDIO_LLMS dict from registry (for realtime capability)."""
     result = {}
     for name in ProviderRegistry.list_for_capability(ProviderCapability.REALTIME):
@@ -108,7 +108,7 @@ AUDIO_LLMS = _build_audio_llms()
 # =============================================================================
 
 
-def list_tts_providers() -> List[str]:
+def list_tts_providers() -> list[str]:
     """List all supported TTS providers.
 
     Returns:
@@ -117,7 +117,7 @@ def list_tts_providers() -> List[str]:
     return ProviderRegistry.list_for_capability(ProviderCapability.TTS)
 
 
-def list_tts_voices(provider: str = "openai") -> List[str]:
+def list_tts_voices(provider: str = "openai") -> list[str]:
     """List available voices for a TTS provider.
 
     Args:
@@ -137,7 +137,7 @@ def list_tts_voices(provider: str = "openai") -> List[str]:
     return cap.voices or []
 
 
-def list_tts_models(provider: str = "openai") -> List[str]:
+def list_tts_models(provider: str = "openai") -> list[str]:
     """List available models for a TTS provider.
 
     Args:
@@ -157,7 +157,7 @@ def list_tts_models(provider: str = "openai") -> List[str]:
     return cap.models or []
 
 
-def get_tts_provider_info(provider: str) -> Dict[str, Any]:
+def get_tts_provider_info(provider: str) -> dict[str, Any]:
     """Get full info for a TTS provider.
 
     Args:
@@ -199,7 +199,7 @@ def get_default_tts_provider() -> Optional[str]:
 # =============================================================================
 
 
-def list_stt_providers() -> List[str]:
+def list_stt_providers() -> list[str]:
     """List all supported STT providers.
 
     Returns:
@@ -208,7 +208,7 @@ def list_stt_providers() -> List[str]:
     return ProviderRegistry.list_for_capability(ProviderCapability.STT)
 
 
-def list_stt_models(provider: str = "openai") -> List[str]:
+def list_stt_models(provider: str = "openai") -> list[str]:
     """List available models for an STT provider.
 
     Args:
@@ -228,7 +228,7 @@ def list_stt_models(provider: str = "openai") -> List[str]:
     return cap.models or []
 
 
-def get_stt_provider_info(provider: str) -> Dict[str, Any]:
+def get_stt_provider_info(provider: str) -> dict[str, Any]:
     """Get full info for an STT provider.
 
     Args:
@@ -270,7 +270,7 @@ def get_default_stt_provider() -> Optional[str]:
 # =============================================================================
 
 
-def list_audio_input_models(provider: str = "openai") -> List[str]:
+def list_audio_input_models(provider: str = "openai") -> list[str]:
     """List models that support audio input.
 
     Args:
@@ -291,7 +291,7 @@ def list_audio_input_models(provider: str = "openai") -> List[str]:
     return []
 
 
-def list_audio_output_models(provider: str = "openai") -> List[str]:
+def list_audio_output_models(provider: str = "openai") -> list[str]:
     """List models that support audio output.
 
     Args:
@@ -312,7 +312,7 @@ def list_audio_output_models(provider: str = "openai") -> List[str]:
     return []
 
 
-def list_realtime_models(provider: str = "openai") -> List[str]:
+def list_realtime_models(provider: str = "openai") -> list[str]:
     """List models that support realtime audio streaming.
 
     Args:

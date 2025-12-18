@@ -34,7 +34,8 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, Sequence, Union
+from typing import Any, Optional
+from collections.abc import Sequence
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 
@@ -62,7 +63,7 @@ Summary:"""
 class SummarizeResult:
     """Result from summarizing messages."""
 
-    messages: List[BaseMessage]
+    messages: list[BaseMessage]
     """The resulting messages (summary + kept messages)."""
 
     summary: str
@@ -79,7 +80,7 @@ class SummarizeResult:
 
 
 def summarize_messages(
-    messages: Sequence[Union[BaseMessage, dict]],
+    messages: Sequence[BaseMessage | dict],
     *,
     keep_last: int = 5,
     llm: Optional[Any] = None,
@@ -166,7 +167,7 @@ def summarize_messages(
     summary = response.content if hasattr(response, "content") else str(response)
 
     # Build result messages
-    result_messages: List[BaseMessage] = []
+    result_messages: list[BaseMessage] = []
 
     # Add original system message if present
     if system_msg:
@@ -189,7 +190,7 @@ def summarize_messages(
 
 
 async def asummarize_messages(
-    messages: Sequence[Union[BaseMessage, dict]],
+    messages: Sequence[BaseMessage | dict],
     *,
     keep_last: int = 5,
     llm: Optional[Any] = None,
@@ -253,7 +254,7 @@ async def asummarize_messages(
     summary = response.content if hasattr(response, "content") else str(response)
 
     # Build result messages
-    result_messages: List[BaseMessage] = []
+    result_messages: list[BaseMessage] = []
 
     if system_msg:
         result_messages.append(system_msg)
@@ -271,7 +272,7 @@ async def asummarize_messages(
     )
 
 
-def _format_messages_for_summary(messages: List[BaseMessage]) -> str:
+def _format_messages_for_summary(messages: list[BaseMessage]) -> str:
     """Format messages as text for summarization."""
     lines = []
     for msg in messages:
@@ -372,7 +373,7 @@ class SummarizationMiddleware:
 
         return False
 
-    def process(self, messages: List[BaseMessage]) -> List[BaseMessage]:
+    def process(self, messages: list[BaseMessage]) -> list[BaseMessage]:
         """Process messages, summarizing if needed.
 
         Args:
@@ -398,7 +399,7 @@ class SummarizationMiddleware:
         self._last_summary = result.summary
         return result.messages
 
-    async def aprocess(self, messages: List[BaseMessage]) -> List[BaseMessage]:
+    async def aprocess(self, messages: list[BaseMessage]) -> list[BaseMessage]:
         """Async version of process.
 
         Args:

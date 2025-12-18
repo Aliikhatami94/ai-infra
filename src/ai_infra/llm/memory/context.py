@@ -28,7 +28,8 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any, List, Literal, Optional, Sequence, Union
+from typing import Any, Literal, Optional
+from collections.abc import Sequence
 
 from langchain_core.messages import BaseMessage, SystemMessage
 
@@ -77,7 +78,7 @@ class ContextResult:
         final_count: Number of messages after processing
     """
 
-    messages: List[BaseMessage]
+    messages: list[BaseMessage]
     """Use these messages - they fit within the token budget."""
 
     summary: Optional[str] = None
@@ -98,7 +99,7 @@ class ContextResult:
 
 
 def fit_context(
-    messages: Sequence[Union[BaseMessage, dict]],
+    messages: Sequence[BaseMessage | dict],
     max_tokens: int,
     *,
     summarize: bool = False,
@@ -202,7 +203,7 @@ def fit_context(
     summary_msg = SystemMessage(content=f"[Conversation summary]\n{new_summary}")
 
     # Check if we need to preserve an existing system message
-    result_messages: List[BaseMessage] = []
+    result_messages: list[BaseMessage] = []
     if normalized and isinstance(normalized[0], SystemMessage):
         # Keep original system message, add summary after
         result_messages.append(normalized[0])
@@ -226,7 +227,7 @@ def fit_context(
 
 
 async def afit_context(
-    messages: Sequence[Union[BaseMessage, dict]],
+    messages: Sequence[BaseMessage | dict],
     max_tokens: int,
     *,
     summarize: bool = False,
@@ -293,7 +294,7 @@ async def afit_context(
     kept_messages = list(normalized[-keep:]) if keep > 0 else []
     summary_msg = SystemMessage(content=f"[Conversation summary]\n{new_summary}")
 
-    result_messages: List[BaseMessage] = []
+    result_messages: list[BaseMessage] = []
     if normalized and isinstance(normalized[0], SystemMessage):
         result_messages.append(normalized[0])
         result_messages.append(summary_msg)
@@ -319,7 +320,7 @@ async def afit_context(
 # =============================================================================
 
 
-def _format_messages(messages: List[BaseMessage]) -> str:
+def _format_messages(messages: list[BaseMessage]) -> str:
     """Format messages as text for summarization."""
     lines = []
     for msg in messages:
@@ -372,7 +373,7 @@ async def _ainvoke_llm(llm: Any, prompt: str) -> str:
 
 
 def _create_summary(
-    messages: List[BaseMessage],
+    messages: list[BaseMessage],
     keep: int,
     llm: Optional[Any],
 ) -> str:
@@ -391,7 +392,7 @@ def _create_summary(
 
 
 async def _acreate_summary(
-    messages: List[BaseMessage],
+    messages: list[BaseMessage],
     keep: int,
     llm: Optional[Any],
 ) -> str:
@@ -410,7 +411,7 @@ async def _acreate_summary(
 
 def _extend_summary(
     existing_summary: str,
-    messages: List[BaseMessage],
+    messages: list[BaseMessage],
     keep: int,
     llm: Optional[Any],
 ) -> str:
@@ -433,7 +434,7 @@ def _extend_summary(
 
 async def _aextend_summary(
     existing_summary: str,
-    messages: List[BaseMessage],
+    messages: list[BaseMessage],
     keep: int,
     llm: Optional[Any],
 ) -> str:

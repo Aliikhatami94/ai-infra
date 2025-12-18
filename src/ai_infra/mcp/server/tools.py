@@ -3,7 +3,8 @@ from __future__ import annotations
 import inspect
 import os
 import textwrap
-from typing import Awaitable, Callable, Iterable, Optional, Sequence, Union
+from typing import Optional
+from collections.abc import Awaitable, Callable, Iterable, Sequence
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
@@ -199,7 +200,7 @@ def _describe(fn: Callable[..., object], fallback: str) -> str:
 def mcp_from_functions(
     *,
     name: Optional[str],
-    functions: Iterable[Union[ToolFn, ToolDef]] | None,
+    functions: Iterable[ToolFn | ToolDef] | None,
     security: Optional[MCPSecuritySettings] = None,
 ) -> FastMCP:
     """Create a FastMCP server from plain functions with automatic security.

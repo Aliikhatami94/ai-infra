@@ -38,12 +38,12 @@ from __future__ import annotations
 import base64
 import mimetypes
 from pathlib import Path
-from typing import Any, Dict, List, Union
+from typing import Any
 
 from langchain_core.messages import HumanMessage
 
 # Type alias for audio inputs we accept
-AudioInput = Union[str, bytes, Path]
+AudioInput = str | bytes | Path
 
 # Supported audio MIME types
 AUDIO_MIME_TYPES = {
@@ -102,7 +102,7 @@ def create_audio_message(
 def build_audio_content(
     text: str,
     audio: AudioInput,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Build content blocks for an audio message.
 
     Creates a list of content blocks in LangChain's standard format.
@@ -128,12 +128,12 @@ def build_audio_content(
         # ]
         ```
     """
-    content: List[Dict[str, Any]] = [{"type": "text", "text": text}]
+    content: list[dict[str, Any]] = [{"type": "text", "text": text}]
     content.append(encode_audio(audio))
     return content
 
 
-def encode_audio(audio: AudioInput) -> Dict[str, Any]:
+def encode_audio(audio: AudioInput) -> dict[str, Any]:
     """Encode a single audio file to LangChain's standard format.
 
     Automatically detects the audio type and encodes appropriately:
@@ -171,7 +171,7 @@ def encode_audio(audio: AudioInput) -> Dict[str, Any]:
         )
 
 
-def encode_audio_for_openai(audio: AudioInput) -> Dict[str, Any]:
+def encode_audio_for_openai(audio: AudioInput) -> dict[str, Any]:
     """Encode audio specifically for OpenAI's format.
 
     OpenAI uses:
@@ -193,7 +193,7 @@ def encode_audio_for_openai(audio: AudioInput) -> Dict[str, Any]:
     return encode_audio(audio)
 
 
-def encode_audio_for_google(audio: AudioInput) -> Dict[str, Any]:
+def encode_audio_for_google(audio: AudioInput) -> dict[str, Any]:
     """Encode audio specifically for Google's Gemini format.
 
     Google uses inline_data format for audio.
@@ -256,7 +256,7 @@ def _get_audio_format(path: Path) -> str:
     return ext if ext else "mp3"
 
 
-def _encode_string_audio(audio: str) -> Dict[str, Any]:
+def _encode_string_audio(audio: str) -> dict[str, Any]:
     """Encode a string audio (URL or file path)."""
     if _is_url(audio):
         # For URLs, use file_uri format (some providers support this)
@@ -272,7 +272,7 @@ def _encode_string_audio(audio: str) -> Dict[str, Any]:
         return _encode_path_audio(Path(audio))
 
 
-def _encode_bytes_audio(audio: bytes, audio_format: str = "mp3") -> Dict[str, Any]:
+def _encode_bytes_audio(audio: bytes, audio_format: str = "mp3") -> dict[str, Any]:
     """Encode raw bytes to base64 input_audio format."""
     b64_data = base64.standard_b64encode(audio).decode("utf-8")
     return {
@@ -284,7 +284,7 @@ def _encode_bytes_audio(audio: bytes, audio_format: str = "mp3") -> Dict[str, An
     }
 
 
-def _encode_path_audio(path: Path) -> Dict[str, Any]:
+def _encode_path_audio(path: Path) -> dict[str, Any]:
     """Encode a file path to base64 input_audio format.
 
     Automatically converts unsupported formats (m4a, aac, ogg, etc.) to mp3

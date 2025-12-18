@@ -14,15 +14,9 @@ from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
-    Dict,
-    List,
     Literal,
-    Sequence,
-    Tuple,
-    Type,
-    Union,
 )
+from collections.abc import Callable, Sequence
 
 if TYPE_CHECKING:
     from ai_infra.callbacks import CallbackManager, Callbacks
@@ -196,7 +190,7 @@ class Agent(BaseLLM):
 
     def __init__(
         self,
-        tools: List[Any] | None = None,
+        tools: list[Any] | None = None,
         provider: str | None = None,
         model_name: str | None = None,
         *,
@@ -205,30 +199,30 @@ class Agent(BaseLLM):
         description: str | None = None,
         system: str | None = None,
         # Callbacks for observability
-        callbacks: Union["Callbacks", "CallbackManager"] | None = None,
+        callbacks: "Callbacks" | "CallbackManager" | None = None,
         # Tool execution config
         on_tool_error: Literal["return_error", "retry", "abort"] = "return_error",
         tool_timeout: float | None = None,
         validate_tool_results: bool = False,
         max_tool_retries: int = 1,
         # Approval config
-        require_approval: Union[
-            bool, List[str], Callable[[str, Dict[str, Any]], bool]
-        ] = False,
-        approval_handler: Union[ApprovalHandler, AsyncApprovalHandler] | None = None,
+        require_approval: bool
+        | list[str]
+        | Callable[[str, dict[str, Any]], bool] = False,
+        approval_handler: ApprovalHandler | AsyncApprovalHandler | None = None,
         # Session config (for persistence and pause/resume)
         session: SessionStorage | None = None,
-        pause_before: List[str] | None = None,
-        pause_after: List[str] | None = None,
+        pause_before: list[str] | None = None,
+        pause_after: list[str] | None = None,
         # DeepAgents mode (autonomous multi-step task execution)
         deep: bool = False,
-        subagents: List[Union["Agent", "SubAgent"]] | None = None,
+        subagents: list["Agent" | "SubAgent"] | None = None,
         middleware: Sequence["AgentMiddleware"] | None = None,
         response_format: Any | None = None,
-        context_schema: Type[Any] | None = None,
+        context_schema: type[Any] | None = None,
         use_longterm_memory: bool = False,
         # Workspace configuration
-        workspace: Union[str, "Path", "Workspace"] | None = None,
+        workspace: str | "Path" | "Workspace" | None = None,
         # Safety limits
         recursion_limit: int = 50,
         **model_kwargs,
@@ -405,9 +399,9 @@ class Agent(BaseLLM):
         persona: Any | None = None,
         name: str | None = None,
         prompt: str | None = None,
-        allowed_tools: List[str] | None = None,
-        deny: List[str] | None = None,
-        approve: List[str] | None = None,
+        allowed_tools: list[str] | None = None,
+        deny: list[str] | None = None,
+        approve: list[str] | None = None,
         **kwargs,
     ) -> "Agent":
         """
@@ -546,11 +540,11 @@ class Agent(BaseLLM):
         *,
         provider: str | None = None,
         model_name: str | None = None,
-        tools: List[Any] | None = None,
+        tools: list[Any] | None = None,
         system: str | None = None,
         session_id: str | None = None,
         **model_kwargs,
-    ) -> Union[str, SessionResult]:
+    ) -> str | SessionResult:
         """Run the agent with a simple prompt and return the response.
 
         Args:
@@ -612,7 +606,7 @@ class Agent(BaseLLM):
             )
         else:
             # Build messages
-            messages: List[Dict[str, Any]] = []
+            messages: list[dict[str, Any]] = []
             if system:
                 messages.append({"role": "system", "content": system})
             messages.append({"role": "user", "content": prompt})
@@ -646,7 +640,7 @@ class Agent(BaseLLM):
             return str(result.content)
         return str(result)
 
-    def _convert_subagents(self, subagents: List[Union["Agent", Any]]) -> List[Any]:
+    def _convert_subagents(self, subagents: list["Agent" | Any]) -> list[Any]:
         """Convert Agent instances to SubAgent format.
 
         This allows users to pass Agent instances directly to the subagents
@@ -674,7 +668,7 @@ class Agent(BaseLLM):
                         "Example: Agent(name='researcher', description='Researches topics', ...)"
                     )
 
-                subagent_dict: Dict[str, Any] = {
+                subagent_dict: dict[str, Any] = {
                     "name": agent._name,
                     "description": agent._description,
                     "system_prompt": agent._system or "",
@@ -723,11 +717,11 @@ class Agent(BaseLLM):
         *,
         provider: str | None = None,
         model_name: str | None = None,
-        tools: List[Any] | None = None,
+        tools: list[Any] | None = None,
         system: str | None = None,
         session_id: str | None = None,
         **model_kwargs,
-    ) -> Union[str, SessionResult]:
+    ) -> str | SessionResult:
         """Async version of run().
 
         Args:
@@ -773,7 +767,7 @@ class Agent(BaseLLM):
             )
         else:
             # Build messages
-            messages: List[Dict[str, Any]] = []
+            messages: list[dict[str, Any]] = []
             if system:
                 messages.append({"role": "system", "content": system})
             messages.append({"role": "user", "content": prompt})
@@ -801,11 +795,11 @@ class Agent(BaseLLM):
         *,
         provider: str | None = None,
         model_name: str | None = None,
-        tools: List[Any] | None = None,
+        tools: list[Any] | None = None,
         system: str | None = None,
         visibility: Literal["minimal", "standard", "detailed", "debug"] = "standard",
-        stream_mode: Union[str, List[str]] = "messages",
-        config: Dict[str, Any] | None = None,
+        stream_mode: str | list[str] = "messages",
+        config: dict[str, Any] | None = None,
         stream_config: "StreamConfig" | None = None,
         **model_kwargs,
     ):
@@ -898,18 +892,18 @@ class Agent(BaseLLM):
         eff_kwargs = {**self._default_model_kwargs, **model_kwargs}
 
         # Build messages
-        messages: List[Dict[str, Any]] = []
+        messages: list[dict[str, Any]] = []
         if system:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
 
         # State for tool call accumulation
-        pending_tool_calls: Dict[str, float] = {}  # tool_call_id -> start_time
+        pending_tool_calls: dict[str, float] = {}  # tool_call_id -> start_time
         emitted_tool_starts: set = (
             set()
         )  # Track which tool_starts we've already emitted
-        accumulating_tool_calls: Dict[
-            int, Dict[str, Any]
+        accumulating_tool_calls: dict[
+            int, dict[str, Any]
         ] = {}  # index -> {id, name, args_str}
         tools_called = 0
 
@@ -971,7 +965,7 @@ class Agent(BaseLLM):
                         continue
 
                     # Try to parse args as JSON
-                    tc_args: Dict[str, Any] | None = None
+                    tc_args: dict[str, Any] | None = None
                     if args_str.strip():
                         try:
                             tc_args = json.loads(args_str)
@@ -1099,7 +1093,7 @@ class Agent(BaseLLM):
                     )
 
                     # Determine result output based on visibility
-                    result_output: str | Dict[str, Any] | None = None
+                    result_output: str | dict[str, Any] | None = None
                     result_structured = False
                     if eff_visibility in ("detailed", "debug"):
                         if is_structured:
@@ -1163,11 +1157,11 @@ class Agent(BaseLLM):
         session_id: str,
         *,
         approved: bool = True,
-        modified_args: Dict[str, Any] | None = None,
+        modified_args: dict[str, Any] | None = None,
         reason: str | None = None,
         provider: str | None = None,
         model_name: str | None = None,
-    ) -> Union[str, SessionResult]:
+    ) -> str | SessionResult:
         """Resume a paused agent with a decision.
 
         Args:
@@ -1235,11 +1229,11 @@ class Agent(BaseLLM):
         session_id: str,
         *,
         approved: bool = True,
-        modified_args: Dict[str, Any] | None = None,
+        modified_args: dict[str, Any] | None = None,
         reason: str | None = None,
         provider: str | None = None,
         model_name: str | None = None,
-    ) -> Union[str, SessionResult]:
+    ) -> str | SessionResult:
         """Async version of resume().
 
         Args:
@@ -1295,11 +1289,11 @@ class Agent(BaseLLM):
         self,
         provider: str,
         model_name: str | None = None,
-        tools: List[Any] | None = None,
-        extra: Dict[str, Any] | None = None,
-        model_kwargs: Dict[str, Any] | None = None,
-        tool_controls: ToolCallControls | Dict[str, Any] | None = None,
-    ) -> Tuple[Any, Any]:
+        tools: list[Any] | None = None,
+        extra: dict[str, Any] | None = None,
+        model_kwargs: dict[str, Any] | None = None,
+        tool_controls: ToolCallControls | dict[str, Any] | None = None,
+    ) -> tuple[Any, Any]:
         # Capture callbacks for use in wrapper closure
         callbacks = self._callbacks
 
@@ -1358,8 +1352,8 @@ class Agent(BaseLLM):
     def _merge_recursion_limit_config(
         self,
         context: Any,
-        config: Dict[str, Any] | None = None,
-    ) -> Dict[str, Any]:
+        config: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Merge recursion_limit from context into config for runtime safety limits.
 
         LangGraph requires recursion_limit to be passed at runtime to invoke()/astream()
@@ -1386,7 +1380,7 @@ class Agent(BaseLLM):
         self,
         provider: str,
         model_name: str | None = None,
-        tools: List[Any] | None = None,
+        tools: list[Any] | None = None,
         system: str | None = None,
     ) -> Any:
         """Build a DeepAgents agent for autonomous multi-step task execution.
@@ -1447,14 +1441,14 @@ class Agent(BaseLLM):
 
     async def arun_agent(
         self,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         provider: str,
         model_name: str | None = None,
-        tools: List[Any] | None = None,
-        extra: Dict[str, Any] | None = None,
-        model_kwargs: Dict[str, Any] | None = None,
-        tool_controls: ToolCallControls | Dict[str, Any] | None = None,
-        config: Dict[str, Any] | None = None,
+        tools: list[Any] | None = None,
+        extra: dict[str, Any] | None = None,
+        model_kwargs: dict[str, Any] | None = None,
+        tool_controls: ToolCallControls | dict[str, Any] | None = None,
+        config: dict[str, Any] | None = None,
     ) -> Any:
         agent, context = self._make_agent_with_context(
             provider, model_name, tools, extra, model_kwargs, tool_controls
@@ -1524,14 +1518,14 @@ class Agent(BaseLLM):
 
     def run_agent(
         self,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         provider: str,
         model_name: str | None = None,
-        tools: List[Any] | None = None,
-        extra: Dict[str, Any] | None = None,
-        model_kwargs: Dict[str, Any] | None = None,
-        tool_controls: ToolCallControls | Dict[str, Any] | None = None,
-        config: Dict[str, Any] | None = None,
+        tools: list[Any] | None = None,
+        extra: dict[str, Any] | None = None,
+        model_kwargs: dict[str, Any] | None = None,
+        tool_controls: ToolCallControls | dict[str, Any] | None = None,
+        config: dict[str, Any] | None = None,
     ) -> Any:
         agent, context = self._make_agent_with_context(
             provider, model_name, tools, extra, model_kwargs, tool_controls
@@ -1596,15 +1590,15 @@ class Agent(BaseLLM):
 
     async def arun_agent_stream(
         self,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         provider: str,
         model_name: str | None = None,
-        tools: List[Any] | None = None,
-        extra: Dict[str, Any] | None = None,
-        model_kwargs: Dict[str, Any] | None = None,
-        stream_mode: Union[str, Sequence[str]] = ("updates", "values"),
-        tool_controls: ToolCallControls | Dict[str, Any] | None = None,
-        config: Dict[str, Any] | None = None,
+        tools: list[Any] | None = None,
+        extra: dict[str, Any] | None = None,
+        model_kwargs: dict[str, Any] | None = None,
+        stream_mode: str | Sequence[str] = ("updates", "values"),
+        tool_controls: ToolCallControls | dict[str, Any] | None = None,
+        config: dict[str, Any] | None = None,
     ):
         agent, context = self._make_agent_with_context(
             provider, model_name, tools, extra, model_kwargs, tool_controls
@@ -1657,14 +1651,14 @@ class Agent(BaseLLM):
 
     async def astream_agent_tokens(
         self,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         provider: str,
         model_name: str | None = None,
-        tools: List[Any] | None = None,
-        extra: Dict[str, Any] | None = None,
-        model_kwargs: Dict[str, Any] | None = None,
-        tool_controls: ToolCallControls | Dict[str, Any] | None = None,
-        config: Dict[str, Any] | None = None,
+        tools: list[Any] | None = None,
+        extra: dict[str, Any] | None = None,
+        model_kwargs: dict[str, Any] | None = None,
+        tool_controls: ToolCallControls | dict[str, Any] | None = None,
+        config: dict[str, Any] | None = None,
     ):
         agent, context = self._make_agent_with_context(
             provider, model_name, tools, extra, model_kwargs, tool_controls
@@ -1698,9 +1692,9 @@ class Agent(BaseLLM):
         self,
         provider: str,
         model_name: str | None = None,
-        tools: List[Any] | None = None,
-        extra: Dict[str, Any] | None = None,
-        model_kwargs: Dict[str, Any] | None = None,
+        tools: list[Any] | None = None,
+        extra: dict[str, Any] | None = None,
+        model_kwargs: dict[str, Any] | None = None,
     ):
         return self._make_agent_with_context(
             provider, model_name, tools, extra, model_kwargs
@@ -1709,15 +1703,15 @@ class Agent(BaseLLM):
     # ---------- fallbacks (sync) ----------
     def run_with_fallbacks(
         self,
-        messages: List[Dict[str, Any]],
-        candidates: List[Tuple[str, str]],
-        tools: List[Any] | None = None,
-        extra: Dict[str, Any] | None = None,
-        model_kwargs: Dict[str, Any] | None = None,
-        tool_controls: ToolCallControls | Dict[str, Any] | None = None,
-        config: Dict[str, Any] | None = None,
+        messages: list[dict[str, Any]],
+        candidates: list[tuple[str, str]],
+        tools: list[Any] | None = None,
+        extra: dict[str, Any] | None = None,
+        model_kwargs: dict[str, Any] | None = None,
+        tool_controls: ToolCallControls | dict[str, Any] | None = None,
+        config: dict[str, Any] | None = None,
     ):
-        def _run_single(provider: str, model_name: str, overrides: Dict[str, Any]):
+        def _run_single(provider: str, model_name: str, overrides: dict[str, Any]):
             eff_extra, eff_model_kwargs, eff_tools, eff_tool_controls = (
                 _merge_overrides(extra, model_kwargs, tools, tool_controls, overrides)
             )
@@ -1741,16 +1735,16 @@ class Agent(BaseLLM):
     # ---------- fallbacks (async) ----------
     async def arun_with_fallbacks(
         self,
-        messages: List[Dict[str, Any]],
-        candidates: List[Tuple[str, str]],
-        tools: List[Any] | None = None,
-        extra: Dict[str, Any] | None = None,
-        model_kwargs: Dict[str, Any] | None = None,
-        tool_controls: ToolCallControls | Dict[str, Any] | None = None,
-        config: Dict[str, Any] | None = None,
+        messages: list[dict[str, Any]],
+        candidates: list[tuple[str, str]],
+        tools: list[Any] | None = None,
+        extra: dict[str, Any] | None = None,
+        model_kwargs: dict[str, Any] | None = None,
+        tool_controls: ToolCallControls | dict[str, Any] | None = None,
+        config: dict[str, Any] | None = None,
     ):
         async def _run_single(
-            provider: str, model_name: str, overrides: Dict[str, Any]
+            provider: str, model_name: str, overrides: dict[str, Any]
         ):
             eff_extra, eff_model_kwargs, eff_tools, eff_tool_controls = (
                 _merge_overrides(extra, model_kwargs, tools, tool_controls, overrides)

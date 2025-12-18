@@ -59,7 +59,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Literal, Optional, Protocol
+from typing import Any, Literal, Optional, Protocol
 
 from pydantic import BaseModel
 
@@ -80,10 +80,10 @@ class PendingAction(BaseModel):
     tool_name: Optional[str] = None
     """Tool name if action_type is tool_call."""
 
-    args: Dict[str, Any] = {}
+    args: dict[str, Any] = {}
     """Arguments for the tool call."""
 
-    context: Dict[str, Any] = {}
+    context: dict[str, Any] = {}
     """Additional context."""
 
     message: Optional[str] = None
@@ -105,7 +105,7 @@ class SessionResult(BaseModel):
     session_id: str
     """The session ID used for this run."""
 
-    messages: List[Any] = []
+    messages: list[Any] = []
     """Full message history."""
 
 
@@ -115,7 +115,7 @@ class ResumeDecision(BaseModel):
     approved: bool = True
     """Whether to approve the pending action."""
 
-    modified_args: Optional[Dict[str, Any]] = None
+    modified_args: Optional[dict[str, Any]] = None
     """Modified arguments (if approved with changes)."""
 
     reason: Optional[str] = None
@@ -415,10 +415,10 @@ class SessionConfig:
     storage: SessionStorage
     """Storage backend for session state."""
 
-    pause_before: List[str] = field(default_factory=list)
+    pause_before: list[str] = field(default_factory=list)
     """Tool names to pause before executing."""
 
-    pause_after: List[str] = field(default_factory=list)
+    pause_after: list[str] = field(default_factory=list)
     """Tool names to pause after executing."""
 
     max_messages: Optional[int] = 100
@@ -444,7 +444,7 @@ class SessionConfig:
     - "summarize": Summarize old messages before dropping (slower, preserves context)
     """
 
-    def get_config(self, session_id: str) -> Dict[str, Any]:
+    def get_config(self, session_id: str) -> dict[str, Any]:
         """Get LangGraph config for a session.
 
         Args:
@@ -520,10 +520,10 @@ def get_pending_action(result: Any) -> Optional[PendingAction]:
 
 
 def trim_messages(
-    messages: List[Dict[str, Any]],
+    messages: list[dict[str, Any]],
     max_messages: Optional[int] = 100,
     keep_system: bool = True,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Trim messages to prevent unbounded history growth.
 
     Removes oldest messages (except system) when limit is exceeded.

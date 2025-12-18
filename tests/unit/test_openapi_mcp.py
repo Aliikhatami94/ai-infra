@@ -601,11 +601,16 @@ class TestSchemaHandling:
         }
         result = _py_type_from_schema(schema)
 
-        # Should be Union[str, int]
-        assert hasattr(result, "__origin__")
-        from typing import get_origin
+        # Should be str | int (Python 3.10+ union) or Union[str, int]
+        import types
+        from typing import get_args, get_origin
 
-        assert get_origin(result) is Union
+        # Check it's a union type (either typing.Union or types.UnionType)
+        origin = get_origin(result)
+        assert origin is Union or isinstance(result, types.UnionType)
+        # Check the args contain str and int
+        args = get_args(result)
+        assert str in args and int in args
 
     def test_py_type_with_spec_ref(self, complex_schema_spec):
         """Schema with $ref resolves through spec."""

@@ -7,7 +7,8 @@ import re
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Literal, Sequence
+from typing import Literal
+from collections.abc import Sequence
 
 from ai_infra.llm.tools.custom.proj_mgmt.utils import (
     _REPO_ROOT,

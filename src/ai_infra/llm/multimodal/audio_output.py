@@ -29,7 +29,7 @@ from __future__ import annotations
 import base64
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 
 class AudioVoice(str, Enum):
@@ -88,7 +88,7 @@ class AudioOutput:
     voice: str = "alloy"
     format: str = "mp3"
 
-    def to_openai_modalities(self) -> Dict[str, Any]:
+    def to_openai_modalities(self) -> dict[str, Any]:
         """Convert to OpenAI modalities format."""
         return {
             "modalities": ["text", "audio"],
@@ -122,7 +122,7 @@ class AudioResponse:
     """Unix timestamp when this audio expires (for OpenAI)."""
 
     @classmethod
-    def from_openai_response(cls, audio_data: Dict[str, Any]) -> "AudioResponse":
+    def from_openai_response(cls, audio_data: dict[str, Any]) -> "AudioResponse":
         """Create AudioResponse from OpenAI API response.
 
         Args:

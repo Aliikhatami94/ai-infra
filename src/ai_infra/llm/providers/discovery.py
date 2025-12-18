@@ -33,7 +33,7 @@ import logging
 import time
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, cast
+from typing import Any, Optional, cast
 
 from ai_infra.providers import ProviderCapability, ProviderRegistry
 
@@ -47,7 +47,7 @@ log = logging.getLogger(__name__)
 
 # Provider configuration - now sourced from registry
 # Kept for backwards compatibility with code that imports these directly
-def _get_provider_env_vars() -> Dict[str, str]:
+def _get_provider_env_vars() -> dict[str, str]:
     """Get provider env vars from registry (backwards compat)."""
     result = {}
     for name in ProviderRegistry.list_for_capability(ProviderCapability.CHAT):
@@ -57,7 +57,7 @@ def _get_provider_env_vars() -> Dict[str, str]:
     return result
 
 
-def _get_provider_alt_env_vars() -> Dict[str, List[str]]:
+def _get_provider_alt_env_vars() -> dict[str, list[str]]:
     """Get alternative env vars from registry (backwards compat)."""
     result = {}
     for name in ProviderRegistry.list_for_capability(ProviderCapability.CHAT):
@@ -68,18 +68,18 @@ def _get_provider_alt_env_vars() -> Dict[str, List[str]]:
 
 
 # Backwards compatibility - these are now computed from registry
-PROVIDER_ENV_VARS: Dict[str, str] = {
+PROVIDER_ENV_VARS: dict[str, str] = {
     "openai": "OPENAI_API_KEY",
     "anthropic": "ANTHROPIC_API_KEY",
     "google_genai": "GEMINI_API_KEY",
     "xai": "XAI_API_KEY",
 }
 
-PROVIDER_ALT_ENV_VARS: Dict[str, List[str]] = {
+PROVIDER_ALT_ENV_VARS: dict[str, list[str]] = {
     "google_genai": ["GOOGLE_API_KEY", "GOOGLE_GENAI_API_KEY"],
 }
 
-SUPPORTED_PROVIDERS: List[str] = ["openai", "anthropic", "google_genai", "xai"]
+SUPPORTED_PROVIDERS: list[str] = ["openai", "anthropic", "google_genai", "xai"]
 
 # Cache configuration
 CACHE_DIR = Path.home() / ".cache" / "ai-infra"
@@ -87,7 +87,7 @@ CACHE_FILE = CACHE_DIR / "models.json"
 CACHE_TTL_SECONDS = 3600  # 1 hour
 
 
-def list_providers() -> List[str]:
+def list_providers() -> list[str]:
     """
     List all supported provider names for CHAT capability.
 
@@ -97,7 +97,7 @@ def list_providers() -> List[str]:
     return ProviderRegistry.list_for_capability(ProviderCapability.CHAT)
 
 
-def list_configured_providers() -> List[str]:
+def list_configured_providers() -> list[str]:
     """
     List providers that have API keys configured.
 
@@ -336,7 +336,7 @@ PROVIDER_NON_CHAT_PATTERNS = {
 }
 
 
-def detect_model_capabilities(model_id: str, provider: str) -> Set[ModelCapability]:
+def detect_model_capabilities(model_id: str, provider: str) -> set[ModelCapability]:
     """
     Detect capabilities of a model based on its ID and provider.
 
@@ -348,7 +348,7 @@ def detect_model_capabilities(model_id: str, provider: str) -> Set[ModelCapabili
         Set of ModelCapability enums the model supports.
     """
     model_lower = model_id.lower()
-    capabilities: Set[ModelCapability] = set()
+    capabilities: set[ModelCapability] = set()
 
     # Check if this model matches any non-chat patterns (prevents false chat detection)
     non_chat_patterns = PROVIDER_NON_CHAT_PATTERNS.get(provider, [])
@@ -380,10 +380,10 @@ def detect_model_capabilities(model_id: str, provider: str) -> Set[ModelCapabili
 
 
 def filter_models_by_capability(
-    models: List[str],
+    models: list[str],
     provider: str,
     capability: ModelCapability,
-) -> List[str]:
+) -> list[str]:
     """
     Filter models to only those with a specific capability.
 
@@ -399,9 +399,9 @@ def filter_models_by_capability(
 
 
 def categorize_models(
-    models: List[str],
+    models: list[str],
     provider: str,
-) -> Dict[ModelCapability, List[str]]:
+) -> dict[ModelCapability, list[str]]:
     """
     Categorize models by their capabilities.
 
@@ -414,7 +414,7 @@ def categorize_models(
     Returns:
         Dict mapping capability to list of models with that capability.
     """
-    result: Dict[ModelCapability, List[str]] = {cap: [] for cap in ModelCapability}
+    result: dict[ModelCapability, list[str]] = {cap: [] for cap in ModelCapability}
 
     for model in models:
         caps = detect_model_capabilities(model, provider)
@@ -428,7 +428,7 @@ def categorize_models(
     return result
 
 
-def _list_openai_models() -> List[str]:
+def _list_openai_models() -> list[str]:
     """Fetch all models from OpenAI API."""
     try:
         import openai
@@ -441,13 +441,13 @@ def _list_openai_models() -> List[str]:
         return []
 
 
-def _list_openai_chat_models() -> List[str]:
+def _list_openai_chat_models() -> list[str]:
     """Fetch chat-capable models from OpenAI API."""
     models = _list_openai_models()
     return filter_models_by_capability(models, "openai", ModelCapability.CHAT)
 
 
-def _list_anthropic_models() -> List[str]:
+def _list_anthropic_models() -> list[str]:
     """Fetch all models from Anthropic API."""
     try:
         import anthropic
@@ -461,7 +461,7 @@ def _list_anthropic_models() -> List[str]:
         return []
 
 
-def _list_google_models() -> List[str]:
+def _list_google_models() -> list[str]:
     """Fetch all models from Google GenAI API."""
     try:
         from google import genai
@@ -480,13 +480,13 @@ def _list_google_models() -> List[str]:
         return []
 
 
-def _list_google_chat_models() -> List[str]:
+def _list_google_chat_models() -> list[str]:
     """Fetch chat-capable models from Google GenAI API."""
     models = _list_google_models()
     return filter_models_by_capability(models, "google_genai", ModelCapability.CHAT)
 
 
-def _list_xai_models() -> List[str]:
+def _list_xai_models() -> list[str]:
     """Fetch all models from xAI API (OpenAI-compatible)."""
     try:
         import openai
@@ -525,18 +525,18 @@ _CHAT_FETCHERS = {
 # -----------------------------------------------------------------------------
 
 
-def _load_cache() -> Dict[str, Any]:
+def _load_cache() -> dict[str, Any]:
     """Load cache from disk."""
     if not CACHE_FILE.exists():
         return {}
     try:
         with open(CACHE_FILE) as f:
-            return cast(Dict[str, Any], json.load(f))
+            return cast(dict[str, Any], json.load(f))
     except Exception:
         return {}
 
 
-def _save_cache(cache: Dict[str, Any]) -> None:
+def _save_cache(cache: dict[str, Any]) -> None:
     """Save cache to disk."""
     try:
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -546,7 +546,7 @@ def _save_cache(cache: Dict[str, Any]) -> None:
         log.warning(f"Failed to save cache: {e}")
 
 
-def _is_cache_valid(cache: Dict[str, Any], provider: str) -> bool:
+def _is_cache_valid(cache: dict[str, Any], provider: str) -> bool:
     """Check if cache entry is still valid."""
     if provider not in cache:
         return False
@@ -578,7 +578,7 @@ def list_models(
     capability: Optional[ModelCapability] = None,
     refresh: bool = False,
     use_cache: bool = True,
-) -> List[str]:
+) -> list[str]:
     """
     List available models for a specific provider.
 
@@ -661,7 +661,7 @@ def list_all_models(
     refresh: bool = False,
     use_cache: bool = True,
     skip_unconfigured: bool = True,
-) -> Dict[str, List[str]]:
+) -> dict[str, list[str]]:
     """
     List models for all configured providers.
 
@@ -674,7 +674,7 @@ def list_all_models(
         Dict mapping provider name to list of model IDs.
         Example: {"openai": ["gpt-4o", "gpt-4o-mini", ...], ...}
     """
-    result: Dict[str, List[str]] = {}
+    result: dict[str, list[str]] = {}
 
     for provider in SUPPORTED_PROVIDERS:
         if not is_provider_configured(provider):

@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import Any, List, Literal, Optional
+from typing import Any, Literal, Optional
 
 import typer
 from rich.console import Console
@@ -320,7 +320,7 @@ def prompts_cmd(
 
     async def _list_prompts(client: MCPClient):
         prompts_map = await client.list_prompts(server_name="cli-server")
-        prompts: List[PromptInfo] = prompts_map.get("cli-server", [])
+        prompts: list[PromptInfo] = prompts_map.get("cli-server", [])
 
         if output_json:
             prompts_data = [
@@ -411,7 +411,7 @@ def resources_cmd(
 
     async def _list_resources(client: MCPClient):
         resources_map = await client.list_resources(server_name="cli-server")
-        resources: List[ResourceInfo] = resources_map.get("cli-server", [])
+        resources: list[ResourceInfo] = resources_map.get("cli-server", [])
 
         if output_json:
             resources_data = [
@@ -666,7 +666,7 @@ def resource_cmd(
     config = _create_config(url, transport, command, args)
 
     async def _get_resource(client: MCPClient):
-        resources: List[MCPResource] = await client.get_resources(
+        resources: list[MCPResource] = await client.get_resources(
             "cli-server", uris=resource_uri
         )
 

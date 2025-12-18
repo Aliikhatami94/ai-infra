@@ -23,7 +23,8 @@ Usage:
 from __future__ import annotations
 
 import functools
-from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, get_type_hints
+from typing import Any, Optional, TypeVar, get_type_hints
+from collections.abc import Callable
 
 from pydantic import BaseModel
 from pydantic import ValidationError as PydanticValidationError
@@ -56,7 +57,7 @@ SUPPORTED_PROVIDERS = [
 ]
 
 # Temperature ranges by provider (most use 0-2, some 0-1)
-TEMPERATURE_RANGES: Dict[str, tuple[float, float]] = {
+TEMPERATURE_RANGES: dict[str, tuple[float, float]] = {
     "openai": (0.0, 2.0),
     "anthropic": (0.0, 1.0),
     "google_genai": (0.0, 2.0),
@@ -155,7 +156,7 @@ def validate_max_tokens(max_tokens: int) -> None:
         )
 
 
-def validate_messages(messages: List[Dict[str, Any]]) -> None:
+def validate_messages(messages: list[dict[str, Any]]) -> None:
     """Validate message format for chat APIs.
 
     Args:
@@ -210,7 +211,7 @@ def validate_llm_params(
     model: Optional[str] = None,
     temperature: Optional[float] = None,
     max_tokens: Optional[int] = None,
-    messages: Optional[List[Dict[str, Any]]] = None,
+    messages: Optional[list[dict[str, Any]]] = None,
 ) -> None:
     """Validate all LLM parameters at once.
 
@@ -231,7 +232,7 @@ def validate_llm_params(
             max_tokens=1000,
         )
     """
-    errors: List[str] = []
+    errors: list[str] = []
 
     if provider is not None:
         try:
@@ -271,7 +272,7 @@ def validate_llm_params(
 
 def validate_output(
     output: Any,
-    schema: Type[T],
+    schema: type[T],
     *,
     strict: bool = True,
 ) -> T:
@@ -350,7 +351,7 @@ def validate_output(
 
 def validate_json_output(
     json_str: str,
-    schema: Type[T],
+    schema: type[T],
 ) -> T:
     """Validate JSON string against a Pydantic schema.
 
@@ -441,7 +442,7 @@ def validate_inputs(func: F) -> F:
     return wrapper  # type: ignore
 
 
-def validate_return(schema: Type[T]) -> Callable[[F], F]:
+def validate_return(schema: type[T]) -> Callable[[F], F]:
     """Decorator to validate function return value against schema.
 
     Example:
@@ -466,7 +467,7 @@ def validate_return(schema: Type[T]) -> Callable[[F], F]:
 # =============================================================================
 
 
-def validate_config(config: Dict[str, Any], required: List[str]) -> None:
+def validate_config(config: dict[str, Any], required: list[str]) -> None:
     """Validate configuration dictionary has required keys.
 
     Args:

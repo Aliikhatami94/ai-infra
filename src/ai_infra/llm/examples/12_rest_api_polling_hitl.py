@@ -31,7 +31,7 @@ import asyncio
 import uuid
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -84,8 +84,8 @@ class ApprovalRequest(BaseModel):
     id: str
     task_id: str
     tool_name: str
-    tool_args: Dict[str, Any]
-    context: Dict[str, Any]
+    tool_args: dict[str, Any]
+    context: dict[str, Any]
     status: ApprovalStatus = ApprovalStatus.PENDING
     created_at: datetime
     expires_at: datetime
@@ -96,7 +96,7 @@ class ApprovalDecision(BaseModel):
 
     approved: bool
     reason: Optional[str] = None
-    modified_args: Optional[Dict[str, Any]] = None
+    modified_args: Optional[dict[str, Any]] = None
 
 
 class TaskResponse(BaseModel):
@@ -106,7 +106,7 @@ class TaskResponse(BaseModel):
     status: TaskStatus
     message: Optional[str] = None
     result: Optional[str] = None
-    pending_approvals: List[str] = []
+    pending_approvals: list[str] = []
     created_at: datetime
     updated_at: datetime
 
@@ -118,16 +118,16 @@ class TaskResponse(BaseModel):
 app = FastAPI(title="HITL Polling Demo")
 
 # Store tasks by ID
-tasks: Dict[str, TaskResponse] = {}
+tasks: dict[str, TaskResponse] = {}
 
 # Store pending approval requests
-pending_approvals: Dict[str, ApprovalRequest] = {}
+pending_approvals: dict[str, ApprovalRequest] = {}
 
 # Store completion events for tasks
-task_events: Dict[str, asyncio.Event] = {}
+task_events: dict[str, asyncio.Event] = {}
 
 # Store approval decisions
-approval_decisions: Dict[str, Optional[ApprovalDecision]] = {}
+approval_decisions: dict[str, Optional[ApprovalDecision]] = {}
 
 
 # ============================================================================
@@ -335,7 +335,7 @@ async def get_task(task_id: str):
     return tasks[task_id]
 
 
-@app.get("/api/tasks/{task_id}/approvals", response_model=List[ApprovalRequest])
+@app.get("/api/tasks/{task_id}/approvals", response_model=list[ApprovalRequest])
 async def get_task_approvals(task_id: str):
     """Get pending approval requests for a task."""
     if task_id not in tasks:
@@ -349,7 +349,7 @@ async def get_task_approvals(task_id: str):
     ]
 
 
-@app.get("/api/approvals", response_model=List[ApprovalRequest])
+@app.get("/api/approvals", response_model=list[ApprovalRequest])
 async def get_pending_approvals():
     """Get all pending approval requests."""
     return [

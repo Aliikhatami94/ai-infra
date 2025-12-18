@@ -34,7 +34,8 @@ import base64
 import json
 import logging
 import os
-from typing import Any, AsyncIterator
+from typing import Any
+from collections.abc import AsyncIterator
 
 from ai_infra.llm.realtime.base import BaseRealtimeProvider
 from ai_infra.llm.realtime.models import (

@@ -32,7 +32,8 @@ from __future__ import annotations
 import ast
 import uuid
 from datetime import datetime
-from typing import Any, Awaitable, Callable, Dict, List, Literal, Optional
+from typing import Any, Literal, Optional
+from collections.abc import Awaitable, Callable
 
 from pydantic import BaseModel, Field
 
@@ -52,11 +53,11 @@ class ApprovalRequest(BaseModel):
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     tool_name: str
-    args: Dict[str, Any]
-    context: Dict[str, Any] = Field(default_factory=dict)
+    args: dict[str, Any]
+    context: dict[str, Any] = Field(default_factory=dict)
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     timeout: int = 300  # 5 minutes default
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
     def to_console_prompt(self) -> str:
         """Format the request as a console prompt."""
@@ -76,7 +77,7 @@ class ApprovalResponse(BaseModel):
     """
 
     approved: bool
-    modified_args: Optional[Dict[str, Any]] = None
+    modified_args: Optional[dict[str, Any]] = None
     reason: Optional[str] = None
     approver: Optional[str] = None
     timestamp: datetime = Field(default_factory=datetime.utcnow)
@@ -85,7 +86,7 @@ class ApprovalResponse(BaseModel):
     def approve(
         cls,
         *,
-        modified_args: Optional[Dict[str, Any]] = None,
+        modified_args: Optional[dict[str, Any]] = None,
         reason: Optional[str] = None,
         approver: Optional[str] = None,
     ) -> "ApprovalResponse":
@@ -125,9 +126,9 @@ class OutputReviewRequest(BaseModel):
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     output: str
-    context: Dict[str, Any] = Field(default_factory=dict)
+    context: dict[str, Any] = Field(default_factory=dict)
     timestamp: datetime = Field(default_factory=datetime.utcnow)
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class OutputReviewResponse(BaseModel):
@@ -238,7 +239,7 @@ def auto_reject_handler(request: ApprovalRequest) -> ApprovalResponse:
 
 # Selective approval helper
 def create_selective_handler(
-    tools_requiring_approval: List[str],
+    tools_requiring_approval: list[str],
     handler: ApprovalHandler = console_approval_handler,
 ) -> ApprovalHandler:
     """Create a handler that only prompts for specific tools.
@@ -317,7 +318,7 @@ class ApprovalRule(BaseModel):
     """
 
     required: bool = True
-    approvers: Optional[List[str]] = None  # None = any approver allowed
+    approvers: Optional[list[str]] = None  # None = any approver allowed
     require_all: bool = False  # If True, all approvers must approve
     priority: int = 0  # Higher = more important
     timeout: Optional[int] = None  # Override default timeout
@@ -336,7 +337,7 @@ class ApprovalRule(BaseModel):
     @classmethod
     def specific_approvers(
         cls,
-        approvers: List[str],
+        approvers: list[str],
         *,
         require_all: bool = False,
         timeout: Optional[int] = None,
@@ -371,15 +372,15 @@ class MultiApprovalRequest(BaseModel):
     # Base request fields
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     tool_name: str
-    args: Dict[str, Any]
-    context: Dict[str, Any] = Field(default_factory=dict)
+    args: dict[str, Any]
+    context: dict[str, Any] = Field(default_factory=dict)
     timestamp: datetime = Field(default_factory=datetime.utcnow)
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
     # Multi-approval specific
     rule: ApprovalRule = Field(default_factory=ApprovalRule)
-    required_approvers: List[str] = Field(default_factory=list)
-    received_approvals: List[ApprovalResponse] = Field(default_factory=list)
+    required_approvers: list[str] = Field(default_factory=list)
+    received_approvals: list[ApprovalResponse] = Field(default_factory=list)
     status: Literal["pending", "approved", "rejected", "partial"] = "pending"
 
     def to_approval_request(self) -> ApprovalRequest:
@@ -448,7 +449,7 @@ class MultiApprovalRequest(BaseModel):
         """Check if fully approved."""
         return self.status == "approved"
 
-    def get_pending_approvers(self) -> List[str]:
+    def get_pending_approvers(self) -> list[str]:
         """Get list of approvers who haven't yet approved."""
         if not self.rule.approvers:
             return []
@@ -490,7 +491,7 @@ class MultiApprovalRequest(BaseModel):
 
 
 def create_rule_based_handler(
-    rules: Dict[str, ApprovalRule],
+    rules: dict[str, ApprovalRule],
     handler: ApprovalHandler = console_approval_handler,
     default_rule: Optional[ApprovalRule] = None,
 ) -> ApprovalHandler:

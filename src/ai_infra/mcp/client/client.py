@@ -4,9 +4,9 @@ import asyncio
 import difflib
 import logging
 import traceback
-from contextlib import asynccontextmanager
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from dataclasses import asdict, is_dataclass
-from typing import TYPE_CHECKING, Any, AsyncContextManager, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any
 
 from langchain_core.messages import BaseMessage
 from langchain_mcp_adapters.client import MultiServerMCPClient
@@ -74,19 +74,19 @@ class MCPClient:
 
     def __init__(
         self,
-        config: List[dict] | List[McpServerConfig],
+        config: list[dict] | list[McpServerConfig],
         *,
         # Callbacks for MCP events (progress, logging)
-        callbacks: Optional[Union["Callbacks", "CallbackManager"]] = None,
+        callbacks: "Callbacks | CallbackManager | None" = None,
         # Interceptors for tool call lifecycle
-        interceptors: List[ToolCallInterceptor] | None = None,
+        interceptors: list[ToolCallInterceptor] | None = None,
         # Connection management
         auto_reconnect: bool = False,
         reconnect_delay: float = 1.0,
         max_reconnect_attempts: int = 5,
         # Timeouts - defaults prevent hanging forever on unresponsive servers
-        tool_timeout: Optional[float] = 60.0,  # 60 seconds default for tool calls
-        discover_timeout: Optional[float] = 30.0,  # 30 seconds default for discovery
+        tool_timeout: float | None = 60.0,  # 60 seconds default for tool calls
+        discover_timeout: float | None = 30.0,  # 30 seconds default for discovery
         # HTTP connection pooling (for future use)
         pool_size: int = 10,
     ):
@@ -110,18 +110,18 @@ class MCPClient:
         """
         if not isinstance(config, list):
             raise TypeError("Config must be a list of server configs")
-        self._configs: List[McpServerConfig] = [
+        self._configs: list[McpServerConfig] = [
             c if isinstance(c, McpServerConfig) else McpServerConfig.model_validate(c)
             for c in config
         ]
-        self._by_name: Dict[str, McpServerConfig] = {}
+        self._by_name: dict[str, McpServerConfig] = {}
         self._discovered: bool = False
-        self._errors: List[Dict[str, Any]] = []
+        self._errors: list[dict[str, Any]] = []
 
         # Callbacks - normalize to CallbackManager using shared utility
         from ai_infra.callbacks import normalize_callbacks
 
-        self._callbacks: Optional["CallbackManager"] = normalize_callbacks(callbacks)
+        self._callbacks: "CallbackManager | None" = normalize_callbacks(callbacks)
 
         # Interceptors
         self._interceptors = interceptors
@@ -139,7 +139,7 @@ class MCPClient:
         self._pool_size = pool_size
 
         # Health status
-        self._health_status: Dict[str, str] = {}
+        self._health_status: dict[str, str] = {}
 
     # ---------- async context manager ----------
 
@@ -175,7 +175,7 @@ class MCPClient:
         return default
 
     @staticmethod
-    def _safe_schema(maybe_model: Any) -> Dict[str, Any] | None:
+    def _safe_schema(maybe_model: Any) -> dict[str, Any] | None:
         if maybe_model is None:
             return None
         try:
@@ -230,7 +230,7 @@ class MCPClient:
     ]
 
     @classmethod
-    def _safe_text(cls, desc: Any, *, max_chars: Optional[int] = None) -> Optional[str]:
+    def _safe_text(cls, desc: Any, *, max_chars: int | None = None) -> str | None:
         """Sanitize text from MCP servers to prevent prompt injection.
 
         This is a critical security function. Malicious MCP servers could
@@ -263,7 +263,7 @@ class MCPClient:
         return result
 
     @classmethod
-    def _check_injection_patterns(cls, text: str) -> List[str]:
+    def _check_injection_patterns(cls, text: str) -> list[str]:
         """Check for potential prompt injection patterns.
 
         This does NOT block the text, but returns a list of detected patterns
@@ -287,8 +287,8 @@ class MCPClient:
         return found
 
     def _sanitize_tool_description(
-        self, desc: Any, tool_name: str, server_name: Optional[str] = None
-    ) -> Optional[str]:
+        self, desc: Any, tool_name: str, server_name: str | None = None
+    ) -> str | None:
         """Sanitize a tool description and log any injection patterns.
 
         Args:
@@ -315,7 +315,7 @@ class MCPClient:
     # ---------- utils ----------
 
     @staticmethod
-    def _extract_server_info(init_result) -> Dict[str, Any] | None:
+    def _extract_server_info(init_result) -> dict[str, Any] | None:
         info = (
             getattr(init_result, "server_info", None)
             or getattr(init_result, "serverInfo", None)
@@ -341,7 +341,7 @@ class MCPClient:
             i += 1
         return f"{base}#{i}"
 
-    def last_errors(self) -> List[Dict[str, Any]]:
+    def last_errors(self) -> list[dict[str, Any]]:
         """Return error records from the last discover() run."""
         return list(self._errors)
 
@@ -355,7 +355,7 @@ class MCPClient:
 
     def _open_session_from_config(
         self, cfg: McpServerConfig
-    ) -> AsyncContextManager[ClientSession]:
+    ) -> AbstractAsyncContextManager[ClientSession]:
         t = cfg.transport
 
         if t == "stdio":
@@ -417,7 +417,7 @@ class MCPClient:
 
     # ---------- discovery ----------
 
-    async def discover(self, strict: bool = False) -> Dict[str, McpServerConfig]:
+    async def discover(self, strict: bool = False) -> dict[str, McpServerConfig]:
         """
         Probe each server to learn its MCP-declared name.
 
@@ -438,9 +438,9 @@ class MCPClient:
         self._health_status = {}
 
         async def _do_discover():
-            name_map: Dict[str, McpServerConfig] = {}
+            name_map: dict[str, McpServerConfig] = {}
             used: set[str] = set()
-            failures: List[BaseException] = []
+            failures: list[BaseException] = []
 
             for cfg in self._configs:
                 ident = self._cfg_identity(cfg)
@@ -497,7 +497,7 @@ class MCPClient:
 
         return dict(name_map)
 
-    def server_names(self) -> List[str]:
+    def server_names(self) -> list[str]:
         return list(self._by_name.keys())
 
     # ---------- callback conversion ----------
@@ -556,7 +556,9 @@ class MCPClient:
 
     # ---------- public API ----------
 
-    def get_client(self, server_name: str) -> AsyncContextManager[ClientSession]:
+    def get_client(
+        self, server_name: str
+    ) -> AbstractAsyncContextManager[ClientSession]:
         if server_name not in self._by_name:
             suggestions = difflib.get_close_matches(
                 server_name, self.server_names(), n=3, cutoff=0.5
@@ -574,7 +576,7 @@ class MCPClient:
     async def list_clients(self) -> MultiServerMCPClient:
         if not self._discovered:
             await self.discover()
-        mapping: Dict[str, Any] = {}
+        mapping: dict[str, Any] = {}
         for name, cfg in self._by_name.items():
             if cfg.transport == "streamable_http":
                 mapping[name] = StreamableHttpConnection(
@@ -603,8 +605,8 @@ class MCPClient:
         return MultiServerMCPClient(mapping, callbacks=lc_callbacks)
 
     async def call_tool(
-        self, server_name: str, tool_name: str, arguments: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, server_name: str, tool_name: str, arguments: dict[str, Any]
+    ) -> dict[str, Any]:
         """
         Call a tool on a specific server.
 
@@ -678,7 +680,7 @@ class MCPClient:
             server_name=server_name,
         )
 
-        async def _do_call() -> Dict[str, Any]:
+        async def _do_call() -> dict[str, Any]:
             res = await handler(request)
             if getattr(res, "structuredContent", None):
                 return {"structured": res.structuredContent}
@@ -705,7 +707,7 @@ class MCPClient:
                 details={"original_error": str(e)},
             ) from e
 
-    async def list_tools(self, *, server: Optional[str] = None) -> List[Any]:
+    async def list_tools(self, *, server: str | None = None) -> list[Any]:
         """
         List tools from servers.
 
@@ -744,7 +746,7 @@ class MCPClient:
         ms_client = await self.list_clients()
         return await ms_client.get_tools()
 
-    async def health_check(self) -> Dict[str, str]:
+    async def health_check(self) -> dict[str, str]:
         """
         Check health of all configured servers.
 
@@ -760,7 +762,7 @@ class MCPClient:
             # {"filesystem": "healthy", "github": "unhealthy"}
             ```
         """
-        results: Dict[str, str] = {}
+        results: dict[str, str] = {}
 
         for cfg in self._configs:
             ident = self._cfg_identity(cfg)
@@ -778,7 +780,7 @@ class MCPClient:
 
     async def list_resources(
         self, server_name: str | None = None
-    ) -> Dict[str, List[ResourceInfo]]:
+    ) -> dict[str, list[ResourceInfo]]:
         """
         List available resources from MCP servers.
 
@@ -820,7 +822,7 @@ class MCPClient:
                     server_name=name,
                 )
 
-        results: Dict[str, List[ResourceInfo]] = {}
+        results: dict[str, list[ResourceInfo]] = {}
         for name in servers:
             try:
                 async with self.get_client(name) as session:
@@ -835,8 +837,8 @@ class MCPClient:
         self,
         server_name: str,
         *,
-        uris: str | List[str] | None = None,
-    ) -> List[MCPResource]:
+        uris: str | list[str] | None = None,
+    ) -> list[MCPResource]:
         """
         Get resources from an MCP server.
 
@@ -902,7 +904,7 @@ class MCPClient:
 
     async def list_prompts(
         self, server_name: str | None = None
-    ) -> Dict[str, List[PromptInfo]]:
+    ) -> dict[str, list[PromptInfo]]:
         """
         List available prompts from MCP servers.
 
@@ -944,7 +946,7 @@ class MCPClient:
                     server_name=name,
                 )
 
-        results: Dict[str, List[PromptInfo]] = {}
+        results: dict[str, list[PromptInfo]] = {}
         for name in servers:
             try:
                 async with self.get_client(name) as session:
@@ -960,8 +962,8 @@ class MCPClient:
         server_name: str,
         prompt_name: str,
         *,
-        arguments: Dict[str, Any] | None = None,
-    ) -> List[BaseMessage]:
+        arguments: dict[str, Any] | None = None,
+    ) -> list[BaseMessage]:
         """
         Get a prompt from an MCP server as LangChain messages.
 
@@ -1027,10 +1029,10 @@ class MCPClient:
 
     async def get_openmcp(
         self,
-        server_name: Optional[str] = None,
+        server_name: str | None = None,
         *,
         schema_url: str = "https://meta.local/schemas/mcps-0.1.json",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Build an OpenAPI-like MCP Spec (MCPS) document for exactly one server.
         All top-level info is read from the server's initialize() metadata.
@@ -1068,12 +1070,12 @@ class MCPClient:
         cfg = self._by_name[target]
         ms_client = await self.list_clients()
 
-        tools: List[Dict[str, Any]] = []
-        prompts: List[Dict[str, Any]] = []
-        resources: List[Dict[str, Any]] = []
-        templates: List[Dict[str, Any]] = []
-        roots: List[Dict[str, Any]] = []
-        server_info: Dict[str, Any] = {}
+        tools: list[dict[str, Any]] = []
+        prompts: list[dict[str, Any]] = []
+        resources: list[dict[str, Any]] = []
+        templates: list[dict[str, Any]] = []
+        roots: list[dict[str, Any]] = []
+        server_info: dict[str, Any] = {}
 
         async with ms_client.session(target) as session:
             # captured at initialize() inside _open_session_from_config
@@ -1246,13 +1248,13 @@ class MCPClient:
         self,
         *,
         schema_url: str = "https://meta.local/schemas/mcps-0.1.json",
-    ) -> Dict[str, Dict[str, Any]]:
+    ) -> dict[str, dict[str, Any]]:
         """
         Return an MCPS doc per discovered server, keyed by server name.
         """
         if not self._discovered:
             await self.discover()
-        result: Dict[str, Dict[str, Any]] = {}
+        result: dict[str, dict[str, Any]] = {}
         for name in self.server_names():
             result[name] = await self.get_openmcp(
                 server_name=name, schema_url=schema_url

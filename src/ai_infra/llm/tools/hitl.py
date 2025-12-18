@@ -25,16 +25,11 @@ from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
     Any,
-    Awaitable,
-    Callable,
-    Dict,
-    List,
     Literal,
     Optional,
-    Sequence,
-    Union,
     cast,
 )
+from collections.abc import Awaitable, Callable, Sequence
 
 from langchain_core.tools import BaseTool
 from langchain_core.tools import tool as lc_tool
@@ -130,14 +125,14 @@ class HITLConfig:
             return await asyncio.to_thread(self.on_model_output, ai_msg)
         return None
 
-    async def call_tool(self, name: str, args: Dict[str, Any]):
+    async def call_tool(self, name: str, args: dict[str, Any]):
         if self.on_tool_call_async:
             return await self.on_tool_call_async(name, args)
         if self.on_tool_call:
             return await asyncio.to_thread(self.on_tool_call, name, args)
         return None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "on_model_output": self.on_model_output,
             "on_tool_call": self.on_tool_call,
@@ -258,9 +253,7 @@ class ApprovalConfig:
     approval_handler_async: Optional[AsyncApprovalHandler] = None
     output_reviewer: Optional[OutputReviewer] = None
     output_reviewer_async: Optional[AsyncOutputReviewer] = None
-    require_approval: Union[bool, List[str], Callable[[str, Dict[str, Any]], bool]] = (
-        False
-    )
+    require_approval: bool | list[str] | Callable[[str, dict[str, Any]], bool] = False
     auto_approve: bool = False
     events: Optional["ApprovalEvents"] = None  # Event hooks for observability
 
@@ -275,7 +268,7 @@ class ApprovalConfig:
                 self.approval_handler = console_approval_handler
 
     def needs_approval(
-        self, tool_name: str, args: Optional[Dict[str, Any]] = None
+        self, tool_name: str, args: Optional[dict[str, Any]] = None
     ) -> bool:
         """Check if a tool needs approval.
 
@@ -477,7 +470,7 @@ def maybe_await(result: Any) -> Any:
 
 
 # ---------- Output gating ----------
-def apply_output_gate(ai_msg: Any, hitl: Optional[HITLConfig | Dict[str, Any]]) -> Any:
+def apply_output_gate(ai_msg: Any, hitl: Optional[HITLConfig | dict[str, Any]]) -> Any:
     """Apply HITL on_model_output gate to a model/agent final output.
 
     ai_msg can be:
@@ -596,7 +589,7 @@ def compute_effective_tools(
     policy: ToolPolicy,
     *,
     logger_: Optional[logging.Logger] = None,
-) -> List[Any]:
+) -> list[Any]:
     """Compute effective tools for a call given per-call list & global list under policy.
 
     Logic mirrors the inline section previously in make_agent_with_context:

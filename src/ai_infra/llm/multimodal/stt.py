@@ -32,7 +32,8 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Union
+from typing import Any, Optional
+from collections.abc import Iterator
 
 from ai_infra.llm.multimodal.models import (
     STTProvider,
@@ -133,7 +134,7 @@ class STT:
 
     def transcribe(
         self,
-        audio: Union[bytes, str, Path],
+        audio: bytes | str | Path,
         *,
         language: Optional[str] = None,
         timestamps: bool = False,
@@ -169,7 +170,7 @@ class STT:
 
     async def atranscribe(
         self,
-        audio: Union[bytes, str, Path],
+        audio: bytes | str | Path,
         *,
         language: Optional[str] = None,
         timestamps: bool = False,
@@ -207,7 +208,7 @@ class STT:
 
     def transcribe_file(
         self,
-        path: Union[str, Path],
+        path: str | Path,
         *,
         language: Optional[str] = None,
         timestamps: bool = False,
@@ -267,7 +268,7 @@ class STT:
             yield result.text
 
     @staticmethod
-    def list_providers() -> List[str]:
+    def list_providers() -> list[str]:
         """List configured STT providers.
 
         Returns:
@@ -285,7 +286,7 @@ class STT:
         return providers
 
     @staticmethod
-    def list_models(provider: Optional[str] = None) -> List[Dict[str, Any]]:
+    def list_models(provider: Optional[str] = None) -> list[dict[str, Any]]:
         """List available models for a provider.
 
         Args:
@@ -294,7 +295,7 @@ class STT:
         Returns:
             List of model info dicts.
         """
-        models: List[Dict[str, Any]] = []
+        models: list[dict[str, Any]] = []
 
         if provider is None or provider == "openai":
             if os.environ.get("OPENAI_API_KEY"):
@@ -344,7 +345,7 @@ class STT:
     # Helper methods
     # =========================================================================
 
-    def _load_audio(self, audio: Union[bytes, str, Path]) -> tuple[bytes, str]:
+    def _load_audio(self, audio: bytes | str | Path) -> tuple[bytes, str]:
         """Load audio data and determine format.
 
         Returns:
@@ -391,7 +392,7 @@ class STT:
 
     def _transcribe_openai(
         self,
-        audio: Union[bytes, str, Path],
+        audio: bytes | str | Path,
         language: Optional[str],
         timestamps: bool,
         word_timestamps: bool,
@@ -402,7 +403,7 @@ class STT:
         audio_bytes, filename = self._load_audio(audio)
 
         # Build kwargs
-        kwargs: Dict[str, Any] = {
+        kwargs: dict[str, Any] = {
             "model": self._model,
             "file": (filename, audio_bytes),
         }
@@ -453,7 +454,7 @@ class STT:
 
     async def _atranscribe_openai(
         self,
-        audio: Union[bytes, str, Path],
+        audio: bytes | str | Path,
         language: Optional[str],
         timestamps: bool,
         word_timestamps: bool,
@@ -463,7 +464,7 @@ class STT:
         client = self._get_openai_async_client()
         audio_bytes, filename = self._load_audio(audio)
 
-        kwargs: Dict[str, Any] = {
+        kwargs: dict[str, Any] = {
             "model": self._model,
             "file": (filename, audio_bytes),
         }
@@ -519,7 +520,7 @@ class STT:
 
     def _transcribe_deepgram(
         self,
-        audio: Union[bytes, str, Path],
+        audio: bytes | str | Path,
         language: Optional[str],
         timestamps: bool,
         word_timestamps: bool,
@@ -609,7 +610,7 @@ class STT:
 
     async def _atranscribe_deepgram(
         self,
-        audio: Union[bytes, str, Path],
+        audio: bytes | str | Path,
         language: Optional[str],
         timestamps: bool,
         word_timestamps: bool,
@@ -722,7 +723,7 @@ class STT:
 
         connection = client.listen.live.v("1").start(options)
 
-        transcripts: List[str] = []
+        transcripts: list[str] = []
 
         def on_message(self_ref: Any, result: Any, **kwargs: Any) -> None:
             transcript = result.channel.alternatives[0].transcript
@@ -750,7 +751,7 @@ class STT:
 
     def _transcribe_google(
         self,
-        audio: Union[bytes, str, Path],
+        audio: bytes | str | Path,
         language: Optional[str],
         timestamps: bool,
         word_timestamps: bool,
@@ -818,7 +819,7 @@ class STT:
 
     async def _atranscribe_google(
         self,
-        audio: Union[bytes, str, Path],
+        audio: bytes | str | Path,
         language: Optional[str],
         timestamps: bool,
         word_timestamps: bool,

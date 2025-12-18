@@ -5,7 +5,8 @@ import os
 import re
 from contextvars import ContextVar
 from pathlib import Path
-from typing import Iterable, Optional, Sequence, Union
+from typing import Optional
+from collections.abc import Iterable, Sequence
 
 # ---------- Repo root & sandbox ----------
 
@@ -44,7 +45,7 @@ _DEFAULT_ROOT = Path(os.getenv("REPO_ROOT", os.getcwd())).resolve()
 _workspace_root: ContextVar[Optional[Path]] = ContextVar("workspace_root", default=None)
 
 
-def _set_workspace_root(path: Union[str, Path, None]) -> None:
+def _set_workspace_root(path: str | Path | None) -> None:
     """Internal: Set workspace root without deprecation warning.
 
     Used by Workspace.configure_proj_mgmt() to set the root.
@@ -55,7 +56,7 @@ def _set_workspace_root(path: Union[str, Path, None]) -> None:
         _workspace_root.set(Path(path).resolve())
 
 
-def set_workspace_root(path: Union[str, Path, None]) -> None:
+def set_workspace_root(path: str | Path | None) -> None:
     """Set an explicit workspace root for the current context.
 
     .. deprecated:: 1.0
@@ -118,7 +119,7 @@ def _normalize_user_path(p: Path) -> Path:
     return p
 
 
-def _confine(path: Union[str, Path], *, workspace: Optional[Path] = None) -> Path:
+def _confine(path: str | Path, *, workspace: Optional[Path] = None) -> Path:
     """
     Map user-supplied path to a real path under the workspace root.
 

@@ -4,7 +4,8 @@ import contextlib
 import importlib
 import logging
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Iterable, Optional, Union
+from typing import Any, Optional
+from collections.abc import Awaitable, Callable, Iterable
 
 import httpx
 
@@ -147,7 +148,7 @@ class MCPServer:
     def add_openapi(
         self,
         path: str,
-        spec: Union[dict, str, Path],
+        spec: dict | str | Path,
         *,
         transport: str = "streamable_http",
         client: httpx.AsyncClient | None = None,
@@ -262,7 +263,7 @@ class MCPServer:
         self,
         path: str,
         *,
-        tools: Iterable[Union[ToolFn, ToolDef]] | None,
+        tools: Iterable[ToolFn | ToolDef] | None,
         name: Optional[str] = None,
         transport: str = "streamable_http",
         require_manager: Optional[bool] = None,  # None = auto

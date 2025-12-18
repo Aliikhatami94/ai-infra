@@ -29,7 +29,7 @@ Example:
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Any, Literal, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Literal, Optional, cast
 
 from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, Field
@@ -185,7 +185,7 @@ def create_retriever_tool(
         ```
     """
 
-    def search_documents(query: str) -> Union[str, dict[str, Any]]:
+    def search_documents(query: str) -> str | dict[str, Any]:
         """Search the retriever for relevant documents."""
         results = retriever.search(
             query, k=k, min_score=min_score, filter=filter, detailed=True
@@ -260,7 +260,7 @@ def create_retriever_tool_async(
         ```
     """
 
-    async def search_documents_async(query: str) -> Union[str, dict[str, Any]]:
+    async def search_documents_async(query: str) -> str | dict[str, Any]:
         """Search the retriever for relevant documents (async)."""
         results = await retriever.asearch(
             query, k=k, min_score=min_score, filter=filter, detailed=True

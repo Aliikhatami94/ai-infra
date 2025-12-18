@@ -26,7 +26,8 @@ from __future__ import annotations
 import logging
 import os
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING, Any, AsyncIterator, Awaitable, Callable
+from typing import TYPE_CHECKING, Any
+from collections.abc import AsyncIterator, Awaitable, Callable
 
 from .base import BaseRealtimeProvider
 from .models import (

@@ -4,7 +4,8 @@ import base64
 import logging
 import os
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Optional
+from collections.abc import Awaitable, Callable
 
 import httpx
 from mcp.server.fastmcp import FastMCP
@@ -46,7 +47,7 @@ class OpenAPIError(Exception):
 class OpenAPIParseError(OpenAPIError):
     """Error parsing OpenAPI specification."""
 
-    def __init__(self, message: str, errors: Optional[List[str]] = None):
+    def __init__(self, message: str, errors: Optional[list[str]] = None):
         super().__init__(message)
         self.errors = errors or []
 
@@ -153,7 +154,7 @@ class SecurityResolver:
             basic=basic,
         )
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "header_api_keys": list(self.header_api_keys),
             "query_api_keys": list(self.query_api_keys),
@@ -182,8 +183,8 @@ class SecurityResolver:
 
 async def _apply_auth_config(
     auth_config: Optional[AuthConfig],
-    headers: Dict[str, str],
-    query: Dict[str, Any],
+    headers: dict[str, str],
+    query: dict[str, Any],
 ) -> None:
     """Apply AuthConfig to request headers/query params."""
     if not auth_config:
@@ -255,10 +256,10 @@ _resolving_refs: set = set()
 
 
 def _resolve_ref(
-    schema: Dict[str, Any],
+    schema: dict[str, Any],
     spec: OpenAPISpec,
     visited: Optional[set] = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Resolve $ref with circular reference detection."""
     ref = schema.get("$ref")
     if not ref or not isinstance(ref, str):
@@ -290,10 +291,10 @@ def _resolve_ref(
 
 
 def _merge_allof_schemas(
-    schemas: List[Dict[str, Any]], spec: OpenAPISpec
-) -> Dict[str, Any]:
+    schemas: list[dict[str, Any]], spec: OpenAPISpec
+) -> dict[str, Any]:
     """Merge allOf schemas into a single schema."""
-    result: Dict[str, Any] = {"type": "object", "properties": {}, "required": []}
+    result: dict[str, Any] = {"type": "object", "properties": {}, "required": []}
 
     for schema in schemas:
         resolved = _resolve_ref(schema, spec) if "$ref" in schema else schema
@@ -321,7 +322,7 @@ def _merge_allof_schemas(
 
 
 def _py_type_from_schema(
-    schema: Dict[str, Any],
+    schema: dict[str, Any],
     spec: OpenAPISpec | None = None,
     visited: Optional[set] = None,
 ) -> Any:
@@ -349,12 +350,11 @@ def _py_type_from_schema(
             return _py_type_from_schema(variants[0], spec, visited)
         if len(variants) == 0:
             return Any
-        # Build Union type
-        types = [_py_type_from_schema(v, spec, visited) for v in variants]
-        # Use Union for multiple types
-        from typing import Union
+        # Build Union type using | operator at runtime
+        import functools
 
-        return Union[tuple(types)]
+        types = [_py_type_from_schema(v, spec, visited) for v in variants]
+        return functools.reduce(lambda a, b: a | b, types)
 
     t = (schema or {}).get("type")
     fmt = (schema or {}).get("format")
@@ -381,7 +381,7 @@ def _py_type_from_schema(
     if t == "array":
         items = (schema or {}).get("items") or {}
         item_type = _py_type_from_schema(items, spec, visited)
-        return List[item_type]  # type: ignore[valid-type]
+        return list[item_type]  # type: ignore[valid-type]
     if t == "object" or ("properties" in (schema or {})):
         from pydantic import BaseModel, ConfigDict
         from pydantic import Field as PydanticField
@@ -445,7 +445,7 @@ def _build_input_model(
 ) -> type[BaseModel]:
     fields: dict[str, Any] = {}
 
-    def _extract_param_type(param: Dict[str, Any]) -> Any:
+    def _extract_param_type(param: dict[str, Any]) -> Any:
         schema = param.get("schema") or {}
         return _py_type_from_schema(schema, spec)
 
@@ -476,18 +476,18 @@ def _build_input_model(
 
         if op_ctx.body_content_type == "multipart/form-data":
             fields["files"] = (
-                Optional[Dict[str, Any]],
+                Optional[dict[str, Any]],
                 Field(default=None, alias="_files"),
             )
 
     BasicAuthList = conlist(str, min_length=2, max_length=2)
     fields["headers"] = (
-        Optional[Dict[str, str]],
+        Optional[dict[str, str]],
         Field(default=None, alias="_headers"),
     )
     fields["api_key"] = (Optional[str], Field(default=None, alias="_api_key"))
     fields["basic_auth"] = (
-        Optional[Union[str, BasicAuthList]],
+        Optional[str | BasicAuthList],
         Field(default=None, alias="_basic_auth"),
     )
     fields["base_url"] = (Optional[str], Field(default=None, alias="_base_url"))
@@ -539,7 +539,7 @@ def _build_output_model(
 
     fields: dict[str, Any] = {
         "status": (int, ...),
-        "headers": (Dict[str, str], ...),
+        "headers": (dict[str, str], ...),
         "url": (str, ...),
         "method": (str, ...),
     }
@@ -588,7 +588,7 @@ def _register_operation_tool(
     auto_paginate: bool = False,
     max_pages: int = 10,
 ) -> None:
-    warnings: List[str] = []
+    warnings: list[str] = []
     InputModel = _build_input_model(op_ctx, path_item={}, op=op, spec=spec)
     OutputModel = _build_output_model(op_ctx, op, spec)
     security = SecurityResolver.from_spec(spec, op)
@@ -722,9 +722,9 @@ def _register_operation_tool(
             if pname in payload:
                 url_path = url_path.replace("{" + pname + "}", str(payload.pop(pname)))
 
-        query: Dict[str, Any] = {}
-        headers: Dict[str, str] = {}
-        cookies: Dict[str, str] = {}
+        query: dict[str, Any] = {}
+        headers: dict[str, str] = {}
+        cookies: dict[str, str] = {}
 
         # Handle query params with style/explode for arrays
         for p in op_ctx.query_params:
@@ -893,7 +893,7 @@ def _register_operation_tool(
             )
 
         content_type = resp.headers.get("content-type", "")
-        out: Dict[str, Any] = {
+        out: dict[str, Any] = {
             "status": resp.status_code,
             "headers": dict(resp.headers),
             "url": str(resp.request.url),
@@ -1002,7 +1002,7 @@ def _register_operation_tool(
 
 
 def _mcp_from_openapi(
-    spec: Union[dict, str, Path],
+    spec: dict | str | Path,
     *,
     client: httpx.AsyncClient | None = None,
     client_factory: Callable[[], httpx.AsyncClient] | None = None,
@@ -1013,19 +1013,19 @@ def _mcp_from_openapi(
     options: Optional[OpenAPIOptions] = None,
     # Convenience shortcuts (applied to options)
     tool_prefix: Optional[str] = None,
-    include_paths: Optional[List[str]] = None,
-    exclude_paths: Optional[List[str]] = None,
-    include_methods: Optional[List[str]] = None,
-    exclude_methods: Optional[List[str]] = None,
-    include_tags: Optional[List[str]] = None,
-    exclude_tags: Optional[List[str]] = None,
-    include_operations: Optional[List[str]] = None,
-    exclude_operations: Optional[List[str]] = None,
+    include_paths: Optional[list[str]] = None,
+    exclude_paths: Optional[list[str]] = None,
+    include_methods: Optional[list[str]] = None,
+    exclude_methods: Optional[list[str]] = None,
+    include_tags: Optional[list[str]] = None,
+    exclude_tags: Optional[list[str]] = None,
+    include_operations: Optional[list[str]] = None,
+    exclude_operations: Optional[list[str]] = None,
     tool_name_fn: Optional[Callable[[str, str, dict], str]] = None,
     tool_description_fn: Optional[Callable[[dict], str]] = None,
     auth: Any = None,
-    endpoint_auth: Optional[Dict[str, Any]] = None,
-) -> Tuple[FastMCP, Optional[Callable[[], Awaitable[None]]], BuildReport]:
+    endpoint_auth: Optional[dict[str, Any]] = None,
+) -> tuple[FastMCP, Optional[Callable[[], Awaitable[None]]], BuildReport]:
     """
     Build a FastMCP from OpenAPI and return (mcp, async_cleanup, report).
 

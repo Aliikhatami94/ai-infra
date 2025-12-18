@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import base64
 import io
-from typing import Any, BinaryIO, List, Literal, Optional, Union
+from typing import Any, BinaryIO, Literal, Optional
 
 from ai_infra.imagegen.models import (
     AVAILABLE_MODELS,
@@ -144,7 +144,7 @@ class ImageGen:
         quality: Literal["standard", "hd"] = "standard",
         style: Optional[Literal["vivid", "natural"]] = None,
         **kwargs: Any,
-    ) -> List[GeneratedImage]:
+    ) -> list[GeneratedImage]:
         """Generate images from a text prompt.
 
         Args:
@@ -192,7 +192,7 @@ class ImageGen:
         quality: Literal["standard", "hd"] = "standard",
         style: Optional[Literal["vivid", "natural"]] = None,
         **kwargs: Any,
-    ) -> List[GeneratedImage]:
+    ) -> list[GeneratedImage]:
         """Async version of generate().
 
         Args:
@@ -240,7 +240,7 @@ class ImageGen:
         quality: str,
         style: Optional[str],
         **kwargs: Any,
-    ) -> List[GeneratedImage]:
+    ) -> list[GeneratedImage]:
         """Generate images using OpenAI DALL-E."""
         client = self._get_openai_client()
 
@@ -281,7 +281,7 @@ class ImageGen:
         quality: str,
         style: Optional[str],
         **kwargs: Any,
-    ) -> List[GeneratedImage]:
+    ) -> list[GeneratedImage]:
         """Async generate images using OpenAI DALL-E."""
         from openai import AsyncOpenAI
 
@@ -340,7 +340,7 @@ class ImageGen:
         size: str,
         n: int,
         **kwargs: Any,
-    ) -> List[GeneratedImage]:
+    ) -> list[GeneratedImage]:
         """Generate images using Google (Gemini or Imagen)."""
         client = self._get_google_client()
 
@@ -360,7 +360,7 @@ class ImageGen:
         *,
         n: int,
         **kwargs: Any,
-    ) -> List[GeneratedImage]:
+    ) -> list[GeneratedImage]:
         """Generate images using Gemini multimodal API."""
         from google.genai import types
 
@@ -395,7 +395,7 @@ class ImageGen:
         size: str,
         n: int,
         **kwargs: Any,
-    ) -> List[GeneratedImage]:
+    ) -> list[GeneratedImage]:
         """Generate images using Google Imagen API."""
         response = client.models.generate_images(
             model=self._model,
@@ -425,7 +425,7 @@ class ImageGen:
         size: str,
         n: int,
         **kwargs: Any,
-    ) -> List[GeneratedImage]:
+    ) -> list[GeneratedImage]:
         """Async generate images using Google (Gemini or Imagen)."""
         from google import genai
 
@@ -447,7 +447,7 @@ class ImageGen:
         *,
         n: int,
         **kwargs: Any,
-    ) -> List[GeneratedImage]:
+    ) -> list[GeneratedImage]:
         """Async generate images using Gemini multimodal API."""
         from google.genai import types
 
@@ -482,7 +482,7 @@ class ImageGen:
         size: str,
         n: int,
         **kwargs: Any,
-    ) -> List[GeneratedImage]:
+    ) -> list[GeneratedImage]:
         """Async generate images using Google Imagen API."""
         response = await client.aio.models.generate_images(
             model=self._model,
@@ -516,7 +516,7 @@ class ImageGen:
         size: str,
         n: int,
         **kwargs: Any,
-    ) -> List[GeneratedImage]:
+    ) -> list[GeneratedImage]:
         """Generate images using Stability AI."""
         import httpx
 
@@ -558,7 +558,7 @@ class ImageGen:
         size: str,
         n: int,
         **kwargs: Any,
-    ) -> List[GeneratedImage]:
+    ) -> list[GeneratedImage]:
         """Async generate images using Stability AI."""
         import httpx
 
@@ -605,7 +605,7 @@ class ImageGen:
         size: str,
         n: int,
         **kwargs: Any,
-    ) -> List[GeneratedImage]:
+    ) -> list[GeneratedImage]:
         """Generate images using Replicate."""
         import replicate
 
@@ -649,7 +649,7 @@ class ImageGen:
         size: str,
         n: int,
         **kwargs: Any,
-    ) -> List[GeneratedImage]:
+    ) -> list[GeneratedImage]:
         """Async generate images using Replicate."""
         import replicate
 
@@ -691,14 +691,14 @@ class ImageGen:
 
     def edit(
         self,
-        image: Union[str, bytes],
+        image: str | bytes,
         prompt: str,
         *,
-        mask: Optional[Union[str, bytes]] = None,
+        mask: Optional[str | bytes] = None,
         size: str = "1024x1024",
         n: int = 1,
         **kwargs: Any,
-    ) -> List[GeneratedImage]:
+    ) -> list[GeneratedImage]:
         """Edit an existing image based on a prompt.
 
         Note: Currently only supported by OpenAI (DALL-E 2).
@@ -767,12 +767,12 @@ class ImageGen:
 
     def variations(
         self,
-        image: Union[str, bytes],
+        image: str | bytes,
         *,
         size: str = "1024x1024",
         n: int = 1,
         **kwargs: Any,
-    ) -> List[GeneratedImage]:
+    ) -> list[GeneratedImage]:
         """Generate variations of an existing image.
 
         Note: Currently only supported by OpenAI (DALL-E 2).
@@ -827,12 +827,12 @@ class ImageGen:
     # -------------------------------------------------------------------------
 
     @staticmethod
-    def list_providers() -> List[str]:
+    def list_providers() -> list[str]:
         """List all available providers."""
         return [p.value for p in ImageGenProvider]
 
     @staticmethod
-    def list_models(provider: str) -> List[str]:
+    def list_models(provider: str) -> list[str]:
         """List available models for a provider.
 
         Args:

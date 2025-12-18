@@ -1,4 +1,5 @@
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Optional
+from collections.abc import Callable, Sequence
 
 from pydantic import BaseModel, ConfigDict
 
@@ -7,24 +8,24 @@ class GraphStructure(BaseModel):
     """Pydantic model representing the graph's structural information."""
 
     state_type_name: str
-    state_schema: Dict[str, str]
+    state_schema: dict[str, str]
     node_count: int
-    nodes: List[str]
+    nodes: list[str]
     edge_count: int
-    edges: List[Tuple[str, str]]
+    edges: list[tuple[str, str]]
     conditional_edge_count: int
-    conditional_edges: Optional[List[Dict[str, Any]]] = None
-    entry_points: List[str]
-    exit_points: List[str]
+    conditional_edges: Optional[list[dict[str, Any]]] = None
+    entry_points: list[str]
+    exit_points: list[str]
     has_memory: bool
-    unreachable: Optional[List[str]] = None
+    unreachable: Optional[list[str]] = None
 
 
 class GraphConfig(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     node_definitions: Sequence[Any]
-    edges: Sequence[Tuple[str, str]]
-    conditional_edges: Optional[Sequence[Tuple[str, Any, dict]]] = None
+    edges: Sequence[tuple[str, str]]
+    conditional_edges: Optional[Sequence[tuple[str, Any, dict]]] = None
     memory_store: Optional[object] = None
 
 
@@ -39,4 +40,4 @@ class ConditionalEdge(BaseModel):
     targets: list[str]
 
 
-EdgeType = Union[Edge, ConditionalEdge]
+EdgeType = Edge | ConditionalEdge

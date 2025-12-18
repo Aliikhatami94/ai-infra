@@ -26,7 +26,7 @@ from __future__ import annotations
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import typer
 
@@ -72,8 +72,8 @@ class ChatStorage:
     def save(
         self,
         session_id: str,
-        messages: List[Dict[str, str]],
-        metadata: Optional[Dict[str, Any]] = None,
+        messages: list[dict[str, str]],
+        metadata: Optional[dict[str, Any]] = None,
     ) -> None:
         """Save a chat session.
 
@@ -98,7 +98,7 @@ class ChatStorage:
         with open(path, "w") as f:
             json.dump(data, f, indent=2)
 
-    def _load_raw(self, session_id: str) -> Optional[Dict[str, Any]]:
+    def _load_raw(self, session_id: str) -> Optional[dict[str, Any]]:
         """Load raw session data."""
         path = self._session_path(session_id)
         if not path.exists():
@@ -107,7 +107,7 @@ class ChatStorage:
             result = json.load(f)
             return dict(result) if isinstance(result, dict) else None
 
-    def load(self, session_id: str) -> Optional[Dict[str, Any]]:
+    def load(self, session_id: str) -> Optional[dict[str, Any]]:
         """Load a chat session.
 
         Args:
@@ -134,7 +134,7 @@ class ChatStorage:
             return True
         return False
 
-    def list_sessions(self) -> List[Dict[str, Any]]:
+    def list_sessions(self) -> list[dict[str, Any]]:
         """List all saved sessions with metadata.
 
         Returns:
@@ -223,9 +223,9 @@ def _extract_content(response) -> str:
 
 def _build_messages_with_history(
     user_input: str,
-    conversation: List[Dict[str, str]],
+    conversation: list[dict[str, str]],
     system: Optional[str] = None,
-) -> List[Any]:
+) -> list[Any]:
     """Build LangChain message list with conversation history.
 
     Args:
@@ -369,7 +369,7 @@ def _run_repl(
 
     # Session management
     current_session_id = session_id or _generate_session_id()
-    conversation: List[Dict[str, str]] = []
+    conversation: list[dict[str, str]] = []
     current_system = system
     current_temp = temperature
     current_provider = provider

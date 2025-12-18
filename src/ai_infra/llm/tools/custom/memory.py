@@ -43,7 +43,8 @@ import hashlib
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Literal, Optional
+from collections.abc import Sequence
 
 if TYPE_CHECKING:
     from ai_infra.llm.llm import LLM
@@ -55,7 +56,7 @@ from pydantic import BaseModel, Field
 logger = logging.getLogger(__name__)
 
 # Type alias for messages
-MessageLike = Union[BaseMessage, Dict[str, Any]]
+MessageLike = BaseMessage | dict[str, Any]
 
 
 @dataclass
@@ -71,7 +72,7 @@ class ConversationChunk:
     session_id: str
     """Session identifier."""
 
-    messages: List[BaseMessage]
+    messages: list[BaseMessage]
     """The messages in this chunk."""
 
     text: str
@@ -80,7 +81,7 @@ class ConversationChunk:
     summary: Optional[str] = None
     """Optional summary of this chunk."""
 
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     """Additional metadata (topic, date, etc.)."""
 
     created_at: float = field(default_factory=time.time)
@@ -306,8 +307,8 @@ class ConversationMemory:
         session_id: str,
         messages: Sequence[MessageLike],
         *,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> List[str]:
+        metadata: Optional[dict[str, Any]] = None,
+    ) -> list[str]:
         """Index a conversation for later search.
 
         Splits the conversation into chunks and stores them with embeddings
@@ -379,8 +380,8 @@ class ConversationMemory:
         session_id: str,
         messages: Sequence[MessageLike],
         *,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> List[str]:
+        metadata: Optional[dict[str, Any]] = None,
+    ) -> list[str]:
         """Async version of index_conversation.
 
         See index_conversation for full documentation.
@@ -429,7 +430,7 @@ class ConversationMemory:
         limit: int = 5,
         min_score: Optional[float] = None,
         session_id: Optional[str] = None,
-    ) -> List[SearchResult]:
+    ) -> list[SearchResult]:
         """Search past conversations for relevant context.
 
         Args:
@@ -529,7 +530,7 @@ class ConversationMemory:
         limit: int = 5,
         min_score: Optional[float] = None,
         session_id: Optional[str] = None,
-    ) -> List[SearchResult]:
+    ) -> list[SearchResult]:
         """Async version of search.
 
         See search for full documentation.
@@ -635,7 +636,7 @@ class ConversationMemory:
         logger.info(f"Deleted {deleted} chunks for user {user_id}")
         return deleted
 
-    def _normalize_messages(self, messages: Sequence[MessageLike]) -> List[BaseMessage]:
+    def _normalize_messages(self, messages: Sequence[MessageLike]) -> list[BaseMessage]:
         """Convert various message formats to BaseMessage."""
         result = []
         for msg in messages:
@@ -656,9 +657,9 @@ class ConversationMemory:
         self,
         user_id: str,
         session_id: str,
-        messages: List[BaseMessage],
-        metadata: Dict[str, Any],
-    ) -> List[ConversationChunk]:
+        messages: list[BaseMessage],
+        metadata: dict[str, Any],
+    ) -> list[ConversationChunk]:
         """Split messages into chunks with overlap."""
         if not messages:
             return []
@@ -708,7 +709,7 @@ class ConversationMemory:
         content = f"{session_id}:{index}:{time.time()}"
         return hashlib.sha256(content.encode()).hexdigest()[:16]
 
-    def _format_messages_for_embedding(self, messages: List[BaseMessage]) -> str:
+    def _format_messages_for_embedding(self, messages: list[BaseMessage]) -> str:
         """Format messages as text for embedding."""
         lines = []
         for msg in messages:
@@ -754,14 +755,14 @@ class ConversationMemory:
         else:
             return "Unknown"
 
-    def _message_to_dict(self, msg: BaseMessage) -> Dict[str, Any]:
+    def _message_to_dict(self, msg: BaseMessage) -> dict[str, Any]:
         """Convert message to dict for storage."""
         return {
             "role": self._get_message_role(msg).lower(),
             "content": msg.content,
         }
 
-    def _dict_to_message(self, data: Dict[str, Any]) -> BaseMessage:
+    def _dict_to_message(self, data: dict[str, Any]) -> BaseMessage:
         """Convert dict back to message."""
         role = data.get("role", "user")
         content = data.get("content", "")
@@ -773,7 +774,7 @@ class ConversationMemory:
         else:
             return HumanMessage(content=content)
 
-    def _generate_summary(self, messages: List[BaseMessage]) -> Optional[str]:
+    def _generate_summary(self, messages: list[BaseMessage]) -> Optional[str]:
         """Generate summary of messages using LLM."""
         if not self._include_summary:
             return None

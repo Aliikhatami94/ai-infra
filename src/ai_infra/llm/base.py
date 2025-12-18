@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Literal, Optional
 
 from langchain_core.messages import BaseMessage
 from pydantic import BaseModel
@@ -36,13 +36,13 @@ class BaseLLM:
 
     def __init__(self):
         self.registry = ModelRegistry()
-        self.tools: List[Any] = []
+        self.tools: list[Any] = []
         self._hitl = HITLConfig()
         self._logging_hooks = LoggingHooks()
         self.require_explicit_tools: bool = False
 
     # shared configuration / policies
-    def set_global_tools(self, tools: List[Any]):
+    def set_global_tools(self, tools: list[Any]):
         self.tools = tools or []
 
     def require_tools_explicit(self, required: bool = True):
@@ -171,7 +171,7 @@ class BaseLLM:
         self,
         provider: str,
         model_name: str,
-        schema: Union[type[BaseModel], Dict[str, Any]],
+        schema: type[BaseModel] | dict[str, Any],
         *,
         method: Literal["json_schema", "json_mode", "function_calling"]
         | None = "json_mode",
@@ -252,12 +252,12 @@ class BaseLLM:
         system: Optional[str],
         provider: str,
         model_name: str,
-        schema: Union[type[BaseModel], Dict[str, Any]],
-        extra: Optional[Dict[str, Any]],
-        model_kwargs: Dict[str, Any],
+        schema: type[BaseModel] | dict[str, Any],
+        extra: Optional[dict[str, Any]],
+        model_kwargs: dict[str, Any],
     ) -> BaseModel:
         model = self.set_model(provider, model_name, **model_kwargs)
-        messages: List[BaseMessage] = build_structured_messages(
+        messages: list[BaseMessage] = build_structured_messages(
             schema=schema, user_msg=user_msg, system_preamble=system
         )
 
@@ -308,13 +308,13 @@ class BaseLLM:
         system: Optional[str],
         provider: str,
         model_name: str,
-        schema: Union[type[BaseModel], Dict[str, Any]],
-        extra: Optional[Dict[str, Any]],
-        model_kwargs: Dict[str, Any],
+        schema: type[BaseModel] | dict[str, Any],
+        extra: Optional[dict[str, Any]],
+        model_kwargs: dict[str, Any],
     ) -> BaseModel:
         """Async variant of prompt-only structured output with robust JSON fallback."""
         model = self.set_model(provider, model_name, **model_kwargs)
-        messages: List[BaseMessage] = build_structured_messages(
+        messages: list[BaseMessage] = build_structured_messages(
             schema=schema, user_msg=user_msg, system_preamble=system
         )
 

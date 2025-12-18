@@ -1,6 +1,7 @@
 import asyncio
 import inspect
-from typing import Any, Sequence
+from typing import Any
+from collections.abc import Sequence
 
 from langgraph.constants import END, START
 

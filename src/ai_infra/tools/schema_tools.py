@@ -55,7 +55,8 @@ Generated Tools:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Optional, Sequence, TypeVar, get_type_hints
+from typing import Any, Optional, TypeVar, get_type_hints
+from collections.abc import Callable, Sequence
 
 from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, Field, create_model

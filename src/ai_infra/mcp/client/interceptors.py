@@ -34,7 +34,8 @@ import hashlib
 import json
 import time
 from dataclasses import dataclass, field, replace
-from typing import Any, Awaitable, Callable, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
+from collections.abc import Awaitable, Callable
 
 from mcp.types import CallToolResult, TextContent
 

@@ -1,19 +1,19 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
-ImageInput = Union[str, bytes, Path]
-AudioInput = Union[str, bytes, Path]
+ImageInput = str | bytes | Path
+AudioInput = str | bytes | Path
 
 
 def make_messages(
     user: str,
-    system: Optional[str] = None,
-    extras: Optional[List[Dict[str, Any]]] = None,
-    images: Optional[List[ImageInput]] = None,
-    audio: Optional[AudioInput] = None,
-    provider: Optional[str] = None,  # Kept for backwards compatibility, but ignored
+    system: str | None = None,
+    extras: list[dict[str, Any]] | None = None,
+    images: list[ImageInput] | None = None,
+    audio: AudioInput | None = None,
+    provider: str | None = None,  # Kept for backwards compatibility, but ignored
 ):
     """Create a list of messages for LLM chat.
 
@@ -28,13 +28,13 @@ def make_messages(
     Returns:
         List of message dicts.
     """
-    msgs: List[Dict[str, Any]] = []
+    msgs: list[dict[str, Any]] = []
     if system:
         msgs.append({"role": "system", "content": system})
 
     # Handle multimodal content in user message
     if images or audio:
-        content: List[Dict[str, Any]] = [{"type": "text", "text": user}]
+        content: list[dict[str, Any]] = [{"type": "text", "text": user}]
 
         # Add images
         if images:

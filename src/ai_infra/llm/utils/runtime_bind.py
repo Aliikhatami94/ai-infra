@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 from langchain_core.tools import BaseTool
 from langchain_core.tools import tool as lc_tool
@@ -34,7 +34,7 @@ def bind_model_with_tools(
     runtime: Runtime[ModelSettings],
     registry: ModelRegistry,
     *,
-    global_tools: Optional[List[Any]] = None,
+    global_tools: Optional[list[Any]] = None,
 ) -> Any:
     """Select (or lazily init) the model and bind tools according to controls.
 
@@ -70,22 +70,22 @@ def make_agent_with_context(
     *,
     provider: str,
     model_name: str | None,
-    tools: Optional[List[Any]] = None,
-    extra: Optional[Dict[str, Any]] = None,
-    model_kwargs: Optional[Dict[str, Any]] = None,
-    tool_controls: Optional[ToolCallControls | Dict[str, Any]] = None,
+    tools: Optional[list[Any]] = None,
+    extra: Optional[dict[str, Any]] = None,
+    model_kwargs: Optional[dict[str, Any]] = None,
+    tool_controls: Optional[ToolCallControls | dict[str, Any]] = None,
     require_explicit_tools: bool = False,
-    global_tools: Optional[List[Any]] = None,
+    global_tools: Optional[list[Any]] = None,
     hitl_tool_wrapper=None,
     logger: Optional[logging.Logger] = None,
     # Session/checkpoint config
     checkpointer: Optional[Any] = None,
     store: Optional[Any] = None,
-    interrupt_before: Optional[List[str]] = None,
-    interrupt_after: Optional[List[str]] = None,
+    interrupt_before: Optional[list[str]] = None,
+    interrupt_after: Optional[list[str]] = None,
     # Safety limits
     recursion_limit: int = 50,
-) -> Tuple[Any, ModelSettings]:
+) -> tuple[Any, ModelSettings]:
     """Construct an agent (LangGraph ReAct) and its runtime context.
 
     Handles:
@@ -152,7 +152,7 @@ def make_agent_with_context(
     ]
 
     if hitl_tool_wrapper is not None:
-        wrapped_tools: List[Any] = []
+        wrapped_tools: list[Any] = []
         for t in effective_tools:
             try:
                 w = hitl_tool_wrapper(t)

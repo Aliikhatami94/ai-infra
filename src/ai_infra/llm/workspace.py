@@ -8,7 +8,7 @@ Works with both deep agents (via backends) and regular agents (via proj_mgmt).
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, Union
+from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     from deepagents.backends import BaseBackend  # type: ignore[import-untyped]
@@ -61,7 +61,7 @@ class Workspace:
 
     def __init__(
         self,
-        root: Union[str, Path] = ".",
+        root: str | Path = ".",
         mode: WorkspaceMode = "sandboxed",
     ):
         self.root = Path(root).resolve()
@@ -114,7 +114,7 @@ class Workspace:
 
 
 def workspace(
-    root: Union[str, Path] = ".",
+    root: str | Path = ".",
     mode: WorkspaceMode = "sandboxed",
 ) -> Workspace:
     """Create a workspace configuration.

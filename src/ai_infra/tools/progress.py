@@ -33,7 +33,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Optional
+from collections.abc import Callable
 
 if TYPE_CHECKING:
     from langchain_core.tools import StructuredTool

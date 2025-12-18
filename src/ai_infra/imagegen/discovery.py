@@ -30,7 +30,7 @@ from __future__ import annotations
 import logging
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Optional, cast
 
 from ai_infra.providers import ProviderCapability, ProviderRegistry
 
@@ -42,7 +42,7 @@ _REVERSE_ALIASES = {"google_genai": "google"}
 
 
 # Get supported providers from registry
-def _get_supported_providers() -> List[str]:
+def _get_supported_providers() -> list[str]:
     """Get imagegen providers from registry."""
     providers = ProviderRegistry.list_for_capability(ProviderCapability.IMAGEGEN)
     # Map back to user-facing names
@@ -54,7 +54,7 @@ SUPPORTED_PROVIDERS = _get_supported_providers()
 
 
 # Environment variables for each provider (from registry)
-def _build_provider_env_vars() -> Dict[str, str]:
+def _build_provider_env_vars() -> dict[str, str]:
     """Build PROVIDER_ENV_VARS dict from registry."""
     result = {}
     for name in ProviderRegistry.list_for_capability(ProviderCapability.IMAGEGEN):
@@ -73,7 +73,7 @@ CACHE_TTL = 3600  # 1 hour
 CACHE_DIR = Path.home() / ".cache" / "ai_infra" / "imagegen"
 
 
-def list_providers() -> List[str]:
+def list_providers() -> list[str]:
     """List all supported image generation providers.
 
     Returns:
@@ -110,7 +110,7 @@ def get_api_key(provider: str) -> Optional[str]:
     return ProviderRegistry.get_api_key(registry_name)
 
 
-def list_configured_providers() -> List[str]:
+def list_configured_providers() -> list[str]:
     """List providers that have API keys configured.
 
     Returns:
@@ -119,7 +119,7 @@ def list_configured_providers() -> List[str]:
     return [p for p in list_providers() if is_provider_configured(p)]
 
 
-def list_models(provider: str) -> List[str]:
+def list_models(provider: str) -> list[str]:
     """List static/known models for a provider.
 
     Args:
@@ -157,7 +157,7 @@ def _get_cache_path() -> Path:
     return CACHE_DIR / "models_cache.json"
 
 
-def _load_cache() -> Dict[str, Any]:
+def _load_cache() -> dict[str, Any]:
     """Load the cache from disk."""
     cache_path = _get_cache_path()
     if cache_path.exists():
@@ -165,13 +165,13 @@ def _load_cache() -> Dict[str, Any]:
             import json
 
             with open(cache_path) as f:
-                return cast(Dict[str, Any], json.load(f))
+                return cast(dict[str, Any], json.load(f))
         except Exception:
             return {}
     return {}
 
 
-def _save_cache(cache: Dict[str, Any]) -> None:
+def _save_cache(cache: dict[str, Any]) -> None:
     """Save the cache to disk."""
     import json
 
@@ -183,7 +183,7 @@ def _save_cache(cache: Dict[str, Any]) -> None:
         log.warning(f"Failed to save cache: {e}")
 
 
-def _is_cache_valid(cache: Dict[str, Any], provider: str) -> bool:
+def _is_cache_valid(cache: dict[str, Any], provider: str) -> bool:
     """Check if cache entry is valid (not expired)."""
     if provider not in cache:
         return False
@@ -209,7 +209,7 @@ def clear_cache() -> None:
 # -----------------------------------------------------------------------------
 
 
-def _fetch_openai_models() -> List[str]:
+def _fetch_openai_models() -> list[str]:
     """Fetch available image models from OpenAI API."""
     import openai
 
@@ -226,7 +226,7 @@ def _fetch_openai_models() -> List[str]:
     return sorted(image_models)
 
 
-def _fetch_google_models() -> List[str]:
+def _fetch_google_models() -> list[str]:
     """Fetch available image models from Google API."""
     from google import genai
 
@@ -246,7 +246,7 @@ def _fetch_google_models() -> List[str]:
     return sorted(image_models)
 
 
-def _fetch_stability_models() -> List[str]:
+def _fetch_stability_models() -> list[str]:
     """Fetch available models from Stability AI API."""
     import httpx
 
@@ -265,7 +265,7 @@ def _fetch_stability_models() -> List[str]:
         return list_models("stability")  # Fall back to static list
 
 
-def _fetch_replicate_models() -> List[str]:
+def _fetch_replicate_models() -> list[str]:
     """Fetch popular image models from Replicate.
 
     Note: Replicate has thousands of models, so we return curated image models.
@@ -293,7 +293,7 @@ def list_available_models(
     *,
     refresh: bool = False,
     use_cache: bool = True,
-) -> List[str]:
+) -> list[str]:
     """List available models for a provider by querying the API.
 
     This fetches live data from the provider's API to get the current
@@ -367,7 +367,7 @@ def list_all_available_models(
     refresh: bool = False,
     use_cache: bool = True,
     skip_unconfigured: bool = True,
-) -> Dict[str, List[str]]:
+) -> dict[str, list[str]]:
     """List models for all configured providers.
 
     Args:
@@ -379,7 +379,7 @@ def list_all_available_models(
         Dict mapping provider name to list of model IDs.
         Example: {"openai": ["dall-e-2", "dall-e-3"], ...}
     """
-    result: Dict[str, List[str]] = {}
+    result: dict[str, list[str]] = {}
 
     for provider in SUPPORTED_PROVIDERS:
         if not is_provider_configured(provider):

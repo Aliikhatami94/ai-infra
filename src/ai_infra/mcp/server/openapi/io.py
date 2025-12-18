@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional
 
 import yaml
 
@@ -11,7 +11,7 @@ from .models import OpenAPISpec
 __all__ = ["load_openapi", "load_spec"]
 
 
-def load_openapi(source: Union[str, Path, dict]) -> OpenAPISpec:
+def load_openapi(source: str | Path | dict) -> OpenAPISpec:
     """Load OpenAPI spec from various sources.
 
     Supports:
@@ -163,6 +163,6 @@ def _parse_openapi_string(text: str) -> OpenAPISpec:
         return cast(OpenAPISpec, yaml.safe_load(text))
 
 
-def load_spec(source: Union[str, Path, dict]) -> OpenAPISpec:
+def load_spec(source: str | Path | dict) -> OpenAPISpec:
     """Alias for load_openapi."""
     return load_openapi(source)

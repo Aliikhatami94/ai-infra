@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any
+from collections.abc import Callable, Sequence
 
-ProviderModel = Tuple[str, str]
-Candidate = Union[ProviderModel, dict]
+ProviderModel = tuple[str, str]
+Candidate = ProviderModel | dict
 
 
 class FallbackError(RuntimeError):
-    def __init__(self, message: str, errors: List[BaseException]):
+    def __init__(self, message: str, errors: list[BaseException]):
         super().__init__(message)
         self.errors = errors
 
@@ -16,10 +17,10 @@ class FallbackError(RuntimeError):
 try:
     from typing import assert_never
 except ImportError:  # Py3.10 compatibility
-    from typing_extensions import assert_never
+    from typing import assert_never
 
 
-def _resolve_candidate(c: Candidate) -> Tuple[str, str, dict]:
+def _resolve_candidate(c: Candidate) -> tuple[str, str, dict]:
     """Normalize a candidate to (provider, model_name, overrides)."""
     if isinstance(c, tuple):
         provider, model_name = c
@@ -40,12 +41,12 @@ def _resolve_candidate(c: Candidate) -> Tuple[str, str, dict]:
 
 
 def merge_overrides(
-    base_extra: Optional[Dict[str, Any]],
-    base_model_kwargs: Optional[Dict[str, Any]],
-    base_tools: Optional[List[Any]],
-    base_tool_controls: Optional[Any],  # ToolCallControls | Dict[str, Any]
-    overrides: Dict[str, Any],
-) -> Tuple[Dict[str, Any], Dict[str, Any], Optional[List[Any]], Optional[Any]]:
+    base_extra: dict[str, Any] | None,
+    base_model_kwargs: dict[str, Any] | None,
+    base_tools: list[Any] | None,
+    base_tool_controls: Any | None,  # ToolCallControls | dict[str, Any]
+    overrides: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any], list[Any] | None, Any | None]:
     eff_extra = {**(base_extra or {}), **overrides.get("extra", {})}
     eff_model_kwargs = {
         **(base_model_kwargs or {}),
@@ -60,11 +61,10 @@ def run_with_fallbacks(
     candidates: Sequence[Candidate],
     run_single: Callable[[str, str, dict], Any],
     *,
-    validate: Optional[Callable[[Any], bool]] = None,
-    should_retry: Optional[
-        Callable[[Optional[BaseException], Any, int, str, str], bool]
-    ] = None,
-    on_attempt: Optional[Callable[[int, str, str], None]] = None,
+    validate: Callable[[Any], bool] | None = None,
+    should_retry: Callable[[BaseException | None, Any, int, str, str], bool]
+    | None = None,
+    on_attempt: Callable[[int, str, str], None] | None = None,
 ) -> Any:
     """
     Try each candidate until one returns a valid result.
@@ -75,7 +75,7 @@ def run_with_fallbacks(
       If exc is not None, result will be None.
     - candidates may be (provider, model_name) or dicts with overrides.
     """
-    errs: List[BaseException] = []
+    errs: list[BaseException] = []
     if validate is None:
 
         def _default_validate(result: Any) -> bool:
@@ -85,7 +85,7 @@ def run_with_fallbacks(
     if should_retry is None:
 
         def _default_should_retry(
-            exc: Optional[BaseException],
+            exc: BaseException | None,
             res: Any,
             attempt_idx: int,
             provider: str,
@@ -117,13 +117,12 @@ async def arun_with_fallbacks(
     candidates: Sequence[Candidate],
     run_single_async: Callable[[str, str, dict], Any],
     *,
-    validate: Optional[Callable[[Any], bool]] = None,
-    should_retry: Optional[
-        Callable[[Optional[BaseException], Any, int, str, str], bool]
-    ] = None,
-    on_attempt: Optional[Callable[[int, str, str], None]] = None,
+    validate: Callable[[Any], bool] | None = None,
+    should_retry: Callable[[BaseException | None, Any, int, str, str], bool]
+    | None = None,
+    on_attempt: Callable[[int, str, str], None] | None = None,
 ) -> Any:
-    errs: List[BaseException] = []
+    errs: list[BaseException] = []
     if validate is None:
 
         def _default_validate(result: Any) -> bool:
@@ -133,7 +132,7 @@ async def arun_with_fallbacks(
     if should_retry is None:
 
         def _default_should_retry(
-            exc: Optional[BaseException],
+            exc: BaseException | None,
             res: Any,
             attempt_idx: int,
             provider: str,

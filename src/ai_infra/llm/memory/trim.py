@@ -28,7 +28,8 @@ Example:
 
 from __future__ import annotations
 
-from typing import Any, List, Literal, Optional, Sequence, Union
+from typing import Any, Literal, Optional
+from collections.abc import Sequence
 
 from langchain_core.messages import (
     AIMessage,
@@ -45,14 +46,14 @@ TrimStrategy = Literal["last", "first", "token"]
 
 
 def trim_messages(
-    messages: Sequence[Union[BaseMessage, dict]],
+    messages: Sequence[BaseMessage | dict],
     *,
     strategy: TrimStrategy = "last",
     max_messages: Optional[int] = None,
     max_tokens: Optional[int] = None,
     preserve_system: bool = True,
     token_counter: Optional[Any] = None,
-) -> List[BaseMessage]:
+) -> list[BaseMessage]:
     """Trim messages to fit within limits.
 
     Supports multiple strategies:
@@ -134,8 +135,8 @@ def trim_messages(
 
 
 def _normalize_messages(
-    messages: Sequence[Union[BaseMessage, dict]],
-) -> List[BaseMessage]:
+    messages: Sequence[BaseMessage | dict],
+) -> list[BaseMessage]:
     """Convert dict messages to BaseMessage objects."""
     result = []
     for msg in messages:
@@ -169,14 +170,14 @@ def _dict_to_message(msg: dict) -> BaseMessage:
         return HumanMessage(content=content)
 
 
-def _trim_last(messages: List[BaseMessage], max_messages: int) -> List[BaseMessage]:
+def _trim_last(messages: list[BaseMessage], max_messages: int) -> list[BaseMessage]:
     """Keep the last N messages."""
     if max_messages <= 0:
         return []
     return messages[-max_messages:]
 
 
-def _trim_first(messages: List[BaseMessage], max_messages: int) -> List[BaseMessage]:
+def _trim_first(messages: list[BaseMessage], max_messages: int) -> list[BaseMessage]:
     """Keep the first N messages."""
     if max_messages <= 0:
         return []
@@ -184,10 +185,10 @@ def _trim_first(messages: List[BaseMessage], max_messages: int) -> List[BaseMess
 
 
 def _trim_by_tokens(
-    messages: List[BaseMessage],
+    messages: list[BaseMessage],
     max_tokens: int,
     counter: Any,
-) -> List[BaseMessage]:
+) -> list[BaseMessage]:
     """Keep messages from the end that fit within token limit.
 
     Works backwards from the most recent message, adding messages
@@ -196,7 +197,7 @@ def _trim_by_tokens(
     if max_tokens <= 0:
         return []
 
-    result: List[BaseMessage] = []
+    result: list[BaseMessage] = []
     total_tokens = 0
 
     # Work backwards from most recent

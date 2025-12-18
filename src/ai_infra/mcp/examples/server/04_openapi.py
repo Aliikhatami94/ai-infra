@@ -1,13 +1,13 @@
 import json
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import httpx
 import yaml
 
 from ai_infra.mcp.server.openapi import _mcp_from_openapi
 
-OpenAPISpec = Dict[str, Any]
+OpenAPISpec = dict[str, Any]
 path_to_spec = (
     Path(__file__).resolve().parents[1] / "resources" / "apiframeworks.json"
 ).resolve()

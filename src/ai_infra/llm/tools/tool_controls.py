@@ -1,21 +1,21 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, is_dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 from ai_infra.llm.providers import Providers
 
 
 @dataclass
 class ToolCallControls:
-    tool_choice: Optional[Dict[str, Any]] = (
+    tool_choice: Optional[dict[str, Any]] = (
         None  # e.g. {"name":"my_tool"} | "none" | "auto" | "any"
     )
     parallel_tool_calls: bool = True
     force_once: bool = False  # Only enforce tool_choice for the first call in a run
 
 
-def _ensure_dict(obj: Any) -> Dict[str, Any] | None:
+def _ensure_dict(obj: Any) -> dict[str, Any] | None:
     if not obj:
         return None
     # is_dataclass returns True for both classes and instances, but asdict only works on instances
@@ -32,13 +32,13 @@ def _extract_name(tool_choice: Any) -> Optional[str]:
     return tool_choice.get("name") or (tool_choice.get("function") or {}).get("name")
 
 
-def no_tools() -> Dict[str, Any]:
+def no_tools() -> dict[str, Any]:
     return {"tool_controls": {"tool_choice": "none"}}
 
 
 def force_tool(
     name: str, *, once: bool = False, parallel: bool = False
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     return {
         "tool_controls": {
             "tool_choice": {"name": name},
@@ -48,7 +48,7 @@ def force_tool(
     }
 
 
-def normalize_tool_controls(provider: str, controls: Any) -> Tuple[Any, bool, bool]:
+def normalize_tool_controls(provider: str, controls: Any) -> tuple[Any, bool, bool]:
     """
     Return (tool_choice, parallel_tool_calls, force_once) in the exact shape
     required by the *LangChain provider adapters*.
@@ -96,8 +96,8 @@ def normalize_tool_controls(provider: str, controls: Any) -> Tuple[Any, bool, bo
 
     elif provider == Providers.google_genai:
         # Gemini wants FunctionCallingConfig
-        def gg(mode: str, names: Optional[List[str]] = None):
-            cfg: Dict[str, Dict[str, Any]] = {"function_calling_config": {"mode": mode}}
+        def gg(mode: str, names: Optional[list[str]] = None):
+            cfg: dict[str, dict[str, Any]] = {"function_calling_config": {"mode": mode}}
             if names:
                 cfg["function_calling_config"]["allowed_function_names"] = names
             return cfg

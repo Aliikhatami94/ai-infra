@@ -21,7 +21,7 @@ Example:
 from __future__ import annotations
 
 import struct
-from typing import Iterator
+from collections.abc import Iterator
 
 
 def resample_pcm16(audio: bytes, from_rate: int, to_rate: int) -> bytes:

@@ -1,10 +1,10 @@
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 
 @dataclass
 class ModelSettings:
     provider: str
     model_name: str
-    tools: Optional[List[Any]] = None
-    extra: Optional[Dict[str, Any]] = None
+    tools: Optional[list[Any]] = None
+    extra: Optional[dict[str, Any]] = None

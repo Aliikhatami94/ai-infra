@@ -18,7 +18,8 @@ Example:
 from __future__ import annotations
 
 import logging
-from typing import Optional, Sequence, Union
+from typing import Optional
+from collections.abc import Sequence
 
 from langchain_core.messages import BaseMessage
 
@@ -29,7 +30,7 @@ _encoding_cache: dict = {}
 
 
 def count_tokens(
-    messages: Sequence[Union[BaseMessage, dict, str]],
+    messages: Sequence[BaseMessage | dict | str],
     *,
     model: Optional[str] = None,
     provider: Optional[str] = None,
@@ -66,7 +67,7 @@ def count_tokens(
 
 
 def count_tokens_approximate(
-    messages: Sequence[Union[BaseMessage, dict, str]],
+    messages: Sequence[BaseMessage | dict | str],
 ) -> int:
     """Fast approximate token count without external dependencies.
 
@@ -135,7 +136,7 @@ def _get_message_content(msg: BaseMessage) -> str:
 
 
 def _count_tokens_tiktoken(
-    messages: Sequence[Union[BaseMessage, dict, str]],
+    messages: Sequence[BaseMessage | dict | str],
     model: str,
 ) -> int:
     """Count tokens using tiktoken (OpenAI's tokenizer)."""

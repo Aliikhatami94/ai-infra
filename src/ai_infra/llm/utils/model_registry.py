@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any
 
 from ai_infra.llm.defaults import DEFAULT_MODELS
 
@@ -25,7 +25,7 @@ class ModelRegistry:
     """Lightweight model cache / registry per provider+model key."""
 
     def __init__(self):
-        self._models: Dict[str, Any] = {}
+        self._models: dict[str, Any] = {}
 
     def resolve_model_name(self, provider: str, model_name: str | None) -> str:
         return _resolve_effective_model(provider, model_name)

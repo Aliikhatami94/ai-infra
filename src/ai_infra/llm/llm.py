@@ -7,7 +7,7 @@ without agent/tool capabilities.
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Union
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel
 
@@ -71,7 +71,7 @@ class LLM(BaseLLM):
     def __init__(
         self,
         *,
-        callbacks: Union["Callbacks", "CallbackManager" | None] = None,
+        callbacks: "Callbacks" | ("CallbackManager" | None) = None,
     ):
         """Initialize LLM with optional callbacks.
 
@@ -92,7 +92,7 @@ class LLM(BaseLLM):
     # =========================================================================
 
     @staticmethod
-    def list_providers() -> List[str]:
+    def list_providers() -> list[str]:
         """
         List all supported provider names.
 
@@ -108,7 +108,7 @@ class LLM(BaseLLM):
         return list_providers()
 
     @staticmethod
-    def list_configured_providers() -> List[str]:
+    def list_configured_providers() -> list[str]:
         """
         List providers that have API keys configured.
 
@@ -124,7 +124,7 @@ class LLM(BaseLLM):
         return list_configured_providers()
 
     @staticmethod
-    def list_models(provider: str, *, refresh: bool = False) -> List[str]:
+    def list_models(provider: str, *, refresh: bool = False) -> list[str]:
         """
         List available models for a specific provider.
 
@@ -151,7 +151,7 @@ class LLM(BaseLLM):
         return list_models(provider, refresh=refresh)
 
     @staticmethod
-    def list_all_models(*, refresh: bool = False) -> Dict[str, List[str]]:
+    def list_all_models(*, refresh: bool = False) -> dict[str, list[str]]:
         """
         List models for all configured providers.
 
@@ -201,12 +201,12 @@ class LLM(BaseLLM):
         provider: str | None = None,
         model_name: str | None = None,
         system: str | None = None,
-        extra: Dict[str, Any] | None = None,
-        output_schema: Union[type[BaseModel], Dict[str, Any], None] = None,
+        extra: dict[str, Any] | None = None,
+        output_schema: type[BaseModel] | dict[str, Any] | None = None,
         output_method: (
             Literal["json_schema", "json_mode", "function_calling", "prompt"] | None
         ) = "prompt",
-        images: List[str | bytes | "Path"] | None = None,
+        images: list[str | bytes | "Path"] | None = None,
         audio: Any | None = None,
         audio_output: Any | None = None,
         **model_kwargs,
@@ -392,12 +392,12 @@ class LLM(BaseLLM):
         provider: str | None = None,
         model_name: str | None = None,
         system: str | None = None,
-        extra: Dict[str, Any] | None = None,
-        output_schema: Union[type[BaseModel], Dict[str, Any], None] = None,
+        extra: dict[str, Any] | None = None,
+        output_schema: type[BaseModel] | dict[str, Any] | None = None,
         output_method: (
             Literal["json_schema", "json_mode", "function_calling", "prompt"] | None
         ) = "prompt",
-        images: List[str | bytes | "Path"] | None = None,
+        images: list[str | bytes | "Path"] | None = None,
         audio: Any | None = None,
         audio_output: Any | None = None,
         **model_kwargs,
@@ -583,7 +583,7 @@ class LLM(BaseLLM):
         temperature: float | None = None,
         top_p: float | None = None,
         max_tokens: int | None = None,
-        images: List[str | bytes | "Path"] | None = None,
+        images: list[str | bytes | "Path"] | None = None,
         **model_kwargs,
     ):
         """Stream tokens from the model.

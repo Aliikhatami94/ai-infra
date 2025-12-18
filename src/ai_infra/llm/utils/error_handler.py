@@ -24,7 +24,8 @@ from __future__ import annotations
 
 import functools
 import re
-from typing import Any, Callable, Optional, TypeVar
+from typing import Any, Optional, TypeVar
+from collections.abc import Callable
 
 from ai_infra.errors import (
     AuthenticationError,

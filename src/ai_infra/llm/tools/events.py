@@ -44,7 +44,8 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Callable, Dict, Literal, Optional
+from typing import Any, Literal, Optional
+from collections.abc import Callable
 
 # Event type literals
 EventType = Literal[
@@ -81,14 +82,14 @@ class ApprovalEvent:
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     event_type: EventType = "approval_requested"
     tool_name: str = ""
-    args: Dict[str, Any] = field(default_factory=dict)
+    args: dict[str, Any] = field(default_factory=dict)
     approved: Optional[bool] = None
     approver: Optional[str] = None
     reason: Optional[str] = None
-    modified_args: Optional[Dict[str, Any]] = None
+    modified_args: Optional[dict[str, Any]] = None
     duration_ms: Optional[float] = None
     timestamp: datetime = field(default_factory=datetime.utcnow)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def summary(self) -> str:
@@ -121,8 +122,8 @@ class ApprovalEvent:
     def requested(
         cls,
         tool_name: str,
-        args: Dict[str, Any],
-        metadata: Optional[Dict[str, Any]] = None,
+        args: dict[str, Any],
+        metadata: Optional[dict[str, Any]] = None,
     ) -> "ApprovalEvent":
         """Create an approval requested event."""
         return cls(
@@ -136,11 +137,11 @@ class ApprovalEvent:
     def granted(
         cls,
         tool_name: str,
-        args: Dict[str, Any],
+        args: dict[str, Any],
         approver: Optional[str] = None,
         reason: Optional[str] = None,
         duration_ms: Optional[float] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> "ApprovalEvent":
         """Create an approval granted event."""
         return cls(
@@ -158,11 +159,11 @@ class ApprovalEvent:
     def denied(
         cls,
         tool_name: str,
-        args: Dict[str, Any],
+        args: dict[str, Any],
         approver: Optional[str] = None,
         reason: Optional[str] = None,
         duration_ms: Optional[float] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> "ApprovalEvent":
         """Create an approval denied event."""
         return cls(
@@ -180,12 +181,12 @@ class ApprovalEvent:
     def modified(
         cls,
         tool_name: str,
-        args: Dict[str, Any],
-        modified_args: Dict[str, Any],
+        args: dict[str, Any],
+        modified_args: dict[str, Any],
         approver: Optional[str] = None,
         reason: Optional[str] = None,
         duration_ms: Optional[float] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> "ApprovalEvent":
         """Create an approval modified event."""
         return cls(
@@ -204,9 +205,9 @@ class ApprovalEvent:
     def error(
         cls,
         tool_name: str,
-        args: Dict[str, Any],
+        args: dict[str, Any],
         reason: str,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> "ApprovalEvent":
         """Create an approval error event."""
         return cls(
@@ -481,7 +482,7 @@ def create_json_logger(
 
 
 def create_metrics_counter(
-    counters: Optional[Dict[str, int]] = None,
+    counters: Optional[dict[str, int]] = None,
 ) -> EventHandler:
     """Create a simple metrics counter handler.
 

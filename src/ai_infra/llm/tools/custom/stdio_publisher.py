@@ -5,7 +5,7 @@ import json
 import os
 import stat
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Optional
 
 JS_TEMPLATE_UVX_MODULE = """#!/usr/bin/env node
 const {{ spawn }} = require("child_process");
@@ -31,11 +31,11 @@ child.on("exit", code => process.exit(code));
 """
 
 
-def _load_json(p: Path) -> Dict:
+def _load_json(p: Path) -> dict:
     return json.loads(p.read_text()) if p.exists() else {}
 
 
-def _dump_json(p: Path, data: Dict) -> None:
+def _dump_json(p: Path, data: dict) -> None:
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(data, indent=2) + "\n")
 
@@ -46,7 +46,7 @@ def _resolve_paths(
     package_json: Path,
     bin_dir: Path,
     tool_name: str,
-) -> Tuple[Path, Path]:
+) -> tuple[Path, Path]:
     root = base_dir.resolve() if base_dir else Path.cwd()
     package_json = (root / package_json).resolve()
     bin_dir = (root / bin_dir).resolve()
@@ -70,7 +70,7 @@ def add_shim(
     force: bool = False,
     base_dir: Optional[Path] = None,
     dry_run: bool = False,
-) -> Dict:
+) -> dict:
     try:
         package_json, shim_path = _resolve_paths(
             base_dir=base_dir,
@@ -169,7 +169,7 @@ def remove_shim(
     bin_dir: Path = Path("mcp-shim") / "bin",
     delete_file: bool = False,
     base_dir: Optional[Path] = None,
-) -> Dict:
+) -> dict:
     try:
         package_json, shim_path = _resolve_paths(
             base_dir=base_dir,

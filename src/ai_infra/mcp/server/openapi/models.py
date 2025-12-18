@@ -3,7 +3,8 @@ from __future__ import annotations
 import fnmatch
 import json
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Optional
+from collections.abc import Callable
 
 from pydantic import BaseModel, Field
 
@@ -17,8 +18,8 @@ __all__ = [
     "AuthConfig",
 ]
 
-OpenAPISpec = Dict[str, Any]
-Operation = Dict[str, Any]
+OpenAPISpec = dict[str, Any]
+Operation = dict[str, Any]
 
 
 # =============================================================================
@@ -56,8 +57,8 @@ class AuthConfig:
         auth = AuthConfig(bearer_fn=get_token)
     """
 
-    headers: Dict[str, str] = field(default_factory=dict)
-    query: Dict[str, str] = field(default_factory=dict)
+    headers: dict[str, str] = field(default_factory=dict)
+    query: dict[str, str] = field(default_factory=dict)
     basic: Optional[tuple] = None  # (username, password)
     bearer: Optional[str] = None
     bearer_fn: Optional[Callable[[], Any]] = None  # Async or sync callable
@@ -121,24 +122,24 @@ class OpenAPIOptions:
     tool_description_fn: Optional[Callable[[dict], str]] = None
 
     # Path filtering (glob patterns)
-    include_paths: Optional[List[str]] = None
-    exclude_paths: Optional[List[str]] = None
+    include_paths: Optional[list[str]] = None
+    exclude_paths: Optional[list[str]] = None
 
     # Method filtering
-    include_methods: Optional[List[str]] = None
-    exclude_methods: Optional[List[str]] = None
+    include_methods: Optional[list[str]] = None
+    exclude_methods: Optional[list[str]] = None
 
     # Tag filtering
-    include_tags: Optional[List[str]] = None
-    exclude_tags: Optional[List[str]] = None
+    include_tags: Optional[list[str]] = None
+    exclude_tags: Optional[list[str]] = None
 
     # OperationId filtering
-    include_operations: Optional[List[str]] = None
-    exclude_operations: Optional[List[str]] = None
+    include_operations: Optional[list[str]] = None
+    exclude_operations: Optional[list[str]] = None
 
     # Auth
     auth: Optional[AuthConfig] = None
-    endpoint_auth: Optional[Dict[str, Any]] = None  # Pattern -> AuthConfig
+    endpoint_auth: Optional[dict[str, Any]] = None  # Pattern -> AuthConfig
 
     # Request configuration
     timeout: Optional[float] = None  # Request timeout in seconds (default: 30)
@@ -151,7 +152,7 @@ class OpenAPIOptions:
 
     # Caching & Performance
     cache_ttl: Optional[float] = None  # Cache TTL in seconds (None = no caching)
-    cache_methods: Optional[List[str]] = None  # Methods to cache (default: ["GET"])
+    cache_methods: Optional[list[str]] = None  # Methods to cache (default: ["GET"])
     dedupe_requests: bool = False  # Deduplicate concurrent identical requests
 
     # Pagination
@@ -249,10 +250,10 @@ class OperationContext(BaseModel):
     description: str
     method: str
     path: str
-    path_params: List[Dict[str, Any]] = Field(default_factory=list)
-    query_params: List[Dict[str, Any]] = Field(default_factory=list)
-    header_params: List[Dict[str, Any]] = Field(default_factory=list)
-    cookie_params: List[Dict[str, Any]] = Field(default_factory=list)
+    path_params: list[dict[str, Any]] = Field(default_factory=list)
+    query_params: list[dict[str, Any]] = Field(default_factory=list)
+    header_params: list[dict[str, Any]] = Field(default_factory=list)
+    cookie_params: list[dict[str, Any]] = Field(default_factory=list)
     wants_body: bool = False
     body_content_type: Optional[str] = None
     body_required: bool = False
@@ -272,11 +273,11 @@ class OpReport:
     has_body: bool
     body_content_type: Optional[str]
     body_required: bool
-    params: Dict[str, int]
-    security: Dict[str, Any]
+    params: dict[str, int]
+    security: dict[str, Any]
     input_model_fields: int = 0  # number of input fields
-    media_types_seen: List[str] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
+    media_types_seen: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -286,8 +287,8 @@ class BuildReport:
     registered_tools: int = 0
     skipped_ops: int = 0
     filtered_ops: int = 0  # Operations filtered by options
-    warnings: List[str] = field(default_factory=list)
-    ops: List[OpReport] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    ops: list[OpReport] = field(default_factory=list)
 
     def to_json(self) -> str:
         def _default(o):

@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field, replace
-from typing import Any, Dict, Literal, Optional, Union
+from typing import Any, Literal, Optional
 
 
 @dataclass
@@ -100,8 +100,8 @@ class StreamEvent:
     content: Optional[str] = None  # token content
     tool: Optional[str] = None  # tool name
     tool_id: Optional[str] = None  # tool call ID
-    arguments: Optional[Dict[str, Any]] = None  # tool arguments (detailed+)
-    result: Optional[Union[str, Dict[str, Any]]] = None  # tool result (detailed+)
+    arguments: Optional[dict[str, Any]] = None  # tool arguments (detailed+)
+    result: Optional[str | dict[str, Any]] = None  # tool result (detailed+)
     result_structured: bool = (
         False  # True if result is structured dict (from retriever tool)
     )
@@ -114,7 +114,7 @@ class StreamEvent:
     # Metadata
     timestamp: float = field(default_factory=time.time)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dict for serialization (excludes None values).
 
         For tool_end events with structured results, the result is included
@@ -136,7 +136,7 @@ class StreamEvent:
             )
             event.to_dict()  # {"type": "tool_end", "tool": "search", "structured_result": {...}}
         """
-        d: Dict[str, Any] = {"type": self.type}
+        d: dict[str, Any] = {"type": self.type}
 
         # Handle structured tool results specially
         if (
@@ -221,7 +221,7 @@ class StreamConfig:
 
 
 # Visibility level numeric values for comparison
-_VISIBILITY_LEVELS: Dict[str, int] = {
+_VISIBILITY_LEVELS: dict[str, int] = {
     "minimal": 0,
     "standard": 1,
     "detailed": 2,
@@ -229,7 +229,7 @@ _VISIBILITY_LEVELS: Dict[str, int] = {
 }
 
 # Minimum visibility required for each event type
-_EVENT_VISIBILITY_REQUIREMENTS: Dict[str, int] = {
+_EVENT_VISIBILITY_REQUIREMENTS: dict[str, int] = {
     "token": 0,  # Always emit tokens
     "thinking": 1,  # standard+
     "tool_start": 1,  # standard+

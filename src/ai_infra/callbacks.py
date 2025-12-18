@@ -26,7 +26,8 @@ from __future__ import annotations
 import time
 from abc import ABC
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Sequence, TypeVar
+from typing import Any, Optional, TypeVar
+from collections.abc import Callable, Sequence
 
 # Type for callback functions
 CallbackFn = Callable[..., None]
@@ -46,13 +47,13 @@ class LLMStartEvent:
 
     provider: str
     model: str
-    messages: List[Dict[str, Any]]
+    messages: list[dict[str, Any]]
     temperature: Optional[float] = None
     max_tokens: Optional[int] = None
-    tools: Optional[List[Dict[str, Any]]] = None
+    tools: Optional[list[dict[str, Any]]] = None
     stream: bool = False
     timestamp: float = field(default_factory=time.time)
-    extra: Dict[str, Any] = field(default_factory=dict)
+    extra: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -67,10 +68,10 @@ class LLMEndEvent:
     total_tokens: Optional[int] = None
     latency_ms: float = 0
     finish_reason: Optional[str] = None
-    tool_calls: Optional[List[Dict[str, Any]]] = None
+    tool_calls: Optional[list[dict[str, Any]]] = None
     cached: bool = False
     timestamp: float = field(default_factory=time.time)
-    extra: Dict[str, Any] = field(default_factory=dict)
+    extra: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -83,7 +84,7 @@ class LLMErrorEvent:
     error_type: str = ""
     latency_ms: float = 0
     timestamp: float = field(default_factory=time.time)
-    extra: Dict[str, Any] = field(default_factory=dict)
+    extra: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if not self.error_type:
@@ -106,10 +107,10 @@ class ToolStartEvent:
     """Event fired when tool execution starts."""
 
     tool_name: str
-    arguments: Dict[str, Any]
+    arguments: dict[str, Any]
     server_name: Optional[str] = None
     timestamp: float = field(default_factory=time.time)
-    extra: Dict[str, Any] = field(default_factory=dict)
+    extra: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -121,7 +122,7 @@ class ToolEndEvent:
     server_name: Optional[str] = None
     latency_ms: float = 0
     timestamp: float = field(default_factory=time.time)
-    extra: Dict[str, Any] = field(default_factory=dict)
+    extra: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -130,12 +131,12 @@ class ToolErrorEvent:
 
     tool_name: str
     error: Exception
-    arguments: Dict[str, Any]
+    arguments: dict[str, Any]
     server_name: Optional[str] = None
     error_type: str = ""
     latency_ms: float = 0
     timestamp: float = field(default_factory=time.time)
-    extra: Dict[str, Any] = field(default_factory=dict)
+    extra: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if not self.error_type:
@@ -211,7 +212,7 @@ class GraphNodeStartEvent:
 
     node_id: str
     node_type: str
-    inputs: Dict[str, Any]
+    inputs: dict[str, Any]
     step: int = 0
     timestamp: float = field(default_factory=time.time)
 
@@ -222,7 +223,7 @@ class GraphNodeEndEvent:
 
     node_id: str
     node_type: str
-    outputs: Dict[str, Any]
+    outputs: dict[str, Any]
     step: int = 0
     latency_ms: float = 0
     timestamp: float = field(default_factory=time.time)
@@ -436,8 +437,8 @@ class CallbackManager:
             critical_callbacks: List of critical callback handlers (errors propagate).
                 Use for security audit callbacks that MUST succeed.
         """
-        self._callbacks: List[Callbacks] = list(callbacks or [])
-        self._critical_callbacks: List[Callbacks] = list(critical_callbacks or [])
+        self._callbacks: list[Callbacks] = list(callbacks or [])
+        self._critical_callbacks: list[Callbacks] = list(critical_callbacks or [])
 
     def add(self, callback: Callbacks, critical: bool = False) -> None:
         """Add a callback handler.
@@ -608,7 +609,7 @@ class CallbackManager:
         self,
         provider: str,
         model: str,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         **extra: Any,
     ) -> "LLMCallContext":
         """Context manager for LLM calls with auto-timing."""
@@ -617,7 +618,7 @@ class CallbackManager:
     def tool_call(
         self,
         tool_name: str,
-        arguments: Dict[str, Any],
+        arguments: dict[str, Any],
         server_name: Optional[str] = None,
         **extra: Any,
     ) -> "ToolCallContext":
@@ -638,8 +639,8 @@ class LLMCallContext:
         manager: CallbackManager,
         provider: str,
         model: str,
-        messages: List[Dict[str, Any]],
-        extra: Dict[str, Any],
+        messages: list[dict[str, Any]],
+        extra: dict[str, Any],
     ):
         self._manager = manager
         self._provider = provider
@@ -648,7 +649,7 @@ class LLMCallContext:
         self._extra = extra
         self._start_time = 0.0
         self._response: Optional[str] = None
-        self._tokens: Optional[Dict[str, int]] = None
+        self._tokens: Optional[dict[str, int]] = None
         self._error: Optional[Exception] = None
 
     def __enter__(self) -> "LLMCallContext":
@@ -713,9 +714,9 @@ class ToolCallContext:
         self,
         manager: CallbackManager,
         tool_name: str,
-        arguments: Dict[str, Any],
+        arguments: dict[str, Any],
         server_name: Optional[str],
-        extra: Dict[str, Any],
+        extra: dict[str, Any],
     ):
         self._manager = manager
         self._tool_name = tool_name
@@ -848,7 +849,7 @@ class MetricsCallbacks(Callbacks):
         self.tool_errors += 1
         self.tool_latency_ms += event.latency_ms
 
-    def get_summary(self) -> Dict[str, Any]:
+    def get_summary(self) -> dict[str, Any]:
         """Get summary of collected metrics."""
         return {
             "llm": {

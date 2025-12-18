@@ -41,7 +41,8 @@ import json
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Optional
+import builtins
 
 if TYPE_CHECKING:
     from langchain_core.embeddings import Embeddings
@@ -49,20 +50,20 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Type alias for namespace
-Namespace = Union[str, Tuple[str, ...], List[str]]
+Namespace = str | tuple[str, ...] | list[str]
 
 
 @dataclass
 class MemoryItem:
     """A single memory item."""
 
-    namespace: Tuple[str, ...]
+    namespace: tuple[str, ...]
     """Hierarchical namespace for the memory."""
 
     key: str
     """Unique key within the namespace."""
 
-    value: Dict[str, Any]
+    value: dict[str, Any]
     """The memory content as a dict."""
 
     created_at: float = field(default_factory=time.time)
@@ -244,7 +245,7 @@ class MemoryStore:
             model=self._embedding_model,
         )
 
-    def _normalize_namespace(self, namespace: Namespace) -> Tuple[str, ...]:
+    def _normalize_namespace(self, namespace: Namespace) -> tuple[str, ...]:
         """Convert namespace to tuple format."""
         if isinstance(namespace, str):
             return (namespace,)
@@ -258,7 +259,7 @@ class MemoryStore:
         self,
         namespace: Namespace,
         key: str,
-        value: Dict[str, Any],
+        value: dict[str, Any],
         *,
         ttl: Optional[int] = None,
     ) -> MemoryItem:
@@ -364,7 +365,7 @@ class MemoryStore:
         namespace: Namespace,
         *,
         limit: Optional[int] = None,
-    ) -> List[MemoryItem]:
+    ) -> builtins.list[MemoryItem]:
         """List all memories in a namespace.
 
         Args:
@@ -394,8 +395,8 @@ class MemoryStore:
         query: str,
         *,
         limit: int = 10,
-        filter: Optional[Dict[str, Any]] = None,
-    ) -> List[MemoryItem]:
+        filter: Optional[dict[str, Any]] = None,
+    ) -> builtins.list[MemoryItem]:
         """Search memories by semantic similarity.
 
         Requires embedding_provider to be configured.
@@ -451,7 +452,7 @@ class MemoryStore:
         self,
         user_id: str,
         key: str,
-        value: Dict[str, Any],
+        value: dict[str, Any],
         *,
         category: str = "memories",
         ttl: Optional[int] = None,
@@ -507,7 +508,7 @@ class MemoryStore:
         *,
         category: str = "memories",
         limit: int = 10,
-    ) -> List[MemoryItem]:
+    ) -> builtins.list[MemoryItem]:
         """Search user's memories.
 
         Args:
@@ -524,7 +525,7 @@ class MemoryStore:
     def put_app_memory(
         self,
         key: str,
-        value: Dict[str, Any],
+        value: dict[str, Any],
         *,
         ttl: Optional[int] = None,
     ) -> MemoryItem:
@@ -558,7 +559,7 @@ class MemoryStore:
         query: str,
         *,
         limit: int = 10,
-    ) -> List[MemoryItem]:
+    ) -> builtins.list[MemoryItem]:
         """Search app-level memories.
 
         Args:
@@ -574,7 +575,7 @@ class MemoryStore:
     # Helpers
     # =========================================================================
 
-    def _value_to_text(self, value: Dict[str, Any]) -> str:
+    def _value_to_text(self, value: dict[str, Any]) -> str:
         """Convert a value dict to text for embedding."""
         # Simple approach: join all string values
         parts = []
@@ -599,40 +600,40 @@ class _MemoryBackend:
     def put(
         self,
         item: MemoryItem,
-        embedding: Optional[List[float]] = None,
+        embedding: Optional[builtins.list[float]] = None,
     ) -> None:
         raise NotImplementedError
 
     def get(
         self,
-        namespace: Tuple[str, ...],
+        namespace: tuple[str, ...],
         key: str,
     ) -> Optional[MemoryItem]:
         raise NotImplementedError
 
     def delete(
         self,
-        namespace: Tuple[str, ...],
+        namespace: tuple[str, ...],
         key: str,
     ) -> bool:
         raise NotImplementedError
 
     def list(
         self,
-        namespace: Tuple[str, ...],
+        namespace: tuple[str, ...],
         *,
         limit: Optional[int] = None,
-    ) -> List[MemoryItem]:
+    ) -> builtins.list[MemoryItem]:
         raise NotImplementedError
 
     def search(
         self,
-        namespace: Tuple[str, ...],
-        query_embedding: List[float],
+        namespace: tuple[str, ...],
+        query_embedding: builtins.list[float],
         *,
         limit: int = 10,
-        filter: Optional[Dict[str, Any]] = None,
-    ) -> List[MemoryItem]:
+        filter: Optional[dict[str, Any]] = None,
+    ) -> builtins.list[MemoryItem]:
         raise NotImplementedError
 
 
@@ -641,15 +642,15 @@ class _InMemoryBackend(_MemoryBackend):
 
     def __init__(self):
         # {namespace_str: {key: (item, embedding)}}
-        self._data: Dict[str, Dict[str, Tuple[MemoryItem, Optional[List[float]]]]] = {}
+        self._data: dict[str, dict[str, tuple[MemoryItem, Optional[list[float]]]]] = {}
 
-    def _ns_key(self, namespace: Tuple[str, ...]) -> str:
+    def _ns_key(self, namespace: tuple[str, ...]) -> str:
         return "/".join(namespace)
 
     def put(
         self,
         item: MemoryItem,
-        embedding: Optional[List[float]] = None,
+        embedding: Optional[builtins.list[float]] = None,
     ) -> None:
         ns_key = self._ns_key(item.namespace)
         if ns_key not in self._data:
@@ -658,7 +659,7 @@ class _InMemoryBackend(_MemoryBackend):
 
     def get(
         self,
-        namespace: Tuple[str, ...],
+        namespace: tuple[str, ...],
         key: str,
     ) -> Optional[MemoryItem]:
         ns_key = self._ns_key(namespace)
@@ -669,7 +670,7 @@ class _InMemoryBackend(_MemoryBackend):
 
     def delete(
         self,
-        namespace: Tuple[str, ...],
+        namespace: tuple[str, ...],
         key: str,
     ) -> bool:
         ns_key = self._ns_key(namespace)
@@ -682,10 +683,10 @@ class _InMemoryBackend(_MemoryBackend):
 
     def list(
         self,
-        namespace: Tuple[str, ...],
+        namespace: tuple[str, ...],
         *,
         limit: Optional[int] = None,
-    ) -> List[MemoryItem]:
+    ) -> builtins.list[MemoryItem]:
         ns_key = self._ns_key(namespace)
         if ns_key not in self._data:
             return []
@@ -696,18 +697,18 @@ class _InMemoryBackend(_MemoryBackend):
 
     def search(
         self,
-        namespace: Tuple[str, ...],
-        query_embedding: List[float],
+        namespace: tuple[str, ...],
+        query_embedding: builtins.list[float],
         *,
         limit: int = 10,
-        filter: Optional[Dict[str, Any]] = None,
-    ) -> List[MemoryItem]:
+        filter: Optional[dict[str, Any]] = None,
+    ) -> builtins.list[MemoryItem]:
         ns_key = self._ns_key(namespace)
         if ns_key not in self._data:
             return []
 
         # Calculate similarities
-        results: List[Tuple[float, MemoryItem]] = []
+        results: list[tuple[float, MemoryItem]] = []
 
         for key, (item, embedding) in self._data[ns_key].items():
             # Apply filter
@@ -736,8 +737,8 @@ class _InMemoryBackend(_MemoryBackend):
 
     def _matches_filter(
         self,
-        value: Dict[str, Any],
-        filter: Dict[str, Any],
+        value: dict[str, Any],
+        filter: dict[str, Any],
     ) -> bool:
         """Check if value matches filter criteria."""
         for k, v in filter.items():
@@ -747,8 +748,8 @@ class _InMemoryBackend(_MemoryBackend):
 
     def _cosine_similarity(
         self,
-        a: List[float],
-        b: List[float],
+        a: builtins.list[float],
+        b: builtins.list[float],
     ) -> float:
         """Calculate cosine similarity between two vectors."""
         import math
@@ -800,7 +801,7 @@ class _SQLiteBackend(_MemoryBackend):
     def put(
         self,
         item: MemoryItem,
-        embedding: Optional[List[float]] = None,
+        embedding: Optional[builtins.list[float]] = None,
     ) -> None:
         cursor = self._conn.cursor()
         ns_str = "/".join(item.namespace)
@@ -827,7 +828,7 @@ class _SQLiteBackend(_MemoryBackend):
 
     def get(
         self,
-        namespace: Tuple[str, ...],
+        namespace: tuple[str, ...],
         key: str,
     ) -> Optional[MemoryItem]:
         cursor = self._conn.cursor()
@@ -857,7 +858,7 @@ class _SQLiteBackend(_MemoryBackend):
 
     def delete(
         self,
-        namespace: Tuple[str, ...],
+        namespace: tuple[str, ...],
         key: str,
     ) -> bool:
         cursor = self._conn.cursor()
@@ -876,10 +877,10 @@ class _SQLiteBackend(_MemoryBackend):
 
     def list(
         self,
-        namespace: Tuple[str, ...],
+        namespace: tuple[str, ...],
         *,
         limit: Optional[int] = None,
-    ) -> List[MemoryItem]:
+    ) -> builtins.list[MemoryItem]:
         cursor = self._conn.cursor()
         ns_str = "/".join(namespace)
 
@@ -910,12 +911,12 @@ class _SQLiteBackend(_MemoryBackend):
 
     def search(
         self,
-        namespace: Tuple[str, ...],
-        query_embedding: List[float],
+        namespace: tuple[str, ...],
+        query_embedding: builtins.list[float],
         *,
         limit: int = 10,
-        filter: Optional[Dict[str, Any]] = None,
-    ) -> List[MemoryItem]:
+        filter: Optional[dict[str, Any]] = None,
+    ) -> builtins.list[MemoryItem]:
         """Search by similarity (in-memory calculation for SQLite)."""
         cursor = self._conn.cursor()
         ns_str = "/".join(namespace)
@@ -929,7 +930,7 @@ class _SQLiteBackend(_MemoryBackend):
             (ns_str,),
         )
 
-        results: List[Tuple[float, MemoryItem]] = []
+        results: list[tuple[float, MemoryItem]] = []
 
         for row in cursor.fetchall():
             value = json.loads(row[1])
@@ -963,8 +964,8 @@ class _SQLiteBackend(_MemoryBackend):
 
     def _cosine_similarity(
         self,
-        a: List[float],
-        b: List[float],
+        a: builtins.list[float],
+        b: builtins.list[float],
     ) -> float:
         import math
 
@@ -1056,7 +1057,7 @@ class _PostgresBackend(_MemoryBackend):
     def put(
         self,
         item: MemoryItem,
-        embedding: Optional[List[float]] = None,
+        embedding: Optional[builtins.list[float]] = None,
     ) -> None:
         cursor = self._conn.cursor()
         ns_str = "/".join(item.namespace)
@@ -1109,7 +1110,7 @@ class _PostgresBackend(_MemoryBackend):
 
     def get(
         self,
-        namespace: Tuple[str, ...],
+        namespace: tuple[str, ...],
         key: str,
     ) -> Optional[MemoryItem]:
         cursor = self._conn.cursor()
@@ -1139,7 +1140,7 @@ class _PostgresBackend(_MemoryBackend):
 
     def delete(
         self,
-        namespace: Tuple[str, ...],
+        namespace: tuple[str, ...],
         key: str,
     ) -> bool:
         cursor = self._conn.cursor()
@@ -1158,10 +1159,10 @@ class _PostgresBackend(_MemoryBackend):
 
     def list(
         self,
-        namespace: Tuple[str, ...],
+        namespace: tuple[str, ...],
         *,
         limit: Optional[int] = None,
-    ) -> List[MemoryItem]:
+    ) -> builtins.list[MemoryItem]:
         cursor = self._conn.cursor()
         ns_str = "/".join(namespace)
 
@@ -1194,12 +1195,12 @@ class _PostgresBackend(_MemoryBackend):
 
     def search(
         self,
-        namespace: Tuple[str, ...],
-        query_embedding: List[float],
+        namespace: tuple[str, ...],
+        query_embedding: builtins.list[float],
         *,
         limit: int = 10,
-        filter: Optional[Dict[str, Any]] = None,
-    ) -> List[MemoryItem]:
+        filter: Optional[dict[str, Any]] = None,
+    ) -> builtins.list[MemoryItem]:
         cursor = self._conn.cursor()
         ns_str = "/".join(namespace)
 
@@ -1250,7 +1251,7 @@ class _PostgresBackend(_MemoryBackend):
                 (ns_str,),
             )
 
-            results: List[Tuple[float, MemoryItem]] = []
+            results: list[tuple[float, MemoryItem]] = []
 
             for row in cursor.fetchall():
                 value = row[1] if isinstance(row[1], dict) else json.loads(row[1])
@@ -1283,8 +1284,8 @@ class _PostgresBackend(_MemoryBackend):
 
     def _cosine_similarity(
         self,
-        a: List[float],
-        b: List[float],
+        a: builtins.list[float],
+        b: builtins.list[float],
     ) -> float:
         import math
 

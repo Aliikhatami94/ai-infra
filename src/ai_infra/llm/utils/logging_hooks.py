@@ -27,7 +27,8 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Optional
+from collections.abc import Callable
 
 __all__ = ["LoggingHooks", "RequestContext", "ResponseContext", "ErrorContext"]
 
@@ -42,10 +43,10 @@ class RequestContext:
     system: Optional[str]
     provider: str
     model_name: str
-    model_kwargs: Dict[str, Any]
+    model_kwargs: dict[str, Any]
     timestamp: float = field(default_factory=time.time)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "user_msg": self.user_msg[:200] + "..."
             if len(self.user_msg) > 200
@@ -71,9 +72,9 @@ class ResponseContext:
     request: RequestContext
     response: Any
     duration_ms: float
-    token_usage: Optional[Dict[str, int]] = None
+    token_usage: Optional[dict[str, int]] = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         content = getattr(self.response, "content", str(self.response))
         if isinstance(content, str) and len(content) > 200:
             content = content[:200] + "..."
@@ -94,7 +95,7 @@ class ErrorContext:
     error: BaseException
     duration_ms: float
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "provider": self.request.provider,
             "model_name": self.request.model_name,

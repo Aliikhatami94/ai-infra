@@ -33,7 +33,8 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import AsyncIterator, Iterator, List, Optional, Union
+from typing import Optional
+from collections.abc import AsyncIterator, Iterator
 
 from ai_infra.llm.multimodal.models import AudioFormat, TTSProvider, Voice
 from ai_infra.providers import ProviderCapability, ProviderRegistry
@@ -234,7 +235,7 @@ class TTS:
     def speak_to_file(
         self,
         text: str,
-        path: Union[str, Path],
+        path: str | Path,
         *,
         voice: Optional[str] = None,
         model: Optional[str] = None,
@@ -331,7 +332,7 @@ class TTS:
             )
 
     @staticmethod
-    def list_voices(provider: Optional[str] = None) -> List[Voice]:
+    def list_voices(provider: Optional[str] = None) -> list[Voice]:
         """List available voices for a provider.
 
         Args:
@@ -340,7 +341,7 @@ class TTS:
         Returns:
             List of available Voice objects.
         """
-        voices: List[Voice] = []
+        voices: list[Voice] = []
 
         if provider is None or provider == "openai":
             if os.environ.get("OPENAI_API_KEY"):
@@ -397,7 +398,7 @@ class TTS:
         return voices
 
     @staticmethod
-    def list_providers() -> List[str]:
+    def list_providers() -> list[str]:
         """List configured TTS providers.
 
         Returns:

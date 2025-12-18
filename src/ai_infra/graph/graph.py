@@ -1,5 +1,6 @@
 from collections.abc import AsyncIterator, Iterator
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Optional
+from collections.abc import Sequence
 
 from langgraph.constants import END, START
 from langgraph.graph import StateGraph
@@ -79,7 +80,7 @@ class Graph:
         self,
         *,
         # New simplified API
-        nodes: Optional[Union[Dict[str, Any], Sequence]] = None,
+        nodes: Optional[dict[str, Any] | Sequence] = None,
         edges: Optional[Sequence] = None,
         entry: Optional[str] = None,
         state_schema: Optional[type] = None,
@@ -87,11 +88,11 @@ class Graph:
         # LangGraph power features
         checkpointer=None,
         store=None,
-        interrupt_before: Optional[List[str]] = None,
-        interrupt_after: Optional[List[str]] = None,
+        interrupt_before: Optional[list[str]] = None,
+        interrupt_after: Optional[list[str]] = None,
         # Legacy API (backward compatible)
         state_type: Optional[type] = None,
-        node_definitions: Optional[Union[Sequence, dict]] = None,
+        node_definitions: Optional[Sequence | dict] = None,
     ):
         # Handle API aliases (new names preferred, legacy still works)
         nodes = nodes or node_definitions
@@ -115,7 +116,7 @@ class Graph:
         self._validate_state = validate_state
 
         # Normalize node definitions
-        normalized_nodes: Dict[str, Any] = normalize_node_definitions(nodes)
+        normalized_nodes: dict[str, Any] = normalize_node_definitions(nodes)
         self.node_definitions = list(normalized_nodes.items())
         node_names = list(normalized_nodes.keys())
 
@@ -341,7 +342,7 @@ class Graph:
             unreachable=unreachable,
         )
 
-    def describe(self) -> Dict:
+    def describe(self) -> dict:
         return self.analyze().model_dump()
 
     def get_state(self, config):

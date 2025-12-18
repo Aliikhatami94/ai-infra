@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any, Callable, Dict, List, Type, TypeVar, cast, overload
+from typing import Any, TypeVar, cast, overload
+from collections.abc import Callable
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langchain_core.output_parsers import PydanticOutputParser
@@ -11,15 +12,15 @@ from pydantic import BaseModel, ValidationError
 
 def build_structured_messages(
     *,
-    schema: type[BaseModel] | Dict[str, Any],
+    schema: type[BaseModel] | dict[str, Any],
     user_msg: str,
     system_preamble: str | None = None,
     forbid_prose: bool = True,
-) -> List[BaseMessage]:
+) -> list[BaseMessage]:
     # If schema is a dict, we can't use PydanticOutputParser
     if isinstance(schema, dict):
         # For dict schemas, provide a simpler JSON format instruction
-        sys_lines: List[str] = []
+        sys_lines: list[str] = []
         if system_preamble:
             sys_lines.append(system_preamble.strip())
         sys_lines.append(
@@ -30,7 +31,7 @@ def build_structured_messages(
                 "Do NOT include any prose, markdown, or extra keys. JSON only."
             )
         sys_lines.append(f"Schema: {json.dumps(schema)}")
-        messages: List[BaseMessage] = [
+        messages: list[BaseMessage] = [
             SystemMessage(content="\n\n".join(sys_lines)),
             HumanMessage(content=user_msg),
         ]
@@ -61,13 +62,13 @@ def validate_or_raise(schema: type[BaseModel], raw_json: str) -> BaseModel:
 
 
 @overload
-def validate_or_raise(schema: Dict[str, Any], raw_json: str) -> Dict[str, Any]:
+def validate_or_raise(schema: dict[str, Any], raw_json: str) -> dict[str, Any]:
     pass
 
 
 def validate_or_raise(
-    schema: type[BaseModel] | Dict[str, Any], raw_json: str
-) -> BaseModel | Dict[str, Any]:
+    schema: type[BaseModel] | dict[str, Any], raw_json: str
+) -> BaseModel | dict[str, Any]:
     """Validate raw JSON against a schema.
 
     Args:
@@ -79,7 +80,7 @@ def validate_or_raise(
     """
     if isinstance(schema, dict):
         # For dict schemas, just parse and return the JSON
-        return cast(Dict[str, Any], json.loads(raw_json))
+        return cast(dict[str, Any], json.loads(raw_json))
     try:
         return schema.model_validate_json(raw_json)
     except ValidationError:
@@ -118,7 +119,7 @@ def coerce_from_text_or_fragment(schema, text: str):
         return None
 
 
-def coerce_structured_result(schema: Type[T], res: Any) -> T:
+def coerce_structured_result(schema: type[T], res: Any) -> T:
     """Normalize arbitrary model output into a validated Pydantic object of type `schema`."""
     # Already the right type
     if isinstance(res, schema):

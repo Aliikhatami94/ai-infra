@@ -27,7 +27,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
-from typing import Dict
 
 from ai_infra.llm import Agent, ApprovalRequest, ApprovalResponse
 from ai_infra.llm.session import memory
@@ -51,10 +50,10 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="HITL WebSocket Demo")
 
 # Store active WebSocket connections by session ID
-active_connections: Dict[str, WebSocket] = {}
+active_connections: dict[str, WebSocket] = {}
 
 # Store pending approval requests
-pending_approvals: Dict[str, asyncio.Future[ApprovalResponse]] = {}
+pending_approvals: dict[str, asyncio.Future[ApprovalResponse]] = {}
 
 
 # ============================================================================

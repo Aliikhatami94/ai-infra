@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from typing import List
 
 from ai_infra.llm.providers import Providers
 
 
 def validate_provider(provider: str) -> None:
     """Validate that the provider is supported."""
-    provider_names: List[str] = [
+    provider_names: list[str] = [
         v
         for k, v in Providers.__dict__.items()
         if not k.startswith("__") and not callable(v)

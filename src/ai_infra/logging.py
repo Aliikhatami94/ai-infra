@@ -33,7 +33,8 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import datetime
 from functools import wraps
-from typing import Any, Callable, Dict, Optional, TypeVar, Union
+from typing import Any, Optional, TypeVar
+from collections.abc import Callable
 
 # Context for request tracking
 _request_id: ContextVar[Optional[str]] = ContextVar("request_id", default=None)
@@ -86,7 +87,7 @@ class JSONFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         # Build base log entry
-        log_entry: Dict[str, Any] = {
+        log_entry: dict[str, Any] = {
             "timestamp": datetime.utcnow().isoformat() + "Z",
             "level": record.levelname,
             "logger": record.name,
@@ -248,7 +249,7 @@ class RequestLog:
     request_size: Optional[int] = None
     response_size: Optional[int] = None
     error: Optional[str] = None
-    extra: Dict[str, Any] = field(default_factory=dict)
+    extra: dict[str, Any] = field(default_factory=dict)
 
     def complete(
         self,
@@ -263,9 +264,9 @@ class RequestLog:
         self.error = error
         return self
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for logging."""
-        d: Dict[str, Any] = {
+        d: dict[str, Any] = {
             "method": self.method,
             "url": self.url,
         }
@@ -313,7 +314,7 @@ class RequestLogger:
         self,
         method: str,
         url: str,
-        headers: Optional[Dict[str, str]] = None,
+        headers: Optional[dict[str, str]] = None,
         body: Optional[Any] = None,
     ) -> RequestLog:
         """Log outgoing request and return a RequestLog for completion."""
@@ -368,7 +369,7 @@ class RequestLogger:
         )
         return sanitized
 
-    def _sanitize_headers(self, headers: Dict[str, str]) -> Dict[str, str]:
+    def _sanitize_headers(self, headers: dict[str, str]) -> dict[str, str]:
         """Redact sensitive headers."""
         sanitized = {}
         for key, value in headers.items():
@@ -398,7 +399,7 @@ class LLMCallLog:
     cached: bool = False
     stream: bool = False
     error: Optional[str] = None
-    extra: Dict[str, Any] = field(default_factory=dict)
+    extra: dict[str, Any] = field(default_factory=dict)
 
     def complete(
         self,
@@ -415,8 +416,8 @@ class LLMCallLog:
         self.error = error
         return self
 
-    def to_dict(self) -> Dict[str, Any]:
-        d: Dict[str, Any] = {
+    def to_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {
             "provider": self.provider,
             "model": self.model,
         }
@@ -481,7 +482,7 @@ class LLMLogger:
 
 
 def configure_logging(
-    level: Union[str, int] = "INFO",
+    level: str | int = "INFO",
     format: str = "human",  # "human" or "json"
     log_requests: bool = False,
     log_responses: bool = False,

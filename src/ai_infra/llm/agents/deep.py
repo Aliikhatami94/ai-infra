@@ -12,7 +12,8 @@ DeepAgents mode enables autonomous task execution with built-in tools for:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Sequence
+from typing import TYPE_CHECKING, Any
+from collections.abc import Sequence
 
 if TYPE_CHECKING:
     from ai_infra.llm.session import SessionConfig

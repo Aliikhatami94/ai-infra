@@ -4,7 +4,7 @@ import asyncio
 import hashlib
 import re
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 from .models import OpenAPISpec, Operation
 
@@ -31,7 +31,7 @@ def serialize_query_param(
     value: Any,
     style: Optional[str] = None,
     explode: Optional[bool] = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Serialize a query parameter according to OpenAPI style/explode.
 
     Supports:
@@ -86,7 +86,7 @@ def serialize_query_param(
 
 def pick_effective_base_url_with_source(
     spec: OpenAPISpec,
-    path_item: Dict[str, Any] | None,
+    path_item: dict[str, Any] | None,
     op: Operation | None,
     override: Optional[str],
 ) -> tuple[str, str]:
@@ -108,8 +108,8 @@ def pick_effective_base_url_with_source(
     return "", "none"
 
 
-def collect_params(op: Operation) -> Dict[str, List[Dict[str, Any]]]:
-    out: Dict[str, List[Dict[str, Any]]] = {"path": [], "query": [], "header": []}
+def collect_params(op: Operation) -> dict[str, list[dict[str, Any]]]:
+    out: dict[str, list[dict[str, Any]]] = {"path": [], "query": [], "header": []}
     for p in op.get("parameters") or []:
         loc = p.get("in")
         if loc in out:
@@ -130,9 +130,9 @@ def extract_body_content_type(op: Operation) -> str:
 
 
 def merge_parameters(
-    path_item: Dict[str, Any] | None, op: Operation
-) -> List[Dict[str, Any]]:
-    merged: List[Dict[str, Any]] = []
+    path_item: dict[str, Any] | None, op: Operation
+) -> list[dict[str, Any]]:
+    merged: list[dict[str, Any]] = []
     seen: set[tuple[str, str]] = set()
     for src in (path_item.get("parameters") if path_item else []) or []:
         if isinstance(src, dict) and {"in", "name"} <= src.keys():
@@ -152,11 +152,11 @@ def merge_parameters(
     return merged
 
 
-def split_params(params: List[Dict[str, Any]]):
-    path_params: List[Dict[str, Any]] = []
-    query_params: List[Dict[str, Any]] = []
-    header_params: List[Dict[str, Any]] = []
-    cookie_params: List[Dict[str, Any]] = []
+def split_params(params: list[dict[str, Any]]):
+    path_params: list[dict[str, Any]] = []
+    query_params: list[dict[str, Any]] = []
+    header_params: list[dict[str, Any]] = []
+    cookie_params: list[dict[str, Any]] = []
     for p in params:
         loc = p.get("in")
         if loc == "path":
@@ -172,7 +172,7 @@ def split_params(params: List[Dict[str, Any]]):
 
 def pick_effective_base_url(
     spec: OpenAPISpec,
-    path_item: Dict[str, Any] | None,
+    path_item: dict[str, Any] | None,
     op: Operation | None,
     override: Optional[str],
 ) -> str:
@@ -210,7 +210,7 @@ class ResponseCache:
     def __init__(
         self,
         ttl: float = 300.0,
-        methods: Optional[List[str]] = None,
+        methods: Optional[list[str]] = None,
         max_size: int = 1000,
     ):
         """Initialize cache.
@@ -223,14 +223,14 @@ class ResponseCache:
         self.ttl = ttl
         self.methods = set(m.upper() for m in (methods or ["GET"]))
         self.max_size = max_size
-        self._cache: Dict[str, Tuple[float, Any]] = {}
+        self._cache: dict[str, tuple[float, Any]] = {}
 
     def should_cache(self, method: str) -> bool:
         """Check if method should be cached."""
         return method.upper() in self.methods
 
     def make_key(
-        self, method: str, url: str, params: Optional[Dict[str, Any]] = None
+        self, method: str, url: str, params: Optional[dict[str, Any]] = None
     ) -> str:
         """Generate cache key from request details."""
         key_parts = [method.upper(), url]
@@ -384,7 +384,7 @@ class RequestDeduplicator:
     """
 
     def __init__(self):
-        self._pending: Dict[str, Any] = {}  # key -> asyncio.Future
+        self._pending: dict[str, Any] = {}  # key -> asyncio.Future
         self._lock = None  # Lazy init
 
     async def _get_lock(self):

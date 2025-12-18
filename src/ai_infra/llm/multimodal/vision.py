@@ -48,12 +48,12 @@ from __future__ import annotations
 import base64
 import mimetypes
 from pathlib import Path
-from typing import Any, Dict, List, Union
+from typing import Any
 
 from langchain_core.messages import HumanMessage
 
 # Type alias for image inputs we accept
-ImageInput = Union[str, bytes, Path]
+ImageInput = str | bytes | Path
 
 
 # =============================================================================
@@ -63,7 +63,7 @@ ImageInput = Union[str, bytes, Path]
 
 def create_vision_message(
     text: str,
-    images: List[ImageInput],
+    images: list[ImageInput],
 ) -> HumanMessage:
     """Create a LangChain HumanMessage with text and images.
 
@@ -95,8 +95,8 @@ def create_vision_message(
 
 def build_vision_content(
     text: str,
-    images: List[ImageInput],
-) -> List[Dict[str, Any]]:
+    images: list[ImageInput],
+) -> list[dict[str, Any]]:
     """Build content blocks for a vision message.
 
     Creates a list of content blocks in LangChain's standard format.
@@ -123,7 +123,7 @@ def build_vision_content(
         # ]
         ```
     """
-    content: List[Dict[str, Any]] = [{"type": "text", "text": text}]
+    content: list[dict[str, Any]] = [{"type": "text", "text": text}]
 
     for image in images:
         content.append(encode_image(image))
@@ -131,7 +131,7 @@ def build_vision_content(
     return content
 
 
-def encode_image(image: ImageInput) -> Dict[str, Any]:
+def encode_image(image: ImageInput) -> dict[str, Any]:
     """Encode a single image to LangChain's standard format.
 
     Automatically detects the image type and encodes appropriately:
@@ -189,7 +189,7 @@ def _get_mime_type(path: Path) -> str:
     return mime_type or "image/png"
 
 
-def _encode_string_image(image: str) -> Dict[str, Any]:
+def _encode_string_image(image: str) -> dict[str, Any]:
     """Encode a string image (URL or file path)."""
     if _is_url(image):
         # URLs pass through directly
@@ -199,14 +199,14 @@ def _encode_string_image(image: str) -> Dict[str, Any]:
         return _encode_path_image(Path(image))
 
 
-def _encode_bytes_image(image: bytes, mime_type: str = "image/png") -> Dict[str, Any]:
+def _encode_bytes_image(image: bytes, mime_type: str = "image/png") -> dict[str, Any]:
     """Encode raw bytes to base64 data URL."""
     b64 = base64.b64encode(image).decode("utf-8")
     data_url = f"data:{mime_type};base64,{b64}"
     return {"type": "image_url", "image_url": {"url": data_url}}
 
 
-def _encode_path_image(path: Path) -> Dict[str, Any]:
+def _encode_path_image(path: Path) -> dict[str, Any]:
     """Encode a file path to base64 data URL."""
     if not path.exists():
         raise FileNotFoundError(f"Image file not found: {path}")
@@ -221,7 +221,7 @@ def _encode_path_image(path: Path) -> Dict[str, Any]:
 # =============================================================================
 
 
-def encode_image_for_openai(image: ImageInput) -> Dict[str, Any]:
+def encode_image_for_openai(image: ImageInput) -> dict[str, Any]:
     """Encode image for OpenAI API.
 
     .. deprecated::
@@ -230,7 +230,7 @@ def encode_image_for_openai(image: ImageInput) -> Dict[str, Any]:
     return encode_image(image)
 
 
-def encode_image_for_anthropic(image: ImageInput) -> Dict[str, Any]:
+def encode_image_for_anthropic(image: ImageInput) -> dict[str, Any]:
     """Encode image for Anthropic API.
 
     .. deprecated::
@@ -239,7 +239,7 @@ def encode_image_for_anthropic(image: ImageInput) -> Dict[str, Any]:
     return encode_image(image)
 
 
-def encode_image_for_google(image: ImageInput) -> Dict[str, Any]:
+def encode_image_for_google(image: ImageInput) -> dict[str, Any]:
     """Encode image for Google API.
 
     .. deprecated::
@@ -250,9 +250,9 @@ def encode_image_for_google(image: ImageInput) -> Dict[str, Any]:
 
 def make_vision_message(
     text: str,
-    images: List[ImageInput],
+    images: list[ImageInput],
     provider: str = "",  # Ignored - kept for backwards compatibility
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Create message content with text and images.
 
     .. deprecated::
