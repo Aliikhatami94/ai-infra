@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any, TypeVar, cast, overload
 from collections.abc import Callable
+from typing import Any, TypeVar, cast, overload
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langchain_core.output_parsers import PydanticOutputParser
@@ -23,13 +23,9 @@ def build_structured_messages(
         sys_lines: list[str] = []
         if system_preamble:
             sys_lines.append(system_preamble.strip())
-        sys_lines.append(
-            "Return ONLY a single JSON object matching the provided schema."
-        )
+        sys_lines.append("Return ONLY a single JSON object matching the provided schema.")
         if forbid_prose:
-            sys_lines.append(
-                "Do NOT include any prose, markdown, or extra keys. JSON only."
-            )
+            sys_lines.append("Do NOT include any prose, markdown, or extra keys. JSON only.")
         sys_lines.append(f"Schema: {json.dumps(schema)}")
         messages: list[BaseMessage] = [
             SystemMessage(content="\n\n".join(sys_lines)),
@@ -45,9 +41,7 @@ def build_structured_messages(
         sys_lines.append(system_preamble.strip())
     sys_lines.append("Return ONLY a single JSON object that matches the schema below.")
     if forbid_prose:
-        sys_lines.append(
-            "Do NOT include any prose, markdown, or extra keys. JSON only."
-        )
+        sys_lines.append("Do NOT include any prose, markdown, or extra keys. JSON only.")
     sys_lines.append(fmt)
     messages = [
         SystemMessage(content="\n\n".join(sys_lines)),
@@ -80,7 +74,7 @@ def validate_or_raise(
     """
     if isinstance(schema, dict):
         # For dict schemas, just parse and return the JSON
-        return cast(dict[str, Any], json.loads(raw_json))
+        return cast("dict[str, Any]", json.loads(raw_json))
     try:
         return schema.model_validate_json(raw_json)
     except ValidationError:
@@ -126,27 +120,27 @@ def coerce_structured_result(schema: type[T], res: Any) -> T:
         return res
     # Plain dict
     if isinstance(res, dict):
-        return cast(T, schema.model_validate(res))
+        return cast("T", schema.model_validate(res))
 
     # AIMessage-like or str: prefer robust text path
     content = getattr(res, "content", None)
     if isinstance(content, str) and content.strip():
         obj = coerce_from_text_or_fragment(schema, content)
         if obj is not None:
-            return cast(T, obj)
+            return cast("T", obj)
         # Fall through to hard-fail with context
 
     if isinstance(res, str):
         obj = coerce_from_text_or_fragment(schema, res)
         if obj is not None:
-            return cast(T, obj)
+            return cast("T", obj)
         # Fall through to hard-fail with context
 
     # Last resorts: stringify and try again with the text pipeline
     text = str(res)
     obj = coerce_from_text_or_fragment(schema, text)
     if obj is not None:
-        return cast(T, obj)
+        return cast("T", obj)
 
     # Make failure explicit and helpful
     preview = (content if isinstance(content, str) and content.strip() else text)[:200]

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 
 class AudioFormat(StrEnum):
@@ -56,8 +56,8 @@ class Voice:
     provider: TTSProvider
     language: str = "en-US"
     gender: str = "neutral"
-    description: Optional[str] = None
-    preview_url: Optional[str] = None
+    description: str | None = None
+    preview_url: str | None = None
 
 
 @dataclass
@@ -75,7 +75,7 @@ class AudioSegment:
     data: bytes
     format: AudioFormat = AudioFormat.MP3
     sample_rate: int = 24000
-    duration: Optional[float] = None
+    duration: float | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def save(self, path: str | Path) -> None:
@@ -89,9 +89,7 @@ class AudioSegment:
             f.write(self.data)
 
     @classmethod
-    def from_file(
-        cls, path: str | Path, format: Optional[AudioFormat] = None
-    ) -> "AudioSegment":
+    def from_file(cls, path: str | Path, format: AudioFormat | None = None) -> AudioSegment:
         """Load audio from a file.
 
         Args:
@@ -129,7 +127,7 @@ class TranscriptionWord:
     word: str
     start: float
     end: float
-    confidence: Optional[float] = None
+    confidence: float | None = None
 
 
 @dataclass
@@ -149,8 +147,8 @@ class TranscriptionSegment:
     start: float
     end: float
     words: list[TranscriptionWord] = field(default_factory=list)
-    confidence: Optional[float] = None
-    speaker: Optional[str] = None
+    confidence: float | None = None
+    speaker: str | None = None
 
 
 @dataclass
@@ -169,10 +167,10 @@ class TranscriptionResult:
 
     text: str
     segments: list[TranscriptionSegment] = field(default_factory=list)
-    language: Optional[str] = None
-    duration: Optional[float] = None
-    model: Optional[str] = None
-    provider: Optional[STTProvider] = None
+    language: str | None = None
+    duration: float | None = None
+    model: str | None = None
+    provider: STTProvider | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @property

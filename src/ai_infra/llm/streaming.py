@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field, replace
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 
 @dataclass
@@ -97,19 +97,17 @@ class StreamEvent:
     type: Literal["thinking", "token", "tool_start", "tool_end", "done", "error"]
 
     # Type-specific data
-    content: Optional[str] = None  # token content
-    tool: Optional[str] = None  # tool name
-    tool_id: Optional[str] = None  # tool call ID
-    arguments: Optional[dict[str, Any]] = None  # tool arguments (detailed+)
-    result: Optional[str | dict[str, Any]] = None  # tool result (detailed+)
-    result_structured: bool = (
-        False  # True if result is structured dict (from retriever tool)
-    )
-    preview: Optional[str] = None  # truncated result preview (debug only, for UI)
-    latency_ms: Optional[float] = None  # tool execution time
-    model: Optional[str] = None  # model name (thinking event)
-    tools_called: Optional[int] = None  # total tools (done event)
-    error: Optional[str] = None  # error message
+    content: str | None = None  # token content
+    tool: str | None = None  # tool name
+    tool_id: str | None = None  # tool call ID
+    arguments: dict[str, Any] | None = None  # tool arguments (detailed+)
+    result: str | dict[str, Any] | None = None  # tool result (detailed+)
+    result_structured: bool = False  # True if result is structured dict (from retriever tool)
+    preview: str | None = None  # truncated result preview (debug only, for UI)
+    latency_ms: float | None = None  # tool execution time
+    model: str | None = None  # model name (thinking event)
+    tools_called: int | None = None  # total tools (done event)
+    error: str | None = None  # error message
 
     # Metadata
     timestamp: float = field(default_factory=time.time)
@@ -139,11 +137,7 @@ class StreamEvent:
         d: dict[str, Any] = {"type": self.type}
 
         # Handle structured tool results specially
-        if (
-            self.type == "tool_end"
-            and self.result_structured
-            and self.result is not None
-        ):
+        if self.type == "tool_end" and self.result_structured and self.result is not None:
             # Include structured result directly for frontend parsing
             d["structured_result"] = self.result
             d["result_structured"] = True
@@ -173,9 +167,7 @@ class StreamEvent:
         parts = [f"type={self.type!r}"]
         if self.content is not None:
             # Truncate long content
-            content = (
-                self.content[:50] + "..." if len(self.content) > 50 else self.content
-            )
+            content = self.content[:50] + "..." if len(self.content) > 50 else self.content
             parts.append(f"content={content!r}")
         if self.tool is not None:
             parts.append(f"tool={self.tool!r}")
@@ -299,8 +291,8 @@ def filter_event_for_visibility(event: StreamEvent, visibility: str) -> StreamEv
 
 
 __all__ = [
-    "StreamEvent",
     "StreamConfig",
-    "should_emit_event",
+    "StreamEvent",
     "filter_event_for_visibility",
+    "should_emit_event",
 ]

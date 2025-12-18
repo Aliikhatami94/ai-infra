@@ -12,7 +12,6 @@ Usage:
 from __future__ import annotations
 
 import json
-from typing import Optional
 
 import typer
 
@@ -64,7 +63,7 @@ def providers_cmd(
 
 @app.command("models")
 def models_cmd(
-    provider: Optional[str] = typer.Option(
+    provider: str | None = typer.Option(
         None,
         "--provider",
         "-p",
@@ -137,9 +136,7 @@ def models_cmd(
 
         if live:
             if not is_provider_configured(provider):
-                typer.echo(
-                    f"Error: Provider '{provider}' is not configured (no API key)"
-                )
+                typer.echo(f"Error: Provider '{provider}' is not configured (no API key)")
                 raise typer.Exit(1)
 
             try:

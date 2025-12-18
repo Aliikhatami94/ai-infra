@@ -3,7 +3,6 @@ from __future__ import annotations
 import inspect
 import os
 import textwrap
-from typing import Optional
 from collections.abc import Awaitable, Callable, Iterable, Sequence
 
 from mcp.server.fastmcp import FastMCP
@@ -14,9 +13,9 @@ ToolFn = Callable[..., str | Awaitable[str]]
 
 
 class ToolDef(BaseModel):
-    fn: Optional[ToolFn] = Field(default=None, exclude=True)
-    name: Optional[str] = None
-    description: Optional[str] = None
+    fn: ToolFn | None = Field(default=None, exclude=True)
+    name: str | None = None
+    description: str | None = None
 
 
 def _auto_detect_hosts() -> list[str]:
@@ -199,9 +198,9 @@ def _describe(fn: Callable[..., object], fallback: str) -> str:
 
 def mcp_from_functions(
     *,
-    name: Optional[str],
+    name: str | None,
     functions: Iterable[ToolFn | ToolDef] | None,
-    security: Optional[MCPSecuritySettings] = None,
+    security: MCPSecuritySettings | None = None,
 ) -> FastMCP:
     """Create a FastMCP server from plain functions with automatic security.
 
@@ -251,9 +250,7 @@ def mcp_from_functions(
             if fn is None:
                 continue  # or raise ValueError("ToolDef.fn is required")
             tool_name = getattr(item, "name", None) or fn.__name__
-            desc = (
-                getattr(item, "description", None) or _describe(fn, tool_name)
-            ).strip()
+            desc = (getattr(item, "description", None) or _describe(fn, tool_name)).strip()
         else:
             fn = item
             tool_name = fn.__name__

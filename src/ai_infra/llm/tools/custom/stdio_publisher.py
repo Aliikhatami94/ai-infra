@@ -5,7 +5,6 @@ import json
 import os
 import stat
 from pathlib import Path
-from typing import Optional
 
 JS_TEMPLATE_UVX_MODULE = """#!/usr/bin/env node
 const {{ spawn }} = require("child_process");
@@ -42,7 +41,7 @@ def _dump_json(p: Path, data: dict) -> None:
 
 def _resolve_paths(
     *,
-    base_dir: Optional[Path],
+    base_dir: Path | None,
     package_json: Path,
     bin_dir: Path,
     tool_name: str,
@@ -68,7 +67,7 @@ def add_shim(
     bin_dir: Path = Path("mcp-shim") / "bin",
     package_name: str = "mcp-shims",
     force: bool = False,
-    base_dir: Optional[Path] = None,
+    base_dir: Path | None = None,
     dry_run: bool = False,
 ) -> dict:
     try:
@@ -168,7 +167,7 @@ def remove_shim(
     package_json: Path = Path("package.json"),
     bin_dir: Path = Path("mcp-shim") / "bin",
     delete_file: bool = False,
-    base_dir: Optional[Path] = None,
+    base_dir: Path | None = None,
 ) -> dict:
     try:
         package_json, shim_path = _resolve_paths(
@@ -210,6 +209,6 @@ def remove_shim(
 
 __all__ = [
     "add_shim",
-    "remove_shim",
     "ensure_executable",
+    "remove_shim",
 ]

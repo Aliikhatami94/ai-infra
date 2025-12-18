@@ -31,9 +31,9 @@ Example:
 from __future__ import annotations
 
 import os
-from pathlib import Path
-from typing import Any, Optional
 from collections.abc import Iterator
+from pathlib import Path
+from typing import Any
 
 from ai_infra.llm.multimodal.models import (
     STTProvider,
@@ -88,10 +88,10 @@ class STT:
 
     def __init__(
         self,
-        provider: Optional[str] = None,
-        model: Optional[str] = None,
-        language: Optional[str] = None,
-        api_key: Optional[str] = None,
+        provider: str | None = None,
+        model: str | None = None,
+        language: str | None = None,
+        api_key: str | None = None,
     ):
         """Initialize STT.
 
@@ -128,7 +128,7 @@ class STT:
         return self._model
 
     @property
-    def language(self) -> Optional[str]:
+    def language(self) -> str | None:
         """Get the language setting."""
         return self._language
 
@@ -136,10 +136,10 @@ class STT:
         self,
         audio: bytes | str | Path,
         *,
-        language: Optional[str] = None,
+        language: str | None = None,
         timestamps: bool = False,
         word_timestamps: bool = False,
-        prompt: Optional[str] = None,
+        prompt: str | None = None,
     ) -> TranscriptionResult:
         """Transcribe audio to text.
 
@@ -156,13 +156,9 @@ class STT:
         language = language or self._language
 
         if self._provider == "openai":
-            return self._transcribe_openai(
-                audio, language, timestamps, word_timestamps, prompt
-            )
+            return self._transcribe_openai(audio, language, timestamps, word_timestamps, prompt)
         elif self._provider == "deepgram":
-            return self._transcribe_deepgram(
-                audio, language, timestamps, word_timestamps
-            )
+            return self._transcribe_deepgram(audio, language, timestamps, word_timestamps)
         elif self._provider == "google":
             return self._transcribe_google(audio, language, timestamps, word_timestamps)
         else:
@@ -172,10 +168,10 @@ class STT:
         self,
         audio: bytes | str | Path,
         *,
-        language: Optional[str] = None,
+        language: str | None = None,
         timestamps: bool = False,
         word_timestamps: bool = False,
-        prompt: Optional[str] = None,
+        prompt: str | None = None,
     ) -> TranscriptionResult:
         """Async version of transcribe().
 
@@ -196,13 +192,9 @@ class STT:
                 audio, language, timestamps, word_timestamps, prompt
             )
         elif self._provider == "deepgram":
-            return await self._atranscribe_deepgram(
-                audio, language, timestamps, word_timestamps
-            )
+            return await self._atranscribe_deepgram(audio, language, timestamps, word_timestamps)
         elif self._provider == "google":
-            return await self._atranscribe_google(
-                audio, language, timestamps, word_timestamps
-            )
+            return await self._atranscribe_google(audio, language, timestamps, word_timestamps)
         else:
             raise ValueError(f"Unsupported STT provider: {self._provider}")
 
@@ -210,10 +202,10 @@ class STT:
         self,
         path: str | Path,
         *,
-        language: Optional[str] = None,
+        language: str | None = None,
         timestamps: bool = False,
         word_timestamps: bool = False,
-        prompt: Optional[str] = None,
+        prompt: str | None = None,
     ) -> TranscriptionResult:
         """Transcribe an audio file.
 
@@ -243,7 +235,7 @@ class STT:
         self,
         audio_stream: Iterator[bytes],
         *,
-        language: Optional[str] = None,
+        language: str | None = None,
     ) -> Iterator[str]:
         """Real-time transcription from audio stream.
 
@@ -279,14 +271,12 @@ class STT:
             providers.append("openai")
         if os.environ.get("DEEPGRAM_API_KEY"):
             providers.append("deepgram")
-        if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") or os.environ.get(
-            "GOOGLE_API_KEY"
-        ):
+        if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") or os.environ.get("GOOGLE_API_KEY"):
             providers.append("google")
         return providers
 
     @staticmethod
-    def list_models(provider: Optional[str] = None) -> list[dict[str, Any]]:
+    def list_models(provider: str | None = None) -> list[dict[str, Any]]:
         """List available models for a provider.
 
         Args:
@@ -327,9 +317,7 @@ class STT:
                     )
 
         if provider is None or provider == "google":
-            if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") or os.environ.get(
-                "GOOGLE_API_KEY"
-            ):
+            if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") or os.environ.get("GOOGLE_API_KEY"):
                 models.append(
                     {
                         "provider": "google",
@@ -371,9 +359,7 @@ class STT:
         try:
             from openai import OpenAI
         except ImportError:
-            raise ImportError(
-                "openai package required for OpenAI STT: pip install openai"
-            )
+            raise ImportError("openai package required for OpenAI STT: pip install openai")
 
         api_key = self._api_key or os.environ.get("OPENAI_API_KEY")
         return OpenAI(api_key=api_key)
@@ -383,9 +369,7 @@ class STT:
         try:
             from openai import AsyncOpenAI
         except ImportError:
-            raise ImportError(
-                "openai package required for OpenAI STT: pip install openai"
-            )
+            raise ImportError("openai package required for OpenAI STT: pip install openai")
 
         api_key = self._api_key or os.environ.get("OPENAI_API_KEY")
         return AsyncOpenAI(api_key=api_key)
@@ -393,10 +377,10 @@ class STT:
     def _transcribe_openai(
         self,
         audio: bytes | str | Path,
-        language: Optional[str],
+        language: str | None,
         timestamps: bool,
         word_timestamps: bool,
-        prompt: Optional[str],
+        prompt: str | None,
     ) -> TranscriptionResult:
         """Transcribe using OpenAI Whisper."""
         client = self._get_openai_client()
@@ -455,10 +439,10 @@ class STT:
     async def _atranscribe_openai(
         self,
         audio: bytes | str | Path,
-        language: Optional[str],
+        language: str | None,
         timestamps: bool,
         word_timestamps: bool,
-        prompt: Optional[str],
+        prompt: str | None,
     ) -> TranscriptionResult:
         """Async transcribe using OpenAI Whisper."""
         client = self._get_openai_async_client()
@@ -521,7 +505,7 @@ class STT:
     def _transcribe_deepgram(
         self,
         audio: bytes | str | Path,
-        language: Optional[str],
+        language: str | None,
         timestamps: bool,
         word_timestamps: bool,
     ) -> TranscriptionResult:
@@ -574,9 +558,9 @@ class STT:
                         current_segment_text.append(word.word)
 
                         # Create segment on punctuation or at regular intervals
-                        if (
-                            word.punctuated_word and word.punctuated_word[-1] in ".!?"
-                        ) or len(current_segment_text) >= 20:
+                        if (word.punctuated_word and word.punctuated_word[-1] in ".!?") or len(
+                            current_segment_text
+                        ) >= 20:
                             segments.append(
                                 TranscriptionSegment(
                                     text=" ".join(current_segment_text),
@@ -611,7 +595,7 @@ class STT:
     async def _atranscribe_deepgram(
         self,
         audio: bytes | str | Path,
-        language: Optional[str],
+        language: str | None,
         timestamps: bool,
         word_timestamps: bool,
     ) -> TranscriptionResult:
@@ -639,9 +623,7 @@ class STT:
             options.utterances = True
 
         source = {"buffer": audio_bytes}
-        response = await client.listen.asyncprerecorded.v("1").transcribe_file(
-            source, options
-        )
+        response = await client.listen.asyncprerecorded.v("1").transcribe_file(source, options)
 
         # Parse response same as sync version
         result = response.results
@@ -664,9 +646,9 @@ class STT:
                         segment_end = word.end
                         current_segment_text.append(word.word)
 
-                        if (
-                            word.punctuated_word and word.punctuated_word[-1] in ".!?"
-                        ) or len(current_segment_text) >= 20:
+                        if (word.punctuated_word and word.punctuated_word[-1] in ".!?") or len(
+                            current_segment_text
+                        ) >= 20:
                             segments.append(
                                 TranscriptionSegment(
                                     text=" ".join(current_segment_text),
@@ -700,7 +682,7 @@ class STT:
     def _stream_deepgram(
         self,
         audio_stream: Iterator[bytes],
-        language: Optional[str],
+        language: str | None,
     ) -> Iterator[str]:
         """Stream transcription using Deepgram."""
         try:
@@ -752,7 +734,7 @@ class STT:
     def _transcribe_google(
         self,
         audio: bytes | str | Path,
-        language: Optional[str],
+        language: str | None,
         timestamps: bool,
         word_timestamps: bool,
     ) -> TranscriptionResult:
@@ -820,7 +802,7 @@ class STT:
     async def _atranscribe_google(
         self,
         audio: bytes | str | Path,
-        language: Optional[str],
+        language: str | None,
         timestamps: bool,
         word_timestamps: bool,
     ) -> TranscriptionResult:

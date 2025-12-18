@@ -33,9 +33,9 @@ import asyncio
 import hashlib
 import json
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field, replace
 from typing import Any, Protocol, runtime_checkable
-from collections.abc import Awaitable, Callable
 
 from mcp.types import CallToolResult, TextContent
 
@@ -203,9 +203,7 @@ class CachingInterceptor:
     """
 
     ttl_seconds: int = 300
-    _cache: dict[str, tuple[CallToolResult, float]] = field(
-        default_factory=dict, repr=False
-    )
+    _cache: dict[str, tuple[CallToolResult, float]] = field(default_factory=dict, repr=False)
 
     async def __call__(
         self,

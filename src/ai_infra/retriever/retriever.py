@@ -214,7 +214,7 @@ class Retriever:
         # Embedding configuration
         provider: str | None = None,
         model: str | None = None,
-        embeddings: "Embeddings | None" = None,
+        embeddings: Embeddings | None = None,
         # Backend configuration
         backend: str | None = None,
         # Similarity metric
@@ -327,9 +327,7 @@ class Retriever:
         if auto_configure:
             # Auto-detect backend from DATABASE_URL (also check DATABASE_URL_PRIVATE for Railway)
             if backend is None:
-                database_url = os.getenv("DATABASE_URL") or os.getenv(
-                    "DATABASE_URL_PRIVATE"
-                )
+                database_url = os.getenv("DATABASE_URL") or os.getenv("DATABASE_URL_PRIVATE")
                 if database_url:
                     backend = "postgres"
                     # Set connection_string if not already provided
@@ -352,9 +350,7 @@ class Retriever:
                     logger.debug("Auto-configured cohere provider from COHERE_API_KEY")
                 elif os.getenv("GOOGLE_API_KEY"):
                     provider = "google_genai"
-                    logger.debug(
-                        "Auto-configured google_genai provider from GOOGLE_API_KEY"
-                    )
+                    logger.debug("Auto-configured google_genai provider from GOOGLE_API_KEY")
                 else:
                     # Default to free local embeddings (no API key needed!)
                     provider = "huggingface"
@@ -408,9 +404,7 @@ class Retriever:
                 return
             except Exception as e:
                 # Failed to load (corrupt file, incompatible format, etc.)
-                logger.warning(
-                    f"Failed to load from {self._persist_path}, starting fresh: {e}"
-                )
+                logger.warning(f"Failed to load from {self._persist_path}, starting fresh: {e}")
 
         # Store chunking config
         self._chunk_size = chunk_size
@@ -809,7 +803,7 @@ class Retriever:
             This creates a new event loop. Do not call from within an async context.
         """
         return cast(
-            list[str],
+            "list[str]",
             _run_sync(
                 self.add_from_github(
                     repo=repo,
@@ -839,7 +833,7 @@ class Retriever:
             This creates a new event loop. Do not call from within an async context.
         """
         return cast(
-            list[str],
+            "list[str]",
             _run_sync(
                 self.add_from_url(
                     url=url,
@@ -864,10 +858,8 @@ class Retriever:
             This creates a new event loop. Do not call from within an async context.
         """
         return cast(
-            list[str],
-            _run_sync(
-                self.add_from_loader(loader=loader, metadata=metadata, chunk=chunk)
-            ),
+            "list[str]",
+            _run_sync(self.add_from_loader(loader=loader, metadata=metadata, chunk=chunk)),
         )
 
     def _add_documents(
@@ -882,9 +874,7 @@ class Retriever:
 
         # Merge metadata
         if metadata:
-            documents = [
-                (text, {**doc_meta, **metadata}) for text, doc_meta in documents
-            ]
+            documents = [(text, {**doc_meta, **metadata}) for text, doc_meta in documents]
 
         if chunk:
             chunks = chunk_documents(
@@ -893,9 +883,7 @@ class Retriever:
                 chunk_overlap=self._chunk_overlap,
             )
         else:
-            chunks = [
-                Chunk(text=text, metadata=doc_meta) for text, doc_meta in documents
-            ]
+            chunks = [Chunk(text=text, metadata=doc_meta) for text, doc_meta in documents]
 
         return self._add_chunks(chunks)
 
@@ -1208,9 +1196,7 @@ class Retriever:
         separator: str = "\n\n---\n\n",
     ) -> str:
         """Async version of get_context()."""
-        results = cast(
-            list[str], await self.asearch(query, k=k, filter=filter, detailed=False)
-        )
+        results = cast("list[str]", await self.asearch(query, k=k, filter=filter, detailed=False))
         return separator.join(results)
 
     # =========================================================================
@@ -1230,7 +1216,7 @@ class Retriever:
             >>> ids = r.add("Some temporary content")
             >>> r.delete(ids)
         """
-        deleted = cast(int, self._backend.delete(ids))
+        deleted = cast("int", self._backend.delete(ids))
         self._doc_ids -= set(ids)
         return deleted
 
@@ -1352,7 +1338,7 @@ class Retriever:
         return path
 
     @classmethod
-    def load(cls, path: str | Path) -> "Retriever":
+    def load(cls, path: str | Path) -> Retriever:
         """Load a retriever from a previously saved state.
 
         Args:
@@ -1434,9 +1420,7 @@ class Retriever:
         retriever._chunk_size = state["chunk_size"]
         retriever._chunk_overlap = state["chunk_overlap"]
         retriever._backend_name = state["backend_name"]
-        retriever._similarity = state.get(
-            "similarity", "cosine"
-        )  # Default for old saves
+        retriever._similarity = state.get("similarity", "cosine")  # Default for old saves
         retriever._doc_ids = set(state["doc_ids"])
 
         # Create a lazy embeddings placeholder that stores provider/model info
@@ -1462,9 +1446,7 @@ class Retriever:
         backend._ids = backend_data["ids"]
         backend._texts = backend_data["texts"]
         backend._metadatas = backend_data["metadatas"]
-        backend._embeddings = [
-            np.array(e, dtype=np.float32) for e in backend_data["embeddings"]
-        ]
+        backend._embeddings = [np.array(e, dtype=np.float32) for e in backend_data["embeddings"]]
 
         return retriever
 
@@ -1479,7 +1461,7 @@ class _LazyEmbeddings:
     def __init__(self, provider: str | None = None, model: str | None = None) -> None:
         self._provider = provider
         self._model = model
-        self._embeddings: "Embeddings" | None = None
+        self._embeddings: Embeddings | None = None
 
     @property
     def provider(self) -> str | None:
@@ -1493,9 +1475,7 @@ class _LazyEmbeddings:
         if self._embeddings is None:
             from ai_infra.embeddings import Embeddings as EmbeddingsClass
 
-            self._embeddings = EmbeddingsClass(
-                provider=self._provider, model=self._model
-            )
+            self._embeddings = EmbeddingsClass(provider=self._provider, model=self._model)
 
     def embed(self, text: str) -> list[float]:
         self._ensure_loaded()

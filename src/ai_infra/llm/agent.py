@@ -10,19 +10,36 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
     Literal,
 )
-from collections.abc import Callable, Sequence
 
 if TYPE_CHECKING:
     from ai_infra.callbacks import CallbackManager, Callbacks
     from ai_infra.llm.streaming import StreamConfig
     from ai_infra.llm.workspace import Workspace
 
+from ai_infra.llm.agents.callbacks import (
+    wrap_tool_with_callbacks as _wrap_tool_with_callbacks_impl,
+)
+
+# =============================================================================
+# DeepAgents Types (imported from agents submodule)
+# =============================================================================
+from ai_infra.llm.agents.deep import (
+    AgentMiddleware,
+    CompiledSubAgent,
+    FilesystemMiddleware,
+    SubAgent,
+    SubAgentMiddleware,
+)
+from ai_infra.llm.agents.deep import (
+    build_deep_agent as _build_deep_agent_impl,
+)
 from ai_infra.llm.base import BaseLLM
 from ai_infra.llm.session import (
     ResumeDecision,
@@ -55,29 +72,14 @@ from .utils import merge_overrides as _merge_overrides
 from .utils import run_with_fallbacks as _run_fallbacks_util
 from .utils import with_retry as _with_retry_util
 
-# =============================================================================
-# DeepAgents Types (imported from agents submodule)
-# =============================================================================
-from ai_infra.llm.agents.deep import (
-    SubAgent,
-    CompiledSubAgent,
-    SubAgentMiddleware,
-    FilesystemMiddleware,
-    AgentMiddleware,
-    build_deep_agent as _build_deep_agent_impl,
-)
-from ai_infra.llm.agents.callbacks import (
-    wrap_tool_with_callbacks as _wrap_tool_with_callbacks_impl,
-)
-
 # Export DeepAgent types
 __all__ = [
     "Agent",
-    "SubAgent",
-    "CompiledSubAgent",
-    "SubAgentMiddleware",
-    "FilesystemMiddleware",
     "AgentMiddleware",
+    "CompiledSubAgent",
+    "FilesystemMiddleware",
+    "SubAgent",
+    "SubAgentMiddleware",
 ]
 
 
@@ -199,16 +201,14 @@ class Agent(BaseLLM):
         description: str | None = None,
         system: str | None = None,
         # Callbacks for observability
-        callbacks: "Callbacks" | "CallbackManager" | None = None,
+        callbacks: Callbacks | CallbackManager | None = None,
         # Tool execution config
         on_tool_error: Literal["return_error", "retry", "abort"] = "return_error",
         tool_timeout: float | None = None,
         validate_tool_results: bool = False,
         max_tool_retries: int = 1,
         # Approval config
-        require_approval: bool
-        | list[str]
-        | Callable[[str, dict[str, Any]], bool] = False,
+        require_approval: bool | list[str] | Callable[[str, dict[str, Any]], bool] = False,
         approval_handler: ApprovalHandler | AsyncApprovalHandler | None = None,
         # Session config (for persistence and pause/resume)
         session: SessionStorage | None = None,
@@ -216,13 +216,13 @@ class Agent(BaseLLM):
         pause_after: list[str] | None = None,
         # DeepAgents mode (autonomous multi-step task execution)
         deep: bool = False,
-        subagents: list["Agent" | "SubAgent"] | None = None,
-        middleware: Sequence["AgentMiddleware"] | None = None,
+        subagents: list[Agent | SubAgent] | None = None,
+        middleware: Sequence[AgentMiddleware] | None = None,
         response_format: Any | None = None,
         context_schema: type[Any] | None = None,
         use_longterm_memory: bool = False,
         # Workspace configuration
-        workspace: str | "Path" | "Workspace" | None = None,
+        workspace: str | Path | Workspace | None = None,
         # Safety limits
         recursion_limit: int = 50,
         **model_kwargs,
@@ -319,7 +319,7 @@ class Agent(BaseLLM):
         # Callbacks for observability - use shared normalize_callbacks utility
         from ai_infra.callbacks import normalize_callbacks
 
-        self._callbacks: "CallbackManager" | None = normalize_callbacks(callbacks)
+        self._callbacks: CallbackManager | None = normalize_callbacks(callbacks)
 
         # DeepAgents mode config
         self._deep = deep
@@ -333,7 +333,7 @@ class Agent(BaseLLM):
         self._recursion_limit = recursion_limit
 
         # Workspace configuration
-        self._workspace: "Workspace" | None = None
+        self._workspace: Workspace | None = None
         if workspace is not None:
             if isinstance(workspace, (str, Path)):
                 from ai_infra.llm.workspace import Workspace as WorkspaceClass
@@ -376,7 +376,7 @@ class Agent(BaseLLM):
         if tools:
             self.set_global_tools(tools)
 
-    def _wrap_tool_with_callbacks(self, tool: Any, callbacks: "CallbackManager") -> Any:
+    def _wrap_tool_with_callbacks(self, tool: Any, callbacks: CallbackManager) -> Any:
         """Wrap a tool to fire callback events on start/end/error.
 
         For BaseTool subclasses, we wrap the _run/_arun methods directly.
@@ -403,7 +403,7 @@ class Agent(BaseLLM):
         deny: list[str] | None = None,
         approve: list[str] | None = None,
         **kwargs,
-    ) -> "Agent":
+    ) -> Agent:
         """
         Create an Agent from a persona configuration.
 
@@ -579,9 +579,7 @@ class Agent(BaseLLM):
         # Resolve provider and model
         eff_provider = provider or self._default_provider
         eff_model = model_name or self._default_model_name
-        eff_provider, eff_model = self._resolve_provider_and_model(
-            eff_provider, eff_model
-        )
+        eff_provider, eff_model = self._resolve_provider_and_model(eff_provider, eff_model)
 
         # Merge model kwargs
         eff_kwargs = {**self._default_model_kwargs, **model_kwargs}
@@ -640,7 +638,7 @@ class Agent(BaseLLM):
             return str(result.content)
         return str(result)
 
-    def _convert_subagents(self, subagents: list["Agent" | Any]) -> list[Any]:
+    def _convert_subagents(self, subagents: list[Agent | Any]) -> list[Any]:
         """Convert Agent instances to SubAgent format.
 
         This allows users to pass Agent instances directly to the subagents
@@ -740,9 +738,7 @@ class Agent(BaseLLM):
         # Resolve provider and model
         eff_provider = provider or self._default_provider
         eff_model = model_name or self._default_model_name
-        eff_provider, eff_model = self._resolve_provider_and_model(
-            eff_provider, eff_model
-        )
+        eff_provider, eff_model = self._resolve_provider_and_model(eff_provider, eff_model)
 
         # Merge model kwargs
         eff_kwargs = {**self._default_model_kwargs, **model_kwargs}
@@ -800,7 +796,7 @@ class Agent(BaseLLM):
         visibility: Literal["minimal", "standard", "detailed", "debug"] = "standard",
         stream_mode: str | list[str] = "messages",
         config: dict[str, Any] | None = None,
-        stream_config: "StreamConfig" | None = None,
+        stream_config: StreamConfig | None = None,
         **model_kwargs,
     ):
         """Stream agent responses as normalized, typed events.
@@ -884,9 +880,7 @@ class Agent(BaseLLM):
         # Resolve provider and model
         eff_provider = provider or self._default_provider
         eff_model = model_name or self._default_model_name
-        eff_provider, eff_model = self._resolve_provider_and_model(
-            eff_provider, eff_model
-        )
+        eff_provider, eff_model = self._resolve_provider_and_model(eff_provider, eff_model)
 
         # Merge model kwargs
         eff_kwargs = {**self._default_model_kwargs, **model_kwargs}
@@ -899,12 +893,8 @@ class Agent(BaseLLM):
 
         # State for tool call accumulation
         pending_tool_calls: dict[str, float] = {}  # tool_call_id -> start_time
-        emitted_tool_starts: set = (
-            set()
-        )  # Track which tool_starts we've already emitted
-        accumulating_tool_calls: dict[
-            int, dict[str, Any]
-        ] = {}  # index -> {id, name, args_str}
+        emitted_tool_starts: set = set()  # Track which tool_starts we've already emitted
+        accumulating_tool_calls: dict[int, dict[str, Any]] = {}  # index -> {id, name, args_str}
         tools_called = 0
 
         # Emit "thinking" event at start
@@ -986,9 +976,7 @@ class Agent(BaseLLM):
                                     tool=acc_name,
                                     tool_id=acc_id,
                                     arguments=(
-                                        tc_args
-                                        if eff_visibility in ("detailed", "debug")
-                                        else None
+                                        tc_args if eff_visibility in ("detailed", "debug") else None
                                     ),
                                 )
                                 yield filter_event_for_visibility(event, eff_visibility)
@@ -1024,11 +1012,7 @@ class Agent(BaseLLM):
 
                     # Skip if no name, no args (incomplete chunk), or already emitted
                     # Empty args {} means LLM hasn't streamed the arguments yet
-                    if (
-                        not tc_name
-                        or tc_name == "unknown"
-                        or tc_id in emitted_tool_starts
-                    ):
+                    if not tc_name or tc_name == "unknown" or tc_id in emitted_tool_starts:
                         continue
                     if not tc_args or (isinstance(tc_args, dict) and len(tc_args) == 0):
                         # Skip incomplete tool calls with empty args (streaming in progress)
@@ -1043,16 +1027,12 @@ class Agent(BaseLLM):
                     elif not isinstance(tc_args, dict):
                         tc_args = {}
 
-                    if cfg.include_tool_events and should_emit_event(
-                        "tool_start", eff_visibility
-                    ):
+                    if cfg.include_tool_events and should_emit_event("tool_start", eff_visibility):
                         event = StreamEvent(
                             type="tool_start",
                             tool=tc_name,
                             tool_id=tc_id,
-                            arguments=tc_args
-                            if eff_visibility in ("detailed", "debug")
-                            else None,
+                            arguments=tc_args if eff_visibility in ("detailed", "debug") else None,
                         )
                         yield filter_event_for_visibility(event, eff_visibility)
 
@@ -1079,9 +1059,7 @@ class Agent(BaseLLM):
                     del accumulating_tool_calls[idx_to_remove]
 
                 # Emit tool_end
-                if cfg.include_tool_events and should_emit_event(
-                    "tool_end", eff_visibility
-                ):
+                if cfg.include_tool_events and should_emit_event("tool_end", eff_visibility):
                     # Get result from tool - may be string or structured dict
                     raw_result = token.content
 
@@ -1108,9 +1086,7 @@ class Agent(BaseLLM):
                     if eff_visibility == "debug" and not is_structured:
                         result_str = str(raw_result)
                         if len(result_str) > cfg.tool_result_preview_length:
-                            preview = (
-                                result_str[: cfg.tool_result_preview_length] + "..."
-                            )
+                            preview = result_str[: cfg.tool_result_preview_length] + "..."
                         else:
                             preview = result_str
 
@@ -1132,15 +1108,11 @@ class Agent(BaseLLM):
             if isinstance(token, AIMessageChunk) and token.content:
                 # Content can be str or list - convert to string
                 content = (
-                    str(token.content)
-                    if not isinstance(token.content, str)
-                    else token.content
+                    str(token.content) if not isinstance(token.content, str) else token.content
                 )
             elif hasattr(token, "content") and token.content:
                 content = (
-                    str(token.content)
-                    if not isinstance(token.content, str)
-                    else token.content
+                    str(token.content) if not isinstance(token.content, str) else token.content
                 )
             elif isinstance(token, str) and token:
                 content = token
@@ -1193,9 +1165,7 @@ class Agent(BaseLLM):
         # Resolve provider and model
         eff_provider = provider or self._default_provider
         eff_model = model_name or self._default_model_name
-        eff_provider, eff_model = self._resolve_provider_and_model(
-            eff_provider, eff_model
-        )
+        eff_provider, eff_model = self._resolve_provider_and_model(eff_provider, eff_model)
 
         # Build resume command
         decision = ResumeDecision(
@@ -1255,9 +1225,7 @@ class Agent(BaseLLM):
         # Resolve provider and model
         eff_provider = provider or self._default_provider
         eff_model = model_name or self._default_model_name
-        eff_provider, eff_model = self._resolve_provider_and_model(
-            eff_provider, eff_model
-        )
+        eff_provider, eff_model = self._resolve_provider_and_model(eff_provider, eff_model)
 
         # Build resume command
         decision = ResumeDecision(
@@ -1419,9 +1387,7 @@ class Agent(BaseLLM):
             context_schema=self._context_schema,
         )
 
-    def _get_model_for_deep_agent(
-        self, provider: str, model_name: str | None = None
-    ) -> Any:
+    def _get_model_for_deep_agent(self, provider: str, model_name: str | None = None) -> Any:
         """Get a LangChain chat model instance for deep agent.
 
         Args:
@@ -1435,9 +1401,7 @@ class Agent(BaseLLM):
         eff_provider, eff_model = self._resolve_provider_and_model(provider, model_name)
 
         # Get or create model from registry (same as get_model())
-        return self.registry.get_or_create(
-            eff_provider, eff_model, **self._default_model_kwargs
-        )
+        return self.registry.get_or_create(eff_provider, eff_model, **self._default_model_kwargs)
 
     async def arun_agent(
         self,
@@ -1464,8 +1428,7 @@ class Agent(BaseLLM):
                     model=model_name or "",
                     messages=messages,
                     tools=[
-                        {"name": getattr(t, "name", str(t))}
-                        for t in (tools or self.tools or [])
+                        {"name": getattr(t, "name", str(t))} for t in (tools or self.tools or [])
                     ],
                 )
             )
@@ -1473,9 +1436,7 @@ class Agent(BaseLLM):
         start_time = time.time()
 
         async def _call():
-            return await agent.ainvoke(
-                {"messages": messages}, context=context, config=config
-            )
+            return await agent.ainvoke({"messages": messages}, context=context, config=config)
 
         try:
             retry_cfg = (extra or {}).get("retry") if extra else None
@@ -1510,9 +1471,7 @@ class Agent(BaseLLM):
                     )
                 )
             # Translate provider errors to ai-infra errors
-            raise translate_provider_error(
-                e, provider=provider, model=model_name
-            ) from e
+            raise translate_provider_error(e, provider=provider, model=model_name) from e
         ai_msg = await apply_output_gate_async(res, self._hitl)
         return ai_msg
 
@@ -1541,8 +1500,7 @@ class Agent(BaseLLM):
                     model=model_name or "",
                     messages=messages,
                     tools=[
-                        {"name": getattr(t, "name", str(t))}
-                        for t in (tools or self.tools or [])
+                        {"name": getattr(t, "name", str(t))} for t in (tools or self.tools or [])
                     ],
                 )
             )
@@ -1552,9 +1510,7 @@ class Agent(BaseLLM):
 
         start_time = time.time()
         try:
-            res = agent.invoke(
-                {"messages": messages}, context=context, config=merged_config
-            )
+            res = agent.invoke({"messages": messages}, context=context, config=merged_config)
 
             # Fire LLM end callback
             if self._callbacks:
@@ -1582,9 +1538,7 @@ class Agent(BaseLLM):
                     )
                 )
             # Translate provider errors to ai-infra errors
-            raise translate_provider_error(
-                e, provider=provider, model=model_name
-            ) from e
+            raise translate_provider_error(e, provider=provider, model=model_name) from e
         ai_msg = apply_output_gate(res, self._hitl)
         return ai_msg
 
@@ -1696,9 +1650,7 @@ class Agent(BaseLLM):
         extra: dict[str, Any] | None = None,
         model_kwargs: dict[str, Any] | None = None,
     ):
-        return self._make_agent_with_context(
-            provider, model_name, tools, extra, model_kwargs
-        )
+        return self._make_agent_with_context(provider, model_name, tools, extra, model_kwargs)
 
     # ---------- fallbacks (sync) ----------
     def run_with_fallbacks(
@@ -1712,8 +1664,8 @@ class Agent(BaseLLM):
         config: dict[str, Any] | None = None,
     ):
         def _run_single(provider: str, model_name: str, overrides: dict[str, Any]):
-            eff_extra, eff_model_kwargs, eff_tools, eff_tool_controls = (
-                _merge_overrides(extra, model_kwargs, tools, tool_controls, overrides)
+            eff_extra, eff_model_kwargs, eff_tools, eff_tool_controls = _merge_overrides(
+                extra, model_kwargs, tools, tool_controls, overrides
             )
             return self.run_agent(
                 messages=messages,
@@ -1743,11 +1695,9 @@ class Agent(BaseLLM):
         tool_controls: ToolCallControls | dict[str, Any] | None = None,
         config: dict[str, Any] | None = None,
     ):
-        async def _run_single(
-            provider: str, model_name: str, overrides: dict[str, Any]
-        ):
-            eff_extra, eff_model_kwargs, eff_tools, eff_tool_controls = (
-                _merge_overrides(extra, model_kwargs, tools, tool_controls, overrides)
+        async def _run_single(provider: str, model_name: str, overrides: dict[str, Any]):
+            eff_extra, eff_model_kwargs, eff_tools, eff_tool_controls = _merge_overrides(
+                extra, model_kwargs, tools, tool_controls, overrides
             )
             return await self.arun_agent(
                 messages=messages,

@@ -1,16 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, is_dataclass
-from typing import Any, Optional
+from typing import Any
 
 from ai_infra.llm.providers import Providers
 
 
 @dataclass
 class ToolCallControls:
-    tool_choice: Optional[dict[str, Any]] = (
-        None  # e.g. {"name":"my_tool"} | "none" | "auto" | "any"
-    )
+    tool_choice: dict[str, Any] | None = None  # e.g. {"name":"my_tool"} | "none" | "auto" | "any"
     parallel_tool_calls: bool = True
     force_once: bool = False  # Only enforce tool_choice for the first call in a run
 
@@ -26,7 +24,7 @@ def _ensure_dict(obj: Any) -> dict[str, Any] | None:
     return None
 
 
-def _extract_name(tool_choice: Any) -> Optional[str]:
+def _extract_name(tool_choice: Any) -> str | None:
     if not isinstance(tool_choice, dict):
         return None
     return tool_choice.get("name") or (tool_choice.get("function") or {}).get("name")
@@ -36,9 +34,7 @@ def no_tools() -> dict[str, Any]:
     return {"tool_controls": {"tool_choice": "none"}}
 
 
-def force_tool(
-    name: str, *, once: bool = False, parallel: bool = False
-) -> dict[str, Any]:
+def force_tool(name: str, *, once: bool = False, parallel: bool = False) -> dict[str, Any]:
     return {
         "tool_controls": {
             "tool_choice": {"name": name},
@@ -96,7 +92,7 @@ def normalize_tool_controls(provider: str, controls: Any) -> tuple[Any, bool, bo
 
     elif provider == Providers.google_genai:
         # Gemini wants FunctionCallingConfig
-        def gg(mode: str, names: Optional[list[str]] = None):
+        def gg(mode: str, names: list[str] | None = None):
             cfg: dict[str, dict[str, Any]] = {"function_calling_config": {"mode": mode}}
             if names:
                 cfg["function_calling_config"]["allowed_function_names"] = names

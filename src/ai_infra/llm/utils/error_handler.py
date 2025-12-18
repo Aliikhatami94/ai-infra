@@ -24,8 +24,8 @@ from __future__ import annotations
 
 import functools
 import re
-from typing import Any, Optional, TypeVar
 from collections.abc import Callable
+from typing import Any, TypeVar
 
 from ai_infra.errors import (
     AuthenticationError,
@@ -38,10 +38,10 @@ from ai_infra.errors import (
 )
 
 __all__ = [
+    "extract_retry_after",
     "translate_provider_error",
     "with_error_handling",
     "with_error_handling_async",
-    "extract_retry_after",
 ]
 
 F = TypeVar("F", bound=Callable[..., Any])
@@ -159,7 +159,7 @@ PROVIDER_PATTERNS = {
 # =============================================================================
 
 
-def extract_retry_after(error: Exception) -> Optional[float]:
+def extract_retry_after(error: Exception) -> float | None:
     """Extract retry-after seconds from rate limit error.
 
     Args:
@@ -200,11 +200,11 @@ def _match_pattern(msg: str, patterns: list[str]) -> bool:
     return any(re.search(pattern, msg_lower) for pattern in patterns)
 
 
-def _get_status_code(error: Exception) -> Optional[int]:
+def _get_status_code(error: Exception) -> int | None:
     """Extract HTTP status code from error."""
     # Direct attribute
     if hasattr(error, "status_code"):
-        val = getattr(error, "status_code")
+        val = error.status_code
         if isinstance(val, int):
             return val
         try:
@@ -216,7 +216,7 @@ def _get_status_code(error: Exception) -> Optional[int]:
     if hasattr(error, "response"):
         resp = error.response
         if hasattr(resp, "status_code"):
-            val = getattr(resp, "status_code")
+            val = resp.status_code
             if isinstance(val, int):
                 return val
             try:
@@ -224,7 +224,7 @@ def _get_status_code(error: Exception) -> Optional[int]:
             except Exception:
                 return None
         if hasattr(resp, "status"):
-            val = getattr(resp, "status")
+            val = resp.status
             if isinstance(val, int):
                 return val
             try:
@@ -234,7 +234,7 @@ def _get_status_code(error: Exception) -> Optional[int]:
 
     # httpx style
     if hasattr(error, "code"):
-        val = getattr(error, "code")
+        val = error.code
         if isinstance(val, int):
             return val
         try:
@@ -248,8 +248,8 @@ def _get_status_code(error: Exception) -> Optional[int]:
 def translate_provider_error(
     error: Exception,
     *,
-    provider: Optional[str] = None,
-    model: Optional[str] = None,
+    provider: str | None = None,
+    model: str | None = None,
 ) -> Exception:
     """Translate a provider SDK error into an ai-infra error.
 
@@ -383,8 +383,8 @@ def translate_provider_error(
 
 
 def with_error_handling(
-    provider: Optional[str] = None,
-    model: Optional[str] = None,
+    provider: str | None = None,
+    model: str | None = None,
 ) -> Callable[[F], F]:
     """Decorator to wrap a function with LLM error handling.
 
@@ -419,8 +419,8 @@ def with_error_handling(
 
 
 def with_error_handling_async(
-    provider: Optional[str] = None,
-    model: Optional[str] = None,
+    provider: str | None = None,
+    model: str | None = None,
 ) -> Callable[[F], F]:
     """Async decorator to wrap a function with LLM error handling.
 

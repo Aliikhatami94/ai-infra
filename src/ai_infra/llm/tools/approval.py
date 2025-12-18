@@ -31,9 +31,9 @@ from __future__ import annotations
 
 import ast
 import uuid
-from datetime import datetime
-from typing import Any, Literal, Optional
 from collections.abc import Awaitable, Callable
+from datetime import datetime
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -77,19 +77,19 @@ class ApprovalResponse(BaseModel):
     """
 
     approved: bool
-    modified_args: Optional[dict[str, Any]] = None
-    reason: Optional[str] = None
-    approver: Optional[str] = None
+    modified_args: dict[str, Any] | None = None
+    reason: str | None = None
+    approver: str | None = None
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
     @classmethod
     def approve(
         cls,
         *,
-        modified_args: Optional[dict[str, Any]] = None,
-        reason: Optional[str] = None,
-        approver: Optional[str] = None,
-    ) -> "ApprovalResponse":
+        modified_args: dict[str, Any] | None = None,
+        reason: str | None = None,
+        approver: str | None = None,
+    ) -> ApprovalResponse:
         """Create an approval response."""
         return cls(
             approved=True,
@@ -102,9 +102,9 @@ class ApprovalResponse(BaseModel):
     def reject(
         cls,
         *,
-        reason: Optional[str] = None,
-        approver: Optional[str] = None,
-    ) -> "ApprovalResponse":
+        reason: str | None = None,
+        approver: str | None = None,
+    ) -> ApprovalResponse:
         """Create a rejection response."""
         return cls(
             approved=False,
@@ -142,19 +142,17 @@ class OutputReviewResponse(BaseModel):
     """
 
     action: Literal["pass", "modify", "block"] = "pass"
-    replacement: Optional[str] = None
-    reason: Optional[str] = None
-    reviewer: Optional[str] = None
+    replacement: str | None = None
+    reason: str | None = None
+    reviewer: str | None = None
 
     @classmethod
-    def allow(cls) -> "OutputReviewResponse":
+    def allow(cls) -> OutputReviewResponse:
         """Allow the output unchanged."""
         return cls(action="pass")
 
     @classmethod
-    def modify(
-        cls, replacement: str, *, reason: Optional[str] = None
-    ) -> "OutputReviewResponse":
+    def modify(cls, replacement: str, *, reason: str | None = None) -> OutputReviewResponse:
         """Modify the output."""
         return cls(action="modify", replacement=replacement, reason=reason)
 
@@ -163,8 +161,8 @@ class OutputReviewResponse(BaseModel):
         cls,
         replacement: str = "[Content blocked by reviewer]",
         *,
-        reason: Optional[str] = None,
-    ) -> "OutputReviewResponse":
+        reason: str | None = None,
+    ) -> OutputReviewResponse:
         """Block the output."""
         return cls(action="block", replacement=replacement, reason=reason)
 
@@ -195,9 +193,7 @@ def console_approval_handler(request: ApprovalRequest) -> ApprovalResponse:
             if ans in ("y", "yes"):
                 return ApprovalResponse.approve(approver="console")
             elif ans in ("n", "no"):
-                return ApprovalResponse.reject(
-                    reason="Rejected by user", approver="console"
-                )
+                return ApprovalResponse.reject(reason="Rejected by user", approver="console")
             elif ans in ("m", "modify"):
                 print(f"   Current args: {request.args}")
                 # Simple modification: let user enter new args as Python dict literal
@@ -214,15 +210,11 @@ def console_approval_handler(request: ApprovalRequest) -> ApprovalResponse:
                     print("   Invalid: must be a dict")
                 except (ValueError, SyntaxError) as e:
                     print(f"   Error parsing args: {e}")
-                    print(
-                        "   Hint: Only dict literals allowed, e.g. {'key': 'value', 'count': 42}"
-                    )
+                    print("   Hint: Only dict literals allowed, e.g. {'key': 'value', 'count': 42}")
             else:
                 print("   Please enter y, n, or m")
     except EOFError:
-        return ApprovalResponse.reject(
-            reason="EOF - no input available", approver="console"
-        )
+        return ApprovalResponse.reject(reason="EOF - no input available", approver="console")
     except KeyboardInterrupt:
         return ApprovalResponse.reject(reason="Cancelled by user", approver="console")
 
@@ -264,9 +256,7 @@ def create_selective_handler(
     def selective_handler(request: ApprovalRequest) -> ApprovalResponse:
         if request.tool_name in tools_requiring_approval:
             return handler(request)
-        return ApprovalResponse.approve(
-            reason="Tool not in approval list", approver="auto"
-        )
+        return ApprovalResponse.approve(reason="Tool not in approval list", approver="auto")
 
     return selective_handler
 
@@ -318,19 +308,19 @@ class ApprovalRule(BaseModel):
     """
 
     required: bool = True
-    approvers: Optional[list[str]] = None  # None = any approver allowed
+    approvers: list[str] | None = None  # None = any approver allowed
     require_all: bool = False  # If True, all approvers must approve
     priority: int = 0  # Higher = more important
-    timeout: Optional[int] = None  # Override default timeout
-    message: Optional[str] = None  # Custom approval message
+    timeout: int | None = None  # Override default timeout
+    message: str | None = None  # Custom approval message
 
     @classmethod
-    def no_approval(cls) -> "ApprovalRule":
+    def no_approval(cls) -> ApprovalRule:
         """Create a rule that requires no approval."""
         return cls(required=False)
 
     @classmethod
-    def any_approver(cls, *, timeout: Optional[int] = None) -> "ApprovalRule":
+    def any_approver(cls, *, timeout: int | None = None) -> ApprovalRule:
         """Create a rule that any approver can satisfy."""
         return cls(required=True, approvers=None, timeout=timeout)
 
@@ -340,8 +330,8 @@ class ApprovalRule(BaseModel):
         approvers: list[str],
         *,
         require_all: bool = False,
-        timeout: Optional[int] = None,
-    ) -> "ApprovalRule":
+        timeout: int | None = None,
+    ) -> ApprovalRule:
         """Create a rule with specific approvers."""
         return cls(
             required=True,
@@ -400,7 +390,7 @@ class MultiApprovalRequest(BaseModel):
             },
         )
 
-    def add_approval(self, response: ApprovalResponse) -> "MultiApprovalRequest":
+    def add_approval(self, response: ApprovalResponse) -> MultiApprovalRequest:
         """Add an approval and update status.
 
         Returns:
@@ -469,14 +459,10 @@ class MultiApprovalRequest(BaseModel):
                     modified = r.modified_args
                     break
 
-            approvers = [
-                r.approver for r in self.received_approvals if r.approved and r.approver
-            ]
+            approvers = [r.approver for r in self.received_approvals if r.approved and r.approver]
             return ApprovalResponse.approve(
                 modified_args=modified,
-                reason=f"Approved by: {', '.join(approvers)}"
-                if approvers
-                else "Approved",
+                reason=f"Approved by: {', '.join(approvers)}" if approvers else "Approved",
                 approver=approvers[0] if approvers else None,
             )
         else:
@@ -493,7 +479,7 @@ class MultiApprovalRequest(BaseModel):
 def create_rule_based_handler(
     rules: dict[str, ApprovalRule],
     handler: ApprovalHandler = console_approval_handler,
-    default_rule: Optional[ApprovalRule] = None,
+    default_rule: ApprovalRule | None = None,
 ) -> ApprovalHandler:
     """Create a handler that applies different rules per tool.
 

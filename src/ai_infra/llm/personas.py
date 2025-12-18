@@ -25,10 +25,10 @@ Example:
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-from collections.abc import Callable
 
 import yaml
 
@@ -89,7 +89,7 @@ class Persona:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_yaml(cls, path: str | Path) -> "Persona":
+    def from_yaml(cls, path: str | Path) -> Persona:
         """
         Load persona from a YAML file.
 
@@ -121,7 +121,7 @@ class Persona:
         return cls.from_dict(data)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Persona":
+    def from_dict(cls, data: dict[str, Any]) -> Persona:
         """
         Create persona from dictionary.
 

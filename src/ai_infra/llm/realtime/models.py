@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from enum import Enum
-from typing import Any, Literal, Optional, Protocol, runtime_checkable
+from typing import Any, Literal, Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field
 
@@ -94,8 +94,8 @@ class ToolDefinition(BaseModel):
     """
 
     name: str
-    description: Optional[str] = None
-    parameters: Optional[dict[str, Any]] = None
+    description: str | None = None
+    parameters: dict[str, Any] | None = None
 
 
 class AudioFormat(BaseModel):
@@ -147,7 +147,7 @@ class RealtimeConfig(BaseModel):
     """
 
     # Model selection (optional - uses provider default if not specified)
-    model: Optional[str] = Field(
+    model: str | None = Field(
         default=None,
         description="Model name (e.g., 'gpt-4o-realtime-preview'). Uses provider default if None.",
     )
@@ -281,7 +281,7 @@ class ToolCallResult(BaseModel):
 
     call_id: str
     output: Any = None
-    error: Optional[str] = None
+    error: str | None = None
 
 
 class RealtimeEvent(BaseModel):
@@ -305,7 +305,7 @@ class SessionErrorEvent(RealtimeEvent):
 
     type: Literal["session.error"] = "session.error"
     error: str
-    code: Optional[str] = None
+    code: str | None = None
 
 
 class ResponseDoneEvent(RealtimeEvent):
@@ -333,7 +333,7 @@ class RealtimeError(Exception):
         code: Optional error code from the provider.
     """
 
-    def __init__(self, message: str, code: Optional[str] = None):
+    def __init__(self, message: str, code: str | None = None):
         super().__init__(message)
         self.message = message
         self.code = code

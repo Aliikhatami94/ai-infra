@@ -30,7 +30,7 @@ from __future__ import annotations
 import logging
 import time
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 from ai_infra.providers import ProviderCapability, ProviderRegistry
 
@@ -96,7 +96,7 @@ def is_provider_configured(provider: str) -> bool:
     return ProviderRegistry.is_configured(registry_name)
 
 
-def get_api_key(provider: str) -> Optional[str]:
+def get_api_key(provider: str) -> str | None:
     """Get the API key for a provider.
 
     Args:
@@ -135,9 +135,7 @@ def list_models(provider: str) -> list[str]:
     registry_name = _PROVIDER_ALIASES.get(provider, provider)
     config = ProviderRegistry.get(registry_name)
     if not config:
-        raise ValueError(
-            f"Unknown provider: {provider}. Supported: {', '.join(list_providers())}"
-        )
+        raise ValueError(f"Unknown provider: {provider}. Supported: {', '.join(list_providers())}")
 
     cap = config.get_capability(ProviderCapability.IMAGEGEN)
     if not cap:
@@ -165,7 +163,7 @@ def _load_cache() -> dict[str, Any]:
             import json
 
             with open(cache_path) as f:
-                return cast(dict[str, Any], json.load(f))
+                return cast("dict[str, Any]", json.load(f))
         except Exception:
             return {}
     return {}
@@ -218,9 +216,7 @@ def _fetch_openai_models() -> list[str]:
 
     # Filter to image generation models
     image_models = [
-        m.id
-        for m in models.data
-        if m.id.startswith("dall-e") or "image" in m.id.lower()
+        m.id for m in models.data if m.id.startswith("dall-e") or "image" in m.id.lower()
     ]
 
     return sorted(image_models)
@@ -391,9 +387,7 @@ def list_all_available_models(
                 continue
 
         try:
-            models = list_available_models(
-                provider, refresh=refresh, use_cache=use_cache
-            )
+            models = list_available_models(provider, refresh=refresh, use_cache=use_cache)
             result[provider] = models
         except Exception as e:
             log.warning(f"Failed to list models for {provider}: {e}")
@@ -403,14 +397,14 @@ def list_all_available_models(
 
 
 __all__ = [
-    "list_providers",
+    "PROVIDER_ENV_VARS",
+    "SUPPORTED_PROVIDERS",
+    "clear_cache",
+    "get_api_key",
+    "is_provider_configured",
+    "list_all_available_models",
+    "list_available_models",
     "list_configured_providers",
     "list_models",
-    "list_available_models",
-    "list_all_available_models",
-    "is_provider_configured",
-    "get_api_key",
-    "clear_cache",
-    "SUPPORTED_PROVIDERS",
-    "PROVIDER_ENV_VARS",
+    "list_providers",
 ]

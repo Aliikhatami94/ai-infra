@@ -18,7 +18,6 @@ Example:
 from __future__ import annotations
 
 import logging
-from typing import Optional
 from collections.abc import Sequence
 
 from langchain_core.messages import BaseMessage
@@ -32,8 +31,8 @@ _encoding_cache: dict = {}
 def count_tokens(
     messages: Sequence[BaseMessage | dict | str],
     *,
-    model: Optional[str] = None,
-    provider: Optional[str] = None,
+    model: str | None = None,
+    provider: str | None = None,
 ) -> int:
     """Count tokens in messages using the appropriate tokenizer.
 
@@ -180,7 +179,7 @@ def _get_encoding_for_model(model: str) -> str:
     return "cl100k_base"
 
 
-def get_context_limit(model: str, provider: Optional[str] = None) -> int:
+def get_context_limit(model: str, provider: str | None = None) -> int:
     """Get the context window size for a model.
 
     Args:

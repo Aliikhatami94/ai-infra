@@ -37,12 +37,12 @@ Example:
 
 from __future__ import annotations
 
+import builtins
 import json
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Optional
-import builtins
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from langchain_core.embeddings import Embeddings
@@ -72,10 +72,10 @@ class MemoryItem:
     updated_at: float = field(default_factory=time.time)
     """Unix timestamp when last updated."""
 
-    expires_at: Optional[float] = None
+    expires_at: float | None = None
     """Unix timestamp when this memory expires (optional)."""
 
-    score: Optional[float] = None
+    score: float | None = None
     """Similarity score (populated during search)."""
 
 
@@ -126,10 +126,10 @@ class MemoryStore:
         self,
         *,
         backend: str = "memory",
-        embedding_provider: Optional[str] = None,
-        embedding_model: Optional[str] = None,
-        connection_string: Optional[str] = None,
-        path: Optional[str] = None,
+        embedding_provider: str | None = None,
+        embedding_model: str | None = None,
+        connection_string: str | None = None,
+        path: str | None = None,
     ):
         """Initialize a MemoryStore.
 
@@ -150,7 +150,7 @@ class MemoryStore:
         self._backend = self._create_backend()
 
         # Initialize embeddings if provider specified
-        self._embeddings: "Embeddings" | None = None
+        self._embeddings: Embeddings | None = None
         if embedding_provider:
             self._init_embeddings()
 
@@ -159,9 +159,9 @@ class MemoryStore:
         cls,
         path: str,
         *,
-        embedding_provider: Optional[str] = None,
-        embedding_model: Optional[str] = None,
-    ) -> "MemoryStore":
+        embedding_provider: str | None = None,
+        embedding_model: str | None = None,
+    ) -> MemoryStore:
         """Create a SQLite-backed memory store.
 
         Args:
@@ -192,9 +192,9 @@ class MemoryStore:
         cls,
         connection_string: str,
         *,
-        embedding_provider: Optional[str] = None,
-        embedding_model: Optional[str] = None,
-    ) -> "MemoryStore":
+        embedding_provider: str | None = None,
+        embedding_model: str | None = None,
+    ) -> MemoryStore:
         """Create a PostgreSQL-backed memory store.
 
         Args:
@@ -221,7 +221,7 @@ class MemoryStore:
             embedding_model=embedding_model,
         )
 
-    def _create_backend(self) -> "_MemoryBackend":
+    def _create_backend(self) -> _MemoryBackend:
         """Create the storage backend."""
         if self._backend_type == "memory":
             return _InMemoryBackend()
@@ -261,7 +261,7 @@ class MemoryStore:
         key: str,
         value: dict[str, Any],
         *,
-        ttl: Optional[int] = None,
+        ttl: int | None = None,
     ) -> MemoryItem:
         """Store a memory.
 
@@ -311,7 +311,7 @@ class MemoryStore:
         self,
         namespace: Namespace,
         key: str,
-    ) -> Optional[MemoryItem]:
+    ) -> MemoryItem | None:
         """Get a memory by key.
 
         Args:
@@ -364,7 +364,7 @@ class MemoryStore:
         self,
         namespace: Namespace,
         *,
-        limit: Optional[int] = None,
+        limit: int | None = None,
     ) -> builtins.list[MemoryItem]:
         """List all memories in a namespace.
 
@@ -395,7 +395,7 @@ class MemoryStore:
         query: str,
         *,
         limit: int = 10,
-        filter: Optional[dict[str, Any]] = None,
+        filter: dict[str, Any] | None = None,
     ) -> builtins.list[MemoryItem]:
         """Search memories by semantic similarity.
 
@@ -455,7 +455,7 @@ class MemoryStore:
         value: dict[str, Any],
         *,
         category: str = "memories",
-        ttl: Optional[int] = None,
+        ttl: int | None = None,
     ) -> MemoryItem:
         """Store a user-scoped memory.
 
@@ -488,7 +488,7 @@ class MemoryStore:
         key: str,
         *,
         category: str = "memories",
-    ) -> Optional[MemoryItem]:
+    ) -> MemoryItem | None:
         """Get a user-scoped memory.
 
         Args:
@@ -527,7 +527,7 @@ class MemoryStore:
         key: str,
         value: dict[str, Any],
         *,
-        ttl: Optional[int] = None,
+        ttl: int | None = None,
     ) -> MemoryItem:
         """Store an app-level memory.
 
@@ -543,7 +543,7 @@ class MemoryStore:
         """
         return self.put(("app", "global"), key, value, ttl=ttl)
 
-    def get_app_memory(self, key: str) -> Optional[MemoryItem]:
+    def get_app_memory(self, key: str) -> MemoryItem | None:
         """Get an app-level memory.
 
         Args:
@@ -600,7 +600,7 @@ class _MemoryBackend:
     def put(
         self,
         item: MemoryItem,
-        embedding: Optional[builtins.list[float]] = None,
+        embedding: builtins.list[float] | None = None,
     ) -> None:
         raise NotImplementedError
 
@@ -608,7 +608,7 @@ class _MemoryBackend:
         self,
         namespace: tuple[str, ...],
         key: str,
-    ) -> Optional[MemoryItem]:
+    ) -> MemoryItem | None:
         raise NotImplementedError
 
     def delete(
@@ -622,7 +622,7 @@ class _MemoryBackend:
         self,
         namespace: tuple[str, ...],
         *,
-        limit: Optional[int] = None,
+        limit: int | None = None,
     ) -> builtins.list[MemoryItem]:
         raise NotImplementedError
 
@@ -632,7 +632,7 @@ class _MemoryBackend:
         query_embedding: builtins.list[float],
         *,
         limit: int = 10,
-        filter: Optional[dict[str, Any]] = None,
+        filter: dict[str, Any] | None = None,
     ) -> builtins.list[MemoryItem]:
         raise NotImplementedError
 
@@ -642,7 +642,7 @@ class _InMemoryBackend(_MemoryBackend):
 
     def __init__(self):
         # {namespace_str: {key: (item, embedding)}}
-        self._data: dict[str, dict[str, tuple[MemoryItem, Optional[list[float]]]]] = {}
+        self._data: dict[str, dict[str, tuple[MemoryItem, list[float] | None]]] = {}
 
     def _ns_key(self, namespace: tuple[str, ...]) -> str:
         return "/".join(namespace)
@@ -650,7 +650,7 @@ class _InMemoryBackend(_MemoryBackend):
     def put(
         self,
         item: MemoryItem,
-        embedding: Optional[builtins.list[float]] = None,
+        embedding: builtins.list[float] | None = None,
     ) -> None:
         ns_key = self._ns_key(item.namespace)
         if ns_key not in self._data:
@@ -661,7 +661,7 @@ class _InMemoryBackend(_MemoryBackend):
         self,
         namespace: tuple[str, ...],
         key: str,
-    ) -> Optional[MemoryItem]:
+    ) -> MemoryItem | None:
         ns_key = self._ns_key(namespace)
         if ns_key not in self._data:
             return None
@@ -685,7 +685,7 @@ class _InMemoryBackend(_MemoryBackend):
         self,
         namespace: tuple[str, ...],
         *,
-        limit: Optional[int] = None,
+        limit: int | None = None,
     ) -> builtins.list[MemoryItem]:
         ns_key = self._ns_key(namespace)
         if ns_key not in self._data:
@@ -701,7 +701,7 @@ class _InMemoryBackend(_MemoryBackend):
         query_embedding: builtins.list[float],
         *,
         limit: int = 10,
-        filter: Optional[dict[str, Any]] = None,
+        filter: dict[str, Any] | None = None,
     ) -> builtins.list[MemoryItem]:
         ns_key = self._ns_key(namespace)
         if ns_key not in self._data:
@@ -801,7 +801,7 @@ class _SQLiteBackend(_MemoryBackend):
     def put(
         self,
         item: MemoryItem,
-        embedding: Optional[builtins.list[float]] = None,
+        embedding: builtins.list[float] | None = None,
     ) -> None:
         cursor = self._conn.cursor()
         ns_str = "/".join(item.namespace)
@@ -830,7 +830,7 @@ class _SQLiteBackend(_MemoryBackend):
         self,
         namespace: tuple[str, ...],
         key: str,
-    ) -> Optional[MemoryItem]:
+    ) -> MemoryItem | None:
         cursor = self._conn.cursor()
         ns_str = "/".join(namespace)
 
@@ -879,7 +879,7 @@ class _SQLiteBackend(_MemoryBackend):
         self,
         namespace: tuple[str, ...],
         *,
-        limit: Optional[int] = None,
+        limit: int | None = None,
     ) -> builtins.list[MemoryItem]:
         cursor = self._conn.cursor()
         ns_str = "/".join(namespace)
@@ -915,7 +915,7 @@ class _SQLiteBackend(_MemoryBackend):
         query_embedding: builtins.list[float],
         *,
         limit: int = 10,
-        filter: Optional[dict[str, Any]] = None,
+        filter: dict[str, Any] | None = None,
     ) -> builtins.list[MemoryItem]:
         """Search by similarity (in-memory calculation for SQLite)."""
         cursor = self._conn.cursor()
@@ -987,8 +987,7 @@ class _PostgresBackend(_MemoryBackend):
             import psycopg2
         except ImportError as e:
             raise ImportError(
-                "PostgreSQL backend requires 'psycopg2'. "
-                "Install with: pip install psycopg2-binary"
+                "PostgreSQL backend requires 'psycopg2'. Install with: pip install psycopg2-binary"
             ) from e
 
         self._connection_string = connection_string
@@ -1057,7 +1056,7 @@ class _PostgresBackend(_MemoryBackend):
     def put(
         self,
         item: MemoryItem,
-        embedding: Optional[builtins.list[float]] = None,
+        embedding: builtins.list[float] | None = None,
     ) -> None:
         cursor = self._conn.cursor()
         ns_str = "/".join(item.namespace)
@@ -1112,7 +1111,7 @@ class _PostgresBackend(_MemoryBackend):
         self,
         namespace: tuple[str, ...],
         key: str,
-    ) -> Optional[MemoryItem]:
+    ) -> MemoryItem | None:
         cursor = self._conn.cursor()
         ns_str = "/".join(namespace)
 
@@ -1161,7 +1160,7 @@ class _PostgresBackend(_MemoryBackend):
         self,
         namespace: tuple[str, ...],
         *,
-        limit: Optional[int] = None,
+        limit: int | None = None,
     ) -> builtins.list[MemoryItem]:
         cursor = self._conn.cursor()
         ns_str = "/".join(namespace)
@@ -1199,7 +1198,7 @@ class _PostgresBackend(_MemoryBackend):
         query_embedding: builtins.list[float],
         *,
         limit: int = 10,
-        filter: Optional[dict[str, Any]] = None,
+        filter: dict[str, Any] | None = None,
     ) -> builtins.list[MemoryItem]:
         cursor = self._conn.cursor()
         ns_str = "/".join(namespace)
@@ -1230,9 +1229,7 @@ class _PostgresBackend(_MemoryBackend):
                     MemoryItem(
                         namespace=namespace,
                         key=row[0],
-                        value=row[1]
-                        if isinstance(row[1], dict)
-                        else json.loads(row[1]),
+                        value=row[1] if isinstance(row[1], dict) else json.loads(row[1]),
                         created_at=row[2],
                         updated_at=row[3],
                         expires_at=row[4],

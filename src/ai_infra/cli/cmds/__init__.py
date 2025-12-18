@@ -7,11 +7,11 @@ from .multimodal_cmds import register as register_multimodal
 from .stdio_publisher_cmds import register as register_stdio_publisher
 
 __all__ = [
+    "_HELP",
     "register_chat",
     "register_discovery",
     "register_imagegen",
     "register_mcp",
     "register_multimodal",
     "register_stdio_publisher",
-    "_HELP",
 ]

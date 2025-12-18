@@ -166,15 +166,12 @@ class Embeddings:
             if provider is None:
                 # Get env vars from registry for error message
                 env_vars = set()
-                for name in ProviderRegistry.list_for_capability(
-                    ProviderCapability.EMBEDDINGS
-                ):
+                for name in ProviderRegistry.list_for_capability(ProviderCapability.EMBEDDINGS):
                     p = ProviderRegistry.get(name)
                     if p:
                         env_vars.add(p.env_var)
                 raise ValueError(
-                    "No embedding provider available. Set one of: "
-                    + ", ".join(sorted(env_vars))
+                    "No embedding provider available. Set one of: " + ", ".join(sorted(env_vars))
                 )
 
         provider = provider.lower()
@@ -183,8 +180,7 @@ class Embeddings:
 
         if provider not in _PROVIDER_CONFIG:
             raise ValueError(
-                f"Unknown provider: {provider}. "
-                f"Available: {', '.join(_PROVIDER_CONFIG.keys())}"
+                f"Unknown provider: {provider}. Available: {', '.join(_PROVIDER_CONFIG.keys())}"
             )
 
         config = _PROVIDER_CONFIG[provider]
@@ -233,8 +229,7 @@ class Embeddings:
             if self._provider_name == "huggingface":
                 install_cmd = "langchain-huggingface sentence-transformers"
             raise ImportError(
-                f"Embedding provider '{self._provider_name}' requires: "
-                f"pip install {install_cmd}"
+                f"Embedding provider '{self._provider_name}' requires: pip install {install_cmd}"
             ) from e
 
         # Build kwargs based on provider
@@ -280,7 +275,7 @@ class Embeddings:
             print(f"Dimensions: {len(vector)}")
             ```
         """
-        return cast(list[float], self._lc_embeddings.embed_query(text))
+        return cast("list[float]", self._lc_embeddings.embed_query(text))
 
     async def aembed(self, text: str) -> list[float]:
         """Async embed a single text.
@@ -296,7 +291,7 @@ class Embeddings:
             vector = await embeddings.aembed("Hello, world!")
             ```
         """
-        return cast(list[float], await self._lc_embeddings.aembed_query(text))
+        return cast("list[float]", await self._lc_embeddings.aembed_query(text))
 
     def embed_batch(
         self,
@@ -327,9 +322,7 @@ class Embeddings:
         all_embeddings: list[list[float]] = []
         for i in range(0, len(texts), batch_size):
             batch = texts[i : i + batch_size]
-            batch_embeddings = cast(
-                list[list[float]], self._lc_embeddings.embed_documents(batch)
-            )
+            batch_embeddings = cast("list[list[float]]", self._lc_embeddings.embed_documents(batch))
             all_embeddings.extend(batch_embeddings)
 
         return all_embeddings
@@ -364,9 +357,7 @@ class Embeddings:
 
         async def process_batch(batch: list[str]) -> list[list[float]]:
             async with semaphore:
-                return cast(
-                    list[list[float]], await self._lc_embeddings.aembed_documents(batch)
-                )
+                return cast("list[list[float]]", await self._lc_embeddings.aembed_documents(batch))
 
         results = await asyncio.gather(*[process_batch(b) for b in batches])
 
@@ -457,6 +448,4 @@ class Embeddings:
 
     def __repr__(self) -> str:
         dims = f", dimensions={self._dimensions}" if self._dimensions else ""
-        return (
-            f"Embeddings(provider={self._provider_name!r}, model={self._model!r}{dims})"
-        )
+        return f"Embeddings(provider={self._provider_name!r}, model={self._model!r}{dims})"

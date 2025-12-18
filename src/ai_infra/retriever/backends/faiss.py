@@ -79,7 +79,7 @@ class FAISSBackend(BaseBackend):
         # Create or load index
         self._index: faiss.Index = self._create_or_load_index()
 
-    def _create_index(self) -> "faiss.Index":
+    def _create_index(self) -> faiss.Index:
         """Create a new FAISS index based on index_type."""
         if self._index_type == "flat":
             # Exact search - best accuracy, slower for large datasets
@@ -101,11 +101,10 @@ class FAISSBackend(BaseBackend):
 
         else:
             raise ValueError(
-                f"Unknown index_type: {self._index_type}. "
-                "Options: 'flat', 'ivf', 'hnsw'"
+                f"Unknown index_type: {self._index_type}. Options: 'flat', 'ivf', 'hnsw'"
             )
 
-    def _create_or_load_index(self) -> "faiss.Index":
+    def _create_or_load_index(self) -> faiss.Index:
         """Create new index or load from disk."""
         if self._persist_path and self._persist_path.exists():
             return self._load_index()
@@ -130,7 +129,7 @@ class FAISSBackend(BaseBackend):
                 f,
             )
 
-    def _load_index(self) -> "faiss.Index":
+    def _load_index(self) -> faiss.Index:
         """Load index and metadata from disk.
 
         Security Warning:
@@ -172,7 +171,7 @@ class FAISSBackend(BaseBackend):
 
         return index
 
-    def _normalize_vectors(self, vectors: "np.ndarray") -> "np.ndarray":
+    def _normalize_vectors(self, vectors: np.ndarray) -> np.ndarray:
         """Normalize vectors for cosine similarity via inner product."""
         norms = self._np.linalg.norm(vectors, axis=1, keepdims=True)
         # Avoid division by zero
@@ -400,4 +399,4 @@ class FAISSBackend(BaseBackend):
 
     def count(self) -> int:
         """Return number of vectors in the index."""
-        return cast(int, self._index.ntotal)
+        return cast("int", self._index.ntotal)

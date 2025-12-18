@@ -28,8 +28,8 @@ Example:
 
 from __future__ import annotations
 
-from typing import Any, Literal, Optional
 from collections.abc import Sequence
+from typing import Any, Literal
 
 from langchain_core.messages import (
     AIMessage,
@@ -49,10 +49,10 @@ def trim_messages(
     messages: Sequence[BaseMessage | dict],
     *,
     strategy: TrimStrategy = "last",
-    max_messages: Optional[int] = None,
-    max_tokens: Optional[int] = None,
+    max_messages: int | None = None,
+    max_tokens: int | None = None,
     preserve_system: bool = True,
-    token_counter: Optional[Any] = None,
+    token_counter: Any | None = None,
 ) -> list[BaseMessage]:
     """Trim messages to fit within limits.
 
@@ -95,7 +95,7 @@ def trim_messages(
         raise ValueError("max_tokens required for strategy='token'")
 
     # Extract system message if preserving
-    system_msg: Optional[BaseMessage] = None
+    system_msg: BaseMessage | None = None
     work_messages = list(normalized)
 
     if preserve_system and work_messages:
@@ -123,9 +123,7 @@ def trim_messages(
             available_tokens = max(0, available_tokens - system_tokens)
         result = _trim_by_tokens(work_messages, available_tokens, counter)
     else:
-        raise ValueError(
-            f"Unknown strategy: {strategy}. Use 'last', 'first', or 'token'"
-        )
+        raise ValueError(f"Unknown strategy: {strategy}. Use 'last', 'first', or 'token'")
 
     # Prepend system message if preserved
     if system_msg:

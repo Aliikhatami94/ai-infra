@@ -10,7 +10,7 @@ The replay() function allows you to:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from ai_infra.replay.recorder import WorkflowStep
 from ai_infra.replay.storage import Storage, get_default_storage
@@ -97,8 +97,8 @@ def replay(
     record_id: str,
     *,
     from_step: int = 0,
-    inject: Optional[dict[str, Any]] = None,
-    storage: Optional[Storage] = None,
+    inject: dict[str, Any] | None = None,
+    storage: Storage | None = None,
 ) -> ReplayResult:
     """
     Replay a recorded workflow with optional modifications.
@@ -207,8 +207,8 @@ def replay(
 
 def get_recording(
     record_id: str,
-    storage: Optional[Storage] = None,
-) -> Optional[list[WorkflowStep]]:
+    storage: Storage | None = None,
+) -> list[WorkflowStep] | None:
     """
     Load a recording without replaying.
 
@@ -226,7 +226,7 @@ def get_recording(
     return storage.load(record_id)
 
 
-def list_recordings(storage: Optional[Storage] = None) -> list[str]:
+def list_recordings(storage: Storage | None = None) -> list[str]:
     """
     List all available recording IDs.
 
@@ -243,7 +243,7 @@ def list_recordings(storage: Optional[Storage] = None) -> list[str]:
 
 def delete_recording(
     record_id: str,
-    storage: Optional[Storage] = None,
+    storage: Storage | None = None,
 ) -> bool:
     """
     Delete a recording.

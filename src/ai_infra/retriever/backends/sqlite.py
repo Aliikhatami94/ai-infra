@@ -67,8 +67,7 @@ class SQLiteBackend(BaseBackend):
             import numpy as np
         except ImportError as e:
             raise ImportError(
-                "numpy is required for the SQLite backend. "
-                "Install with: pip install numpy"
+                "numpy is required for the SQLite backend. Install with: pip install numpy"
             ) from e
 
         self._np = np
@@ -170,9 +169,7 @@ class SQLiteBackend(BaseBackend):
         query_vec = self._np.array(query_embedding, dtype=self._np.float32)
 
         # Fetch all rows (SQLite doesn't have native vector search)
-        cursor = self._conn.execute(
-            f"SELECT id, text, metadata, embedding FROM {self._table_name}"
-        )
+        cursor = self._conn.execute(f"SELECT id, text, metadata, embedding FROM {self._table_name}")
 
         scores: list[tuple[str, str, dict[str, Any], float]] = []
         for row in cursor:
@@ -183,9 +180,7 @@ class SQLiteBackend(BaseBackend):
                 if not self._matches_filter(metadata, filter):
                     continue
 
-            embedding = self._np.array(
-                json.loads(row["embedding"]), dtype=self._np.float32
-            )
+            embedding = self._np.array(json.loads(row["embedding"]), dtype=self._np.float32)
             score = self._compute_similarity(query_vec, embedding)
             scores.append((row["id"], row["text"], metadata, score))
 
@@ -248,7 +243,7 @@ class SQLiteBackend(BaseBackend):
         if self._conn:
             self._conn.close()
 
-    def _compute_similarity(self, a: "np.ndarray", b: "np.ndarray") -> float:
+    def _compute_similarity(self, a: np.ndarray, b: np.ndarray) -> float:
         """Compute similarity between two vectors using the configured metric."""
         if self.similarity == "cosine":
             return self._cosine_similarity(a, b)
@@ -259,7 +254,7 @@ class SQLiteBackend(BaseBackend):
         else:
             return self._cosine_similarity(a, b)
 
-    def _cosine_similarity(self, a: "np.ndarray", b: "np.ndarray") -> float:
+    def _cosine_similarity(self, a: np.ndarray, b: np.ndarray) -> float:
         """Compute cosine similarity between two vectors."""
         norm_a = self._np.linalg.norm(a)
         norm_b = self._np.linalg.norm(b)
@@ -267,12 +262,12 @@ class SQLiteBackend(BaseBackend):
             return 0.0
         return float(self._np.dot(a, b) / (norm_a * norm_b))
 
-    def _euclidean_similarity(self, a: "np.ndarray", b: "np.ndarray") -> float:
+    def _euclidean_similarity(self, a: np.ndarray, b: np.ndarray) -> float:
         """Compute euclidean distance-based similarity between two vectors."""
         distance = float(self._np.linalg.norm(a - b))
         return 1.0 / (1.0 + distance)
 
-    def _dot_product_similarity(self, a: "np.ndarray", b: "np.ndarray") -> float:
+    def _dot_product_similarity(self, a: np.ndarray, b: np.ndarray) -> float:
         """Compute dot product similarity between two vectors."""
         return float(self._np.dot(a, b))
 

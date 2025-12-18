@@ -54,9 +54,9 @@ Generated Tools:
 
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any, Optional, TypeVar, get_type_hints
-from collections.abc import Callable, Sequence
 
 from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, Field, create_model
@@ -229,7 +229,7 @@ def _create_get_tool(
         if executor:
             from typing import cast
 
-            return cast(dict[str, Any], executor("get", model, id=id))
+            return cast("dict[str, Any]", executor("get", model, id=id))
         return {"error": "No executor configured", "id": id}
 
     tool_name = config.name_pattern.format(action="get", model=model_name)
@@ -293,7 +293,7 @@ def _create_list_tool(
             from typing import cast
 
             return cast(
-                list[dict[str, Any]],
+                "list[dict[str, Any]]",
                 executor("list", model, limit=limit, offset=offset, **filters),
             )
         return [{"error": "No executor configured", "filters": filters}]
@@ -336,7 +336,7 @@ def _create_create_tool(
         if executor:
             from typing import cast
 
-            return cast(dict[str, Any], executor("create", model, **kwargs))
+            return cast("dict[str, Any]", executor("create", model, **kwargs))
         return {"error": "No executor configured", "data": kwargs}
 
     tool_name = config.name_pattern.format(action="create", model=model_name)
@@ -382,7 +382,7 @@ def _create_update_tool(
         if executor:
             from typing import cast
 
-            return cast(dict[str, Any], executor("update", model, id=id, **updates))
+            return cast("dict[str, Any]", executor("update", model, id=id, **updates))
         return {"error": "No executor configured", "id": id, "updates": updates}
 
     tool_name = config.name_pattern.format(action="update", model=model_name)
@@ -413,7 +413,7 @@ def _create_delete_tool(
         if executor:
             from typing import cast
 
-            return cast(dict[str, Any], executor("delete", model, id=id))
+            return cast("dict[str, Any]", executor("delete", model, id=id))
         return {"error": "No executor configured", "id": id}
 
     tool_name = config.name_pattern.format(action="delete", model=model_name)
@@ -596,8 +596,7 @@ def tools_from_models_sql(
         from svc_infra.db.sql.repository import SqlRepository
     except ImportError as e:
         raise ImportError(
-            "tools_from_models_sql requires svc-infra. "
-            "Install with: pip install svc-infra"
+            "tools_from_models_sql requires svc-infra. Install with: pip install svc-infra"
         ) from e
 
     # Cache repositories per model for efficiency
@@ -630,17 +629,13 @@ def tools_from_models_sql(
 
         elif operation == "create":
             # Remove operation metadata from kwargs
-            create_data = {
-                k: v for k, v in kwargs.items() if k not in ("limit", "offset")
-            }
+            create_data = {k: v for k, v in kwargs.items() if k not in ("limit", "offset")}
             result = await repo.create(session, create_data)
             return _model_to_dict(result)
 
         elif operation == "update":
             id_value = kwargs.pop("id")
-            update_data = {
-                k: v for k, v in kwargs.items() if k not in ("limit", "offset")
-            }
+            update_data = {k: v for k, v in kwargs.items() if k not in ("limit", "offset")}
             result = await repo.update(session, id_value, update_data)
             if result is None:
                 return {"error": f"Not found: id={id_value}"}
@@ -668,9 +663,7 @@ def tools_from_models_sql(
             import concurrent.futures
 
             with concurrent.futures.ThreadPoolExecutor() as pool:
-                future = pool.submit(
-                    asyncio.run, async_executor(operation, model, **kwargs)
-                )
+                future = pool.submit(asyncio.run, async_executor(operation, model, **kwargs))
                 return future.result()
         else:
             # No running loop - run directly
@@ -696,12 +689,12 @@ def _model_to_dict(obj: Any) -> dict[str, Any]:
         # Pydantic v2
         from typing import cast
 
-        return cast(dict[str, Any], obj.model_dump())
+        return cast("dict[str, Any]", obj.model_dump())
     elif hasattr(obj, "dict"):
         # Pydantic v1
         from typing import cast
 
-        return cast(dict[str, Any], obj.dict())
+        return cast("dict[str, Any]", obj.dict())
     elif hasattr(obj, "__dict__"):
         return {k: v for k, v in obj.__dict__.items() if not k.startswith("_")}
     else:

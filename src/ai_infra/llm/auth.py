@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import os
 from contextlib import asynccontextmanager, contextmanager
-from typing import Optional
 
 # Map provider names to their environment variable names
 PROVIDER_ENV_VARS = {
@@ -67,8 +66,7 @@ def temporary_api_key(provider: str, api_key: str):
     env_var = PROVIDER_ENV_VARS.get(provider_lower)
     if not env_var:
         raise ValueError(
-            f"Unknown provider: {provider}. "
-            f"Known providers: {list(PROVIDER_ENV_VARS.keys())}"
+            f"Unknown provider: {provider}. Known providers: {list(PROVIDER_ENV_VARS.keys())}"
         )
 
     # Save original value
@@ -137,7 +135,7 @@ def add_provider_mapping(provider: str, env_var: str) -> None:
     PROVIDER_ENV_VARS[provider.lower()] = env_var
 
 
-def get_provider_env_var(provider: str) -> Optional[str]:
+def get_provider_env_var(provider: str) -> str | None:
     """Get the environment variable name for a provider.
 
     Args:
@@ -156,9 +154,9 @@ def get_provider_env_var(provider: str) -> Optional[str]:
 
 
 __all__ = [
-    "temporary_api_key",
-    "atemporary_api_key",
-    "add_provider_mapping",
-    "get_provider_env_var",
     "PROVIDER_ENV_VARS",
+    "add_provider_mapping",
+    "atemporary_api_key",
+    "get_provider_env_var",
+    "temporary_api_key",
 ]

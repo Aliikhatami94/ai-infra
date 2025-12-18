@@ -24,7 +24,7 @@ Example:
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from ai_infra.providers import ProviderCapability, ProviderRegistry
 
@@ -128,9 +128,7 @@ def list_tts_voices(provider: str = "openai") -> list[str]:
     """
     config = ProviderRegistry.get(provider)
     if not config:
-        raise ValueError(
-            f"Unknown TTS provider: {provider}. Available: {list_tts_providers()}"
-        )
+        raise ValueError(f"Unknown TTS provider: {provider}. Available: {list_tts_providers()}")
     cap = config.get_capability(ProviderCapability.TTS)
     if not cap:
         raise ValueError(f"Provider {provider} does not support TTS")
@@ -148,9 +146,7 @@ def list_tts_models(provider: str = "openai") -> list[str]:
     """
     config = ProviderRegistry.get(provider)
     if not config:
-        raise ValueError(
-            f"Unknown TTS provider: {provider}. Available: {list_tts_providers()}"
-        )
+        raise ValueError(f"Unknown TTS provider: {provider}. Available: {list_tts_providers()}")
     cap = config.get_capability(ProviderCapability.TTS)
     if not cap:
         raise ValueError(f"Provider {provider} does not support TTS")
@@ -185,7 +181,7 @@ def is_tts_configured(provider: str) -> bool:
     return ProviderRegistry.is_configured(provider)
 
 
-def get_default_tts_provider() -> Optional[str]:
+def get_default_tts_provider() -> str | None:
     """Get the first configured TTS provider.
 
     Returns:
@@ -219,9 +215,7 @@ def list_stt_models(provider: str = "openai") -> list[str]:
     """
     config = ProviderRegistry.get(provider)
     if not config:
-        raise ValueError(
-            f"Unknown STT provider: {provider}. Available: {list_stt_providers()}"
-        )
+        raise ValueError(f"Unknown STT provider: {provider}. Available: {list_stt_providers()}")
     cap = config.get_capability(ProviderCapability.STT)
     if not cap:
         raise ValueError(f"Provider {provider} does not support STT")
@@ -256,7 +250,7 @@ def is_stt_configured(provider: str) -> bool:
     return ProviderRegistry.is_configured(provider)
 
 
-def get_default_stt_provider() -> Optional[str]:
+def get_default_stt_provider() -> str | None:
     """Get the first configured STT provider.
 
     Returns:

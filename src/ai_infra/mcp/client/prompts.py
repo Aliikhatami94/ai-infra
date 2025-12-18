@@ -50,7 +50,7 @@ class PromptInfo:
     arguments: list[dict[str, Any]] | None = None
 
     @classmethod
-    def from_mcp_prompt(cls, prompt: "Prompt") -> "PromptInfo":
+    def from_mcp_prompt(cls, prompt: Prompt) -> PromptInfo:
         """Create PromptInfo from MCP Prompt object.
 
         Args:
@@ -76,7 +76,7 @@ class PromptInfo:
         )
 
 
-def convert_mcp_prompt_to_message(message: "PromptMessage") -> BaseMessage:
+def convert_mcp_prompt_to_message(message: PromptMessage) -> BaseMessage:
     """Convert an MCP prompt message to a LangChain message.
 
     Supports user (HumanMessage), assistant (AIMessage), and system roles.
@@ -123,13 +123,11 @@ def convert_mcp_prompt_to_message(message: "PromptMessage") -> BaseMessage:
     if role == "system":
         return SystemMessage(content=text)
 
-    raise ValueError(
-        f"Unsupported prompt role: {role}. Expected 'user', 'assistant', or 'system'."
-    )
+    raise ValueError(f"Unsupported prompt role: {role}. Expected 'user', 'assistant', or 'system'.")
 
 
 async def load_mcp_prompt(
-    session: "ClientSession",
+    session: ClientSession,
     name: str,
     *,
     arguments: dict[str, Any] | None = None,
@@ -154,11 +152,11 @@ async def load_mcp_prompt(
             )
         ```
     """
-    response: "GetPromptResult" = await session.get_prompt(name, arguments=arguments)
+    response: GetPromptResult = await session.get_prompt(name, arguments=arguments)
     return [convert_mcp_prompt_to_message(m) for m in response.messages]
 
 
-async def list_mcp_prompts(session: "ClientSession") -> list[PromptInfo]:
+async def list_mcp_prompts(session: ClientSession) -> list[PromptInfo]:
     """List available prompts from an MCP server.
 
     Args:

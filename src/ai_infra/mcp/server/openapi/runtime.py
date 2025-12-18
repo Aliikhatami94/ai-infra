@@ -4,7 +4,7 @@ import asyncio
 import hashlib
 import re
 import time
-from typing import Any, Optional
+from typing import Any
 
 from .models import OpenAPISpec, Operation
 
@@ -15,7 +15,7 @@ def sanitize_tool_name(s: str) -> str:
     return s.strip("_") or "op"
 
 
-def op_tool_name(path: str, method: str, opid: Optional[str]) -> str:
+def op_tool_name(path: str, method: str, opid: str | None) -> str:
     if opid:
         return sanitize_tool_name(opid)
     return sanitize_tool_name(f"{method.lower()}_{path.strip('/').replace('/', '_')}")
@@ -29,8 +29,8 @@ def op_tool_name(path: str, method: str, opid: Optional[str]) -> str:
 def serialize_query_param(
     name: str,
     value: Any,
-    style: Optional[str] = None,
-    explode: Optional[bool] = None,
+    style: str | None = None,
+    explode: bool | None = None,
 ) -> dict[str, Any]:
     """Serialize a query parameter according to OpenAPI style/explode.
 
@@ -88,7 +88,7 @@ def pick_effective_base_url_with_source(
     spec: OpenAPISpec,
     path_item: dict[str, Any] | None,
     op: Operation | None,
-    override: Optional[str],
+    override: str | None,
 ) -> tuple[str, str]:
     """
     Returns (url, source) where source ∈ {"override","operation","path","root","none"}.
@@ -129,9 +129,7 @@ def extract_body_content_type(op: Operation) -> str:
     return next(iter(content.keys())) if content else "application/json"
 
 
-def merge_parameters(
-    path_item: dict[str, Any] | None, op: Operation
-) -> list[dict[str, Any]]:
+def merge_parameters(path_item: dict[str, Any] | None, op: Operation) -> list[dict[str, Any]]:
     merged: list[dict[str, Any]] = []
     seen: set[tuple[str, str]] = set()
     for src in (path_item.get("parameters") if path_item else []) or []:
@@ -174,7 +172,7 @@ def pick_effective_base_url(
     spec: OpenAPISpec,
     path_item: dict[str, Any] | None,
     op: Operation | None,
-    override: Optional[str],
+    override: str | None,
 ) -> str:
     if override:
         return override.rstrip("/")
@@ -210,7 +208,7 @@ class ResponseCache:
     def __init__(
         self,
         ttl: float = 300.0,
-        methods: Optional[list[str]] = None,
+        methods: list[str] | None = None,
         max_size: int = 1000,
     ):
         """Initialize cache.
@@ -229,9 +227,7 @@ class ResponseCache:
         """Check if method should be cached."""
         return method.upper() in self.methods
 
-    def make_key(
-        self, method: str, url: str, params: Optional[dict[str, Any]] = None
-    ) -> str:
+    def make_key(self, method: str, url: str, params: dict[str, Any] | None = None) -> str:
         """Generate cache key from request details."""
         key_parts = [method.upper(), url]
         if params:
@@ -241,7 +237,7 @@ class ResponseCache:
         key_str = "|".join(key_parts)
         return hashlib.sha256(key_str.encode()).hexdigest()[:32]
 
-    def get(self, key: str) -> Optional[Any]:
+    def get(self, key: str) -> Any | None:
         """Get cached value if not expired."""
         if key not in self._cache:
             return None
@@ -260,9 +256,7 @@ class ResponseCache:
         if len(self._cache) >= self.max_size:
             # Remove ~10% of oldest entries
             to_remove = self.max_size // 10 or 1
-            sorted_keys = sorted(self._cache.keys(), key=lambda k: self._cache[k][0])[
-                :to_remove
-            ]
+            sorted_keys = sorted(self._cache.keys(), key=lambda k: self._cache[k][0])[:to_remove]
             for k in sorted_keys:
                 del self._cache[k]
 
@@ -296,7 +290,7 @@ class RateLimiter:
             return await do_request()
     """
 
-    def __init__(self, rate: float, burst: Optional[float] = None):
+    def __init__(self, rate: float, burst: float | None = None):
         """Initialize rate limiter.
 
         Args:

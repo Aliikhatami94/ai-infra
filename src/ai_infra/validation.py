@@ -23,8 +23,8 @@ Usage:
 from __future__ import annotations
 
 import functools
-from typing import Any, Optional, TypeVar, get_type_hints
 from collections.abc import Callable
+from typing import Any, TypeVar, get_type_hints
 
 from pydantic import BaseModel
 from pydantic import ValidationError as PydanticValidationError
@@ -103,7 +103,7 @@ def validate_provider(provider: str) -> None:
 
 def validate_temperature(
     temperature: float,
-    provider: Optional[str] = None,
+    provider: str | None = None,
 ) -> None:
     """Validate temperature is within acceptable range.
 
@@ -207,11 +207,11 @@ def validate_messages(messages: list[dict[str, Any]]) -> None:
 
 def validate_llm_params(
     *,
-    provider: Optional[str] = None,
-    model: Optional[str] = None,
-    temperature: Optional[float] = None,
-    max_tokens: Optional[int] = None,
-    messages: Optional[list[dict[str, Any]]] = None,
+    provider: str | None = None,
+    model: str | None = None,
+    temperature: float | None = None,
+    max_tokens: int | None = None,
+    messages: list[dict[str, Any]] | None = None,
 ) -> None:
     """Validate all LLM parameters at once.
 
@@ -486,7 +486,7 @@ def validate_config(config: dict[str, Any], required: list[str]) -> None:
         )
 
 
-def validate_env_var(name: str, required: bool = True) -> Optional[str]:
+def validate_env_var(name: str, required: bool = True) -> str | None:
     """Validate and return environment variable.
 
     Args:

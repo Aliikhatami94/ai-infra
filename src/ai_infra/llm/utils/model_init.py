@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Optional
+from typing import Any
 
 from langchain.chat_models import init_chat_model
 
@@ -34,7 +34,7 @@ def initialize_model(key: str, provider: str, **kwargs):
 
 
 def sanitize_model_kwargs(
-    model_kwargs: dict[str, Any], banned: Optional[list[str]] = None
+    model_kwargs: dict[str, Any], banned: list[str] | None = None
 ) -> dict[str, Any]:
     """Remove agent/tool-only kwargs from a model kwargs dict (mutates input)."""
     if not model_kwargs:

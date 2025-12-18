@@ -33,7 +33,7 @@ import logging
 import time
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 from ai_infra.providers import ProviderCapability, ProviderRegistry
 
@@ -123,13 +123,11 @@ def is_provider_configured(provider: str) -> bool:
     config = ProviderRegistry.get(provider)
     if not config:
         supported = ProviderRegistry.list_for_capability(ProviderCapability.CHAT)
-        raise ValueError(
-            f"Unknown provider: {provider}. Supported: {', '.join(supported)}"
-        )
+        raise ValueError(f"Unknown provider: {provider}. Supported: {', '.join(supported)}")
     return ProviderRegistry.is_configured(provider)
 
 
-def get_api_key(provider: str) -> Optional[str]:
+def get_api_key(provider: str) -> str | None:
     """
     Get the API key for a provider.
 
@@ -142,7 +140,7 @@ def get_api_key(provider: str) -> Optional[str]:
     return ProviderRegistry.get_api_key(provider)
 
 
-def get_default_provider() -> Optional[str]:
+def get_default_provider() -> str | None:
     """
     Auto-detect the default provider based on configured API keys.
 
@@ -364,9 +362,7 @@ def detect_model_capabilities(model_id: str, provider: str) -> set[ModelCapabili
             # (legacy/code models don't support chat completions or vision)
             if is_non_chat_model:
                 caps_to_add = {
-                    c
-                    for c in caps
-                    if c not in (ModelCapability.CHAT, ModelCapability.VISION)
+                    c for c in caps if c not in (ModelCapability.CHAT, ModelCapability.VISION)
                 }
                 capabilities.update(caps_to_add)
             else:
@@ -531,7 +527,7 @@ def _load_cache() -> dict[str, Any]:
         return {}
     try:
         with open(CACHE_FILE) as f:
-            return cast(dict[str, Any], json.load(f))
+            return cast("dict[str, Any]", json.load(f))
     except Exception:
         return {}
 
@@ -575,7 +571,7 @@ def clear_cache() -> None:
 def list_models(
     provider: str,
     *,
-    capability: Optional[ModelCapability] = None,
+    capability: ModelCapability | None = None,
     refresh: bool = False,
     use_cache: bool = True,
 ) -> list[str]:

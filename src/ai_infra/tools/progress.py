@@ -31,10 +31,10 @@ Example:
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Optional
-from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from langchain_core.tools import StructuredTool
@@ -56,8 +56,8 @@ class ProgressEvent:
     type: str = "progress"
     tool: str = ""
     message: str = ""
-    percent: Optional[int] = None
-    data: Optional[Any] = None
+    percent: int | None = None
+    data: Any | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
@@ -96,7 +96,7 @@ class ProgressStream:
     def __init__(
         self,
         tool_name: str,
-        callback: Optional[Callable[[ProgressEvent], Any]] = None,
+        callback: Callable[[ProgressEvent], Any] | None = None,
     ):
         """
         Initialize a progress stream.
@@ -113,8 +113,8 @@ class ProgressStream:
     async def update(
         self,
         message: str,
-        percent: Optional[int] = None,
-        data: Optional[Any] = None,
+        percent: int | None = None,
+        data: Any | None = None,
     ) -> None:
         """
         Send a progress update.

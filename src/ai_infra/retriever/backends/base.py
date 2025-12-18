@@ -109,7 +109,7 @@ class BaseBackend(ABC):
         """
         pass
 
-    def __enter__(self) -> "BaseBackend":
+    def __enter__(self) -> BaseBackend:
         """Context manager entry."""
         return self
 

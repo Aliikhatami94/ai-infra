@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     from ai_infra.replay.storage import Storage
@@ -48,7 +48,7 @@ class WorkflowStep:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "WorkflowStep":
+    def from_dict(cls, data: dict[str, Any]) -> WorkflowStep:
         """Deserialize step from dictionary."""
         return cls(
             step_id=data["step_id"],
@@ -89,7 +89,7 @@ class WorkflowRecorder:
     def __init__(
         self,
         record_id: str,
-        storage: Optional["Storage"] = None,
+        storage: Storage | None = None,
     ):
         """
         Initialize a workflow recorder.
@@ -104,7 +104,7 @@ class WorkflowRecorder:
         self._step_counter = 0
 
     @property
-    def storage(self) -> "Storage":
+    def storage(self) -> Storage:
         """Get storage backend, using default if not set."""
         if self._storage is None:
             from ai_infra.replay.storage import get_default_storage
@@ -120,8 +120,8 @@ class WorkflowRecorder:
     def record_llm_call(
         self,
         messages: list[dict[str, Any]],
-        response: Optional[str] = None,
-        model: Optional[str] = None,
+        response: str | None = None,
+        model: str | None = None,
         **metadata: Any,
     ) -> WorkflowStep:
         """
@@ -186,8 +186,8 @@ class WorkflowRecorder:
         self,
         tool_name: str,
         result: Any,
-        duration_ms: Optional[float] = None,
-        error: Optional[str] = None,
+        duration_ms: float | None = None,
+        error: str | None = None,
         **metadata: Any,
     ) -> WorkflowStep:
         """

@@ -29,16 +29,16 @@ import logging
 import os
 import sys
 import time
+from collections.abc import Callable
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import datetime
 from functools import wraps
-from typing import Any, Optional, TypeVar
-from collections.abc import Callable
+from typing import Any, TypeVar
 
 # Context for request tracking
-_request_id: ContextVar[Optional[str]] = ContextVar("request_id", default=None)
-_trace_id: ContextVar[Optional[str]] = ContextVar("trace_id", default=None)
+_request_id: ContextVar[str | None] = ContextVar("request_id", default=None)
+_trace_id: ContextVar[str | None] = ContextVar("trace_id", default=None)
 
 # Type var for decorators
 F = TypeVar("F", bound=Callable[..., Any])
@@ -227,7 +227,7 @@ class StructuredLogger:
     def is_enabled_for(self, level: int) -> bool:
         return self._logger.isEnabledFor(level)
 
-    def child(self, suffix: str) -> "StructuredLogger":
+    def child(self, suffix: str) -> StructuredLogger:
         """Create a child logger with a suffix."""
         return StructuredLogger(f"{self._logger.name}.{suffix}")
 
@@ -244,19 +244,19 @@ class RequestLog:
     method: str
     url: str
     start_time: float = field(default_factory=time.time)
-    status_code: Optional[int] = None
-    latency_ms: Optional[float] = None
-    request_size: Optional[int] = None
-    response_size: Optional[int] = None
-    error: Optional[str] = None
+    status_code: int | None = None
+    latency_ms: float | None = None
+    request_size: int | None = None
+    response_size: int | None = None
+    error: str | None = None
     extra: dict[str, Any] = field(default_factory=dict)
 
     def complete(
         self,
         status_code: int,
-        response_size: Optional[int] = None,
-        error: Optional[str] = None,
-    ) -> "RequestLog":
+        response_size: int | None = None,
+        error: str | None = None,
+    ) -> RequestLog:
         """Mark request as complete and calculate latency."""
         self.status_code = status_code
         self.latency_ms = (time.time() - self.start_time) * 1000
@@ -314,8 +314,8 @@ class RequestLogger:
         self,
         method: str,
         url: str,
-        headers: Optional[dict[str, str]] = None,
-        body: Optional[Any] = None,
+        headers: dict[str, str] | None = None,
+        body: Any | None = None,
     ) -> RequestLog:
         """Log outgoing request and return a RequestLog for completion."""
         request_log = RequestLog(method=method, url=self._sanitize_url(url))
@@ -392,21 +392,21 @@ class LLMCallLog:
     provider: str
     model: str
     start_time: float = field(default_factory=time.time)
-    input_tokens: Optional[int] = None
-    output_tokens: Optional[int] = None
-    total_tokens: Optional[int] = None
-    latency_ms: Optional[float] = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    total_tokens: int | None = None
+    latency_ms: float | None = None
     cached: bool = False
     stream: bool = False
-    error: Optional[str] = None
+    error: str | None = None
     extra: dict[str, Any] = field(default_factory=dict)
 
     def complete(
         self,
-        input_tokens: Optional[int] = None,
-        output_tokens: Optional[int] = None,
-        error: Optional[str] = None,
-    ) -> "LLMCallLog":
+        input_tokens: int | None = None,
+        output_tokens: int | None = None,
+        error: str | None = None,
+    ) -> LLMCallLog:
         """Mark call as complete."""
         self.latency_ms = (time.time() - self.start_time) * 1000
         self.input_tokens = input_tokens
@@ -550,7 +550,7 @@ def get_logger(name: str) -> StructuredLogger:
 
 
 def log_function(
-    logger: Optional[StructuredLogger] = None,
+    logger: StructuredLogger | None = None,
     level: int = logging.DEBUG,
 ) -> Callable[[F], F]:
     """Decorator to log function entry/exit.
@@ -571,9 +571,7 @@ def log_function(
             try:
                 result = fn(*args, **kwargs)
                 elapsed = (time.time() - start) * 1000
-                _logger._log(
-                    level, f"Exiting {fn.__name__}", latency_ms=round(elapsed, 2)
-                )
+                _logger._log(level, f"Exiting {fn.__name__}", latency_ms=round(elapsed, 2))
                 return result
             except Exception as e:
                 elapsed = (time.time() - start) * 1000
@@ -590,7 +588,7 @@ def log_function(
 
 
 def log_async_function(
-    logger: Optional[StructuredLogger] = None,
+    logger: StructuredLogger | None = None,
     level: int = logging.DEBUG,
 ) -> Callable[[F], F]:
     """Decorator to log async function entry/exit."""
@@ -605,9 +603,7 @@ def log_async_function(
             try:
                 result = await fn(*args, **kwargs)
                 elapsed = (time.time() - start) * 1000
-                _logger._log(
-                    level, f"Exiting {fn.__name__}", latency_ms=round(elapsed, 2)
-                )
+                _logger._log(level, f"Exiting {fn.__name__}", latency_ms=round(elapsed, 2))
                 return result
             except Exception as e:
                 elapsed = (time.time() - start) * 1000

@@ -28,7 +28,6 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Optional
 
 from ai_infra.providers.base import CapabilityConfig, ProviderCapability, ProviderConfig
 
@@ -72,7 +71,7 @@ class ProviderRegistry:
         log.debug(f"Registered provider: {config.name}")
 
     @classmethod
-    def get(cls, name: str) -> Optional[ProviderConfig]:
+    def get(cls, name: str) -> ProviderConfig | None:
         """Get provider configuration by name.
 
         Args:
@@ -132,11 +131,7 @@ class ProviderRegistry:
             ['elevenlabs', 'google_genai', 'openai']
         """
         cls._ensure_initialized()
-        return sorted(
-            name
-            for name, config in cls._providers.items()
-            if config.has_capability(cap)
-        )
+        return sorted(name for name, config in cls._providers.items() if config.has_capability(cap))
 
     @classmethod
     def list_configured_for_capability(cls, cap: ProviderCapability) -> list[str]:
@@ -152,9 +147,7 @@ class ProviderRegistry:
             >>> ProviderRegistry.list_configured_for_capability(ProviderCapability.CHAT)
             ['openai']  # Only if OPENAI_API_KEY is set
         """
-        return [
-            name for name in cls.list_for_capability(cap) if cls.is_configured(name)
-        ]
+        return [name for name in cls.list_for_capability(cap) if cls.is_configured(name)]
 
     @classmethod
     def is_configured(cls, name: str) -> bool:
@@ -181,7 +174,7 @@ class ProviderRegistry:
         return any(os.environ.get(var) for var in config.alt_env_vars)
 
     @classmethod
-    def get_api_key(cls, name: str) -> Optional[str]:
+    def get_api_key(cls, name: str) -> str | None:
         """Get the API key for a provider.
 
         Checks the primary env var first, then any alternative env vars.
@@ -210,7 +203,7 @@ class ProviderRegistry:
         return None
 
     @classmethod
-    def get_env_var(cls, name: str) -> Optional[str]:
+    def get_env_var(cls, name: str) -> str | None:
         """Get the primary environment variable name for a provider.
 
         Args:
@@ -226,8 +219,8 @@ class ProviderRegistry:
     def get_default_for_capability(
         cls,
         cap: ProviderCapability,
-        priority: Optional[list[str]] = None,
-    ) -> Optional[str]:
+        priority: list[str] | None = None,
+    ) -> str | None:
         """Get the first configured provider for a capability.
 
         This is useful for auto-selecting a provider when the user hasn't
@@ -265,9 +258,7 @@ class ProviderRegistry:
         return None
 
     @classmethod
-    def get_capability_config(
-        cls, name: str, cap: ProviderCapability
-    ) -> Optional[CapabilityConfig]:
+    def get_capability_config(cls, name: str, cap: ProviderCapability) -> CapabilityConfig | None:
         """Get capability configuration for a specific provider.
 
         Convenience method to get capability config in one call.
@@ -302,7 +293,7 @@ class ProviderRegistry:
         return config.models if config else []
 
     @classmethod
-    def get_default_model(cls, name: str, cap: ProviderCapability) -> Optional[str]:
+    def get_default_model(cls, name: str, cap: ProviderCapability) -> str | None:
         """Get the default model for a provider's capability.
 
         Args:
@@ -330,7 +321,7 @@ class ProviderRegistry:
         return config.voices if config else []
 
     @classmethod
-    def get_default_voice(cls, name: str, cap: ProviderCapability) -> Optional[str]:
+    def get_default_voice(cls, name: str, cap: ProviderCapability) -> str | None:
         """Get the default voice for a provider's capability.
 
         Args:
@@ -386,7 +377,7 @@ class ProviderRegistry:
 # =============================================================================
 
 
-def get_provider(name: str) -> Optional[ProviderConfig]:
+def get_provider(name: str) -> ProviderConfig | None:
     """Get provider configuration by name.
 
     Args:
@@ -398,9 +389,7 @@ def get_provider(name: str) -> Optional[ProviderConfig]:
     return ProviderRegistry.get(name)
 
 
-def get_provider_config(
-    name: str, capability: ProviderCapability
-) -> Optional[CapabilityConfig]:
+def get_provider_config(name: str, capability: ProviderCapability) -> CapabilityConfig | None:
     """Get capability configuration for a provider.
 
     Args:
@@ -455,7 +444,7 @@ def is_provider_configured(name: str) -> bool:
     return ProviderRegistry.is_configured(name)
 
 
-def get_default_provider(cap: ProviderCapability) -> Optional[str]:
+def get_default_provider(cap: ProviderCapability) -> str | None:
     """Get the first configured provider for a capability.
 
     Args:
@@ -467,7 +456,7 @@ def get_default_provider(cap: ProviderCapability) -> Optional[str]:
     return ProviderRegistry.get_default_for_capability(cap)
 
 
-def get_api_key(name: str) -> Optional[str]:
+def get_api_key(name: str) -> str | None:
     """Get the API key for a provider.
 
     Args:

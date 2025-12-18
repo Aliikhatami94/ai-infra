@@ -62,8 +62,7 @@ class MemoryBackend(BaseBackend):
             import numpy as np
         except ImportError as e:
             raise ImportError(
-                "numpy is required for the memory backend. "
-                "Install with: pip install numpy"
+                "numpy is required for the memory backend. Install with: pip install numpy"
             ) from e
 
         self._np = np
@@ -71,7 +70,7 @@ class MemoryBackend(BaseBackend):
         self._ids: list[str] = []
         self._texts: list[str] = []
         self._metadatas: list[dict[str, Any]] = []
-        self._embeddings: list["np.ndarray"] = []
+        self._embeddings: list[np.ndarray] = []
 
     def add(
         self,
@@ -103,9 +102,7 @@ class MemoryBackend(BaseBackend):
             metadatas = [{} for _ in embeddings]
 
         # Add to storage
-        for i, (emb, text, meta, doc_id) in enumerate(
-            zip(embeddings, texts, metadatas, ids)
-        ):
+        for i, (emb, text, meta, doc_id) in enumerate(zip(embeddings, texts, metadatas, ids)):
             self._ids.append(doc_id)
             self._texts.append(text)
             self._metadatas.append(meta)
@@ -211,7 +208,7 @@ class MemoryBackend(BaseBackend):
         """
         return len(self._ids)
 
-    def _compute_similarity(self, a: "np.ndarray", b: "np.ndarray") -> float:
+    def _compute_similarity(self, a: np.ndarray, b: np.ndarray) -> float:
         """Compute similarity between two vectors using the configured metric.
 
         Args:
@@ -231,7 +228,7 @@ class MemoryBackend(BaseBackend):
             # Fallback to cosine (shouldn't happen due to validation)
             return self._cosine_similarity(a, b)
 
-    def _cosine_similarity(self, a: "np.ndarray", b: "np.ndarray") -> float:
+    def _cosine_similarity(self, a: np.ndarray, b: np.ndarray) -> float:
         """Compute cosine similarity between two vectors.
 
         Args:
@@ -247,7 +244,7 @@ class MemoryBackend(BaseBackend):
             return 0.0
         return float(self._np.dot(a, b) / (norm_a * norm_b))
 
-    def _euclidean_similarity(self, a: "np.ndarray", b: "np.ndarray") -> float:
+    def _euclidean_similarity(self, a: np.ndarray, b: np.ndarray) -> float:
         """Compute euclidean distance-based similarity between two vectors.
 
         Uses 1 / (1 + distance) to convert distance to similarity score.
@@ -262,7 +259,7 @@ class MemoryBackend(BaseBackend):
         distance = float(self._np.linalg.norm(a - b))
         return 1.0 / (1.0 + distance)
 
-    def _dot_product_similarity(self, a: "np.ndarray", b: "np.ndarray") -> float:
+    def _dot_product_similarity(self, a: np.ndarray, b: np.ndarray) -> float:
         """Compute dot product similarity between two vectors.
 
         Best used with normalized embeddings, where it equals cosine similarity.

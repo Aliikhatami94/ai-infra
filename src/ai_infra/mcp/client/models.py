@@ -1,7 +1,7 @@
 # ai_infra/mcp/models.py
 from __future__ import annotations
 
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 from pydantic import BaseModel, model_validator
 
@@ -10,18 +10,18 @@ class McpServerConfig(BaseModel):
     transport: Literal["stdio", "streamable_http", "sse"]
 
     # http-like
-    url: Optional[str] = None
-    headers: Optional[dict[str, str]] = None
+    url: str | None = None
+    headers: dict[str, str] | None = None
 
     # stdio
-    command: Optional[str] = None
-    args: Optional[list[str]] = None
-    env: Optional[dict[str, str]] = None
+    command: str | None = None
+    args: list[str] | None = None
+    env: dict[str, str] | None = None
 
     # opts
-    stateless_http: Optional[bool] = None
-    json_response: Optional[bool] = None
-    oauth: Optional[dict[str, Any]] = None
+    stateless_http: bool | None = None
+    json_response: bool | None = None
+    oauth: dict[str, Any] | None = None
 
     @model_validator(mode="after")
     def _validate(self):

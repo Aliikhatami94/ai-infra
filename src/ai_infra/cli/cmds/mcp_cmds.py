@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 import typer
 from rich.console import Console
@@ -45,11 +45,11 @@ _VALID_TRANSPORTS = {"stdio", "streamable_http", "sse"}
 
 
 def _create_config(
-    url: Optional[str] = None,
+    url: str | None = None,
     transport: str = "streamable_http",
-    command: Optional[str] = None,
-    args: Optional[str] = None,
-    env: Optional[str] = None,
+    command: str | None = None,
+    args: str | None = None,
+    env: str | None = None,
 ) -> McpServerConfig:
     """Create MCP server config from CLI options."""
     # Validate transport
@@ -112,20 +112,20 @@ async def _run_with_client(
 
 @app.command("test")
 def test_cmd(
-    url: Optional[str] = typer.Argument(None, help="MCP server URL"),
+    url: str | None = typer.Argument(None, help="MCP server URL"),
     transport: str = typer.Option(
         "streamable_http",
         "--transport",
         "-t",
         help="Transport type: streamable_http, stdio",
     ),
-    command: Optional[str] = typer.Option(
+    command: str | None = typer.Option(
         None,
         "--command",
         "-c",
         help="Command for stdio transport",
     ),
-    args: Optional[str] = typer.Option(
+    args: str | None = typer.Option(
         None,
         "--args",
         "-a",
@@ -184,20 +184,20 @@ def test_cmd(
 
 @app.command("tools")
 def tools_cmd(
-    url: Optional[str] = typer.Argument(None, help="MCP server URL"),
+    url: str | None = typer.Argument(None, help="MCP server URL"),
     transport: str = typer.Option(
         "streamable_http",
         "--transport",
         "-t",
         help="Transport type: streamable_http, stdio",
     ),
-    command: Optional[str] = typer.Option(
+    command: str | None = typer.Option(
         None,
         "--command",
         "-c",
         help="Command for stdio transport",
     ),
-    args: Optional[str] = typer.Option(
+    args: str | None = typer.Option(
         None,
         "--args",
         "-a",
@@ -265,9 +265,7 @@ def tools_cmd(
                         if "properties" in schema:
                             param_names = list(schema["properties"].keys())
                             required = schema.get("required", [])
-                            params = ", ".join(
-                                f"{p}*" if p in required else p for p in param_names
-                            )
+                            params = ", ".join(f"{p}*" if p in required else p for p in param_names)
                     table.add_row(tool.name, desc, params)
                 else:
                     table.add_row(tool.name, desc)
@@ -284,20 +282,20 @@ def tools_cmd(
 
 @app.command("prompts")
 def prompts_cmd(
-    url: Optional[str] = typer.Argument(None, help="MCP server URL"),
+    url: str | None = typer.Argument(None, help="MCP server URL"),
     transport: str = typer.Option(
         "streamable_http",
         "--transport",
         "-t",
         help="Transport type: streamable_http, stdio",
     ),
-    command: Optional[str] = typer.Option(
+    command: str | None = typer.Option(
         None,
         "--command",
         "-c",
         help="Command for stdio transport",
     ),
-    args: Optional[str] = typer.Option(
+    args: str | None = typer.Option(
         None,
         "--args",
         "-a",
@@ -375,20 +373,20 @@ def prompts_cmd(
 
 @app.command("resources")
 def resources_cmd(
-    url: Optional[str] = typer.Argument(None, help="MCP server URL"),
+    url: str | None = typer.Argument(None, help="MCP server URL"),
     transport: str = typer.Option(
         "streamable_http",
         "--transport",
         "-t",
         help="Transport type: streamable_http, stdio",
     ),
-    command: Optional[str] = typer.Option(
+    command: str | None = typer.Option(
         None,
         "--command",
         "-c",
         help="Command for stdio transport",
     ),
-    args: Optional[str] = typer.Option(
+    args: str | None = typer.Option(
         None,
         "--args",
         "-a",
@@ -437,9 +435,7 @@ def resources_cmd(
             for resource in resources:
                 table.add_row(
                     resource.name,
-                    resource.uri[:50] + "..."
-                    if len(resource.uri) > 50
-                    else resource.uri,
+                    resource.uri[:50] + "..." if len(resource.uri) > 50 else resource.uri,
                     resource.mime_type or "-",
                 )
 
@@ -455,22 +451,22 @@ def resources_cmd(
 
 @app.command("call")
 def call_cmd(
-    url: Optional[str] = typer.Argument(None, help="MCP server URL"),
+    url: str | None = typer.Argument(None, help="MCP server URL"),
     tool_name: str = typer.Argument(..., help="Tool name to call"),
-    tool_args: Optional[str] = typer.Argument(None, help="Tool arguments as JSON"),
+    tool_args: str | None = typer.Argument(None, help="Tool arguments as JSON"),
     transport: str = typer.Option(
         "streamable_http",
         "--transport",
         "-t",
         help="Transport type: streamable_http, stdio",
     ),
-    command: Optional[str] = typer.Option(
+    command: str | None = typer.Option(
         None,
         "--command",
         "-c",
         help="Command for stdio transport",
     ),
-    args: Optional[str] = typer.Option(
+    args: str | None = typer.Option(
         None,
         "--args",
         "-a",
@@ -534,9 +530,7 @@ def call_cmd(
             else:
                 console.print(str(result))
 
-    asyncio.run(
-        _run_with_client(config, timeout, f"Call tool '{tool_name}'", _call_tool)
-    )
+    asyncio.run(_run_with_client(config, timeout, f"Call tool '{tool_name}'", _call_tool))
 
 
 # =============================================================================
@@ -546,22 +540,22 @@ def call_cmd(
 
 @app.command("prompt")
 def prompt_cmd(
-    url: Optional[str] = typer.Argument(None, help="MCP server URL"),
+    url: str | None = typer.Argument(None, help="MCP server URL"),
     prompt_name: str = typer.Argument(..., help="Prompt name to get"),
-    prompt_args: Optional[str] = typer.Argument(None, help="Prompt arguments as JSON"),
+    prompt_args: str | None = typer.Argument(None, help="Prompt arguments as JSON"),
     transport: str = typer.Option(
         "streamable_http",
         "--transport",
         "-t",
         help="Transport type: streamable_http, stdio",
     ),
-    command: Optional[str] = typer.Option(
+    command: str | None = typer.Option(
         None,
         "--command",
         "-c",
         help="Command for stdio transport",
     ),
-    args: Optional[str] = typer.Option(
+    args: str | None = typer.Option(
         None,
         "--args",
         "-a",
@@ -590,9 +584,7 @@ def prompt_cmd(
         raise typer.Exit(1)
 
     async def _get_prompt(client: MCPClient):
-        messages = await client.get_prompt(
-            "cli-server", prompt_name, arguments=parsed_args
-        )
+        messages = await client.get_prompt("cli-server", prompt_name, arguments=parsed_args)
 
         if output_json:
             messages_data = [{"role": m.type, "content": m.content} for m in messages]
@@ -600,8 +592,7 @@ def prompt_cmd(
         else:
             console.print(
                 Panel(
-                    f"[green]✓ Prompt '{prompt_name}' loaded[/green]\n"
-                    f"Messages: {len(messages)}",
+                    f"[green]✓ Prompt '{prompt_name}' loaded[/green]\nMessages: {len(messages)}",
                     title="MCP Prompt",
                     border_style="green",
                 )
@@ -612,9 +603,7 @@ def prompt_cmd(
                 console.print(f"\n[{role_color}]{msg.type.upper()}:[/{role_color}]")
                 console.print(msg.content)
 
-    asyncio.run(
-        _run_with_client(config, timeout, f"Get prompt '{prompt_name}'", _get_prompt)
-    )
+    asyncio.run(_run_with_client(config, timeout, f"Get prompt '{prompt_name}'", _get_prompt))
 
 
 # =============================================================================
@@ -624,7 +613,7 @@ def prompt_cmd(
 
 @app.command("resource")
 def resource_cmd(
-    url: Optional[str] = typer.Argument(None, help="MCP server URL"),
+    url: str | None = typer.Argument(None, help="MCP server URL"),
     resource_uri: str = typer.Argument(..., help="Resource URI to fetch"),
     transport: str = typer.Option(
         "streamable_http",
@@ -632,13 +621,13 @@ def resource_cmd(
         "-t",
         help="Transport type: streamable_http, stdio",
     ),
-    command: Optional[str] = typer.Option(
+    command: str | None = typer.Option(
         None,
         "--command",
         "-c",
         help="Command for stdio transport",
     ),
-    args: Optional[str] = typer.Option(
+    args: str | None = typer.Option(
         None,
         "--args",
         "-a",
@@ -655,7 +644,7 @@ def resource_cmd(
         "-j",
         help="Output as JSON",
     ),
-    output_file: Optional[str] = typer.Option(
+    output_file: str | None = typer.Option(
         None,
         "--output",
         "-o",
@@ -666,9 +655,7 @@ def resource_cmd(
     config = _create_config(url, transport, command, args)
 
     async def _get_resource(client: MCPClient):
-        resources: list[MCPResource] = await client.get_resources(
-            "cli-server", uris=resource_uri
-        )
+        resources: list[MCPResource] = await client.get_resources("cli-server", uris=resource_uri)
 
         if not resources:
             console.print(f"[red]Resource not found: {resource_uri}[/red]")
@@ -714,15 +701,9 @@ def resource_cmd(
                 else:
                     console.print(content)
             else:
-                console.print(
-                    f"[dim]Binary content: {len(resource.as_bytes())} bytes[/dim]"
-                )
+                console.print(f"[dim]Binary content: {len(resource.as_bytes())} bytes[/dim]")
 
-    asyncio.run(
-        _run_with_client(
-            config, timeout, f"Get resource '{resource_uri}'", _get_resource
-        )
-    )
+    asyncio.run(_run_with_client(config, timeout, f"Get resource '{resource_uri}'", _get_resource))
 
 
 # =============================================================================
@@ -732,20 +713,20 @@ def resource_cmd(
 
 @app.command("info")
 def info_cmd(
-    url: Optional[str] = typer.Argument(None, help="MCP server URL"),
+    url: str | None = typer.Argument(None, help="MCP server URL"),
     transport: str = typer.Option(
         "streamable_http",
         "--transport",
         "-t",
         help="Transport type: streamable_http, stdio",
     ),
-    command: Optional[str] = typer.Option(
+    command: str | None = typer.Option(
         None,
         "--command",
         "-c",
         help="Command for stdio transport",
     ),
-    args: Optional[str] = typer.Option(
+    args: str | None = typer.Option(
         None,
         "--args",
         "-a",

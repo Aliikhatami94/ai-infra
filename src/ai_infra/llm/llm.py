@@ -71,7 +71,7 @@ class LLM(BaseLLM):
     def __init__(
         self,
         *,
-        callbacks: "Callbacks" | ("CallbackManager" | None) = None,
+        callbacks: Callbacks | (CallbackManager | None) = None,
     ):
         """Initialize LLM with optional callbacks.
 
@@ -85,7 +85,7 @@ class LLM(BaseLLM):
         # Use shared normalize_callbacks utility
         from ai_infra.callbacks import normalize_callbacks
 
-        self._callbacks: "CallbackManager" | None = normalize_callbacks(callbacks)
+        self._callbacks: CallbackManager | None = normalize_callbacks(callbacks)
 
     # =========================================================================
     # Discovery API - Static methods for provider/model discovery
@@ -206,7 +206,7 @@ class LLM(BaseLLM):
         output_method: (
             Literal["json_schema", "json_mode", "function_calling", "prompt"] | None
         ) = "prompt",
-        images: list[str | bytes | "Path"] | None = None,
+        images: list[str | bytes | Path] | None = None,
         audio: Any | None = None,
         audio_output: Any | None = None,
         **model_kwargs,
@@ -287,9 +287,9 @@ class LLM(BaseLLM):
                 # otherwise: existing structured (json_mode/function_calling/json_schema) or plain
                 if output_schema is not None:
                     # output_method is not "prompt" here (handled above)
-                    method_cast: (
-                        Literal["json_schema", "json_mode", "function_calling"] | None
-                    ) = output_method  # type: ignore[assignment]
+                    method_cast: Literal["json_schema", "json_mode", "function_calling"] | None = (
+                        output_method  # type: ignore[assignment]
+                    )
                     model = self.with_structured_output(
                         provider,
                         model_name,
@@ -308,11 +308,7 @@ class LLM(BaseLLM):
                     return model.invoke(messages)
 
                 retry_cfg = (extra or {}).get("retry") if extra else None
-                res = (
-                    _call()
-                    if not retry_cfg
-                    else self._run_with_retry_sync(_call, retry_cfg)
-                )
+                res = _call() if not retry_cfg else self._run_with_retry_sync(_call, retry_cfg)
 
             # Call response hook
             duration_ms = (time.time() - start_time) * 1000
@@ -335,15 +331,9 @@ class LLM(BaseLLM):
                         provider=provider,
                         model=model_name or "",
                         response=getattr(res, "content", str(res)),
-                        input_tokens=getattr(usage, "input_tokens", None)
-                        if usage
-                        else None,
-                        output_tokens=getattr(usage, "output_tokens", None)
-                        if usage
-                        else None,
-                        total_tokens=getattr(usage, "total_tokens", None)
-                        if usage
-                        else None,
+                        input_tokens=getattr(usage, "input_tokens", None) if usage else None,
+                        output_tokens=getattr(usage, "output_tokens", None) if usage else None,
+                        total_tokens=getattr(usage, "total_tokens", None) if usage else None,
                         latency_ms=duration_ms,
                     )
                 )
@@ -382,9 +372,7 @@ class LLM(BaseLLM):
                 )
 
             # Translate provider error to ai-infra error
-            raise translate_provider_error(
-                e, provider=provider, model=model_name
-            ) from e
+            raise translate_provider_error(e, provider=provider, model=model_name) from e
 
     async def achat(
         self,
@@ -397,7 +385,7 @@ class LLM(BaseLLM):
         output_method: (
             Literal["json_schema", "json_mode", "function_calling", "prompt"] | None
         ) = "prompt",
-        images: list[str | bytes | "Path"] | None = None,
+        images: list[str | bytes | Path] | None = None,
         audio: Any | None = None,
         audio_output: Any | None = None,
         **model_kwargs,
@@ -476,9 +464,9 @@ class LLM(BaseLLM):
             else:
                 if output_schema is not None:
                     # output_method is not "prompt" here (handled above)
-                    method_cast: (
-                        Literal["json_schema", "json_mode", "function_calling"] | None
-                    ) = output_method  # type: ignore[assignment]
+                    method_cast: Literal["json_schema", "json_mode", "function_calling"] | None = (
+                        output_method  # type: ignore[assignment]
+                    )
                     model = self.with_structured_output(
                         provider,
                         model_name,
@@ -497,9 +485,7 @@ class LLM(BaseLLM):
                     return await model.ainvoke(messages)
 
                 retry_cfg = (extra or {}).get("retry") if extra else None
-                res = await (
-                    _with_retry_util(_call, **retry_cfg) if retry_cfg else _call()
-                )
+                res = await (_with_retry_util(_call, **retry_cfg) if retry_cfg else _call())
 
             # Call response hook
             duration_ms = (time.time() - start_time) * 1000
@@ -522,15 +508,9 @@ class LLM(BaseLLM):
                         provider=provider,
                         model=model_name or "",
                         response=getattr(res, "content", str(res)),
-                        input_tokens=getattr(usage, "input_tokens", None)
-                        if usage
-                        else None,
-                        output_tokens=getattr(usage, "output_tokens", None)
-                        if usage
-                        else None,
-                        total_tokens=getattr(usage, "total_tokens", None)
-                        if usage
-                        else None,
+                        input_tokens=getattr(usage, "input_tokens", None) if usage else None,
+                        output_tokens=getattr(usage, "output_tokens", None) if usage else None,
+                        total_tokens=getattr(usage, "total_tokens", None) if usage else None,
                         latency_ms=duration_ms,
                     )
                 )
@@ -569,9 +549,7 @@ class LLM(BaseLLM):
                 )
 
             # Translate provider error to ai-infra error
-            raise translate_provider_error(
-                e, provider=provider, model=model_name
-            ) from e
+            raise translate_provider_error(e, provider=provider, model=model_name) from e
 
     async def stream_tokens(
         self,
@@ -583,7 +561,7 @@ class LLM(BaseLLM):
         temperature: float | None = None,
         top_p: float | None = None,
         max_tokens: int | None = None,
-        images: list[str | bytes | "Path"] | None = None,
+        images: list[str | bytes | Path] | None = None,
         **model_kwargs,
     ):
         """Stream tokens from the model.

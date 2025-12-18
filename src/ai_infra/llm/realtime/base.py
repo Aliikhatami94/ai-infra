@@ -15,9 +15,9 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any
-from collections.abc import AsyncIterator, Awaitable, Callable
 
 if TYPE_CHECKING:
     from ai_infra.llm.realtime.models import (
@@ -71,7 +71,7 @@ class BaseRealtimeProvider(ABC):
         ```
     """
 
-    def __init__(self, config: "RealtimeConfig | None" = None):
+    def __init__(self, config: RealtimeConfig | None = None):
         """Initialize the provider.
 
         Args:
@@ -130,7 +130,7 @@ class BaseRealtimeProvider(ABC):
         ...
 
     @abstractmethod
-    async def connect(self) -> "VoiceSession":
+    async def connect(self) -> VoiceSession:
         """Connect to the provider's WebSocket endpoint.
 
         Establishes the WebSocket connection and returns a VoiceSession
@@ -166,7 +166,7 @@ class BaseRealtimeProvider(ABC):
     def run(
         self,
         audio_stream: AsyncIterator[bytes],
-    ) -> AsyncIterator["AudioChunk | TranscriptDelta"]:
+    ) -> AsyncIterator[AudioChunk | TranscriptDelta]:
         """Run a streaming conversation.
 
         This method handles the full lifecycle:
@@ -276,7 +276,7 @@ class BaseRealtimeProvider(ABC):
             except Exception as e:
                 logger.error(f"Error in transcript callback: {e}")
 
-    async def _dispatch_tool_call(self, request: "ToolCallRequest") -> Any:
+    async def _dispatch_tool_call(self, request: ToolCallRequest) -> Any:
         """Dispatch tool call to first registered callback."""
         for callback in self._tool_call_callbacks:
             try:
@@ -286,7 +286,7 @@ class BaseRealtimeProvider(ABC):
                 raise
         return None
 
-    async def _dispatch_error(self, error: "RealtimeError") -> None:
+    async def _dispatch_error(self, error: RealtimeError) -> None:
         """Dispatch error to all registered callbacks."""
         for callback in self._error_callbacks:
             try:

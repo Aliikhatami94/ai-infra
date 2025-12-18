@@ -1,5 +1,5 @@
-from typing import Any, Optional
 from collections.abc import Callable, Sequence
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
@@ -14,19 +14,19 @@ class GraphStructure(BaseModel):
     edge_count: int
     edges: list[tuple[str, str]]
     conditional_edge_count: int
-    conditional_edges: Optional[list[dict[str, Any]]] = None
+    conditional_edges: list[dict[str, Any]] | None = None
     entry_points: list[str]
     exit_points: list[str]
     has_memory: bool
-    unreachable: Optional[list[str]] = None
+    unreachable: list[str] | None = None
 
 
 class GraphConfig(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     node_definitions: Sequence[Any]
     edges: Sequence[tuple[str, str]]
-    conditional_edges: Optional[Sequence[tuple[str, Any, dict]]] = None
-    memory_store: Optional[object] = None
+    conditional_edges: Sequence[tuple[str, Any, dict]] | None = None
+    memory_store: object | None = None
 
 
 class Edge(BaseModel):

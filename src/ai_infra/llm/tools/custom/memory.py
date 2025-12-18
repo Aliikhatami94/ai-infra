@@ -42,9 +42,9 @@ from __future__ import annotations
 import hashlib
 import logging
 import time
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Literal, Optional
 from collections.abc import Sequence
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     from ai_infra.llm.llm import LLM
@@ -78,7 +78,7 @@ class ConversationChunk:
     text: str
     """Text representation of the conversation (for embedding)."""
 
-    summary: Optional[str] = None
+    summary: str | None = None
     """Optional summary of this chunk."""
 
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -87,7 +87,7 @@ class ConversationChunk:
     created_at: float = field(default_factory=time.time)
     """Unix timestamp when indexed."""
 
-    score: Optional[float] = None
+    score: float | None = None
     """Similarity score (populated during search)."""
 
 
@@ -155,10 +155,10 @@ class ConversationMemory:
         self,
         *,
         backend: Literal["memory", "sqlite", "postgres"] = "memory",
-        path: Optional[str] = None,
-        connection_string: Optional[str] = None,
-        embedding_provider: Optional[str] = None,
-        embedding_model: Optional[str] = None,
+        path: str | None = None,
+        connection_string: str | None = None,
+        embedding_provider: str | None = None,
+        embedding_model: str | None = None,
         chunk_size: int = 10,
         chunk_overlap: int = 2,
         include_summary: bool = False,
@@ -231,19 +231,19 @@ class ConversationMemory:
             )
 
         # LLM for summaries (lazy init)
-        self._llm: "LLM" | None = None
+        self._llm: LLM | None = None
 
     @classmethod
     def sqlite(
         cls,
         path: str,
         *,
-        embedding_provider: Optional[str] = None,
-        embedding_model: Optional[str] = None,
+        embedding_provider: str | None = None,
+        embedding_model: str | None = None,
         chunk_size: int = 10,
         chunk_overlap: int = 2,
         include_summary: bool = False,
-    ) -> "ConversationMemory":
+    ) -> ConversationMemory:
         """Create a SQLite-backed ConversationMemory.
 
         Args:
@@ -272,12 +272,12 @@ class ConversationMemory:
         cls,
         connection_string: str,
         *,
-        embedding_provider: Optional[str] = None,
-        embedding_model: Optional[str] = None,
+        embedding_provider: str | None = None,
+        embedding_model: str | None = None,
         chunk_size: int = 10,
         chunk_overlap: int = 2,
         include_summary: bool = False,
-    ) -> "ConversationMemory":
+    ) -> ConversationMemory:
         """Create a PostgreSQL-backed ConversationMemory.
 
         Args:
@@ -307,7 +307,7 @@ class ConversationMemory:
         session_id: str,
         messages: Sequence[MessageLike],
         *,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> list[str]:
         """Index a conversation for later search.
 
@@ -369,9 +369,7 @@ class ConversationMemory:
             chunk_ids.append(chunk.chunk_id)
             logger.debug(f"Indexed chunk {chunk.chunk_id} for user {user_id}")
 
-        logger.info(
-            f"Indexed {len(chunk_ids)} chunks for user={user_id}, session={session_id}"
-        )
+        logger.info(f"Indexed {len(chunk_ids)} chunks for user={user_id}, session={session_id}")
         return chunk_ids
 
     async def aindex_conversation(
@@ -380,7 +378,7 @@ class ConversationMemory:
         session_id: str,
         messages: Sequence[MessageLike],
         *,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> list[str]:
         """Async version of index_conversation.
 
@@ -417,9 +415,7 @@ class ConversationMemory:
             )
             chunk_ids.append(chunk.chunk_id)
 
-        logger.info(
-            f"Indexed {len(chunk_ids)} chunks for user={user_id}, session={session_id}"
-        )
+        logger.info(f"Indexed {len(chunk_ids)} chunks for user={user_id}, session={session_id}")
         return chunk_ids
 
     def search(
@@ -428,8 +424,8 @@ class ConversationMemory:
         query: str,
         *,
         limit: int = 5,
-        min_score: Optional[float] = None,
-        session_id: Optional[str] = None,
+        min_score: float | None = None,
+        session_id: str | None = None,
     ) -> list[SearchResult]:
         """Search past conversations for relevant context.
 
@@ -496,9 +492,7 @@ class ConversationMemory:
                 continue
 
             # Reconstruct messages
-            messages = [
-                self._dict_to_message(m) for m in item.value.get("messages", [])
-            ]
+            messages = [self._dict_to_message(m) for m in item.value.get("messages", [])]
 
             chunk = ConversationChunk(
                 chunk_id=item.key,
@@ -528,8 +522,8 @@ class ConversationMemory:
         query: str,
         *,
         limit: int = 5,
-        min_score: Optional[float] = None,
-        session_id: Optional[str] = None,
+        min_score: float | None = None,
+        session_id: str | None = None,
     ) -> list[SearchResult]:
         """Async version of search.
 
@@ -569,9 +563,7 @@ class ConversationMemory:
             if session_id and item.value.get("session_id") != session_id:
                 continue
 
-            messages = [
-                self._dict_to_message(m) for m in item.value.get("messages", [])
-            ]
+            messages = [self._dict_to_message(m) for m in item.value.get("messages", [])]
 
             chunk = ConversationChunk(
                 chunk_id=item.key,
@@ -774,7 +766,7 @@ class ConversationMemory:
         else:
             return HumanMessage(content=content)
 
-    def _generate_summary(self, messages: list[BaseMessage]) -> Optional[str]:
+    def _generate_summary(self, messages: list[BaseMessage]) -> str | None:
         """Generate summary of messages using LLM."""
         if not self._include_summary:
             return None
@@ -811,7 +803,7 @@ class MemoryToolInput(BaseModel):
 def create_memory_tool(
     memory: ConversationMemory,
     *,
-    user_id: Optional[str] = None,
+    user_id: str | None = None,
     name: str = "recall_past_conversations",
     description: str = (
         "Search through past conversations with this user to find relevant "
@@ -819,9 +811,9 @@ def create_memory_tool(
         "the user references something from a previous conversation."
     ),
     limit: int = 3,
-    min_score: Optional[float] = None,
+    min_score: float | None = None,
     return_scores: bool = False,
-    max_chars: Optional[int] = None,
+    max_chars: int | None = None,
 ) -> StructuredTool:
     """Create an Agent-compatible tool for conversation recall.
 
@@ -874,7 +866,9 @@ def create_memory_tool(
     def search_conversations(query: str) -> str:
         """Search past conversations for relevant context."""
         if not _user_id:
-            return "Error: user_id not provided when creating the tool. Cannot search conversations."
+            return (
+                "Error: user_id not provided when creating the tool. Cannot search conversations."
+            )
 
         # Search
         results = _memory.search(
@@ -916,7 +910,7 @@ def create_memory_tool(
 def create_memory_tool_async(
     memory: ConversationMemory,
     *,
-    user_id: Optional[str] = None,
+    user_id: str | None = None,
     name: str = "recall_past_conversations",
     description: str = (
         "Search through past conversations with this user to find relevant "
@@ -924,9 +918,9 @@ def create_memory_tool_async(
         "the user references something from a previous conversation."
     ),
     limit: int = 3,
-    min_score: Optional[float] = None,
+    min_score: float | None = None,
     return_scores: bool = False,
-    max_chars: Optional[int] = None,
+    max_chars: int | None = None,
 ) -> StructuredTool:
     """Create an async Agent-compatible tool for conversation recall.
 
@@ -956,7 +950,9 @@ def create_memory_tool_async(
     async def search_conversations_async(query: str) -> str:
         """Search past conversations for relevant context (async)."""
         if not _user_id:
-            return "Error: user_id not provided when creating the tool. Cannot search conversations."
+            return (
+                "Error: user_id not provided when creating the tool. Cannot search conversations."
+            )
 
         results = await _memory.asearch(
             user_id=_user_id,

@@ -3,10 +3,9 @@ from __future__ import annotations
 import json
 import os
 import re
+from collections.abc import Iterable, Sequence
 from contextvars import ContextVar
 from pathlib import Path
-from typing import Optional
-from collections.abc import Iterable, Sequence
 
 # ---------- Repo root & sandbox ----------
 
@@ -42,7 +41,7 @@ def _find_repo_root(start: Path) -> Path:
 _DEFAULT_ROOT = Path(os.getenv("REPO_ROOT", os.getcwd())).resolve()
 
 # Context variable for per-request/per-agent workspace override
-_workspace_root: ContextVar[Optional[Path]] = ContextVar("workspace_root", default=None)
+_workspace_root: ContextVar[Path | None] = ContextVar("workspace_root", default=None)
 
 
 def _set_workspace_root(path: str | Path | None) -> None:
@@ -119,7 +118,7 @@ def _normalize_user_path(p: Path) -> Path:
     return p
 
 
-def _confine(path: str | Path, *, workspace: Optional[Path] = None) -> Path:
+def _confine(path: str | Path, *, workspace: Path | None = None) -> Path:
     """
     Map user-supplied path to a real path under the workspace root.
 
@@ -222,9 +221,7 @@ def _read_small(path: Path, max_bytes: int) -> tuple[str | bytes, bool]:
     return (data.decode("utf-8", errors="replace") if is_text else data, truncated)
 
 
-def _walk(
-    root: Path, max_depth: int, exclude_globs: Sequence[str] | None
-) -> Iterable[Path]:
+def _walk(root: Path, max_depth: int, exclude_globs: Sequence[str] | None) -> Iterable[Path]:
     root = root.resolve()
     if max_depth < 0:
         return
@@ -232,15 +229,11 @@ def _walk(
     while stack:
         d, depth = stack.pop()
         try:
-            for p in sorted(
-                d.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower())
-            ):
+            for p in sorted(d.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower())):
                 name = p.name
                 if name in _IGNORED_DIRS:
                     continue
-                if exclude_globs and any(
-                    p.match(g) or name == g for g in exclude_globs
-                ):
+                if exclude_globs and any(p.match(g) or name == g for g in exclude_globs):
                     continue
                 yield p
                 if p.is_dir() and depth < max_depth:
@@ -256,9 +249,7 @@ def _tree(root: Path, max_depth: int, max_entries_per_dir: int = 80) -> str:
         try:
             entries = [
                 p
-                for p in sorted(
-                    d.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower())
-                )
+                for p in sorted(d.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower()))
                 if p.name not in _IGNORED_DIRS
             ]
         except Exception:
@@ -303,7 +294,7 @@ def _detect_tasks(root: Path) -> dict[str, list[str]]:
     if pj.exists():
         try:
             data = json.loads(pj.read_text(errors="ignore"))
-            scr = list(sorted((data.get("scripts") or {}).keys()))
+            scr = sorted((data.get("scripts") or {}).keys())
             if scr:
                 out["npm"] = scr[:30]
         except Exception:
@@ -315,13 +306,7 @@ def _detect_tasks(root: Path) -> dict[str, list[str]]:
             import tomllib
 
             data = tomllib.loads(pp.read_text(errors="ignore"))
-            scr = list(
-                sorted(
-                    ((data.get("tool") or {}).get("poetry") or {})
-                    .get("scripts", {})
-                    .keys()
-                )
-            )
+            scr = sorted(((data.get("tool") or {}).get("poetry") or {}).get("scripts", {}).keys())
             if scr:
                 out["poetry"] = scr[:30]
         except Exception:

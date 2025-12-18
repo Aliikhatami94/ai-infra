@@ -55,9 +55,9 @@ from ai_infra.retriever.models import Chunk, SearchResult
 from ai_infra.retriever.retriever import Retriever
 
 __all__ = [
+    "Chunk",
     "Retriever",
     "SearchResult",
-    "Chunk",
     "create_retriever_tool",
     "create_retriever_tool_async",
 ]

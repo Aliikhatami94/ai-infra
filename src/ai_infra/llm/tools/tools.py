@@ -1,5 +1,5 @@
-from typing import Any
 from collections.abc import Callable
+from typing import Any
 
 from langchain_core.tools import StructuredTool
 

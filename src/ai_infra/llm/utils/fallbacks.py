@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from typing import Any
 from collections.abc import Callable, Sequence
+from typing import Any
 
 ProviderModel = tuple[str, str]
 Candidate = ProviderModel | dict
@@ -32,9 +32,7 @@ def _resolve_candidate(c: Candidate) -> tuple[str, str, dict]:
             raise ValueError(
                 "Candidate dict must include 'provider' and 'model_name' (or 'model')."
             )
-        overrides = {
-            k: v for k, v in c.items() if k not in ("provider", "model_name", "model")
-        }
+        overrides = {k: v for k, v in c.items() if k not in ("provider", "model_name", "model")}
         return provider_val, model_name_val, overrides
     # statically “unreachable”, but keep the guard for runtime safety
     assert_never(c)  # will raise TypeError if ever reached
@@ -62,8 +60,7 @@ def run_with_fallbacks(
     run_single: Callable[[str, str, dict], Any],
     *,
     validate: Callable[[Any], bool] | None = None,
-    should_retry: Callable[[BaseException | None, Any, int, str, str], bool]
-    | None = None,
+    should_retry: Callable[[BaseException | None, Any, int, str, str], bool] | None = None,
     on_attempt: Callable[[int, str, str], None] | None = None,
 ) -> Any:
     """
@@ -118,8 +115,7 @@ async def arun_with_fallbacks(
     run_single_async: Callable[[str, str, dict], Any],
     *,
     validate: Callable[[Any], bool] | None = None,
-    should_retry: Callable[[BaseException | None, Any, int, str, str], bool]
-    | None = None,
+    should_retry: Callable[[BaseException | None, Any, int, str, str], bool] | None = None,
     on_attempt: Callable[[int, str, str], None] | None = None,
 ) -> Any:
     errs: list[BaseException] = []

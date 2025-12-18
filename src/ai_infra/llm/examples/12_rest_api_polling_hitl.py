@@ -31,7 +31,7 @@ import asyncio
 import uuid
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -43,9 +43,7 @@ try:
     from fastapi import BackgroundTasks, FastAPI, HTTPException
     from fastapi.responses import HTMLResponse
 except ImportError:
-    raise ImportError(
-        "FastAPI not installed. Install with: pip install fastapi uvicorn"
-    )
+    raise ImportError("FastAPI not installed. Install with: pip install fastapi uvicorn")
 
 
 # ============================================================================
@@ -95,8 +93,8 @@ class ApprovalDecision(BaseModel):
     """User's decision on an approval request."""
 
     approved: bool
-    reason: Optional[str] = None
-    modified_args: Optional[dict[str, Any]] = None
+    reason: str | None = None
+    modified_args: dict[str, Any] | None = None
 
 
 class TaskResponse(BaseModel):
@@ -104,8 +102,8 @@ class TaskResponse(BaseModel):
 
     id: str
     status: TaskStatus
-    message: Optional[str] = None
-    result: Optional[str] = None
+    message: str | None = None
+    result: str | None = None
     pending_approvals: list[str] = []
     created_at: datetime
     updated_at: datetime
@@ -127,7 +125,7 @@ pending_approvals: dict[str, ApprovalRequest] = {}
 task_events: dict[str, asyncio.Event] = {}
 
 # Store approval decisions
-approval_decisions: dict[str, Optional[ApprovalDecision]] = {}
+approval_decisions: dict[str, ApprovalDecision | None] = {}
 
 
 # ============================================================================
@@ -223,9 +221,7 @@ async def run_agent_task(task_id: str, message: str):
             tool_name = pending_action.tool_name if pending_action else "unknown"
             tool_args = pending_action.args if pending_action else {}
             context_str = (
-                str(pending_action.context)
-                if pending_action and pending_action.context
-                else ""
+                str(pending_action.context) if pending_action and pending_action.context else ""
             )
             approval = ApprovalRequest(
                 id=approval_id,
@@ -252,9 +248,7 @@ async def run_agent_task(task_id: str, message: str):
                 decision = approval_decisions.get(approval_id)
                 if decision is not None:
                     approval.status = (
-                        ApprovalStatus.APPROVED
-                        if decision.approved
-                        else ApprovalStatus.REJECTED
+                        ApprovalStatus.APPROVED if decision.approved else ApprovalStatus.REJECTED
                     )
                     break
 
@@ -275,16 +269,14 @@ async def run_agent_task(task_id: str, message: str):
             )
 
         # Task completed
-        response_text = (
-            result.content if isinstance(result, SessionResult) else str(result)
-        )
+        response_text = result.content if isinstance(result, SessionResult) else str(result)
         tasks[task_id].status = TaskStatus.COMPLETED
         tasks[task_id].result = response_text
         tasks[task_id].updated_at = datetime.now()
 
     except Exception as e:
         tasks[task_id].status = TaskStatus.FAILED
-        tasks[task_id].result = f"Error: {str(e)}"
+        tasks[task_id].result = f"Error: {e!s}"
         tasks[task_id].updated_at = datetime.now()
 
     finally:
@@ -344,8 +336,7 @@ async def get_task_approvals(task_id: str):
     return [
         pending_approvals[aid]
         for aid in tasks[task_id].pending_approvals
-        if aid in pending_approvals
-        and pending_approvals[aid].status == ApprovalStatus.PENDING
+        if aid in pending_approvals and pending_approvals[aid].status == ApprovalStatus.PENDING
     ]
 
 
@@ -373,9 +364,7 @@ async def submit_approval(approval_id: str, decision: ApprovalDecision):
     approval_decisions[approval_id] = decision
 
     # Update status (will be picked up by the background task)
-    approval.status = (
-        ApprovalStatus.APPROVED if decision.approved else ApprovalStatus.REJECTED
-    )
+    approval.status = ApprovalStatus.APPROVED if decision.approved else ApprovalStatus.REJECTED
 
     return approval
 

@@ -12,7 +12,6 @@ Usage:
 from __future__ import annotations
 
 import json
-from typing import Optional
 
 import typer
 
@@ -63,9 +62,7 @@ def tts_providers_cmd(
         typer.echo(json.dumps(providers, indent=2))
     else:
         if not providers:
-            typer.echo(
-                "No TTS providers configured. Set API key environment variables."
-            )
+            typer.echo("No TTS providers configured. Set API key environment variables.")
             raise typer.Exit(1)
 
         typer.echo("\nTTS Providers:")
@@ -76,7 +73,7 @@ def tts_providers_cmd(
 
 @app.command("tts-voices")
 def tts_voices_cmd(
-    provider: Optional[str] = typer.Option(
+    provider: str | None = typer.Option(
         None,
         "--provider",
         "-p",
@@ -112,7 +109,7 @@ def tts_voices_cmd(
 
 @app.command("tts-models")
 def tts_models_cmd(
-    provider: Optional[str] = typer.Option(
+    provider: str | None = typer.Option(
         None,
         "--provider",
         "-p",
@@ -176,9 +173,7 @@ def stt_providers_cmd(
         typer.echo(json.dumps(providers, indent=2))
     else:
         if not providers:
-            typer.echo(
-                "No STT providers configured. Set API key environment variables."
-            )
+            typer.echo("No STT providers configured. Set API key environment variables.")
             raise typer.Exit(1)
 
         typer.echo("\nSTT Providers:")
@@ -189,7 +184,7 @@ def stt_providers_cmd(
 
 @app.command("stt-models")
 def stt_models_cmd(
-    provider: Optional[str] = typer.Option(
+    provider: str | None = typer.Option(
         None,
         "--provider",
         "-p",
@@ -274,9 +269,7 @@ def audio_models_cmd(
 
 def register(parent: typer.Typer):
     """Register multimodal commands with the parent CLI app."""
-    parent.add_typer(
-        app, name="multimodal", help="Multimodal discovery (TTS, STT, Audio)"
-    )
+    parent.add_typer(app, name="multimodal", help="Multimodal discovery (TTS, STT, Audio)")
     # Also add as top-level commands for convenience
     parent.command("tts-providers")(tts_providers_cmd)
     parent.command("tts-voices")(tts_voices_cmd)

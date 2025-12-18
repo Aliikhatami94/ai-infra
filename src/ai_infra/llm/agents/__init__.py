@@ -7,10 +7,10 @@ This package contains extracted modules from the main Agent class:
 
 from ai_infra.llm.agents.callbacks import wrap_tool_with_callbacks
 from ai_infra.llm.agents.deep import (
+    HAS_DEEPAGENTS,
     AgentMiddleware,
     CompiledSubAgent,
     FilesystemMiddleware,
-    HAS_DEEPAGENTS,
     SubAgent,
     SubAgentMiddleware,
     build_deep_agent,

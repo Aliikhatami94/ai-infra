@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Optional
 
 
 class ImageGenProvider(StrEnum):
@@ -29,11 +28,11 @@ class GeneratedImage:
         metadata: Additional provider-specific metadata.
     """
 
-    data: Optional[bytes] = None
-    url: Optional[str] = None
-    revised_prompt: Optional[str] = None
-    model: Optional[str] = None
-    provider: Optional[ImageGenProvider] = None
+    data: bytes | None = None
+    url: str | None = None
+    revised_prompt: str | None = None
+    model: str | None = None
+    provider: ImageGenProvider | None = None
     metadata: dict = field(default_factory=dict)
 
     def save(self, path: str) -> None:

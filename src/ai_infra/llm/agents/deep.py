@@ -12,8 +12,8 @@ DeepAgents mode enables autonomous task execution with built-in tools for:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
 from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from ai_infra.llm.session import SessionConfig
@@ -42,8 +42,7 @@ except ImportError:
     # Define placeholders when deepagents is not installed
     def _missing_deepagents(*args: Any, **kwargs: Any) -> None:
         raise ImportError(
-            "DeepAgents requires 'deepagents' package. "
-            "Install with: pip install deepagents"
+            "DeepAgents requires 'deepagents' package. Install with: pip install deepagents"
         )
 
     class SubAgent(dict):  # type: ignore[no-redef]
@@ -82,11 +81,11 @@ except ImportError:
 
 __all__ = [
     "HAS_DEEPAGENTS",
-    "SubAgent",
-    "CompiledSubAgent",
-    "SubAgentMiddleware",
-    "FilesystemMiddleware",
     "AgentMiddleware",
+    "CompiledSubAgent",
+    "FilesystemMiddleware",
+    "SubAgent",
+    "SubAgentMiddleware",
     "build_deep_agent",
 ]
 
@@ -94,8 +93,8 @@ __all__ = [
 def build_deep_agent(
     model: Any,
     *,
-    workspace: "Workspace | None" = None,
-    session_config: "SessionConfig | None" = None,
+    workspace: Workspace | None = None,
+    session_config: SessionConfig | None = None,
     tools: list[Any] | None = None,
     system: str | None = None,
     middleware: Sequence[Any] | None = None,
@@ -130,8 +129,7 @@ def build_deep_agent(
         from deepagents import create_deep_agent
     except ImportError as e:
         raise ImportError(
-            "DeepAgents mode requires 'deepagents' package. "
-            "Install with: pip install deepagents"
+            "DeepAgents mode requires 'deepagents' package. Install with: pip install deepagents"
         ) from e
 
     # Extract session config

@@ -25,9 +25,9 @@ from __future__ import annotations
 
 import logging
 import os
-from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING, Any
 from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
+from typing import Any
 
 from .base import BaseRealtimeProvider
 from .models import (
@@ -47,8 +47,6 @@ try:
 except ImportError:
     _HAS_PROVIDER_REGISTRY = False
 
-if TYPE_CHECKING:
-    pass  # Reserved for future type-only imports
 
 logger = logging.getLogger(__name__)
 
@@ -207,9 +205,7 @@ class RealtimeVoice:
             self._provider = self._auto_select_provider()
 
     @classmethod
-    def register_provider(
-        cls, name: str, provider_class: type[BaseRealtimeProvider]
-    ) -> None:
+    def register_provider(cls, name: str, provider_class: type[BaseRealtimeProvider]) -> None:
         """
         Register a provider class for auto-selection.
 
@@ -244,9 +240,7 @@ class RealtimeVoice:
 
         # Use central registry if available
         if _HAS_PROVIDER_REGISTRY:
-            realtime_providers = ProviderRegistry.list_for_capability(
-                ProviderCapability.REALTIME
-            )
+            realtime_providers = ProviderRegistry.list_for_capability(ProviderCapability.REALTIME)
             for name in realtime_providers:
                 if ProviderRegistry.is_configured(name):
                     # Map registry names to local provider names

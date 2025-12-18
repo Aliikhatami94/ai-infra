@@ -6,9 +6,9 @@ import json
 import re
 import shutil
 import subprocess
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Literal
-from collections.abc import Sequence
 
 from ai_infra.llm.tools.custom.proj_mgmt.utils import (
     _REPO_ROOT,
@@ -67,8 +67,7 @@ async def project_scan(
             if any((root / f).exists() for f in ("build.gradle", "build.gradle.kts")):
                 caps.append("Java/Gradle")
             if any(
-                (root / f).exists()
-                for f in ("Dockerfile", "docker-compose.yml", "compose.yml")
+                (root / f).exists() for f in ("Dockerfile", "docker-compose.yml", "compose.yml")
             ):
                 caps.append("Docker")
             for tool in (
@@ -101,16 +100,10 @@ async def project_scan(
                     return ""
 
             branch = _git(["rev-parse", "--abbrev-ref", "HEAD"]) or ""
-            upstream = (
-                _git(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"])
-                or ""
-            )
+            upstream = _git(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]) or ""
             ahead_behind = ""
             if branch and upstream:
-                ab = (
-                    _git(["rev-list", "--left-right", "--count", f"{upstream}...HEAD"])
-                    or ""
-                )
+                ab = _git(["rev-list", "--left-right", "--count", f"{upstream}...HEAD"]) or ""
                 if ab:
                     left, right = (ab.split() + ["0", "0"])[:2]
                     ahead_behind = f"{right} ahead / {left} behind"
@@ -182,9 +175,7 @@ async def files_list(
             for p in base.glob(glob):
                 try:
                     p.relative_to(_REPO_ROOT)  # enforce sandbox
-                    if exclude and any(
-                        p.match(g) or p.name == g for g in (exclude or [])
-                    ):
+                    if exclude and any(p.match(g) or p.name == g for g in (exclude or [])):
                         continue
                     paths.append(p)
                     if len(paths) >= limit:
@@ -345,9 +336,7 @@ async def file_write(
 
         if mode == "write":
             if p.exists() and not overwrite:
-                raise FileExistsError(
-                    f"Refusing to overwrite without overwrite=True: {p}"
-                )
+                raise FileExistsError(f"Refusing to overwrite without overwrite=True: {p}")
             if create_dirs:
                 p.parent.mkdir(parents=True, exist_ok=True)
             p.write_text(content or "", encoding="utf-8")
@@ -394,9 +383,7 @@ async def file_write(
                     bak.write_text(text, encoding="utf-8")
             p.write_text(new_text, encoding="utf-8")
             diff = "\n".join(
-                difflib.unified_diff(
-                    text.splitlines(), new_text.splitlines(), lineterm=""
-                )
+                difflib.unified_diff(text.splitlines(), new_text.splitlines(), lineterm="")
             )
             clipped = "\n".join(diff.splitlines()[:300])
             return f"[replace] {n} change(s)\n{clipped}"
@@ -407,8 +394,8 @@ async def file_write(
 
 
 __all__ = [
-    "project_scan",
-    "files_list",
     "file_read",
     "file_write",
+    "files_list",
+    "project_scan",
 ]

@@ -12,7 +12,6 @@ from __future__ import annotations
 import json
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional
 
 from ai_infra.replay.recorder import WorkflowStep
 
@@ -32,7 +31,7 @@ class Storage(ABC):
         pass
 
     @abstractmethod
-    def load(self, record_id: str) -> Optional[list[WorkflowStep]]:
+    def load(self, record_id: str) -> list[WorkflowStep] | None:
         """
         Load workflow steps from storage.
 
@@ -102,7 +101,7 @@ class MemoryStorage(Storage):
         """Save workflow to memory."""
         self._recordings[record_id] = steps.copy()
 
-    def load(self, record_id: str) -> Optional[list[WorkflowStep]]:
+    def load(self, record_id: str) -> list[WorkflowStep] | None:
         """Load workflow from memory."""
         steps = self._recordings.get(record_id)
         return steps.copy() if steps else None
@@ -184,7 +183,7 @@ class SQLiteStorage(Storage):
         )
         self._conn.commit()
 
-    def load(self, record_id: str) -> Optional[list[WorkflowStep]]:
+    def load(self, record_id: str) -> list[WorkflowStep] | None:
         """Load workflow from SQLite."""
         cursor = self._conn.cursor()
         cursor.execute("SELECT steps FROM workflows WHERE record_id = ?", (record_id,))
@@ -216,7 +215,7 @@ class SQLiteStorage(Storage):
 
 
 # Global default storage (can be overridden)
-_default_storage: Optional[Storage] = None
+_default_storage: Storage | None = None
 
 
 def get_default_storage() -> Storage:

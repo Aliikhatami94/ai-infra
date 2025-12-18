@@ -15,7 +15,7 @@ All errors provide helpful, actionable error messages with:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 # =============================================================================
 # Logging Helper
@@ -83,9 +83,9 @@ class AIInfraError(Exception):
         self,
         message: str,
         *,
-        details: Optional[dict[str, Any]] = None,
-        hint: Optional[str] = None,
-        docs_url: Optional[str] = None,
+        details: dict[str, Any] | None = None,
+        hint: str | None = None,
+        docs_url: str | None = None,
     ):
         self.message = message
         self.details = details or {}
@@ -117,11 +117,11 @@ class LLMError(AIInfraError):
         self,
         message: str,
         *,
-        provider: Optional[str] = None,
-        model: Optional[str] = None,
-        details: Optional[dict[str, Any]] = None,
-        hint: Optional[str] = None,
-        docs_url: Optional[str] = None,
+        provider: str | None = None,
+        model: str | None = None,
+        details: dict[str, Any] | None = None,
+        hint: str | None = None,
+        docs_url: str | None = None,
     ):
         self.provider = provider
         self.model = model
@@ -146,13 +146,13 @@ class ProviderError(LLMError):
         self,
         message: str,
         *,
-        provider: Optional[str] = None,
-        model: Optional[str] = None,
-        status_code: Optional[int] = None,
-        error_type: Optional[str] = None,
-        details: Optional[dict[str, Any]] = None,
-        hint: Optional[str] = None,
-        docs_url: Optional[str] = None,
+        provider: str | None = None,
+        model: str | None = None,
+        status_code: int | None = None,
+        error_type: str | None = None,
+        details: dict[str, Any] | None = None,
+        hint: str | None = None,
+        docs_url: str | None = None,
     ):
         self.status_code = status_code
         self.error_type = error_type
@@ -193,10 +193,10 @@ class RateLimitError(ProviderError):
         self,
         message: str = "Rate limit exceeded",
         *,
-        provider: Optional[str] = None,
-        model: Optional[str] = None,
-        retry_after: Optional[float] = None,
-        details: Optional[dict[str, Any]] = None,
+        provider: str | None = None,
+        model: str | None = None,
+        retry_after: float | None = None,
+        details: dict[str, Any] | None = None,
     ):
         self.retry_after = retry_after
 
@@ -237,8 +237,8 @@ class AuthenticationError(ProviderError):
         self,
         message: str = "Authentication failed",
         *,
-        provider: Optional[str] = None,
-        details: Optional[dict[str, Any]] = None,
+        provider: str | None = None,
+        details: dict[str, Any] | None = None,
     ):
         hint = "Check your API key"
         docs_url = None
@@ -247,9 +247,7 @@ class AuthenticationError(ProviderError):
             hint = "Set OPENAI_API_KEY environment variable or pass api_key parameter"
             docs_url = "https://platform.openai.com/api-keys"
         elif provider == "anthropic":
-            hint = (
-                "Set ANTHROPIC_API_KEY environment variable or pass api_key parameter"
-            )
+            hint = "Set ANTHROPIC_API_KEY environment variable or pass api_key parameter"
             docs_url = "https://console.anthropic.com/settings/keys"
 
         super().__init__(
@@ -270,8 +268,8 @@ class ModelNotFoundError(ProviderError):
         self,
         model: str,
         *,
-        provider: Optional[str] = None,
-        details: Optional[dict[str, Any]] = None,
+        provider: str | None = None,
+        details: dict[str, Any] | None = None,
     ):
         hint = f"Check that model '{model}' exists and you have access to it"
 
@@ -293,11 +291,11 @@ class ContextLengthError(ProviderError):
         self,
         message: str = "Context length exceeded",
         *,
-        provider: Optional[str] = None,
-        model: Optional[str] = None,
-        max_tokens: Optional[int] = None,
-        requested_tokens: Optional[int] = None,
-        details: Optional[dict[str, Any]] = None,
+        provider: str | None = None,
+        model: str | None = None,
+        max_tokens: int | None = None,
+        requested_tokens: int | None = None,
+        details: dict[str, Any] | None = None,
     ):
         self.max_tokens = max_tokens
         self.requested_tokens = requested_tokens
@@ -330,9 +328,9 @@ class ContentFilterError(ProviderError):
         self,
         message: str = "Content blocked by safety filter",
         *,
-        provider: Optional[str] = None,
-        model: Optional[str] = None,
-        details: Optional[dict[str, Any]] = None,
+        provider: str | None = None,
+        model: str | None = None,
+        details: dict[str, Any] | None = None,
     ):
         super().__init__(
             message,
@@ -352,10 +350,10 @@ class OutputValidationError(LLMError):
         self,
         message: str,
         *,
-        schema: Optional[type] = None,
-        output: Optional[Any] = None,
-        errors: Optional[list[str]] = None,
-        details: Optional[dict[str, Any]] = None,
+        schema: type | None = None,
+        output: Any | None = None,
+        errors: list[str] | None = None,
+        details: dict[str, Any] | None = None,
     ):
         self.schema = schema
         self.output = output
@@ -363,9 +361,7 @@ class OutputValidationError(LLMError):
 
         full_details = details or {}
         if schema:
-            full_details["schema"] = (
-                schema.__name__ if hasattr(schema, "__name__") else str(schema)
-            )
+            full_details["schema"] = schema.__name__ if hasattr(schema, "__name__") else str(schema)
         if errors:
             full_details["validation_errors"] = errors
 
@@ -394,9 +390,9 @@ class MCPServerError(MCPError):
         self,
         message: str,
         *,
-        server_name: Optional[str] = None,
-        details: Optional[dict[str, Any]] = None,
-        hint: Optional[str] = None,
+        server_name: str | None = None,
+        details: dict[str, Any] | None = None,
+        hint: str | None = None,
     ):
         self.server_name = server_name
 
@@ -414,10 +410,10 @@ class MCPToolError(MCPError):
         self,
         message: str,
         *,
-        tool_name: Optional[str] = None,
-        server_name: Optional[str] = None,
-        details: Optional[dict[str, Any]] = None,
-        hint: Optional[str] = None,
+        tool_name: str | None = None,
+        server_name: str | None = None,
+        details: dict[str, Any] | None = None,
+        hint: str | None = None,
     ):
         self.tool_name = tool_name
         self.server_name = server_name
@@ -441,9 +437,9 @@ class MCPConnectionError(MCPServerError):
         self,
         message: str,
         *,
-        server_name: Optional[str] = None,
-        transport: Optional[str] = None,
-        details: Optional[dict[str, Any]] = None,
+        server_name: str | None = None,
+        transport: str | None = None,
+        details: dict[str, Any] | None = None,
     ):
         self.transport = transport
 
@@ -472,9 +468,9 @@ class MCPTimeoutError(MCPError):
         self,
         message: str = "Operation timed out",
         *,
-        operation: Optional[str] = None,
-        timeout: Optional[float] = None,
-        details: Optional[dict[str, Any]] = None,
+        operation: str | None = None,
+        timeout: float | None = None,
+        details: dict[str, Any] | None = None,
     ):
         self.operation = operation
         self.timeout = timeout
@@ -508,8 +504,8 @@ class OpenAPIParseError(OpenAPIError):
         self,
         message: str,
         *,
-        errors: Optional[list[str]] = None,
-        details: Optional[dict[str, Any]] = None,
+        errors: list[str] | None = None,
+        details: dict[str, Any] | None = None,
     ):
         self.errors = errors or []
 
@@ -531,9 +527,9 @@ class OpenAPINetworkError(OpenAPIError):
         self,
         message: str,
         *,
-        url: Optional[str] = None,
-        status_code: Optional[int] = None,
-        details: Optional[dict[str, Any]] = None,
+        url: str | None = None,
+        status_code: int | None = None,
+        details: dict[str, Any] | None = None,
     ):
         self.url = url
         self.status_code = status_code
@@ -560,8 +556,8 @@ class OpenAPIValidationError(OpenAPIError):
         self,
         message: str,
         *,
-        missing_fields: Optional[list[str]] = None,
-        details: Optional[dict[str, Any]] = None,
+        missing_fields: list[str] | None = None,
+        details: dict[str, Any] | None = None,
     ):
         self.missing_fields = missing_fields or []
 
@@ -588,10 +584,10 @@ class ValidationError(AIInfraError):
         self,
         message: str,
         *,
-        field: Optional[str] = None,
-        value: Optional[Any] = None,
-        expected: Optional[str] = None,
-        details: Optional[dict[str, Any]] = None,
+        field: str | None = None,
+        value: Any | None = None,
+        expected: str | None = None,
+        details: dict[str, Any] | None = None,
     ):
         self.field = field
         self.value = value
@@ -617,8 +613,8 @@ class ConfigurationError(ValidationError):
         self,
         message: str,
         *,
-        config_key: Optional[str] = None,
-        details: Optional[dict[str, Any]] = None,
+        config_key: str | None = None,
+        details: dict[str, Any] | None = None,
     ):
         super().__init__(
             message,
@@ -645,9 +641,9 @@ class GraphExecutionError(GraphError):
         self,
         message: str,
         *,
-        node_id: Optional[str] = None,
-        step: Optional[int] = None,
-        details: Optional[dict[str, Any]] = None,
+        node_id: str | None = None,
+        step: int | None = None,
+        details: dict[str, Any] | None = None,
     ):
         self.node_id = node_id
         self.step = step
@@ -671,8 +667,8 @@ class GraphValidationError(GraphError):
         self,
         message: str,
         *,
-        errors: Optional[list[str]] = None,
-        details: Optional[dict[str, Any]] = None,
+        errors: list[str] | None = None,
+        details: dict[str, Any] | None = None,
     ):
         self.errors = errors or []
 
@@ -705,9 +701,9 @@ class ToolExecutionError(ToolError):
         self,
         message: str,
         *,
-        tool_name: Optional[str] = None,
-        original_error: Optional[Exception] = None,
-        details: Optional[dict[str, Any]] = None,
+        tool_name: str | None = None,
+        original_error: Exception | None = None,
+        details: dict[str, Any] | None = None,
     ):
         self.tool_name = tool_name
         self.original_error = original_error
@@ -727,9 +723,9 @@ class ToolTimeoutError(ToolError):
         self,
         message: str = "Tool execution timed out",
         *,
-        tool_name: Optional[str] = None,
-        timeout: Optional[float] = None,
-        details: Optional[dict[str, Any]] = None,
+        tool_name: str | None = None,
+        timeout: float | None = None,
+        details: dict[str, Any] | None = None,
     ):
         self.tool_name = tool_name
         self.timeout = timeout
@@ -752,9 +748,9 @@ class ToolValidationError(ToolError):
         self,
         message: str,
         *,
-        tool_name: Optional[str] = None,
-        errors: Optional[list[str]] = None,
-        details: Optional[dict[str, Any]] = None,
+        tool_name: str | None = None,
+        errors: list[str] | None = None,
+        details: dict[str, Any] | None = None,
     ):
         self.tool_name = tool_name
         self.errors = errors or []

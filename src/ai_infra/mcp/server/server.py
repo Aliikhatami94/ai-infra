@@ -3,9 +3,9 @@ from __future__ import annotations
 import contextlib
 import importlib
 import logging
-from pathlib import Path
-from typing import Any, Optional
 from collections.abc import Awaitable, Callable, Iterable
+from pathlib import Path
+from typing import Any
 
 import httpx
 
@@ -35,7 +35,7 @@ class MCPServer:
 
     # ---------- add / compose ----------
 
-    def add(self, *mounts: MCPMount) -> "MCPServer":
+    def add(self, *mounts: MCPMount) -> MCPServer:
         self._mounts.extend(mounts)
         return self
 
@@ -44,11 +44,11 @@ class MCPServer:
         path: str,
         app: Any,
         *,
-        name: Optional[str] = None,
+        name: str | None = None,
         session_manager: Any | None = None,
-        require_manager: Optional[bool] = None,
-        async_cleanup: Optional[Callable[[], Awaitable[None]]] = None,  # NEW
-    ) -> "MCPServer":
+        require_manager: bool | None = None,
+        async_cleanup: Callable[[], Awaitable[None]] | None = None,  # NEW
+    ) -> MCPServer:
         m = MCPMount(
             path=normalize_mount(path),
             app=app,
@@ -71,17 +71,15 @@ class MCPServer:
         path: str,
         *,
         transport: str = "streamable_http",
-        name: Optional[str] = None,
-        require_manager: Optional[bool] = None,
-        async_cleanup: Optional[Callable[[], Awaitable[None]]] = None,  # NEW
-    ) -> "MCPServer":
+        name: str | None = None,
+        require_manager: bool | None = None,
+        async_cleanup: Callable[[], Awaitable[None]] | None = None,  # NEW
+    ) -> MCPServer:
         if transport == "streamable_http":
             sub_app = mcp.streamable_http_app()
             sm = getattr(mcp, "session_manager", None)
-            if sm and not getattr(
-                getattr(sub_app, "state", object()), "session_manager", None
-            ):
-                setattr(sub_app.state, "session_manager", sm)
+            if sm and not getattr(getattr(sub_app, "state", object()), "session_manager", None):
+                sub_app.state.session_manager = sm
             if require_manager is None:
                 require_manager = True
             return self.add_app(
@@ -127,11 +125,11 @@ class MCPServer:
         module_path: str,
         path: str,
         *,
-        attr: Optional[str] = None,
-        transport: Optional[str] = None,
-        name: Optional[str] = None,
-        require_manager: Optional[bool] = None,  # None = auto
-    ) -> "MCPServer":
+        attr: str | None = None,
+        transport: str | None = None,
+        name: str | None = None,
+        require_manager: bool | None = None,  # None = auto
+    ) -> MCPServer:
         obj = import_object(module_path, attr=attr)
         # If it's a FastMCP (has .streamable_http_app), respect transport given
         if transport and hasattr(obj, "streamable_http_app"):
@@ -155,24 +153,24 @@ class MCPServer:
         client_factory: Callable[[], httpx.AsyncClient] | None = None,
         base_url: str | None = None,
         name: str | None = None,
-        report_log: Optional[bool] = None,
+        report_log: bool | None = None,
         strict_names: bool = False,
         # Filtering options
-        tool_prefix: Optional[str] = None,
-        include_paths: Optional[list[str]] = None,
-        exclude_paths: Optional[list[str]] = None,
-        include_methods: Optional[list[str]] = None,
-        exclude_methods: Optional[list[str]] = None,
-        include_tags: Optional[list[str]] = None,
-        exclude_tags: Optional[list[str]] = None,
-        include_operations: Optional[list[str]] = None,
-        exclude_operations: Optional[list[str]] = None,
-        tool_name_fn: Optional[Callable[[str, str, dict], str]] = None,
-        tool_description_fn: Optional[Callable[[dict], str]] = None,
+        tool_prefix: str | None = None,
+        include_paths: list[str] | None = None,
+        exclude_paths: list[str] | None = None,
+        include_methods: list[str] | None = None,
+        exclude_methods: list[str] | None = None,
+        include_tags: list[str] | None = None,
+        exclude_tags: list[str] | None = None,
+        include_operations: list[str] | None = None,
+        exclude_operations: list[str] | None = None,
+        tool_name_fn: Callable[[str, str, dict], str] | None = None,
+        tool_description_fn: Callable[[dict], str] | None = None,
         # Authentication
         auth: Any = None,
-        endpoint_auth: Optional[dict[str, Any]] = None,
-    ) -> "MCPServer":
+        endpoint_auth: dict[str, Any] | None = None,
+    ) -> MCPServer:
         """Add OpenAPI spec as MCP tools.
 
         Args:
@@ -243,7 +241,7 @@ class MCPServer:
             mcp, async_cleanup, report = res
             # optional: stash report for later introspection
             try:
-                setattr(mcp, "openapi_build_report", report)
+                mcp.openapi_build_report = report
             except Exception:
                 pass
         else:
@@ -264,10 +262,10 @@ class MCPServer:
         path: str,
         *,
         tools: Iterable[ToolFn | ToolDef] | None,
-        name: Optional[str] = None,
+        name: str | None = None,
         transport: str = "streamable_http",
-        require_manager: Optional[bool] = None,  # None = auto
-    ) -> "MCPServer":
+        require_manager: bool | None = None,  # None = auto
+    ) -> MCPServer:
         """
         Build a FastMCP server from in-code tools and mount it.
 
@@ -304,7 +302,7 @@ class MCPServer:
         timeout: float | httpx.Timeout | None = 30.0,
         verify: bool | str | None = True,
         auth: httpx.Auth | tuple[str, str] | None = None,
-    ) -> "MCPServer":
+    ) -> MCPServer:
         """
         Convert a FastAPI app (local) or a remote FastAPI service into an MCP server.
         """
@@ -331,9 +329,7 @@ class MCPServer:
                 resp.raise_for_status()
                 resolved_spec = resp.json()
         else:
-            raise ValueError(
-                "You must provide either `app`, `base_url`, or an explicit `spec`."
-            )
+            raise ValueError("You must provide either `app`, `base_url`, or an explicit `spec`.")
 
         # ---------- resolve Async client for tools ----------
         own_client = False
@@ -388,9 +384,7 @@ class MCPServer:
         )
 
         async_cleanup = tools_client.aclose if own_client else None
-        resolved_name = name or (
-            getattr(app, "title", None) if app is not None else None
-        )
+        resolved_name = name or (getattr(app, "title", None) if app is not None else None)
 
         return self.add_fastmcp(
             mcp,
@@ -405,11 +399,7 @@ class MCPServer:
     def mount_all(self, root_app: Any) -> None:
         for m in self._mounts:
             root_app.mount(m.path, m.app)
-            label = (
-                m.name
-                or getattr(getattr(m.app, "state", object()), "mcp_name", None)
-                or "mcp"
-            )
+            label = m.name or getattr(getattr(m.app, "state", object()), "mcp_name", None) or "mcp"
             log.info("Mounted MCP app '%s' at %s", label, m.path)
 
     def _iter_unique_session_managers(self) -> Iterable[tuple[str, Any]]:
@@ -585,15 +575,11 @@ class MCPServer:
 
         app = Starlette(routes=[], lifespan=self.lifespan)
         if self._health_path:
-            app.router.routes.append(
-                Route(self._health_path, endpoint=health, methods=["GET"])
-            )
+            app.router.routes.append(Route(self._health_path, endpoint=health, methods=["GET"]))
         self.mount_all(app)
         return app
 
-    def run_uvicorn(
-        self, host: str = "0.0.0.0", port: int = 8000, log_level: str = "info"
-    ):
+    def run_uvicorn(self, host: str = "0.0.0.0", port: int = 8000, log_level: str = "info"):
         import uvicorn
 
         uvicorn.run(self.build_asgi_root(), host=host, port=port, log_level=log_level)
@@ -609,7 +595,7 @@ def normalize_mount(path: str) -> str:
     return p or "/"
 
 
-def import_object(module_path: str, *, attr: Optional[str] = None) -> Any:
+def import_object(module_path: str, *, attr: str | None = None) -> Any:
     if ":" in module_path and not attr:
         module_path, attr = module_path.split(":", 1)
         attr = attr or None

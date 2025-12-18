@@ -35,8 +35,8 @@ import base64
 import json
 import logging
 import os
-from typing import Any
 from collections.abc import AsyncIterator
+from typing import Any
 
 from ai_infra.llm.realtime.base import BaseRealtimeProvider
 from ai_infra.llm.realtime.models import (
@@ -98,7 +98,7 @@ class GeminiVoiceSession(VoiceSession):
         self,
         ws: Any,
         config: RealtimeConfig,
-        provider: "GeminiRealtimeProvider",
+        provider: GeminiRealtimeProvider,
     ):
         self._ws = ws
         self._config = config
@@ -283,9 +283,7 @@ class GeminiRealtimeProvider(BaseRealtimeProvider):
 
         # Add system instruction
         if self.config.instructions:
-            setup["setup"]["system_instruction"] = {
-                "parts": [{"text": self.config.instructions}]
-            }
+            setup["setup"]["system_instruction"] = {"parts": [{"text": self.config.instructions}]}
 
         # Add tools if configured
         if self.config.tools:
@@ -295,8 +293,7 @@ class GeminiRealtimeProvider(BaseRealtimeProvider):
                         {
                             "name": tool.name,
                             "description": tool.description or "",
-                            "parameters": tool.parameters
-                            or {"type": "object", "properties": {}},
+                            "parameters": tool.parameters or {"type": "object", "properties": {}},
                         }
                         for tool in self.config.tools
                     ]
@@ -312,9 +309,7 @@ class GeminiRealtimeProvider(BaseRealtimeProvider):
         if "setupComplete" in message:
             if self._session:
                 self._session._setup_complete = True
-                self._session._session_id = message.get("setupComplete", {}).get(
-                    "sessionId", ""
-                )
+                self._session._session_id = message.get("setupComplete", {}).get("sessionId", "")
             logger.debug("Gemini session setup complete")
             return
 
@@ -448,9 +443,7 @@ class GeminiRealtimeProvider(BaseRealtimeProvider):
                     break
 
             if not self._session._setup_complete:
-                raise RealtimeConnectionError(
-                    "Setup timeout - no setupComplete received"
-                )
+                raise RealtimeConnectionError("Setup timeout - no setupComplete received")
 
             return self._session
 
@@ -547,9 +540,7 @@ class GeminiRealtimeProvider(BaseRealtimeProvider):
         Yields:
             AudioChunk and TranscriptDelta events.
         """
-        event_queue: asyncio.Queue[AudioChunk | TranscriptDelta | None] = (
-            asyncio.Queue()
-        )
+        event_queue: asyncio.Queue[AudioChunk | TranscriptDelta | None] = asyncio.Queue()
 
         original_audio_callbacks = self._audio_callbacks.copy()
         original_transcript_callbacks = self._transcript_callbacks.copy()
@@ -584,7 +575,7 @@ class GeminiRealtimeProvider(BaseRealtimeProvider):
                         if event is None:
                             break
                         yield event
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         if send_task.done():
                             await asyncio.sleep(1.0)
                             if event_queue.empty():

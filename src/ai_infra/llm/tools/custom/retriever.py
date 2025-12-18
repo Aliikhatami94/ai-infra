@@ -29,7 +29,7 @@ Example:
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Any, Literal, Optional, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, Field
@@ -52,7 +52,7 @@ def _format_results(
     results: list,
     return_scores: bool,
     format: OutputFormat,
-    max_chars: Optional[int],
+    max_chars: int | None,
 ) -> str:
     """Format retriever results based on specified options.
 
@@ -114,14 +114,14 @@ def _format_results(
 
 
 def create_retriever_tool(
-    retriever: "Retriever",
+    retriever: Retriever,
     name: str = "search_documents",
     description: str = "Search documents for relevant information",
     k: int = 5,
-    min_score: Optional[float] = None,
-    filter: Optional[dict[str, Any]] = None,
+    min_score: float | None = None,
+    filter: dict[str, Any] | None = None,
     return_scores: bool = False,
-    max_chars: Optional[int] = None,
+    max_chars: int | None = None,
     format: OutputFormat = "text",
     structured: bool = False,
 ) -> StructuredTool:
@@ -187,9 +187,7 @@ def create_retriever_tool(
 
     def search_documents(query: str) -> str | dict[str, Any]:
         """Search the retriever for relevant documents."""
-        results = retriever.search(
-            query, k=k, min_score=min_score, filter=filter, detailed=True
-        )
+        results = retriever.search(query, k=k, min_score=min_score, filter=filter, detailed=True)
 
         if structured:
             return {
@@ -209,14 +207,14 @@ def create_retriever_tool(
 
 
 def create_retriever_tool_async(
-    retriever: "Retriever",
+    retriever: Retriever,
     name: str = "search_documents",
     description: str = "Search documents for relevant information",
     k: int = 5,
-    min_score: Optional[float] = None,
-    filter: Optional[dict[str, Any]] = None,
+    min_score: float | None = None,
+    filter: dict[str, Any] | None = None,
     return_scores: bool = False,
-    max_chars: Optional[int] = None,
+    max_chars: int | None = None,
     format: OutputFormat = "text",
     structured: bool = False,
 ) -> StructuredTool:
@@ -269,7 +267,7 @@ def create_retriever_tool_async(
         if structured:
             from ai_infra.retriever.models import SearchResult
 
-            detailed_results = cast(list[SearchResult], results)
+            detailed_results = cast("list[SearchResult]", results)
             return {
                 "results": [r.to_dict() for r in detailed_results],
                 "query": query,

@@ -32,9 +32,8 @@ Example:
 from __future__ import annotations
 
 import os
-from pathlib import Path
-from typing import Optional
 from collections.abc import AsyncIterator, Iterator
+from pathlib import Path
 
 from ai_infra.llm.multimodal.models import AudioFormat, TTSProvider, Voice
 from ai_infra.providers import ProviderCapability, ProviderRegistry
@@ -96,9 +95,7 @@ TTS_PROVIDER_PRIORITY = ["openai", "elevenlabs", "google"]
 _openai_config = ProviderRegistry.get("openai")
 if _openai_config:
     _cap = _openai_config.get_capability(ProviderCapability.TTS)
-    OPENAI_VOICES = (
-        _cap.voices if _cap else ["alloy", "echo", "fable", "onyx", "nova", "shimmer"]
-    )
+    OPENAI_VOICES = _cap.voices if _cap else ["alloy", "echo", "fable", "onyx", "nova", "shimmer"]
 else:
     OPENAI_VOICES = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"]
 OPENAI_MODELS = ["tts-1", "tts-1-hd"]
@@ -121,10 +118,10 @@ class TTS:
 
     def __init__(
         self,
-        provider: Optional[str] = None,
-        voice: Optional[str] = None,
-        model: Optional[str] = None,
-        api_key: Optional[str] = None,
+        provider: str | None = None,
+        voice: str | None = None,
+        model: str | None = None,
+        api_key: str | None = None,
     ):
         """Initialize TTS.
 
@@ -174,8 +171,8 @@ class TTS:
         self,
         text: str,
         *,
-        voice: Optional[str] = None,
-        model: Optional[str] = None,
+        voice: str | None = None,
+        model: str | None = None,
         output_format: AudioFormat = AudioFormat.MP3,
     ) -> bytes:
         """Convert text to audio bytes.
@@ -205,8 +202,8 @@ class TTS:
         self,
         text: str,
         *,
-        voice: Optional[str] = None,
-        model: Optional[str] = None,
+        voice: str | None = None,
+        model: str | None = None,
         output_format: AudioFormat = AudioFormat.MP3,
     ) -> bytes:
         """Async version of speak().
@@ -237,9 +234,9 @@ class TTS:
         text: str,
         path: str | Path,
         *,
-        voice: Optional[str] = None,
-        model: Optional[str] = None,
-        output_format: Optional[AudioFormat] = None,
+        voice: str | None = None,
+        model: str | None = None,
+        output_format: AudioFormat | None = None,
     ) -> None:
         """Convert text to speech and save to file.
 
@@ -267,8 +264,8 @@ class TTS:
         self,
         text: str,
         *,
-        voice: Optional[str] = None,
-        model: Optional[str] = None,
+        voice: str | None = None,
+        model: str | None = None,
         output_format: AudioFormat = AudioFormat.MP3,
     ) -> Iterator[bytes]:
         """Stream audio chunks for real-time playback.
@@ -291,16 +288,14 @@ class TTS:
             yield from self._stream_elevenlabs(text, voice, model, output_format)
         else:
             # Fallback: return entire audio as single chunk
-            yield self.speak(
-                text, voice=voice, model=model, output_format=output_format
-            )
+            yield self.speak(text, voice=voice, model=model, output_format=output_format)
 
     async def astream(
         self,
         text: str,
         *,
-        voice: Optional[str] = None,
-        model: Optional[str] = None,
+        voice: str | None = None,
+        model: str | None = None,
         output_format: AudioFormat = AudioFormat.MP3,
     ) -> AsyncIterator[bytes]:
         """Async stream audio chunks for real-time playback.
@@ -321,18 +316,14 @@ class TTS:
             async for chunk in self._astream_openai(text, voice, model, output_format):
                 yield chunk
         elif self._provider == "elevenlabs":
-            async for chunk in self._astream_elevenlabs(
-                text, voice, model, output_format
-            ):
+            async for chunk in self._astream_elevenlabs(text, voice, model, output_format):
                 yield chunk
         else:
             # Fallback: return entire audio as single chunk
-            yield await self.aspeak(
-                text, voice=voice, model=model, output_format=output_format
-            )
+            yield await self.aspeak(text, voice=voice, model=model, output_format=output_format)
 
     @staticmethod
-    def list_voices(provider: Optional[str] = None) -> list[Voice]:
+    def list_voices(provider: str | None = None) -> list[Voice]:
         """List available voices for a provider.
 
         Args:
@@ -370,9 +361,7 @@ class TTS:
                     )
 
         if provider is None or provider == "google":
-            if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") or os.environ.get(
-                "GOOGLE_API_KEY"
-            ):
+            if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") or os.environ.get("GOOGLE_API_KEY"):
                 # Google has many voices, just show some common ones
                 google_voices = [
                     ("en-US-Standard-A", "English US Standard A"),
@@ -409,9 +398,7 @@ class TTS:
             providers.append("openai")
         if os.environ.get("ELEVEN_API_KEY") or os.environ.get("ELEVENLABS_API_KEY"):
             providers.append("elevenlabs")
-        if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") or os.environ.get(
-            "GOOGLE_API_KEY"
-        ):
+        if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") or os.environ.get("GOOGLE_API_KEY"):
             providers.append("google")
         return providers
 
@@ -424,9 +411,7 @@ class TTS:
         try:
             from openai import OpenAI
         except ImportError:
-            raise ImportError(
-                "openai package required for OpenAI TTS: pip install openai"
-            )
+            raise ImportError("openai package required for OpenAI TTS: pip install openai")
 
         api_key = self._api_key or os.environ.get("OPENAI_API_KEY")
         return OpenAI(api_key=api_key)
@@ -436,16 +421,12 @@ class TTS:
         try:
             from openai import AsyncOpenAI
         except ImportError:
-            raise ImportError(
-                "openai package required for OpenAI TTS: pip install openai"
-            )
+            raise ImportError("openai package required for OpenAI TTS: pip install openai")
 
         api_key = self._api_key or os.environ.get("OPENAI_API_KEY")
         return AsyncOpenAI(api_key=api_key)
 
-    def _speak_openai(
-        self, text: str, voice: str, model: str, output_format: AudioFormat
-    ) -> bytes:
+    def _speak_openai(self, text: str, voice: str, model: str, output_format: AudioFormat) -> bytes:
         """Generate speech using OpenAI TTS."""
         client = self._get_openai_client()
 
@@ -467,7 +448,7 @@ class TTS:
         )
         from typing import cast
 
-        return cast(bytes, response.content)
+        return cast("bytes", response.content)
 
     async def _aspeak_openai(
         self, text: str, voice: str, model: str, output_format: AudioFormat
@@ -492,7 +473,7 @@ class TTS:
         )
         from typing import cast
 
-        return cast(bytes, response.content)
+        return cast("bytes", response.content)
 
     def _stream_openai(
         self, text: str, voice: str, model: str, output_format: AudioFormat
@@ -588,7 +569,7 @@ class TTS:
             return b"".join(audio)
         from typing import cast
 
-        return cast(bytes, audio)
+        return cast("bytes", audio)
 
     async def _aspeak_elevenlabs(
         self, text: str, voice: str, model: str, output_format: AudioFormat
@@ -624,7 +605,7 @@ class TTS:
             return b"".join(chunks)
         from typing import cast
 
-        return cast(bytes, audio)
+        return cast("bytes", audio)
 
     def _stream_elevenlabs(
         self, text: str, voice: str, model: str, output_format: AudioFormat
@@ -659,7 +640,7 @@ class TTS:
         else:
             from typing import cast
 
-            yield cast(bytes, audio)
+            yield cast("bytes", audio)
 
     async def _astream_elevenlabs(
         self, text: str, voice: str, model: str, output_format: AudioFormat
@@ -694,15 +675,13 @@ class TTS:
         else:
             from typing import cast
 
-            yield cast(bytes, audio)
+            yield cast("bytes", audio)
 
     # =========================================================================
     # Google TTS Implementation
     # =========================================================================
 
-    def _speak_google(
-        self, text: str, voice: str, model: str, output_format: AudioFormat
-    ) -> bytes:
+    def _speak_google(self, text: str, voice: str, model: str, output_format: AudioFormat) -> bytes:
         """Generate speech using Google Cloud TTS."""
         try:
             from google.cloud import texttospeech
@@ -744,7 +723,7 @@ class TTS:
 
         from typing import cast
 
-        return cast(bytes, response.audio_content)
+        return cast("bytes", response.audio_content)
 
     async def _aspeak_google(
         self, text: str, voice: str, model: str, output_format: AudioFormat

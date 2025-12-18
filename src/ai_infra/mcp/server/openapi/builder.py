@@ -3,9 +3,9 @@ from __future__ import annotations
 import base64
 import logging
 import os
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any, Optional
-from collections.abc import Awaitable, Callable
 
 import httpx
 from mcp.server.fastmcp import FastMCP
@@ -31,7 +31,7 @@ from .runtime import (
     split_params,
 )
 
-__all__ = ["_mcp_from_openapi", "OpenAPIOptions", "AuthConfig", "OpenAPIError"]
+__all__ = ["AuthConfig", "OpenAPIError", "OpenAPIOptions", "_mcp_from_openapi"]
 log = logging.getLogger(__name__)
 
 
@@ -47,7 +47,7 @@ class OpenAPIError(Exception):
 class OpenAPIParseError(OpenAPIError):
     """Error parsing OpenAPI specification."""
 
-    def __init__(self, message: str, errors: Optional[list[str]] = None):
+    def __init__(self, message: str, errors: list[str] | None = None):
         super().__init__(message)
         self.errors = errors or []
 
@@ -55,7 +55,7 @@ class OpenAPIParseError(OpenAPIError):
 class OpenAPINetworkError(OpenAPIError):
     """Error fetching OpenAPI specification from URL."""
 
-    def __init__(self, message: str, url: str, status_code: Optional[int] = None):
+    def __init__(self, message: str, url: str, status_code: int | None = None):
         super().__init__(message)
         self.url = url
         self.status_code = status_code
@@ -64,7 +64,7 @@ class OpenAPINetworkError(OpenAPIError):
 class OpenAPIValidationError(OpenAPIError):
     """Error validating OpenAPI specification."""
 
-    def __init__(self, message: str, path: Optional[str] = None):
+    def __init__(self, message: str, path: str | None = None):
         super().__init__(message)
         self.path = path
 
@@ -110,16 +110,14 @@ def _maybe_log_report(report: BuildReport, report_log: bool) -> None:
 
 
 class SecurityResolver:
-    def __init__(
-        self, header_api_keys=None, query_api_keys=None, bearer=False, basic=False
-    ):
+    def __init__(self, header_api_keys=None, query_api_keys=None, bearer=False, basic=False):
         self.header_api_keys = header_api_keys or []
         self.query_api_keys = query_api_keys or []
         self.bearer = bearer
         self.basic = basic
 
     @classmethod
-    def from_spec(cls, spec: OpenAPISpec, op: dict) -> "SecurityResolver":
+    def from_spec(cls, spec: OpenAPISpec, op: dict) -> SecurityResolver:
         effective = op.get("security", spec.get("security"))
         schemes = (spec.get("components", {}) or {}).get("securitySchemes", {}) or {}
         header_keys: list[str] = []
@@ -182,7 +180,7 @@ class SecurityResolver:
 
 
 async def _apply_auth_config(
-    auth_config: Optional[AuthConfig],
+    auth_config: AuthConfig | None,
     headers: dict[str, str],
     query: dict[str, Any],
 ) -> None:
@@ -223,18 +221,14 @@ async def _apply_auth_config(
 # ---------------------- Context helpers ----------------------
 
 
-def _make_operation_context(
-    path: str, method: str, path_item: dict, op: dict
-) -> OperationContext:
+def _make_operation_context(path: str, method: str, path_item: dict, op: dict) -> OperationContext:
     merged = merge_parameters(path_item, op)
     path_params, query_params, header_params, cookie_params = split_params(merged)
     wants_body = has_request_body(op)
     body_ct = extract_body_content_type(op) if wants_body else None
     return OperationContext(
         name=op_tool_name(path, method, op.get("operationId")),
-        description=op.get("summary")
-        or op.get("description")
-        or f"{method.upper()} {path}",
+        description=op.get("summary") or op.get("description") or f"{method.upper()} {path}",
         method=method.upper(),
         path=path,
         path_params=path_params,
@@ -243,9 +237,7 @@ def _make_operation_context(
         cookie_params=cookie_params,
         wants_body=wants_body,
         body_content_type=body_ct,
-        body_required=bool(op.get("requestBody", {}).get("required"))
-        if wants_body
-        else False,
+        body_required=bool(op.get("requestBody", {}).get("required")) if wants_body else False,
     )
 
 
@@ -258,7 +250,7 @@ _resolving_refs: set = set()
 def _resolve_ref(
     schema: dict[str, Any],
     spec: OpenAPISpec,
-    visited: Optional[set] = None,
+    visited: set | None = None,
 ) -> dict[str, Any]:
     """Resolve $ref with circular reference detection."""
     ref = schema.get("$ref")
@@ -290,9 +282,7 @@ def _resolve_ref(
     return schema
 
 
-def _merge_allof_schemas(
-    schemas: list[dict[str, Any]], spec: OpenAPISpec
-) -> dict[str, Any]:
+def _merge_allof_schemas(schemas: list[dict[str, Any]], spec: OpenAPISpec) -> dict[str, Any]:
     """Merge allOf schemas into a single schema."""
     result: dict[str, Any] = {"type": "object", "properties": {}, "required": []}
 
@@ -324,7 +314,7 @@ def _merge_allof_schemas(
 def _py_type_from_schema(
     schema: dict[str, Any],
     spec: OpenAPISpec | None = None,
-    visited: Optional[set] = None,
+    visited: set | None = None,
 ) -> Any:
     """Convert OpenAPI schema to Python type with full schema composition support."""
     if visited is None:
@@ -383,9 +373,8 @@ def _py_type_from_schema(
         item_type = _py_type_from_schema(items, spec, visited)
         return list[item_type]  # type: ignore[valid-type]
     if t == "object" or ("properties" in (schema or {})):
-        from pydantic import BaseModel, ConfigDict
+        from pydantic import BaseModel, ConfigDict, create_model
         from pydantic import Field as PydanticField
-        from pydantic import create_model
 
         props = (schema or {}).get("properties") or {}
         reqs = set((schema or {}).get("required") or [])
@@ -449,12 +438,7 @@ def _build_input_model(
         schema = param.get("schema") or {}
         return _py_type_from_schema(schema, spec)
 
-    for p in (
-        op_ctx.path_params
-        + op_ctx.query_params
-        + op_ctx.header_params
-        + op_ctx.cookie_params
-    ):
+    for p in op_ctx.path_params + op_ctx.query_params + op_ctx.header_params + op_ctx.cookie_params:
         name = p.get("name")
         if not name:
             continue
@@ -501,9 +485,7 @@ def _build_input_model(
     return Model
 
 
-def _pick_response_schema(
-    op: dict, spec: OpenAPISpec
-) -> tuple[Optional[dict], Optional[str]]:
+def _pick_response_schema(op: dict, spec: OpenAPISpec) -> tuple[dict | None, str | None]:
     responses = op.get("responses") or {}
     for status, resp in sorted(responses.items(), key=lambda kv: kv[0]):
         try:
@@ -526,9 +508,7 @@ def _pick_response_schema(
     return (None, None)
 
 
-def _build_output_model(
-    op_ctx: OperationContext, op: dict, spec: OpenAPISpec
-) -> type[BaseModel]:
+def _build_output_model(op_ctx: OperationContext, op: dict, spec: OpenAPISpec) -> type[BaseModel]:
     """
     Envelope: status, headers, url, method, and payload as either:
       - alias 'json' (typed if we discovered a schema), OR
@@ -578,11 +558,11 @@ def _register_operation_tool(
     op_ctx: OperationContext,
     report: BuildReport,
     base_url_source: str,
-    auth_config: Optional[AuthConfig] = None,
+    auth_config: AuthConfig | None = None,
     # Performance options
-    rate_limiter: Optional[Any] = None,  # RateLimiter
-    cache: Optional[Any] = None,  # ResponseCache
-    deduplicator: Optional[Any] = None,  # RequestDeduplicator
+    rate_limiter: Any | None = None,  # RateLimiter
+    cache: Any | None = None,  # ResponseCache
+    deduplicator: Any | None = None,  # RequestDeduplicator
     rate_limit_retry: bool = True,
     rate_limit_max_retries: int = 3,
     auto_paginate: bool = False,
@@ -594,11 +574,7 @@ def _register_operation_tool(
     security = SecurityResolver.from_spec(spec, op)
 
     media_types = list(((op.get("requestBody") or {}).get("content") or {}).keys())
-    if (
-        op_ctx.wants_body
-        and media_types
-        and op_ctx.body_content_type not in media_types
-    ):
+    if op_ctx.wants_body and media_types and op_ctx.body_content_type not in media_types:
         warnings.append(
             f"Chosen content-type {op_ctx.body_content_type!r} not present in requestBody keys={media_types!r}"
         )
@@ -631,17 +607,13 @@ def _register_operation_tool(
         ):
             warnings.append(f"Unrecognized style={style!r} for param '{p.get('name')}'")
         if explode not in (None, True, False):
-            warnings.append(
-                f"Unrecognized explode={explode!r} for param '{p.get('name')}'"
-            )
+            warnings.append(f"Unrecognized explode={explode!r} for param '{p.get('name')}'")
 
     def _has_var(url: str) -> bool:
         return "{" in url and "}" in url
 
     if base_url and _has_var(base_url):
-        warnings.append(
-            f"Base URL contains server variables; not expanded: {base_url!r}"
-        )
+        warnings.append(f"Base URL contains server variables; not expanded: {base_url!r}")
 
     if op_ctx.wants_body and op_ctx.body_content_type not in (
         None,
@@ -686,12 +658,10 @@ def _register_operation_tool(
     except Exception:
         pass
 
-    async def tool(args: Optional[InputModel] = None) -> OutputModel:  # type: ignore[valid-type]
+    async def tool(args: InputModel | None = None) -> OutputModel:  # type: ignore[valid-type]
         # Allow completely empty calls (e.g., ping) by treating None as {}
         payload: dict[str, Any] = (
-            args.model_dump(by_alias=True, exclude_none=True)
-            if args is not None
-            else {}
+            args.model_dump(by_alias=True, exclude_none=True) if args is not None else {}
         )
 
         url_base = (payload.pop("_base_url", None) or base_url).rstrip("/")
@@ -735,9 +705,7 @@ def _register_operation_tool(
                 explode = p.get("explode")
                 # Use serialize_query_param for proper array handling
                 # pname is validated above (checked against payload keys)
-                serialized = serialize_query_param(
-                    str(pname), value, style=style, explode=explode
-                )
+                serialized = serialize_query_param(str(pname), value, style=style, explode=explode)
                 query.update(serialized)
             elif p.get("required"):
                 errors.append(f"Missing required query param: {pname}")
@@ -770,9 +738,7 @@ def _register_operation_tool(
                     headers.setdefault("Content-Type", "application/json")
                 elif ct == "application/x-www-form-urlencoded":
                     data = body_arg
-                    headers.setdefault(
-                        "Content-Type", "application/x-www-form-urlencoded"
-                    )
+                    headers.setdefault("Content-Type", "application/x-www-form-urlencoded")
                 elif ct == "multipart/form-data":
                     files = payload.pop("_files", None)
                     if files is None:
@@ -961,16 +927,18 @@ def _register_operation_tool(
                         if pages_fetched > 1:
                             from typing import cast
 
-                            json_out = cast(dict[str, Any], out["json"])
+                            json_out = cast("dict[str, Any]", out["json"])
                             json_out[items_key] = all_items
                             json_out["_paginated"] = True
                             json_out["_pages_fetched"] = pages_fetched
 
             except Exception:
                 out["text"] = resp.text
-        elif "text/" in content_type:
-            out["text"] = resp.text
-        elif "application/xml" in content_type or "text/xml" in content_type:
+        elif (
+            "text/" in content_type
+            or "application/xml" in content_type
+            or "text/xml" in content_type
+        ):
             out["text"] = resp.text
         elif "application/octet-stream" in content_type:
             # Binary data - encode as base64
@@ -1008,24 +976,24 @@ def _mcp_from_openapi(
     client_factory: Callable[[], httpx.AsyncClient] | None = None,
     base_url: str | None = None,
     strict_names: bool = False,
-    report_log: Optional[bool] = None,
+    report_log: bool | None = None,
     # NEW: Options for filtering and customization
-    options: Optional[OpenAPIOptions] = None,
+    options: OpenAPIOptions | None = None,
     # Convenience shortcuts (applied to options)
-    tool_prefix: Optional[str] = None,
-    include_paths: Optional[list[str]] = None,
-    exclude_paths: Optional[list[str]] = None,
-    include_methods: Optional[list[str]] = None,
-    exclude_methods: Optional[list[str]] = None,
-    include_tags: Optional[list[str]] = None,
-    exclude_tags: Optional[list[str]] = None,
-    include_operations: Optional[list[str]] = None,
-    exclude_operations: Optional[list[str]] = None,
-    tool_name_fn: Optional[Callable[[str, str, dict], str]] = None,
-    tool_description_fn: Optional[Callable[[dict], str]] = None,
+    tool_prefix: str | None = None,
+    include_paths: list[str] | None = None,
+    exclude_paths: list[str] | None = None,
+    include_methods: list[str] | None = None,
+    exclude_methods: list[str] | None = None,
+    include_tags: list[str] | None = None,
+    exclude_tags: list[str] | None = None,
+    include_operations: list[str] | None = None,
+    exclude_operations: list[str] | None = None,
+    tool_name_fn: Callable[[str, str, dict], str] | None = None,
+    tool_description_fn: Callable[[dict], str] | None = None,
     auth: Any = None,
-    endpoint_auth: Optional[dict[str, Any]] = None,
-) -> tuple[FastMCP, Optional[Callable[[], Awaitable[None]]], BuildReport]:
+    endpoint_auth: dict[str, Any] | None = None,
+) -> tuple[FastMCP, Callable[[], Awaitable[None]] | None, BuildReport]:
     """
     Build a FastMCP from OpenAPI and return (mcp, async_cleanup, report).
 
@@ -1209,14 +1177,16 @@ def _mcp_from_openapi(
                 report.registered_tools += 1
             except Exception as e:
                 report.skipped_ops += 1
-                warn = f"Failed to register tool for {method.upper()} {path}: {type(e).__name__}: {e}"
+                warn = (
+                    f"Failed to register tool for {method.upper()} {path}: {type(e).__name__}: {e}"
+                )
                 report.warnings.append(warn)
                 log.debug(warn, exc_info=True)
 
     report.total_ops = total_ops
     report.filtered_ops = filtered_ops
 
-    async_cleanup: Optional[Callable[[], Awaitable[None]]] = None
+    async_cleanup: Callable[[], Awaitable[None]] | None = None
     if own_client:
 
         async def _cleanup() -> None:

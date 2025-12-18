@@ -27,9 +27,9 @@ Example:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
-from typing import Any, Literal, Optional
 from collections.abc import Sequence
+from dataclasses import dataclass
+from typing import Any, Literal
 
 from langchain_core.messages import BaseMessage, SystemMessage
 
@@ -81,7 +81,7 @@ class ContextResult:
     messages: list[BaseMessage]
     """Use these messages - they fit within the token budget."""
 
-    summary: Optional[str] = None
+    summary: str | None = None
     """Store this summary for the next turn (if summarize=True)."""
 
     tokens: int = 0
@@ -103,9 +103,9 @@ def fit_context(
     max_tokens: int,
     *,
     summarize: bool = False,
-    summary: Optional[str] = None,
+    summary: str | None = None,
     keep: int = 10,
-    llm: Optional[Any] = None,
+    llm: Any | None = None,
 ) -> ContextResult:
     """Fit messages into a token budget.
 
@@ -231,9 +231,9 @@ async def afit_context(
     max_tokens: int,
     *,
     summarize: bool = False,
-    summary: Optional[str] = None,
+    summary: str | None = None,
     keep: int = 10,
-    llm: Optional[Any] = None,
+    llm: Any | None = None,
 ) -> ContextResult:
     """Async version of fit_context.
 
@@ -375,7 +375,7 @@ async def _ainvoke_llm(llm: Any, prompt: str) -> str:
 def _create_summary(
     messages: list[BaseMessage],
     keep: int,
-    llm: Optional[Any],
+    llm: Any | None,
 ) -> str:
     """Create a new summary from messages."""
     if llm is None:
@@ -394,7 +394,7 @@ def _create_summary(
 async def _acreate_summary(
     messages: list[BaseMessage],
     keep: int,
-    llm: Optional[Any],
+    llm: Any | None,
 ) -> str:
     """Async: Create a new summary from messages."""
     if llm is None:
@@ -413,7 +413,7 @@ def _extend_summary(
     existing_summary: str,
     messages: list[BaseMessage],
     keep: int,
-    llm: Optional[Any],
+    llm: Any | None,
 ) -> str:
     """Extend an existing summary with new messages."""
     if llm is None:
@@ -436,7 +436,7 @@ async def _aextend_summary(
     existing_summary: str,
     messages: list[BaseMessage],
     keep: int,
-    llm: Optional[Any],
+    llm: Any | None,
 ) -> str:
     """Async: Extend an existing summary with new messages."""
     if llm is None:

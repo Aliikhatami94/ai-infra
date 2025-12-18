@@ -19,7 +19,7 @@ __all__ = [
 ]
 
 
-def wrap_tool_with_callbacks(tool: Any, callbacks: "CallbackManager") -> Any:
+def wrap_tool_with_callbacks(tool: Any, callbacks: CallbackManager) -> Any:
     """Wrap a tool to fire callback events on start/end/error.
 
     For BaseTool subclasses, we wrap the _run/_arun methods directly.
@@ -45,9 +45,7 @@ def wrap_tool_with_callbacks(tool: Any, callbacks: "CallbackManager") -> Any:
         original_arun = tool._arun if hasattr(tool, "_arun") else None
 
         def wrapped_run(*args: Any, **kwargs: Any) -> Any:
-            callbacks.on_tool_start(
-                ToolStartEvent(tool_name=tool_name, arguments=kwargs)
-            )
+            callbacks.on_tool_start(ToolStartEvent(tool_name=tool_name, arguments=kwargs))
             start_time = time.time()
             try:
                 result = original_run(*args, **kwargs)
@@ -113,9 +111,7 @@ def wrap_tool_with_callbacks(tool: Any, callbacks: "CallbackManager") -> Any:
         # Async tool wrapper
         @functools.wraps(func)
         async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
-            callbacks.on_tool_start(
-                ToolStartEvent(tool_name=tool_name, arguments=kwargs)
-            )
+            callbacks.on_tool_start(ToolStartEvent(tool_name=tool_name, arguments=kwargs))
             start_time = time.time()
             try:
                 result = await func(*args, **kwargs)
@@ -155,9 +151,7 @@ def wrap_tool_with_callbacks(tool: Any, callbacks: "CallbackManager") -> Any:
         # Sync tool wrapper
         @functools.wraps(func)
         def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
-            callbacks.on_tool_start(
-                ToolStartEvent(tool_name=tool_name, arguments=kwargs)
-            )
+            callbacks.on_tool_start(ToolStartEvent(tool_name=tool_name, arguments=kwargs))
             start_time = time.time()
             try:
                 result = func(*args, **kwargs)

@@ -2,20 +2,20 @@ from __future__ import annotations
 
 import fnmatch
 import json
-from dataclasses import dataclass, field
-from typing import Any, Optional
 from collections.abc import Callable
+from dataclasses import dataclass, field
+from typing import Any
 
 from pydantic import BaseModel, Field
 
 __all__ = [
-    "OpenAPISpec",
-    "OperationContext",
-    "Operation",
-    "OpReport",
-    "BuildReport",
-    "OpenAPIOptions",
     "AuthConfig",
+    "BuildReport",
+    "OpReport",
+    "OpenAPIOptions",
+    "OpenAPISpec",
+    "Operation",
+    "OperationContext",
 ]
 
 OpenAPISpec = dict[str, Any]
@@ -59,12 +59,12 @@ class AuthConfig:
 
     headers: dict[str, str] = field(default_factory=dict)
     query: dict[str, str] = field(default_factory=dict)
-    basic: Optional[tuple] = None  # (username, password)
-    bearer: Optional[str] = None
-    bearer_fn: Optional[Callable[[], Any]] = None  # Async or sync callable
+    basic: tuple | None = None  # (username, password)
+    bearer: str | None = None
+    bearer_fn: Callable[[], Any] | None = None  # Async or sync callable
 
     @classmethod
-    def from_value(cls, value: Any) -> "AuthConfig":
+    def from_value(cls, value: Any) -> AuthConfig:
         """Create AuthConfig from various input types.
 
         Supports:
@@ -117,42 +117,42 @@ class OpenAPIOptions:
     """
 
     # Tool naming
-    tool_prefix: Optional[str] = None
-    tool_name_fn: Optional[Callable[[str, str, dict], str]] = None
-    tool_description_fn: Optional[Callable[[dict], str]] = None
+    tool_prefix: str | None = None
+    tool_name_fn: Callable[[str, str, dict], str] | None = None
+    tool_description_fn: Callable[[dict], str] | None = None
 
     # Path filtering (glob patterns)
-    include_paths: Optional[list[str]] = None
-    exclude_paths: Optional[list[str]] = None
+    include_paths: list[str] | None = None
+    exclude_paths: list[str] | None = None
 
     # Method filtering
-    include_methods: Optional[list[str]] = None
-    exclude_methods: Optional[list[str]] = None
+    include_methods: list[str] | None = None
+    exclude_methods: list[str] | None = None
 
     # Tag filtering
-    include_tags: Optional[list[str]] = None
-    exclude_tags: Optional[list[str]] = None
+    include_tags: list[str] | None = None
+    exclude_tags: list[str] | None = None
 
     # OperationId filtering
-    include_operations: Optional[list[str]] = None
-    exclude_operations: Optional[list[str]] = None
+    include_operations: list[str] | None = None
+    exclude_operations: list[str] | None = None
 
     # Auth
-    auth: Optional[AuthConfig] = None
-    endpoint_auth: Optional[dict[str, Any]] = None  # Pattern -> AuthConfig
+    auth: AuthConfig | None = None
+    endpoint_auth: dict[str, Any] | None = None  # Pattern -> AuthConfig
 
     # Request configuration
-    timeout: Optional[float] = None  # Request timeout in seconds (default: 30)
+    timeout: float | None = None  # Request timeout in seconds (default: 30)
     retries: int = 0  # Number of retries on transient failures
 
     # Rate limiting
-    rate_limit: Optional[float] = None  # Max requests per second (None = unlimited)
+    rate_limit: float | None = None  # Max requests per second (None = unlimited)
     rate_limit_retry: bool = True  # Retry on 429 Too Many Requests
     rate_limit_max_retries: int = 3  # Max retries on 429
 
     # Caching & Performance
-    cache_ttl: Optional[float] = None  # Cache TTL in seconds (None = no caching)
-    cache_methods: Optional[list[str]] = None  # Methods to cache (default: ["GET"])
+    cache_ttl: float | None = None  # Cache TTL in seconds (None = no caching)
+    cache_methods: list[str] | None = None  # Methods to cache (default: ["GET"])
     dedupe_requests: bool = False  # Deduplicate concurrent identical requests
 
     # Pagination
@@ -234,7 +234,7 @@ class OpenAPIOptions:
             return self.tool_description_fn(operation)
         return default_description
 
-    def get_auth_for_path(self, path: str) -> Optional[AuthConfig]:
+    def get_auth_for_path(self, path: str) -> AuthConfig | None:
         """Get auth config for a specific path."""
         if self.endpoint_auth:
             for pattern, auth_value in self.endpoint_auth.items():
@@ -255,7 +255,7 @@ class OperationContext(BaseModel):
     header_params: list[dict[str, Any]] = Field(default_factory=list)
     cookie_params: list[dict[str, Any]] = Field(default_factory=list)
     wants_body: bool = False
-    body_content_type: Optional[str] = None
+    body_content_type: str | None = None
     body_required: bool = False
 
     def full_description(self) -> str:
@@ -264,14 +264,14 @@ class OperationContext(BaseModel):
 
 @dataclass
 class OpReport:
-    operation_id: Optional[str]
+    operation_id: str | None
     tool_name: str
     method: str
     path: str
     base_url: str
     base_url_source: str  # override | operation | path | root | none
     has_body: bool
-    body_content_type: Optional[str]
+    body_content_type: str | None
     body_required: bool
     params: dict[str, int]
     security: dict[str, Any]

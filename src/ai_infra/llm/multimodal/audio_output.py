@@ -29,7 +29,7 @@ from __future__ import annotations
 import base64
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 
 class AudioVoice(str, Enum):
@@ -112,17 +112,17 @@ class AudioResponse:
     format: str = "mp3"
     """Audio format (mp3, wav, etc.)."""
 
-    transcript: Optional[str] = None
+    transcript: str | None = None
     """Text transcript of the audio (if available)."""
 
-    id: Optional[str] = None
+    id: str | None = None
     """Audio response ID from the API."""
 
-    expires_at: Optional[int] = None
+    expires_at: int | None = None
     """Unix timestamp when this audio expires (for OpenAI)."""
 
     @classmethod
-    def from_openai_response(cls, audio_data: dict[str, Any]) -> "AudioResponse":
+    def from_openai_response(cls, audio_data: dict[str, Any]) -> AudioResponse:
         """Create AudioResponse from OpenAI API response.
 
         Args:
@@ -152,7 +152,7 @@ class AudioResponse:
             f.write(self.data)
 
 
-def parse_audio_response(response: Any) -> Optional[AudioResponse]:
+def parse_audio_response(response: Any) -> AudioResponse | None:
     """Parse audio from LLM response if present.
 
     Args:

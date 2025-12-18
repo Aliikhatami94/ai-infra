@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Optional
 
 import yaml
 
@@ -75,7 +74,7 @@ def _fetch_openapi_url(
     # Import error classes (avoid circular import)
     from .builder import OpenAPINetworkError, OpenAPIParseError
 
-    last_error: Optional[Exception] = None
+    last_error: Exception | None = None
     attempts = retries + 1
 
     for attempt in range(attempts):
@@ -97,7 +96,7 @@ def _fetch_openapi_url(
                     try:
                         from typing import cast
 
-                        return cast(OpenAPISpec, resp.json())
+                        return cast("OpenAPISpec", resp.json())
                     except json.JSONDecodeError as e:
                         raise OpenAPIParseError(f"Invalid JSON: {e}") from e
 
@@ -106,7 +105,7 @@ def _fetch_openapi_url(
                     try:
                         from typing import cast
 
-                        return cast(OpenAPISpec, yaml.safe_load(resp.text))
+                        return cast("OpenAPISpec", yaml.safe_load(resp.text))
                     except yaml.YAMLError as e:
                         raise OpenAPIParseError(f"Invalid YAML: {e}") from e
 
@@ -141,11 +140,11 @@ def _load_openapi_file(path: Path) -> OpenAPISpec:
     if path.suffix == ".json":
         from typing import cast
 
-        return cast(OpenAPISpec, json.loads(text))
+        return cast("OpenAPISpec", json.loads(text))
     elif path.suffix in (".yaml", ".yml"):
         from typing import cast
 
-        return cast(OpenAPISpec, yaml.safe_load(text))
+        return cast("OpenAPISpec", yaml.safe_load(text))
     else:
         # Auto-detect
         return _parse_openapi_string(text)
@@ -156,11 +155,11 @@ def _parse_openapi_string(text: str) -> OpenAPISpec:
     try:
         from typing import cast
 
-        return cast(OpenAPISpec, json.loads(text))
+        return cast("OpenAPISpec", json.loads(text))
     except json.JSONDecodeError:
         from typing import cast
 
-        return cast(OpenAPISpec, yaml.safe_load(text))
+        return cast("OpenAPISpec", yaml.safe_load(text))
 
 
 def load_spec(source: str | Path | dict) -> OpenAPISpec:

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from langchain_core.tools import BaseTool
 from langchain_core.tools import tool as lc_tool
@@ -34,7 +34,7 @@ def bind_model_with_tools(
     runtime: Runtime[ModelSettings],
     registry: ModelRegistry,
     *,
-    global_tools: Optional[list[Any]] = None,
+    global_tools: list[Any] | None = None,
 ) -> Any:
     """Select (or lazily init) the model and bind tools according to controls.
 
@@ -70,19 +70,19 @@ def make_agent_with_context(
     *,
     provider: str,
     model_name: str | None,
-    tools: Optional[list[Any]] = None,
-    extra: Optional[dict[str, Any]] = None,
-    model_kwargs: Optional[dict[str, Any]] = None,
-    tool_controls: Optional[ToolCallControls | dict[str, Any]] = None,
+    tools: list[Any] | None = None,
+    extra: dict[str, Any] | None = None,
+    model_kwargs: dict[str, Any] | None = None,
+    tool_controls: ToolCallControls | dict[str, Any] | None = None,
     require_explicit_tools: bool = False,
-    global_tools: Optional[list[Any]] = None,
+    global_tools: list[Any] | None = None,
     hitl_tool_wrapper=None,
-    logger: Optional[logging.Logger] = None,
+    logger: logging.Logger | None = None,
     # Session/checkpoint config
-    checkpointer: Optional[Any] = None,
-    store: Optional[Any] = None,
-    interrupt_before: Optional[list[str]] = None,
-    interrupt_after: Optional[list[str]] = None,
+    checkpointer: Any | None = None,
+    store: Any | None = None,
+    interrupt_before: list[str] | None = None,
+    interrupt_after: list[str] | None = None,
     # Safety limits
     recursion_limit: int = 50,
 ) -> tuple[Any, ModelSettings]:
@@ -147,18 +147,14 @@ def make_agent_with_context(
                 len(global_tools),
             )
 
-    effective_tools = [
-        nt for nt in (_normalize_tool(t) for t in effective_tools) if nt is not None
-    ]
+    effective_tools = [nt for nt in (_normalize_tool(t) for t in effective_tools) if nt is not None]
 
     if hitl_tool_wrapper is not None:
         wrapped_tools: list[Any] = []
         for t in effective_tools:
             try:
                 w = hitl_tool_wrapper(t)
-                wrapped_tools.append(
-                    w if w is not None else t
-                )  # fallback to original tool
+                wrapped_tools.append(w if w is not None else t)  # fallback to original tool
             except Exception:
                 wrapped_tools.append(t)  # defensive fallback
         effective_tools = wrapped_tools

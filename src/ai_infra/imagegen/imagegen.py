@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import base64
 import io
-from typing import Any, BinaryIO, Literal, Optional
+from typing import Any, BinaryIO, Literal
 
 from ai_infra.imagegen.models import (
     AVAILABLE_MODELS,
@@ -48,9 +48,9 @@ class ImageGen:
 
     def __init__(
         self,
-        provider: Optional[str] = None,
-        model: Optional[str] = None,
-        api_key: Optional[str] = None,
+        provider: str | None = None,
+        model: str | None = None,
+        api_key: str | None = None,
         **kwargs: Any,
     ) -> None:
         """Initialize ImageGen.
@@ -62,9 +62,7 @@ class ImageGen:
             api_key: API key. Uses env var if not specified.
             **kwargs: Additional provider-specific options.
         """
-        self._provider, self._api_key = self._resolve_provider_and_key(
-            provider, api_key
-        )
+        self._provider, self._api_key = self._resolve_provider_and_key(provider, api_key)
         self._model = model or self._get_default_model(self._provider)
         self._kwargs = kwargs
         self._client: Any = None
@@ -75,11 +73,11 @@ class ImageGen:
         return self._provider
 
     @property
-    def model(self) -> Optional[str]:
+    def model(self) -> str | None:
         """Get the current model."""
         return self._model
 
-    def _get_default_model(self, provider: ImageGenProvider) -> Optional[str]:
+    def _get_default_model(self, provider: ImageGenProvider) -> str | None:
         """Get default model for provider from registry."""
         # Map provider enum to registry name
         registry_name = provider.value
@@ -97,8 +95,8 @@ class ImageGen:
 
     def _resolve_provider_and_key(
         self,
-        provider: Optional[str],
-        api_key: Optional[str],
+        provider: str | None,
+        api_key: str | None,
     ) -> tuple[ImageGenProvider, str]:
         """Resolve provider and API key from args or environment."""
 
@@ -126,7 +124,7 @@ class ImageGen:
             "STABILITY_API_KEY, or REPLICATE_API_TOKEN"
         )
 
-    def _get_env_key(self, provider: ImageGenProvider) -> Optional[str]:
+    def _get_env_key(self, provider: ImageGenProvider) -> str | None:
         """Get the environment variable key for a provider."""
         # Map to registry name
         registry_name = provider.value
@@ -142,7 +140,7 @@ class ImageGen:
         size: str = "1024x1024",
         n: int = 1,
         quality: Literal["standard", "hd"] = "standard",
-        style: Optional[Literal["vivid", "natural"]] = None,
+        style: Literal["vivid", "natural"] | None = None,
         **kwargs: Any,
     ) -> list[GeneratedImage]:
         """Generate images from a text prompt.
@@ -190,7 +188,7 @@ class ImageGen:
         size: str = "1024x1024",
         n: int = 1,
         quality: Literal["standard", "hd"] = "standard",
-        style: Optional[Literal["vivid", "natural"]] = None,
+        style: Literal["vivid", "natural"] | None = None,
         **kwargs: Any,
     ) -> list[GeneratedImage]:
         """Async version of generate().
@@ -238,7 +236,7 @@ class ImageGen:
         size: str,
         n: int,
         quality: str,
-        style: Optional[str],
+        style: str | None,
         **kwargs: Any,
     ) -> list[GeneratedImage]:
         """Generate images using OpenAI DALL-E."""
@@ -279,7 +277,7 @@ class ImageGen:
         size: str,
         n: int,
         quality: str,
-        style: Optional[str],
+        style: str | None,
         **kwargs: Any,
     ) -> list[GeneratedImage]:
         """Async generate images using OpenAI DALL-E."""
@@ -349,9 +347,7 @@ class ImageGen:
             return self._generate_google_gemini(client, prompt, n=n, **kwargs)
         else:
             # Use generate_images API for Imagen models
-            return self._generate_google_imagen(
-                client, prompt, size=size, n=n, **kwargs
-            )
+            return self._generate_google_imagen(client, prompt, size=size, n=n, **kwargs)
 
     def _generate_google_gemini(
         self,
@@ -409,9 +405,7 @@ class ImageGen:
 
         return [
             GeneratedImage(
-                data=base64.b64decode(img.image.image_bytes)
-                if hasattr(img, "image")
-                else None,
+                data=base64.b64decode(img.image.image_bytes) if hasattr(img, "image") else None,
                 model=self._model,
                 provider=ImageGenProvider.GOOGLE,
             )
@@ -436,9 +430,7 @@ class ImageGen:
             return await self._agenerate_google_gemini(client, prompt, n=n, **kwargs)
         else:
             # Use generate_images API for Imagen models
-            return await self._agenerate_google_imagen(
-                client, prompt, size=size, n=n, **kwargs
-            )
+            return await self._agenerate_google_imagen(client, prompt, size=size, n=n, **kwargs)
 
     async def _agenerate_google_gemini(
         self,
@@ -496,9 +488,7 @@ class ImageGen:
 
         return [
             GeneratedImage(
-                data=base64.b64decode(img.image.image_bytes)
-                if hasattr(img, "image")
-                else None,
+                data=base64.b64decode(img.image.image_bytes) if hasattr(img, "image") else None,
                 model=self._model,
                 provider=ImageGenProvider.GOOGLE,
             )
@@ -694,7 +684,7 @@ class ImageGen:
         image: str | bytes,
         prompt: str,
         *,
-        mask: Optional[str | bytes] = None,
+        mask: str | bytes | None = None,
         size: str = "1024x1024",
         n: int = 1,
         **kwargs: Any,
@@ -787,9 +777,7 @@ class ImageGen:
             List of GeneratedImage objects.
         """
         if self._provider != ImageGenProvider.OPENAI:
-            raise NotImplementedError(
-                f"variations() not supported for {self._provider}"
-            )
+            raise NotImplementedError(f"variations() not supported for {self._provider}")
 
         client = self._get_openai_client()
 

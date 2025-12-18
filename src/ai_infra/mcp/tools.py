@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ async def load_mcp_tools_cached(
     url: str,
     *,
     transport: Literal["stdio", "streamable_http", "sse"] = "streamable_http",
-    cache_key: Optional[str] = None,
+    cache_key: str | None = None,
     force_refresh: bool = False,
 ) -> list[Any]:
     """Load MCP tools with automatic caching.
@@ -115,7 +115,7 @@ async def load_mcp_tools_cached(
             raise
 
 
-def clear_mcp_cache(url: Optional[str] = None) -> None:
+def clear_mcp_cache(url: str | None = None) -> None:
     """Clear MCP tool cache.
 
     Args:
@@ -138,7 +138,7 @@ def clear_mcp_cache(url: Optional[str] = None) -> None:
         logger.debug("Cleared all MCP cache")
 
 
-def get_cached_tools(url: str) -> Optional[list[Any]]:
+def get_cached_tools(url: str) -> list[Any] | None:
     """Get cached tools without loading.
 
     Args:
@@ -197,9 +197,9 @@ def get_cache_stats() -> dict[str, Any]:
 
 
 __all__ = [
-    "load_mcp_tools_cached",
     "clear_mcp_cache",
+    "get_cache_stats",
     "get_cached_tools",
     "is_cached",
-    "get_cache_stats",
+    "load_mcp_tools_cached",
 ]

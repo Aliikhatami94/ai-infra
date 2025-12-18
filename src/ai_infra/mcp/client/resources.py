@@ -55,7 +55,7 @@ class ResourceInfo:
     mime_type: str | None = None
 
     @classmethod
-    def from_mcp_resource(cls, resource: "Resource") -> "ResourceInfo":
+    def from_mcp_resource(cls, resource: Resource) -> ResourceInfo:
         """Create ResourceInfo from MCP Resource object.
 
         Args:
@@ -200,7 +200,7 @@ def convert_mcp_resource(uri: str, contents: Any) -> MCPResource:
 
 
 async def load_mcp_resources(
-    session: "ClientSession",
+    session: ClientSession,
     *,
     uris: str | list[str] | None = None,
 ) -> list[MCPResource]:
@@ -243,7 +243,7 @@ async def load_mcp_resources(
         for r in resources_list:
             uri: Any = None
             if hasattr(r, "uri"):
-                uri = getattr(r, "uri")
+                uri = r.uri
             elif isinstance(r, dict):
                 uri = r.get("uri")
             elif isinstance(r, (tuple, list)) and len(r) >= 1:
@@ -267,7 +267,7 @@ async def load_mcp_resources(
     return resources
 
 
-async def list_mcp_resources(session: "ClientSession") -> list[ResourceInfo]:
+async def list_mcp_resources(session: ClientSession) -> list[ResourceInfo]:
     """List available resources from an MCP server.
 
     Args:

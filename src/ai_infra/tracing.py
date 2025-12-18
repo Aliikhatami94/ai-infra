@@ -38,10 +38,10 @@ from __future__ import annotations
 import functools
 import os
 import time
+from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass
-from typing import Any, Optional, TypeVar
-from collections.abc import AsyncIterator, Callable, Iterator
+from typing import Any, TypeVar
 
 from .callbacks import (
     Callbacks,
@@ -70,7 +70,7 @@ class SpanContext:
 
     trace_id: str
     span_id: str
-    parent_span_id: Optional[str] = None
+    parent_span_id: str | None = None
 
     def to_dict(self) -> dict[str, str]:
         d = {"trace_id": self.trace_id, "span_id": self.span_id}
@@ -89,17 +89,17 @@ class Span:
     def __init__(
         self,
         name: str,
-        parent: Optional["Span"] = None,
-        attributes: Optional[dict[str, Any]] = None,
+        parent: Span | None = None,
+        attributes: dict[str, Any] | None = None,
     ) -> None:
         self.name = name
         self.parent = parent
         self._attributes: dict[str, Any] = attributes or {}
         self._events: list[dict[str, Any]] = []
         self._start_time = time.time()
-        self._end_time: Optional[float] = None
+        self._end_time: float | None = None
         self._status = "ok"
-        self._error: Optional[Exception] = None
+        self._error: Exception | None = None
 
         # Generate IDs
         import uuid
@@ -122,19 +122,17 @@ class Span:
         end = self._end_time or time.time()
         return (end - self._start_time) * 1000
 
-    def set_attribute(self, key: str, value: Any) -> "Span":
+    def set_attribute(self, key: str, value: Any) -> Span:
         """Set a span attribute."""
         self._attributes[key] = value
         return self
 
-    def set_attributes(self, attributes: dict[str, Any]) -> "Span":
+    def set_attributes(self, attributes: dict[str, Any]) -> Span:
         """Set multiple span attributes."""
         self._attributes.update(attributes)
         return self
 
-    def add_event(
-        self, name: str, attributes: Optional[dict[str, Any]] = None
-    ) -> "Span":
+    def add_event(self, name: str, attributes: dict[str, Any] | None = None) -> Span:
         """Add an event to the span."""
         self._events.append(
             {
@@ -145,14 +143,14 @@ class Span:
         )
         return self
 
-    def set_status(self, status: str, description: Optional[str] = None) -> "Span":
+    def set_status(self, status: str, description: str | None = None) -> Span:
         """Set span status (ok, error)."""
         self._status = status
         if description:
             self._attributes["status_description"] = description
         return self
 
-    def record_exception(self, error: Exception) -> "Span":
+    def record_exception(self, error: Exception) -> Span:
         """Record an exception on the span."""
         self._error = error
         self._status = "error"
@@ -195,18 +193,18 @@ class Tracer:
 
     def __init__(self, name: str = "ai-infra"):
         self.name = name
-        self._exporters: list["SpanExporter"] = []
-        self._current_span: Optional[Span] = None
+        self._exporters: list[SpanExporter] = []
+        self._current_span: Span | None = None
 
-    def add_exporter(self, exporter: "SpanExporter") -> None:
+    def add_exporter(self, exporter: SpanExporter) -> None:
         """Add a span exporter."""
         self._exporters.append(exporter)
 
     def start_span(
         self,
         name: str,
-        attributes: Optional[dict[str, Any]] = None,
-        parent: Optional[Span] = None,
+        attributes: dict[str, Any] | None = None,
+        parent: Span | None = None,
     ) -> Span:
         """Start a new span."""
         span = Span(
@@ -236,7 +234,7 @@ class Tracer:
     def span(
         self,
         name: str,
-        attributes: Optional[dict[str, Any]] = None,
+        attributes: dict[str, Any] | None = None,
     ) -> Iterator[Span]:
         """Context manager for creating a span."""
         span = self.start_span(name, attributes)
@@ -252,7 +250,7 @@ class Tracer:
     async def aspan(
         self,
         name: str,
-        attributes: Optional[dict[str, Any]] = None,
+        attributes: dict[str, Any] | None = None,
     ) -> AsyncIterator[Span]:
         """Async context manager for creating a span."""
         span = self.start_span(name, attributes)
@@ -298,7 +296,7 @@ class LangSmithExporter(SpanExporter):
     Requires LANGSMITH_API_KEY environment variable.
     """
 
-    def __init__(self, api_key: Optional[str] = None, project: Optional[str] = None):
+    def __init__(self, api_key: str | None = None, project: str | None = None):
         self.api_key = api_key or os.getenv("LANGSMITH_API_KEY")
         self.project = project or os.getenv("LANGSMITH_PROJECT", "ai-infra")
         self._client: Any = None
@@ -354,7 +352,7 @@ class OpenTelemetryExporter(SpanExporter):
     Requires OTEL_EXPORTER_OTLP_ENDPOINT environment variable.
     """
 
-    def __init__(self, endpoint: Optional[str] = None):
+    def __init__(self, endpoint: str | None = None):
         self.endpoint = endpoint or os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
         self._tracer: Any = None
 
@@ -420,7 +418,7 @@ class OpenTelemetryExporter(SpanExporter):
 class TracingCallbacks(Callbacks):
     """Callbacks that create spans for ai-infra operations."""
 
-    def __init__(self, tracer: Optional[Tracer] = None):
+    def __init__(self, tracer: Tracer | None = None):
         self._tracer = tracer or get_tracer()
         self._llm_spans: dict[int, Span] = {}
         self._tool_spans: dict[str, Span] = {}
@@ -513,7 +511,7 @@ class TracingCallbacks(Callbacks):
 # Global Tracer
 # =============================================================================
 
-_global_tracer: Optional[Tracer] = None
+_global_tracer: Tracer | None = None
 
 
 def get_tracer(name: str = "ai-infra") -> Tracer:
@@ -588,8 +586,8 @@ def configure_tracing(
 
 
 def trace(
-    name: Optional[str] = None,
-    attributes: Optional[dict[str, Any]] = None,
+    name: str | None = None,
+    attributes: dict[str, Any] | None = None,
 ) -> Callable[[F], F]:
     """Decorator to trace a function.
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 from langchain_core.messages import BaseMessage
 from pydantic import BaseModel
@@ -131,8 +131,8 @@ class BaseLLM:
 
     def get_model(
         self,
-        provider: Optional[str] = None,
-        model_name: Optional[str] = None,
+        provider: str | None = None,
+        model_name: str | None = None,
         **model_kwargs,
     ):
         """
@@ -160,12 +160,8 @@ class BaseLLM:
             >>> response = model.invoke([HumanMessage(content="Hello")])
         """
         # Resolve provider and model (auto-detect if not specified)
-        resolved_provider, resolved_model = self._resolve_provider_and_model(
-            provider, model_name
-        )
-        return self.registry.get_or_create(
-            resolved_provider, resolved_model, **model_kwargs
-        )
+        resolved_provider, resolved_model = self._resolve_provider_and_model(provider, model_name)
+        return self.registry.get_or_create(resolved_provider, resolved_model, **model_kwargs)
 
     def with_structured_output(
         self,
@@ -173,8 +169,7 @@ class BaseLLM:
         model_name: str,
         schema: type[BaseModel] | dict[str, Any],
         *,
-        method: Literal["json_schema", "json_mode", "function_calling"]
-        | None = "json_mode",
+        method: Literal["json_schema", "json_mode", "function_calling"] | None = "json_mode",
         **model_kwargs,
     ):
         model = self.registry.get_or_create(provider, model_name, **model_kwargs)
@@ -196,8 +191,8 @@ class BaseLLM:
 
     def _resolve_provider_and_model(
         self,
-        provider: Optional[str],
-        model_name: Optional[str],
+        provider: str | None,
+        model_name: str | None,
     ) -> tuple[str, str]:
         """
         Resolve provider and model, auto-detecting from environment if not specified.
@@ -249,11 +244,11 @@ class BaseLLM:
         self,
         *,
         user_msg: str,
-        system: Optional[str],
+        system: str | None,
         provider: str,
         model_name: str,
         schema: type[BaseModel] | dict[str, Any],
-        extra: Optional[dict[str, Any]],
+        extra: dict[str, Any] | None,
         model_kwargs: dict[str, Any],
     ) -> BaseModel:
         model = self.set_model(provider, model_name, **model_kwargs)
@@ -305,11 +300,11 @@ class BaseLLM:
         self,
         *,
         user_msg: str,
-        system: Optional[str],
+        system: str | None,
         provider: str,
         model_name: str,
         schema: type[BaseModel] | dict[str, Any],
-        extra: Optional[dict[str, Any]],
+        extra: dict[str, Any] | None,
         model_kwargs: dict[str, Any],
     ) -> BaseModel:
         """Async variant of prompt-only structured output with robust JSON fallback."""

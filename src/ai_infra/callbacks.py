@@ -10,7 +10,7 @@ Usage:
     from ai_infra.callbacks import Callbacks, CallbackManager
 
     class MyCallbacks(Callbacks):
-        def on_llm_start(self, provider: str, model: str, messages: List[dict]):
+        def on_llm_start(self, provider: str, model: str, messages: list[dict]):
             print(f"Starting LLM call to {provider}/{model}")
 
         def on_llm_end(self, response: str, usage: dict):
@@ -25,9 +25,9 @@ from __future__ import annotations
 
 import time
 from abc import ABC
-from dataclasses import dataclass, field
-from typing import Any, Optional, TypeVar
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass, field
+from typing import Any, TypeVar
 
 # Type for callback functions
 CallbackFn = Callable[..., None]
@@ -48,9 +48,9 @@ class LLMStartEvent:
     provider: str
     model: str
     messages: list[dict[str, Any]]
-    temperature: Optional[float] = None
-    max_tokens: Optional[int] = None
-    tools: Optional[list[dict[str, Any]]] = None
+    temperature: float | None = None
+    max_tokens: int | None = None
+    tools: list[dict[str, Any]] | None = None
     stream: bool = False
     timestamp: float = field(default_factory=time.time)
     extra: dict[str, Any] = field(default_factory=dict)
@@ -63,12 +63,12 @@ class LLMEndEvent:
     provider: str
     model: str
     response: str
-    input_tokens: Optional[int] = None
-    output_tokens: Optional[int] = None
-    total_tokens: Optional[int] = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    total_tokens: int | None = None
     latency_ms: float = 0
-    finish_reason: Optional[str] = None
-    tool_calls: Optional[list[dict[str, Any]]] = None
+    finish_reason: str | None = None
+    tool_calls: list[dict[str, Any]] | None = None
     cached: bool = False
     timestamp: float = field(default_factory=time.time)
     extra: dict[str, Any] = field(default_factory=dict)
@@ -108,7 +108,7 @@ class ToolStartEvent:
 
     tool_name: str
     arguments: dict[str, Any]
-    server_name: Optional[str] = None
+    server_name: str | None = None
     timestamp: float = field(default_factory=time.time)
     extra: dict[str, Any] = field(default_factory=dict)
 
@@ -119,7 +119,7 @@ class ToolEndEvent:
 
     tool_name: str
     result: Any
-    server_name: Optional[str] = None
+    server_name: str | None = None
     latency_ms: float = 0
     timestamp: float = field(default_factory=time.time)
     extra: dict[str, Any] = field(default_factory=dict)
@@ -132,7 +132,7 @@ class ToolErrorEvent:
     tool_name: str
     error: Exception
     arguments: dict[str, Any]
-    server_name: Optional[str] = None
+    server_name: str | None = None
     error_type: str = ""
     latency_ms: float = 0
     timestamp: float = field(default_factory=time.time)
@@ -160,7 +160,7 @@ class MCPDisconnectEvent:
     """Event fired when MCP server disconnects."""
 
     server_name: str
-    reason: Optional[str] = None
+    reason: str | None = None
     timestamp: float = field(default_factory=time.time)
 
 
@@ -178,10 +178,10 @@ class MCPProgressEvent:
     """
 
     server_name: str
-    tool_name: Optional[str]
+    tool_name: str | None
     progress: float
-    total: Optional[float] = None
-    message: Optional[str] = None
+    total: float | None = None
+    message: str | None = None
     timestamp: float = field(default_factory=time.time)
 
 
@@ -199,10 +199,10 @@ class MCPLoggingEvent:
     """
 
     server_name: str
-    tool_name: Optional[str]
+    tool_name: str | None
     level: str  # debug, info, warning, error
     data: Any
-    logger_name: Optional[str] = None
+    logger_name: str | None = None
     timestamp: float = field(default_factory=time.time)
 
 
@@ -247,8 +247,8 @@ class GraphNodeErrorEvent:
 
 
 def normalize_callbacks(
-    callbacks: Optional[Any],
-) -> Optional["CallbackManager"]:
+    callbacks: Any | None,
+) -> CallbackManager | None:
     """Convert callbacks to CallbackManager.
 
     Accepts either a single Callbacks instance or a CallbackManager,
@@ -427,8 +427,8 @@ class CallbackManager:
 
     def __init__(
         self,
-        callbacks: Optional[Sequence[Callbacks]] = None,
-        critical_callbacks: Optional[Sequence[Callbacks]] = None,
+        callbacks: Sequence[Callbacks] | None = None,
+        critical_callbacks: Sequence[Callbacks] | None = None,
     ):
         """Initialize CallbackManager.
 
@@ -493,9 +493,7 @@ class CallbackManager:
                 if handler:
                     handler(event)
             except Exception as e:
-                logger.warning(
-                    f"Callback error in {callback.__class__.__name__}.{method}: {e}"
-                )
+                logger.warning(f"Callback error in {callback.__class__.__name__}.{method}: {e}")
 
     async def _dispatch_async(self, method: str, event: Any) -> None:
         """Dispatch async event to all callbacks.
@@ -527,9 +525,7 @@ class CallbackManager:
                 if handler:
                     await handler(event)
             except Exception as e:
-                logger.warning(
-                    f"Callback error in {callback.__class__.__name__}.{method}: {e}"
-                )
+                logger.warning(f"Callback error in {callback.__class__.__name__}.{method}: {e}")
 
     # LLM events
     def on_llm_start(self, event: LLMStartEvent) -> None:
@@ -582,16 +578,16 @@ class CallbackManager:
     def on_mcp_disconnect(self, event: MCPDisconnectEvent) -> None:
         self._dispatch("on_mcp_disconnect", event)
 
-    def on_mcp_progress(self, event: "MCPProgressEvent") -> None:
+    def on_mcp_progress(self, event: MCPProgressEvent) -> None:
         self._dispatch("on_mcp_progress", event)
 
-    async def on_mcp_progress_async(self, event: "MCPProgressEvent") -> None:
+    async def on_mcp_progress_async(self, event: MCPProgressEvent) -> None:
         await self._dispatch_async("on_mcp_progress_async", event)
 
-    def on_mcp_logging(self, event: "MCPLoggingEvent") -> None:
+    def on_mcp_logging(self, event: MCPLoggingEvent) -> None:
         self._dispatch("on_mcp_logging", event)
 
-    async def on_mcp_logging_async(self, event: "MCPLoggingEvent") -> None:
+    async def on_mcp_logging_async(self, event: MCPLoggingEvent) -> None:
         await self._dispatch_async("on_mcp_logging_async", event)
 
     # Graph events
@@ -611,7 +607,7 @@ class CallbackManager:
         model: str,
         messages: list[dict[str, Any]],
         **extra: Any,
-    ) -> "LLMCallContext":
+    ) -> LLMCallContext:
         """Context manager for LLM calls with auto-timing."""
         return LLMCallContext(self, provider, model, messages, extra)
 
@@ -619,9 +615,9 @@ class CallbackManager:
         self,
         tool_name: str,
         arguments: dict[str, Any],
-        server_name: Optional[str] = None,
+        server_name: str | None = None,
         **extra: Any,
-    ) -> "ToolCallContext":
+    ) -> ToolCallContext:
         """Context manager for tool calls with auto-timing."""
         return ToolCallContext(self, tool_name, arguments, server_name, extra)
 
@@ -648,11 +644,11 @@ class LLMCallContext:
         self._messages = messages
         self._extra = extra
         self._start_time = 0.0
-        self._response: Optional[str] = None
-        self._tokens: Optional[dict[str, int]] = None
-        self._error: Optional[Exception] = None
+        self._response: str | None = None
+        self._tokens: dict[str, int] | None = None
+        self._error: Exception | None = None
 
-    def __enter__(self) -> "LLMCallContext":
+    def __enter__(self) -> LLMCallContext:
         self._start_time = time.time()
         self._manager.on_llm_start(
             LLMStartEvent(
@@ -692,9 +688,9 @@ class LLMCallContext:
     def set_response(
         self,
         response: str,
-        input_tokens: Optional[int] = None,
-        output_tokens: Optional[int] = None,
-        total_tokens: Optional[int] = None,
+        input_tokens: int | None = None,
+        output_tokens: int | None = None,
+        total_tokens: int | None = None,
     ) -> None:
         """Set the response for the end event."""
         self._response = response
@@ -715,7 +711,7 @@ class ToolCallContext:
         manager: CallbackManager,
         tool_name: str,
         arguments: dict[str, Any],
-        server_name: Optional[str],
+        server_name: str | None,
         extra: dict[str, Any],
     ):
         self._manager = manager
@@ -727,7 +723,7 @@ class ToolCallContext:
         self._result: Any = None
         self._has_result = False
 
-    def __enter__(self) -> "ToolCallContext":
+    def __enter__(self) -> ToolCallContext:
         self._start_time = time.time()
         self._manager.on_tool_start(
             ToolStartEvent(

@@ -67,7 +67,7 @@ class Workspace:
         self.root = Path(root).resolve()
         self.mode = mode
 
-    def get_deepagent_backend(self) -> "BaseBackend":
+    def get_deepagent_backend(self) -> BaseBackend:
         """Get the deepagents backend for this workspace.
 
         Returns:

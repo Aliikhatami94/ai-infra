@@ -21,15 +21,14 @@ from __future__ import annotations
 import asyncio
 import inspect
 import logging
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
     Any,
     Literal,
-    Optional,
     cast,
 )
-from collections.abc import Awaitable, Callable, Sequence
 
 from langchain_core.tools import BaseTool
 from langchain_core.tools import tool as lc_tool
@@ -90,10 +89,10 @@ class HITLConfig:
     def __init__(
         self,
         *,
-        on_model_output: Optional[Callable[..., Any]] = None,
-        on_tool_call: Optional[Callable[..., Any]] = None,
-        on_model_output_async: Optional[Callable[..., Any]] = None,
-        on_tool_call_async: Optional[Callable[..., Any]] = None,
+        on_model_output: Callable[..., Any] | None = None,
+        on_tool_call: Callable[..., Any] | None = None,
+        on_model_output_async: Callable[..., Any] | None = None,
+        on_tool_call_async: Callable[..., Any] | None = None,
     ):
         self.on_model_output = on_model_output
         self.on_tool_call = on_tool_call
@@ -103,10 +102,10 @@ class HITLConfig:
     def set(
         self,
         *,
-        on_model_output: Optional[Callable[..., Any]] = None,
-        on_tool_call: Optional[Callable[..., Any]] = None,
-        on_model_output_async: Optional[Callable[..., Any]] = None,
-        on_tool_call_async: Optional[Callable[..., Any]] = None,
+        on_model_output: Callable[..., Any] | None = None,
+        on_tool_call: Callable[..., Any] | None = None,
+        on_model_output_async: Callable[..., Any] | None = None,
+        on_tool_call_async: Callable[..., Any] | None = None,
     ):
         if on_model_output is not None:
             self.on_model_output = on_model_output
@@ -157,9 +156,7 @@ class _HITLWrappedTool(BaseTool):
 
     # Disallow sync path to avoid StructuredTool sync errors
     def _run(self, *args, **kwargs):
-        raise NotImplementedError(
-            "HITL-wrapped tools are async-only. Use ainvoke/_arun."
-        )
+        raise NotImplementedError("HITL-wrapped tools are async-only. Use ainvoke/_arun.")
 
     async def _arun(self, *args, **kwargs):
         args_dict = dict(kwargs) if kwargs else {}
@@ -249,27 +246,21 @@ class ApprovalConfig:
         ```
     """
 
-    approval_handler: Optional[ApprovalHandler] = None
-    approval_handler_async: Optional[AsyncApprovalHandler] = None
-    output_reviewer: Optional[OutputReviewer] = None
-    output_reviewer_async: Optional[AsyncOutputReviewer] = None
+    approval_handler: ApprovalHandler | None = None
+    approval_handler_async: AsyncApprovalHandler | None = None
+    output_reviewer: OutputReviewer | None = None
+    output_reviewer_async: AsyncOutputReviewer | None = None
     require_approval: bool | list[str] | Callable[[str, dict[str, Any]], bool] = False
     auto_approve: bool = False
-    events: Optional["ApprovalEvents"] = None  # Event hooks for observability
+    events: ApprovalEvents | None = None  # Event hooks for observability
 
     def __post_init__(self):
         # If require_approval is True but no handler, use console
-        if (
-            self.require_approval
-            and not self.approval_handler
-            and not self.approval_handler_async
-        ):
+        if self.require_approval and not self.approval_handler and not self.approval_handler_async:
             if not self.auto_approve:
                 self.approval_handler = console_approval_handler
 
-    def needs_approval(
-        self, tool_name: str, args: Optional[dict[str, Any]] = None
-    ) -> bool:
+    def needs_approval(self, tool_name: str, args: dict[str, Any] | None = None) -> bool:
         """Check if a tool needs approval.
 
         Args:
@@ -298,23 +289,21 @@ class ApprovalConfig:
         if self.approval_handler_async:
             result = self.approval_handler_async(request)
             if inspect.isawaitable(result):
-                return await cast(Awaitable[ApprovalResponse], result)
-            return cast(ApprovalResponse, result)
+                return await cast("Awaitable[ApprovalResponse]", result)
+            return cast("ApprovalResponse", result)
         elif self.approval_handler:
             return await asyncio.to_thread(self.approval_handler, request)
         else:
             # No handler, auto-approve
-            return ApprovalResponse.approve(
-                reason="No handler configured", approver="auto"
-            )
+            return ApprovalResponse.approve(reason="No handler configured", approver="auto")
 
     async def review_output(self, request: OutputReviewRequest) -> OutputReviewResponse:
         """Review model output."""
         if self.output_reviewer_async:
             result = self.output_reviewer_async(request)
             if inspect.isawaitable(result):
-                return await cast(Awaitable[OutputReviewResponse], result)
-            return cast(OutputReviewResponse, result)
+                return await cast("Awaitable[OutputReviewResponse]", result)
+            return cast("OutputReviewResponse", result)
         elif self.output_reviewer:
             return await asyncio.to_thread(self.output_reviewer, request)
         else:
@@ -336,9 +325,7 @@ class _ApprovalWrappedTool(BaseTool):
             self.args_schema = base.args_schema
 
     def _run(self, *args, **kwargs):
-        raise NotImplementedError(
-            "Approval-wrapped tools are async-only. Use ainvoke/_arun."
-        )
+        raise NotImplementedError("Approval-wrapped tools are async-only. Use ainvoke/_arun.")
 
     async def _arun(self, *args, **kwargs):
         from .events import ApprovalEvent
@@ -413,7 +400,7 @@ class _ApprovalWrappedTool(BaseTool):
 
 def wrap_tool_for_approval(
     tool_obj: Any,
-    config: Optional[ApprovalConfig],
+    config: ApprovalConfig | None,
 ) -> Any:
     """Wrap a tool with approval workflow.
 
@@ -457,7 +444,7 @@ def maybe_await(result: Any) -> Any:
         loop = None
     if loop and loop.is_running():
         logger.warning(
-            "maybe_await: async callback ignored (event loop active in sync pathway). Use async APIs for async callbacks."  # noqa: E501
+            "maybe_await: async callback ignored (event loop active in sync pathway). Use async APIs for async callbacks."
         )
         return None
     if not asyncio.iscoroutine(result):
@@ -470,7 +457,7 @@ def maybe_await(result: Any) -> Any:
 
 
 # ---------- Output gating ----------
-def apply_output_gate(ai_msg: Any, hitl: Optional[HITLConfig | dict[str, Any]]) -> Any:
+def apply_output_gate(ai_msg: Any, hitl: HITLConfig | dict[str, Any] | None) -> Any:
     """Apply HITL on_model_output gate to a model/agent final output.
 
     ai_msg can be:
@@ -480,11 +467,7 @@ def apply_output_gate(ai_msg: Any, hitl: Optional[HITLConfig | dict[str, Any]]) 
     """
     if not hitl:
         return ai_msg
-    on_out = (
-        hitl.on_model_output
-        if isinstance(hitl, HITLConfig)
-        else hitl.get("on_model_output")
-    )
+    on_out = hitl.on_model_output if isinstance(hitl, HITLConfig) else hitl.get("on_model_output")
     if not on_out:
         return ai_msg
     try:
@@ -500,11 +483,11 @@ def apply_output_gate(ai_msg: Any, hitl: Optional[HITLConfig | dict[str, Any]]) 
                 if isinstance(last_msg, dict) and "content" in last_msg:
                     last_msg["content"] = replacement
                 elif hasattr(last_msg, "content"):
-                    setattr(last_msg, "content", replacement)
+                    last_msg.content = replacement
                 else:
                     ai_msg["messages"][-1] = {"role": "ai", "content": replacement}
             elif hasattr(ai_msg, "content"):
-                setattr(ai_msg, "content", replacement)
+                ai_msg.content = replacement
             else:
                 ai_msg = (
                     {"role": "ai", "content": replacement}
@@ -516,7 +499,7 @@ def apply_output_gate(ai_msg: Any, hitl: Optional[HITLConfig | dict[str, Any]]) 
     return ai_msg
 
 
-async def apply_output_gate_async(ai_msg: Any, hitl: Optional[HITLConfig]) -> Any:
+async def apply_output_gate_async(ai_msg: Any, hitl: HITLConfig | None) -> Any:
     if not hitl:
         return ai_msg
     try:
@@ -533,11 +516,11 @@ async def apply_output_gate_async(ai_msg: Any, hitl: Optional[HITLConfig]) -> An
                 if isinstance(last_msg, dict) and "content" in last_msg:
                     last_msg["content"] = replacement
                 elif hasattr(last_msg, "content"):
-                    setattr(last_msg, "content", replacement)
+                    last_msg.content = replacement
                 else:
                     ai_msg["messages"][-1] = {"role": "ai", "content": replacement}
             elif hasattr(ai_msg, "content"):
-                setattr(ai_msg, "content", replacement)
+                ai_msg.content = replacement
             else:
                 ai_msg = (
                     {"role": "ai", "content": replacement}
@@ -550,7 +533,7 @@ async def apply_output_gate_async(ai_msg: Any, hitl: Optional[HITLConfig]) -> An
 
 
 # ---------- Tool wrapping ----------
-def wrap_tool_for_hitl(tool_obj: Any, hitl: Optional[HITLConfig]):
+def wrap_tool_for_hitl(tool_obj: Any, hitl: HITLConfig | None):
     """Return an async-first HITL-wrapped tool when a tool_call gate is present."""
     if not hitl or not (hitl.on_tool_call or hitl.on_tool_call_async):
         return tool_obj
@@ -584,11 +567,11 @@ class ToolPolicy:
 
 
 def compute_effective_tools(
-    call_tools: Optional[Sequence[Any]],
-    global_tools: Optional[Sequence[Any]],
+    call_tools: Sequence[Any] | None,
+    global_tools: Sequence[Any] | None,
     policy: ToolPolicy,
     *,
-    logger_: Optional[logging.Logger] = None,
+    logger_: logging.Logger | None = None,
 ) -> list[Any]:
     """Compute effective tools for a call given per-call list & global list under policy.
 
@@ -662,12 +645,10 @@ class ToolExecutionConfig:
 
     on_error: Literal["return_error", "retry", "abort"] = "return_error"
     max_retries: int = 1
-    timeout: Optional[float] = None
+    timeout: float | None = None
     validate_results: bool = False
     on_timeout: Literal["return_error", "abort"] = "return_error"
-    max_result_chars: Optional[int] = (
-        60000  # ~15k tokens, safe for most context windows
-    )
+    max_result_chars: int | None = 60000  # ~15k tokens, safe for most context windows
 
     def __post_init__(self):
         if self.max_retries < 0:
@@ -685,7 +666,7 @@ class _ExecutionConfigWrappedTool(BaseTool):
         self,
         base: BaseTool,
         config: ToolExecutionConfig,
-        expected_return_type: Optional[type] = None,
+        expected_return_type: type | None = None,
     ):
         super().__init__(
             name=getattr(base, "name", "tool"),
@@ -725,10 +706,7 @@ class _ExecutionConfigWrappedTool(BaseTool):
         # Handle string results
         if isinstance(result, str):
             if len(result) > max_chars:
-                return (
-                    result[:max_chars]
-                    + f"\n\n[TRUNCATED: Result exceeded {max_chars} chars]"
-                )
+                return result[:max_chars] + f"\n\n[TRUNCATED: Result exceeded {max_chars} chars]"
             return result
 
         # Handle dict/list by converting to string for size check
@@ -750,20 +728,17 @@ class _ExecutionConfigWrappedTool(BaseTool):
         # For other types, convert to string and check
         result_str = str(result)
         if len(result_str) > max_chars:
-            return (
-                result_str[:max_chars]
-                + f"\n\n[TRUNCATED: Result exceeded {max_chars} chars]"
-            )
+            return result_str[:max_chars] + f"\n\n[TRUNCATED: Result exceeded {max_chars} chars]"
         return result
 
     def _format_error(self, error: Exception) -> str:
         """Format error for returning to agent."""
-        return f"[Tool Error: {self.name}] {type(error).__name__}: {str(error)}"
+        return f"[Tool Error: {self.name}] {type(error).__name__}: {error!s}"
 
     def _run(self, *args, **kwargs) -> Any:
         """Sync execution with error handling and retry."""
         config = self._config
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
         attempts = config.max_retries + 1 if config.on_error == "retry" else 1
 
         for attempt in range(attempts):
@@ -831,7 +806,7 @@ class _ExecutionConfigWrappedTool(BaseTool):
     async def _arun(self, *args, **kwargs) -> Any:
         """Async execution with error handling, timeout, and retry."""
         config = self._config
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
         attempts = config.max_retries + 1 if config.on_error == "retry" else 1
 
         for attempt in range(attempts):
@@ -849,7 +824,7 @@ class _ExecutionConfigWrappedTool(BaseTool):
                                 asyncio.to_thread(self._base.invoke, kwargs or {}),
                                 timeout=config.timeout,
                             )
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         if config.on_timeout == "abort":
                             raise ToolTimeoutError(
                                 f"Tool '{self.name}' timed out after {config.timeout}s",
@@ -861,9 +836,7 @@ class _ExecutionConfigWrappedTool(BaseTool):
                     if hasattr(self._base, "ainvoke"):
                         result = await self._base.ainvoke(kwargs or {})
                     else:
-                        result = await asyncio.to_thread(
-                            self._base.invoke, kwargs or {}
-                        )
+                        result = await asyncio.to_thread(self._base.invoke, kwargs or {})
 
                 # Validate result
                 self._validate_result(result)
@@ -893,9 +866,9 @@ class _ExecutionConfigWrappedTool(BaseTool):
 
 def wrap_tool_with_execution_config(
     tool_obj: Any,
-    config: Optional[ToolExecutionConfig],
+    config: ToolExecutionConfig | None,
     *,
-    expected_return_type: Optional[type] = None,
+    expected_return_type: type | None = None,
 ) -> Any:
     """Wrap a tool with execution configuration (error handling, timeout, validation).
 

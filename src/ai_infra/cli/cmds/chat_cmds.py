@@ -26,7 +26,7 @@ from __future__ import annotations
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import typer
 
@@ -52,7 +52,7 @@ class ChatStorage:
     - timestamps: Created and updated times
     """
 
-    def __init__(self, base_dir: Optional[Path] = None):
+    def __init__(self, base_dir: Path | None = None):
         """Initialize chat storage.
 
         Args:
@@ -73,7 +73,7 @@ class ChatStorage:
         self,
         session_id: str,
         messages: list[dict[str, str]],
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Save a chat session.
 
@@ -89,16 +89,14 @@ class ChatStorage:
             "session_id": session_id,
             "messages": messages,
             "metadata": metadata or {},
-            "created_at": existing.get("created_at")
-            if existing
-            else datetime.now().isoformat(),
+            "created_at": existing.get("created_at") if existing else datetime.now().isoformat(),
             "updated_at": datetime.now().isoformat(),
         }
 
         with open(path, "w") as f:
             json.dump(data, f, indent=2)
 
-    def _load_raw(self, session_id: str) -> Optional[dict[str, Any]]:
+    def _load_raw(self, session_id: str) -> dict[str, Any] | None:
         """Load raw session data."""
         path = self._session_path(session_id)
         if not path.exists():
@@ -107,7 +105,7 @@ class ChatStorage:
             result = json.load(f)
             return dict(result) if isinstance(result, dict) else None
 
-    def load(self, session_id: str) -> Optional[dict[str, Any]]:
+    def load(self, session_id: str) -> dict[str, Any] | None:
         """Load a chat session.
 
         Args:
@@ -159,7 +157,7 @@ class ChatStorage:
                 continue
         return sorted(sessions, key=lambda x: x.get("updated_at", ""), reverse=True)
 
-    def get_last_session_id(self) -> Optional[str]:
+    def get_last_session_id(self) -> str | None:
         """Get the ID of the most recently updated session."""
         sessions = self.list_sessions()
         return sessions[0]["session_id"] if sessions else None
@@ -170,7 +168,7 @@ class ChatStorage:
         with open(last_file, "w") as f:
             f.write(session_id)
 
-    def get_auto_resume_session_id(self) -> Optional[str]:
+    def get_auto_resume_session_id(self) -> str | None:
         """Get the session ID to auto-resume."""
         last_file = self._base_dir / ".last_session"
         if last_file.exists():
@@ -181,7 +179,7 @@ class ChatStorage:
 
 
 # Global storage instance
-_storage: Optional[ChatStorage] = None
+_storage: ChatStorage | None = None
 
 
 def get_storage() -> ChatStorage:
@@ -192,7 +190,7 @@ def get_storage() -> ChatStorage:
     return _storage
 
 
-def _get_llm(provider: Optional[str], model: Optional[str]):
+def _get_llm(provider: str | None, model: str | None):
     """Get LLM instance.
 
     Note: provider and model are not used here - they're passed to individual
@@ -224,7 +222,7 @@ def _extract_content(response) -> str:
 def _build_messages_with_history(
     user_input: str,
     conversation: list[dict[str, str]],
-    system: Optional[str] = None,
+    system: str | None = None,
 ) -> list[Any]:
     """Build LangChain message list with conversation history.
 
@@ -275,7 +273,7 @@ def _generate_session_id() -> str:
     return f"chat-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
 
 
-def _format_time_ago(iso_str: Optional[str]) -> str:
+def _format_time_ago(iso_str: str | None) -> str:
     """Format ISO timestamp as human-readable time ago."""
     if not iso_str:
         return "unknown"
@@ -305,9 +303,7 @@ def _print_welcome(provider: str, model: str, session_id: str, message_count: in
     typer.echo(f"  Model:    {model}")
     typer.echo(f"  Session:  {session_id}")
     if message_count > 0:
-        typer.secho(
-            f"  Memory:   {message_count} messages restored", fg=typer.colors.GREEN
-        )
+        typer.secho(f"  Memory:   {message_count} messages restored", fg=typer.colors.GREEN)
     typer.echo()
     typer.secho("  Commands:", fg=typer.colors.BRIGHT_BLACK)
     typer.secho("    /help     Show all commands", fg=typer.colors.BRIGHT_BLACK)
@@ -328,9 +324,7 @@ def _print_help():
     typer.echo()
     typer.secho("Session Commands:", bold=True)
     typer.echo("  /sessions          List all saved sessions")
-    typer.echo(
-        "  /save [name]       Save current session (auto-generates name if omitted)"
-    )
+    typer.echo("  /save [name]       Save current session (auto-generates name if omitted)")
     typer.echo("  /load <name>       Load a saved session")
     typer.echo("  /new               Start a new session (current is auto-saved)")
     typer.echo("  /delete <name>     Delete a saved session")
@@ -354,12 +348,12 @@ def _print_help():
 
 def _run_repl(
     llm,
-    provider: Optional[str],
-    model: Optional[str],
-    system: Optional[str] = None,
+    provider: str | None,
+    model: str | None,
+    system: str | None = None,
     temperature: float = 0.7,
     stream: bool = True,
-    session_id: Optional[str] = None,
+    session_id: str | None = None,
     no_persist: bool = False,
 ):
     """Run interactive REPL with session persistence."""
@@ -488,11 +482,7 @@ def _run_repl(
                         typer.echo()
                         typer.secho("Saved Sessions:", bold=True)
                         for s in sessions:
-                            active = (
-                                " (current)"
-                                if s["session_id"] == current_session_id
-                                else ""
-                            )
+                            active = " (current)" if s["session_id"] == current_session_id else ""
                             provider_info = s.get("provider") or "auto"
                             time_ago = _format_time_ago(s.get("updated_at"))
                             typer.echo(
@@ -518,9 +508,7 @@ def _run_repl(
                         continue
                     load_id = arg.strip()
                     if not storage.exists(load_id):
-                        typer.secho(
-                            f"✗ Session not found: {load_id}", fg=typer.colors.RED
-                        )
+                        typer.secho(f"✗ Session not found: {load_id}", fg=typer.colors.RED)
                         typer.echo("Use /sessions to list available sessions")
                         continue
                     # Save current session before switching
@@ -553,16 +541,12 @@ def _run_repl(
                     current_session_id = arg.strip() if arg else _generate_session_id()
                     conversation = []
                     current_system = system  # Reset to original system prompt
-                    typer.secho(
-                        f"✓ New session: {current_session_id}", fg=typer.colors.GREEN
-                    )
+                    typer.secho(f"✓ New session: {current_session_id}", fg=typer.colors.GREEN)
                     continue
 
                 elif cmd == "delete":
                     if not arg:
-                        typer.secho(
-                            "Usage: /delete <session_name>", fg=typer.colors.RED
-                        )
+                        typer.secho("Usage: /delete <session_name>", fg=typer.colors.RED)
                         continue
                     delete_id = arg.strip()
                     if delete_id == current_session_id:
@@ -572,13 +556,9 @@ def _run_repl(
                         )
                         continue
                     if storage.delete(delete_id):
-                        typer.secho(
-                            f"✓ Deleted session: {delete_id}", fg=typer.colors.GREEN
-                        )
+                        typer.secho(f"✓ Deleted session: {delete_id}", fg=typer.colors.GREEN)
                     else:
-                        typer.secho(
-                            f"✗ Session not found: {delete_id}", fg=typer.colors.RED
-                        )
+                        typer.secho(f"✗ Session not found: {delete_id}", fg=typer.colors.RED)
                     continue
 
                 elif cmd == "rename":
@@ -605,9 +585,7 @@ def _run_repl(
                 elif cmd == "model":
                     if arg:
                         current_model = arg
-                        typer.secho(
-                            f"✓ Model changed to: {arg}", fg=typer.colors.YELLOW
-                        )
+                        typer.secho(f"✓ Model changed to: {arg}", fg=typer.colors.YELLOW)
                     else:
                         display = current_model or "default (auto)"
                         typer.echo(f"Current model: {display}")
@@ -618,17 +596,11 @@ def _run_repl(
                         current_provider = arg
                         try:
                             llm = _get_llm(current_provider, current_model)
-                            typer.secho(
-                                f"✓ Provider changed to: {arg}", fg=typer.colors.YELLOW
-                            )
+                            typer.secho(f"✓ Provider changed to: {arg}", fg=typer.colors.YELLOW)
                         except Exception as e:
-                            typer.secho(
-                                f"✗ Failed to change provider: {e}", fg=typer.colors.RED
-                            )
+                            typer.secho(f"✗ Failed to change provider: {e}", fg=typer.colors.RED)
                     else:
-                        display = (
-                            current_provider or _get_default_provider() + " (auto)"
-                        )
+                        display = current_provider or _get_default_provider() + " (auto)"
                         typer.echo(f"Current provider: {display}")
                     continue
 
@@ -735,24 +707,24 @@ def _run_repl(
 @app.callback(invoke_without_command=True)
 def chat_cmd(
     ctx: typer.Context,
-    message: Optional[str] = typer.Option(
+    message: str | None = typer.Option(
         None,
         "--message",
         "-m",
         help="One-shot message (non-interactive)",
     ),
-    provider: Optional[str] = typer.Option(
+    provider: str | None = typer.Option(
         None,
         "--provider",
         "-p",
         help="LLM provider (default: auto-detect)",
     ),
-    model: Optional[str] = typer.Option(
+    model: str | None = typer.Option(
         None,
         "--model",
         help="Model name",
     ),
-    system: Optional[str] = typer.Option(
+    system: str | None = typer.Option(
         None,
         "--system",
         "-s",
@@ -775,7 +747,7 @@ def chat_cmd(
         "-j",
         help="Output as JSON (one-shot mode only)",
     ),
-    session: Optional[str] = typer.Option(
+    session: str | None = typer.Option(
         None,
         "--session",
         help="Session name to resume or create",
@@ -932,8 +904,7 @@ def sessions_cmd(
             provider_info = s.get("provider") or "auto"
             time_ago = _format_time_ago(s.get("updated_at"))
             typer.echo(
-                f"  • {s['session_id']} - {s['message_count']} msgs, "
-                f"{provider_info}, {time_ago}"
+                f"  • {s['session_id']} - {s['message_count']} msgs, {provider_info}, {time_ago}"
             )
         typer.echo()
         typer.echo(f"Storage: {storage._base_dir}")

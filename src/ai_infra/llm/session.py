@@ -59,7 +59,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Literal, Optional, Protocol
+from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel
 
@@ -77,7 +77,7 @@ class PendingAction(BaseModel):
     action_type: Literal["tool_call", "output_review"]
     """Type of action waiting."""
 
-    tool_name: Optional[str] = None
+    tool_name: str | None = None
     """Tool name if action_type is tool_call."""
 
     args: dict[str, Any] = {}
@@ -86,7 +86,7 @@ class PendingAction(BaseModel):
     context: dict[str, Any] = {}
     """Additional context."""
 
-    message: Optional[str] = None
+    message: str | None = None
     """Human-readable description of what's pending."""
 
 
@@ -99,7 +99,7 @@ class SessionResult(BaseModel):
     paused: bool = False
     """Whether the agent is paused waiting for input."""
 
-    pending_action: Optional[PendingAction] = None
+    pending_action: PendingAction | None = None
     """Details about pending action if paused."""
 
     session_id: str
@@ -115,10 +115,10 @@ class ResumeDecision(BaseModel):
     approved: bool = True
     """Whether to approve the pending action."""
 
-    modified_args: Optional[dict[str, Any]] = None
+    modified_args: dict[str, Any] | None = None
     """Modified arguments (if approved with changes)."""
 
-    reason: Optional[str] = None
+    reason: str | None = None
     """Reason for decision."""
 
 
@@ -139,7 +139,7 @@ class SessionStorage(Protocol):
         """Get the LangGraph checkpointer instance."""
         ...
 
-    def get_store(self) -> Optional[Any]:
+    def get_store(self) -> Any | None:
         """Get the LangGraph store instance (for cross-session memory)."""
         ...
 
@@ -174,7 +174,7 @@ class MemoryStorage:
     def get_checkpointer(self) -> Any:
         return self._checkpointer
 
-    def get_store(self) -> Optional[Any]:
+    def get_store(self) -> Any | None:
         return self._store
 
 
@@ -258,7 +258,7 @@ class PostgresStorage:
         self._ensure_initialized()
         return self._checkpointer
 
-    def get_store(self) -> Optional[Any]:
+    def get_store(self) -> Any | None:
         self._ensure_initialized()
         return self._store
 
@@ -309,7 +309,7 @@ class SQLiteStorage:
     def get_checkpointer(self) -> Any:
         return self._checkpointer
 
-    def get_store(self) -> Optional[Any]:
+    def get_store(self) -> Any | None:
         return self._store
 
 
@@ -421,7 +421,7 @@ class SessionConfig:
     pause_after: list[str] = field(default_factory=list)
     """Tool names to pause after executing."""
 
-    max_messages: Optional[int] = 100
+    max_messages: int | None = 100
     """Maximum number of messages to retain in session history.
 
     When exceeded, oldest messages are trimmed (keeping system message).
@@ -429,7 +429,7 @@ class SessionConfig:
     Default: 100 messages.
     """
 
-    max_tokens: Optional[int] = None
+    max_tokens: int | None = None
     """Maximum total tokens to retain in session history.
 
     When exceeded, oldest messages are trimmed until under limit.
@@ -489,7 +489,7 @@ def is_paused(result: Any) -> bool:
     return False
 
 
-def get_pending_action(result: Any) -> Optional[PendingAction]:
+def get_pending_action(result: Any) -> PendingAction | None:
     """Extract pending action from a paused result.
 
     Args:
@@ -521,7 +521,7 @@ def get_pending_action(result: Any) -> Optional[PendingAction]:
 
 def trim_messages(
     messages: list[dict[str, Any]],
-    max_messages: Optional[int] = 100,
+    max_messages: int | None = 100,
     keep_system: bool = True,
 ) -> list[dict[str, Any]]:
     """Trim messages to prevent unbounded history growth.

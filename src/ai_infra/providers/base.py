@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any, Optional
+from typing import Any
 
 
 class ProviderCapability(StrEnum):
@@ -56,9 +56,9 @@ class CapabilityConfig:
     """
 
     models: list[str] = field(default_factory=list)
-    default_model: Optional[str] = None
+    default_model: str | None = None
     voices: list[str] = field(default_factory=list)
-    default_voice: Optional[str] = None
+    default_voice: str | None = None
     features: list[str] = field(default_factory=list)
     extra: dict[str, Any] = field(default_factory=dict)
 
@@ -106,10 +106,8 @@ class ProviderConfig:
     display_name: str
     env_var: str
     alt_env_vars: list[str] = field(default_factory=list)
-    capabilities: dict[ProviderCapability, CapabilityConfig] = field(
-        default_factory=dict
-    )
-    base_url: Optional[str] = None
+    capabilities: dict[ProviderCapability, CapabilityConfig] = field(default_factory=dict)
+    base_url: str | None = None
 
     def has_capability(self, cap: ProviderCapability) -> bool:
         """Check if this provider supports a given capability.
@@ -122,7 +120,7 @@ class ProviderConfig:
         """
         return cap in self.capabilities
 
-    def get_capability(self, cap: ProviderCapability) -> Optional[CapabilityConfig]:
+    def get_capability(self, cap: ProviderCapability) -> CapabilityConfig | None:
         """Get the configuration for a specific capability.
 
         Args:
@@ -145,7 +143,7 @@ class ProviderConfig:
         config = self.get_capability(cap)
         return config.models if config else []
 
-    def get_default_model(self, cap: ProviderCapability) -> Optional[str]:
+    def get_default_model(self, cap: ProviderCapability) -> str | None:
         """Get the default model for a capability.
 
         Args:
@@ -169,7 +167,7 @@ class ProviderConfig:
         config = self.get_capability(cap)
         return config.voices if config else []
 
-    def get_default_voice(self, cap: ProviderCapability) -> Optional[str]:
+    def get_default_voice(self, cap: ProviderCapability) -> str | None:
         """Get the default voice for a capability.
 
         Args:

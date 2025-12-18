@@ -26,11 +26,11 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from dataclasses import dataclass, field
-from typing import Any, Optional
 from collections.abc import Callable
+from dataclasses import dataclass, field
+from typing import Any
 
-__all__ = ["LoggingHooks", "RequestContext", "ResponseContext", "ErrorContext"]
+__all__ = ["ErrorContext", "LoggingHooks", "RequestContext", "ResponseContext"]
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ class RequestContext:
     """Context passed to on_request hook."""
 
     user_msg: str
-    system: Optional[str]
+    system: str | None
     provider: str
     model_name: str
     model_kwargs: dict[str, Any]
@@ -48,19 +48,13 @@ class RequestContext:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "user_msg": self.user_msg[:200] + "..."
-            if len(self.user_msg) > 200
-            else self.user_msg,
+            "user_msg": self.user_msg[:200] + "..." if len(self.user_msg) > 200 else self.user_msg,
             "system": (
-                self.system[:100] + "..."
-                if self.system and len(self.system) > 100
-                else self.system
+                self.system[:100] + "..." if self.system and len(self.system) > 100 else self.system
             ),
             "provider": self.provider,
             "model_name": self.model_name,
-            "model_kwargs": {
-                k: v for k, v in self.model_kwargs.items() if k != "api_key"
-            },
+            "model_kwargs": {k: v for k, v in self.model_kwargs.items() if k != "api_key"},
             "timestamp": self.timestamp,
         }
 
@@ -72,7 +66,7 @@ class ResponseContext:
     request: RequestContext
     response: Any
     duration_ms: float
-    token_usage: Optional[dict[str, int]] = None
+    token_usage: dict[str, int] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         content = getattr(self.response, "content", str(self.response))
@@ -120,12 +114,12 @@ class LoggingHooks:
     def __init__(
         self,
         *,
-        on_request: Optional[Callable[[RequestContext], None]] = None,
-        on_response: Optional[Callable[[ResponseContext], None]] = None,
-        on_error: Optional[Callable[[ErrorContext], None]] = None,
-        on_request_async: Optional[Callable[[RequestContext], Any]] = None,
-        on_response_async: Optional[Callable[[ResponseContext], Any]] = None,
-        on_error_async: Optional[Callable[[ErrorContext], Any]] = None,
+        on_request: Callable[[RequestContext], None] | None = None,
+        on_response: Callable[[ResponseContext], None] | None = None,
+        on_error: Callable[[ErrorContext], None] | None = None,
+        on_request_async: Callable[[RequestContext], Any] | None = None,
+        on_response_async: Callable[[ResponseContext], Any] | None = None,
+        on_error_async: Callable[[ErrorContext], Any] | None = None,
     ):
         self.on_request = on_request
         self.on_response = on_response
@@ -137,13 +131,13 @@ class LoggingHooks:
     def set(
         self,
         *,
-        on_request: Optional[Callable[[RequestContext], None]] = None,
-        on_response: Optional[Callable[[ResponseContext], None]] = None,
-        on_error: Optional[Callable[[ErrorContext], None]] = None,
-        on_request_async: Optional[Callable[[RequestContext], Any]] = None,
-        on_response_async: Optional[Callable[[ResponseContext], Any]] = None,
-        on_error_async: Optional[Callable[[ErrorContext], Any]] = None,
-    ) -> "LoggingHooks":
+        on_request: Callable[[RequestContext], None] | None = None,
+        on_response: Callable[[ResponseContext], None] | None = None,
+        on_error: Callable[[ErrorContext], None] | None = None,
+        on_request_async: Callable[[RequestContext], Any] | None = None,
+        on_response_async: Callable[[ResponseContext], Any] | None = None,
+        on_error_async: Callable[[ErrorContext], Any] | None = None,
+    ) -> LoggingHooks:
         """Update hooks. Only non-None values are updated."""
         if on_request is not None:
             self.on_request = on_request
@@ -159,7 +153,7 @@ class LoggingHooks:
             self.on_error_async = on_error_async
         return self
 
-    def clear(self) -> "LoggingHooks":
+    def clear(self) -> LoggingHooks:
         """Clear all hooks."""
         self.on_request = None
         self.on_response = None

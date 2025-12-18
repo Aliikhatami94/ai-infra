@@ -42,10 +42,10 @@ Example - Audit logging:
 from __future__ import annotations
 
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Literal, Optional
-from collections.abc import Callable
+from typing import Any, Literal
 
 # Event type literals
 EventType = Literal[
@@ -83,11 +83,11 @@ class ApprovalEvent:
     event_type: EventType = "approval_requested"
     tool_name: str = ""
     args: dict[str, Any] = field(default_factory=dict)
-    approved: Optional[bool] = None
-    approver: Optional[str] = None
-    reason: Optional[str] = None
-    modified_args: Optional[dict[str, Any]] = None
-    duration_ms: Optional[float] = None
+    approved: bool | None = None
+    approver: str | None = None
+    reason: str | None = None
+    modified_args: dict[str, Any] | None = None
+    duration_ms: float | None = None
     timestamp: datetime = field(default_factory=datetime.utcnow)
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -123,8 +123,8 @@ class ApprovalEvent:
         cls,
         tool_name: str,
         args: dict[str, Any],
-        metadata: Optional[dict[str, Any]] = None,
-    ) -> "ApprovalEvent":
+        metadata: dict[str, Any] | None = None,
+    ) -> ApprovalEvent:
         """Create an approval requested event."""
         return cls(
             event_type="approval_requested",
@@ -138,11 +138,11 @@ class ApprovalEvent:
         cls,
         tool_name: str,
         args: dict[str, Any],
-        approver: Optional[str] = None,
-        reason: Optional[str] = None,
-        duration_ms: Optional[float] = None,
-        metadata: Optional[dict[str, Any]] = None,
-    ) -> "ApprovalEvent":
+        approver: str | None = None,
+        reason: str | None = None,
+        duration_ms: float | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> ApprovalEvent:
         """Create an approval granted event."""
         return cls(
             event_type="approval_granted",
@@ -160,11 +160,11 @@ class ApprovalEvent:
         cls,
         tool_name: str,
         args: dict[str, Any],
-        approver: Optional[str] = None,
-        reason: Optional[str] = None,
-        duration_ms: Optional[float] = None,
-        metadata: Optional[dict[str, Any]] = None,
-    ) -> "ApprovalEvent":
+        approver: str | None = None,
+        reason: str | None = None,
+        duration_ms: float | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> ApprovalEvent:
         """Create an approval denied event."""
         return cls(
             event_type="approval_denied",
@@ -183,11 +183,11 @@ class ApprovalEvent:
         tool_name: str,
         args: dict[str, Any],
         modified_args: dict[str, Any],
-        approver: Optional[str] = None,
-        reason: Optional[str] = None,
-        duration_ms: Optional[float] = None,
-        metadata: Optional[dict[str, Any]] = None,
-    ) -> "ApprovalEvent":
+        approver: str | None = None,
+        reason: str | None = None,
+        duration_ms: float | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> ApprovalEvent:
         """Create an approval modified event."""
         return cls(
             event_type="approval_modified",
@@ -207,8 +207,8 @@ class ApprovalEvent:
         tool_name: str,
         args: dict[str, Any],
         reason: str,
-        metadata: Optional[dict[str, Any]] = None,
-    ) -> "ApprovalEvent":
+        metadata: dict[str, Any] | None = None,
+    ) -> ApprovalEvent:
         """Create an approval error event."""
         return cls(
             event_type="approval_error",
@@ -266,18 +266,18 @@ class ApprovalEvents:
     """
 
     # General event handlers
-    on_event: Optional[EventHandler] = None
-    on_event_async: Optional[AsyncEventHandler] = None
+    on_event: EventHandler | None = None
+    on_event_async: AsyncEventHandler | None = None
 
     # Specific event handlers
-    on_requested: Optional[EventHandler] = None
-    on_requested_async: Optional[AsyncEventHandler] = None
-    on_granted: Optional[EventHandler] = None
-    on_granted_async: Optional[AsyncEventHandler] = None
-    on_denied: Optional[EventHandler] = None
-    on_denied_async: Optional[AsyncEventHandler] = None
-    on_error: Optional[EventHandler] = None
-    on_error_async: Optional[AsyncEventHandler] = None
+    on_requested: EventHandler | None = None
+    on_requested_async: AsyncEventHandler | None = None
+    on_granted: EventHandler | None = None
+    on_granted_async: AsyncEventHandler | None = None
+    on_denied: EventHandler | None = None
+    on_denied_async: AsyncEventHandler | None = None
+    on_error: EventHandler | None = None
+    on_error_async: AsyncEventHandler | None = None
 
     # Options
     include_args: bool = True
@@ -372,7 +372,7 @@ class ApprovalEvents:
             except Exception:
                 pass
 
-    def _get_sync_handler(self, event_type: EventType) -> Optional[EventHandler]:
+    def _get_sync_handler(self, event_type: EventType) -> EventHandler | None:
         """Get sync handler for event type."""
         handlers = {
             "approval_requested": self.on_requested,
@@ -382,7 +382,7 @@ class ApprovalEvents:
         }
         return handlers.get(event_type)
 
-    def _get_async_handler(self, event_type: EventType) -> Optional[AsyncEventHandler]:
+    def _get_async_handler(self, event_type: EventType) -> AsyncEventHandler | None:
         """Get async handler for event type."""
         handlers = {
             "approval_requested": self.on_requested_async,
@@ -482,7 +482,7 @@ def create_json_logger(
 
 
 def create_metrics_counter(
-    counters: Optional[dict[str, int]] = None,
+    counters: dict[str, int] | None = None,
 ) -> EventHandler:
     """Create a simple metrics counter handler.
 

@@ -33,9 +33,9 @@ Example:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
-from typing import Any, Optional
 from collections.abc import Sequence
+from dataclasses import dataclass, field
+from typing import Any
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 
@@ -83,8 +83,8 @@ def summarize_messages(
     messages: Sequence[BaseMessage | dict],
     *,
     keep_last: int = 5,
-    llm: Optional[Any] = None,
-    summarize_prompt: Optional[str] = None,
+    llm: Any | None = None,
+    summarize_prompt: str | None = None,
     include_system: bool = True,
 ) -> SummarizeResult:
     """Summarize old messages while keeping recent ones.
@@ -129,7 +129,7 @@ def summarize_messages(
         )
 
     # Extract system message if present
-    system_msg: Optional[BaseMessage] = None
+    system_msg: BaseMessage | None = None
     work_messages = list(normalized)
 
     if include_system and work_messages and isinstance(work_messages[0], SystemMessage):
@@ -158,9 +158,7 @@ def summarize_messages(
         llm = LLM()
 
     conversation_text = _format_messages_for_summary(to_summarize)
-    prompt = (summarize_prompt or DEFAULT_SUMMARIZE_PROMPT).format(
-        conversation=conversation_text
-    )
+    prompt = (summarize_prompt or DEFAULT_SUMMARIZE_PROMPT).format(conversation=conversation_text)
 
     response = llm.chat(prompt)
     # Extract content from response (could be AIMessage or string)
@@ -193,8 +191,8 @@ async def asummarize_messages(
     messages: Sequence[BaseMessage | dict],
     *,
     keep_last: int = 5,
-    llm: Optional[Any] = None,
-    summarize_prompt: Optional[str] = None,
+    llm: Any | None = None,
+    summarize_prompt: str | None = None,
     include_system: bool = True,
 ) -> SummarizeResult:
     """Async version of summarize_messages.
@@ -216,7 +214,7 @@ async def asummarize_messages(
         )
 
     # Extract system message if present
-    system_msg: Optional[BaseMessage] = None
+    system_msg: BaseMessage | None = None
     work_messages = list(normalized)
 
     if include_system and work_messages and isinstance(work_messages[0], SystemMessage):
@@ -245,9 +243,7 @@ async def asummarize_messages(
         llm = LLM()
 
     conversation_text = _format_messages_for_summary(to_summarize)
-    prompt = (summarize_prompt or DEFAULT_SUMMARIZE_PROMPT).format(
-        conversation=conversation_text
-    )
+    prompt = (summarize_prompt or DEFAULT_SUMMARIZE_PROMPT).format(conversation=conversation_text)
 
     response = await llm.achat(prompt)
     # Extract content from response (could be AIMessage or string)
@@ -330,22 +326,22 @@ class SummarizationMiddleware:
         summarize_prompt: Custom prompt template
     """
 
-    trigger_tokens: Optional[int] = None
+    trigger_tokens: int | None = None
     """Token threshold to trigger summarization."""
 
-    trigger_messages: Optional[int] = None
+    trigger_messages: int | None = None
     """Message count threshold to trigger summarization."""
 
     keep_messages: int = 10
     """Number of recent messages to always keep."""
 
-    llm: Optional[Any] = None
+    llm: Any | None = None
     """LLM instance for summarization."""
 
-    summarize_prompt: Optional[str] = None
+    summarize_prompt: str | None = None
     """Custom summarization prompt."""
 
-    _last_summary: Optional[str] = field(default=None, repr=False)
+    _last_summary: str | None = field(default=None, repr=False)
     """Last generated summary (for debugging)."""
 
     def should_summarize(self, messages: Sequence[BaseMessage]) -> bool:
@@ -385,9 +381,7 @@ class SummarizationMiddleware:
         if not self.should_summarize(messages):
             return messages
 
-        logger.info(
-            f"Summarizing {len(messages)} messages (keeping last {self.keep_messages})"
-        )
+        logger.info(f"Summarizing {len(messages)} messages (keeping last {self.keep_messages})")
 
         result = summarize_messages(
             messages,
@@ -411,9 +405,7 @@ class SummarizationMiddleware:
         if not self.should_summarize(messages):
             return messages
 
-        logger.info(
-            f"Summarizing {len(messages)} messages (keeping last {self.keep_messages})"
-        )
+        logger.info(f"Summarizing {len(messages)} messages (keeping last {self.keep_messages})")
 
         result = await asummarize_messages(
             messages,

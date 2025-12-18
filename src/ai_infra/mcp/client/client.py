@@ -77,7 +77,7 @@ class MCPClient:
         config: list[dict] | list[McpServerConfig],
         *,
         # Callbacks for MCP events (progress, logging)
-        callbacks: "Callbacks | CallbackManager | None" = None,
+        callbacks: Callbacks | CallbackManager | None = None,
         # Interceptors for tool call lifecycle
         interceptors: list[ToolCallInterceptor] | None = None,
         # Connection management
@@ -121,7 +121,7 @@ class MCPClient:
         # Callbacks - normalize to CallbackManager using shared utility
         from ai_infra.callbacks import normalize_callbacks
 
-        self._callbacks: "CallbackManager | None" = normalize_callbacks(callbacks)
+        self._callbacks: CallbackManager | None = normalize_callbacks(callbacks)
 
         # Interceptors
         self._interceptors = interceptors
@@ -143,7 +143,7 @@ class MCPClient:
 
     # ---------- async context manager ----------
 
-    async def __aenter__(self) -> "MCPClient":
+    async def __aenter__(self) -> MCPClient:
         """Enter async context - discover servers."""
         await self.discover()
         return self
@@ -478,7 +478,7 @@ class MCPClient:
                 name_map, failures = await asyncio.wait_for(
                     _do_discover(), timeout=self._discover_timeout
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 raise MCPTimeoutError(
                     f"Discovery timed out after {self._discover_timeout}s",
                     operation="discover",
@@ -491,9 +491,7 @@ class MCPClient:
         self._discovered = True
 
         if strict and failures:
-            raise ExceptionGroup(
-                f"MCP discovery failed for {len(failures)} server(s)", failures
-            )
+            raise ExceptionGroup(f"MCP discovery failed for {len(failures)} server(s)", failures)
 
         return dict(name_map)
 
@@ -502,7 +500,7 @@ class MCPClient:
 
     # ---------- callback conversion ----------
 
-    def _to_langchain_callbacks(self) -> "LCCallbacks | None":
+    def _to_langchain_callbacks(self) -> LCCallbacks | None:
         """Convert unified callbacks to langchain-mcp-adapters format.
 
         This creates wrapper functions that fire MCPProgressEvent and
@@ -556,20 +554,14 @@ class MCPClient:
 
     # ---------- public API ----------
 
-    def get_client(
-        self, server_name: str
-    ) -> AbstractAsyncContextManager[ClientSession]:
+    def get_client(self, server_name: str) -> AbstractAsyncContextManager[ClientSession]:
         if server_name not in self._by_name:
             suggestions = difflib.get_close_matches(
                 server_name, self.server_names(), n=3, cutoff=0.5
             )
-            suggest_msg = (
-                f" Did you mean: {', '.join(suggestions)}?" if suggestions else ""
-            )
+            suggest_msg = f" Did you mean: {', '.join(suggestions)}?" if suggestions else ""
             known = ", ".join(self.server_names()) or "(none discovered yet)"
-            raise ValueError(
-                f"Unknown server '{server_name}'. Known: {known}.{suggest_msg}"
-            )
+            raise ValueError(f"Unknown server '{server_name}'. Known: {known}.{suggest_msg}")
         cfg = self._by_name[server_name]
         return self._open_session_from_config(cfg)
 
@@ -630,9 +622,7 @@ class MCPClient:
             suggestions = difflib.get_close_matches(
                 server_name, self.server_names(), n=3, cutoff=0.5
             )
-            suggest_msg = (
-                f" Did you mean: {', '.join(suggestions)}?" if suggestions else ""
-            )
+            suggest_msg = f" Did you mean: {', '.join(suggestions)}?" if suggestions else ""
             raise MCPServerError(
                 f"Unknown server '{server_name}'. Known: {', '.join(self.server_names())}.{suggest_msg}",
                 server_name=server_name,
@@ -691,7 +681,7 @@ class MCPClient:
             if self._tool_timeout:
                 return await asyncio.wait_for(_do_call(), timeout=self._tool_timeout)
             return await _do_call()
-        except asyncio.TimeoutError:
+        except TimeoutError:
             raise MCPTimeoutError(
                 f"Tool call '{tool_name}' timed out after {self._tool_timeout}s",
                 operation="call_tool",
@@ -729,9 +719,7 @@ class MCPClient:
                 suggestions = difflib.get_close_matches(
                     server, self.server_names(), n=3, cutoff=0.5
                 )
-                suggest_msg = (
-                    f" Did you mean: {', '.join(suggestions)}?" if suggestions else ""
-                )
+                suggest_msg = f" Did you mean: {', '.join(suggestions)}?" if suggestions else ""
                 raise MCPServerError(
                     f"Unknown server '{server}'. Known: {', '.join(self.server_names())}.{suggest_msg}",
                     server_name=server,
@@ -778,9 +766,7 @@ class MCPClient:
         self._health_status = results
         return results
 
-    async def list_resources(
-        self, server_name: str | None = None
-    ) -> dict[str, list[ResourceInfo]]:
+    async def list_resources(self, server_name: str | None = None) -> dict[str, list[ResourceInfo]]:
         """
         List available resources from MCP servers.
 
@@ -811,12 +797,8 @@ class MCPClient:
 
         for name in servers:
             if name not in self._by_name:
-                suggestions = difflib.get_close_matches(
-                    name, self.server_names(), n=3, cutoff=0.5
-                )
-                suggest_msg = (
-                    f" Did you mean: {', '.join(suggestions)}?" if suggestions else ""
-                )
+                suggestions = difflib.get_close_matches(name, self.server_names(), n=3, cutoff=0.5)
+                suggest_msg = f" Did you mean: {', '.join(suggestions)}?" if suggestions else ""
                 raise MCPServerError(
                     f"Unknown server '{name}'. Known: {', '.join(self.server_names())}.{suggest_msg}",
                     server_name=name,
@@ -881,9 +863,7 @@ class MCPClient:
             suggestions = difflib.get_close_matches(
                 server_name, self.server_names(), n=3, cutoff=0.5
             )
-            suggest_msg = (
-                f" Did you mean: {', '.join(suggestions)}?" if suggestions else ""
-            )
+            suggest_msg = f" Did you mean: {', '.join(suggestions)}?" if suggestions else ""
             raise MCPServerError(
                 f"Unknown server '{server_name}'. Known: {', '.join(self.server_names())}.{suggest_msg}",
                 server_name=server_name,
@@ -902,9 +882,7 @@ class MCPClient:
                 details={"original_error": str(e), "uris": uris},
             ) from e
 
-    async def list_prompts(
-        self, server_name: str | None = None
-    ) -> dict[str, list[PromptInfo]]:
+    async def list_prompts(self, server_name: str | None = None) -> dict[str, list[PromptInfo]]:
         """
         List available prompts from MCP servers.
 
@@ -935,12 +913,8 @@ class MCPClient:
 
         for name in servers:
             if name not in self._by_name:
-                suggestions = difflib.get_close_matches(
-                    name, self.server_names(), n=3, cutoff=0.5
-                )
-                suggest_msg = (
-                    f" Did you mean: {', '.join(suggestions)}?" if suggestions else ""
-                )
+                suggestions = difflib.get_close_matches(name, self.server_names(), n=3, cutoff=0.5)
+                suggest_msg = f" Did you mean: {', '.join(suggestions)}?" if suggestions else ""
                 raise MCPServerError(
                     f"Unknown server '{name}'. Known: {', '.join(self.server_names())}.{suggest_msg}",
                     server_name=name,
@@ -1006,9 +980,7 @@ class MCPClient:
             suggestions = difflib.get_close_matches(
                 server_name, self.server_names(), n=3, cutoff=0.5
             )
-            suggest_msg = (
-                f" Did you mean: {', '.join(suggestions)}?" if suggestions else ""
-            )
+            suggest_msg = f" Did you mean: {', '.join(suggestions)}?" if suggestions else ""
             raise MCPServerError(
                 f"Unknown server '{server_name}'. Known: {', '.join(self.server_names())}.{suggest_msg}",
                 server_name=server_name,
@@ -1060,12 +1032,8 @@ class MCPClient:
                 import difflib
 
                 suggestions = difflib.get_close_matches(target, names, n=3, cutoff=0.5)
-                suggest = (
-                    f" Did you mean: {', '.join(suggestions)}?" if suggestions else ""
-                )
-                raise ValueError(
-                    f"Unknown server '{target}'. Known: {', '.join(names)}.{suggest}"
-                )
+                suggest = f" Did you mean: {', '.join(suggestions)}?" if suggestions else ""
+                raise ValueError(f"Unknown server '{target}'. Known: {', '.join(names)}.{suggest}")
 
         cfg = self._by_name[target]
         ms_client = await self.list_clients()
@@ -1099,12 +1067,10 @@ class MCPClient:
                             server_name=target,
                         ),
                         "args_schema": self._safe_schema(
-                            getattr(t, "inputSchema", None)
-                            or getattr(t, "args_schema", None)
+                            getattr(t, "inputSchema", None) or getattr(t, "args_schema", None)
                         ),
                         "output_schema": self._safe_schema(
-                            getattr(t, "outputSchema", None)
-                            or getattr(t, "output_schema", None)
+                            getattr(t, "outputSchema", None) or getattr(t, "output_schema", None)
                         ),
                         "examples": [],
                     }
@@ -1118,9 +1084,7 @@ class MCPClient:
                     prompts.append(
                         {
                             "name": getattr(p, "name", None),
-                            "description": self._safe_text(
-                                getattr(p, "description", None)
-                            ),
+                            "description": self._safe_text(getattr(p, "description", None)),
                             "arguments_schema": self._safe_schema(
                                 getattr(p, "arguments_schema", None)
                             ),
@@ -1132,17 +1096,13 @@ class MCPClient:
             # resources
             try:
                 resources_result = await session.list_resources()
-                resources_list = (
-                    getattr(resources_result, "resources", resources_result) or []
-                )
+                resources_list = getattr(resources_result, "resources", resources_result) or []
                 for r in resources_list:
                     resources.append(
                         {
                             "uri": getattr(r, "uri", None),
                             "name": getattr(r, "name", None),
-                            "description": self._safe_text(
-                                getattr(r, "description", None)
-                            ),
+                            "description": self._safe_text(getattr(r, "description", None)),
                             "mime_type": getattr(r, "mimeType", None),
                             "readable": True,
                         }
@@ -1163,9 +1123,7 @@ class MCPClient:
                     variables = [
                         {
                             "name": getattr(v, "name", None),
-                            "description": self._safe_text(
-                                getattr(v, "description", None)
-                            ),
+                            "description": self._safe_text(getattr(v, "description", None)),
                             "required": bool(getattr(v, "required", False)),
                         }
                         for v in vars_in
@@ -1174,9 +1132,7 @@ class MCPClient:
                         {
                             "uri_template": getattr(tpl, "uriTemplate", None),
                             "name": getattr(tpl, "name", None),
-                            "description": self._safe_text(
-                                getattr(tpl, "description", None)
-                            ),
+                            "description": self._safe_text(getattr(tpl, "description", None)),
                             "mime_type": getattr(tpl, "mimeType", None),
                             "variables": variables,
                         }
@@ -1194,9 +1150,7 @@ class MCPClient:
                             {
                                 "uri": getattr(root, "uri", None),
                                 "name": getattr(root, "name", None),
-                                "description": self._safe_text(
-                                    getattr(root, "description", None)
-                                ),
+                                "description": self._safe_text(getattr(root, "description", None)),
                             }
                         )
             except Exception:
@@ -1256,9 +1210,7 @@ class MCPClient:
             await self.discover()
         result: dict[str, dict[str, Any]] = {}
         for name in self.server_names():
-            result[name] = await self.get_openmcp(
-                server_name=name, schema_url=schema_url
-            )
+            result[name] = await self.get_openmcp(server_name=name, schema_url=schema_url)
         return result
 
 
