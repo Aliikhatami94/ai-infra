@@ -176,7 +176,13 @@ convention = "google"
 
 [tool.bandit]
 exclude_dirs = ["tests", ".venv", "venv"]
-skips = ["B101", "B311"]  # B101: assert used, B311: random for non-crypto
+skips = [
+    "B101",  # assert used (intentional in tests and contracts)
+    "B104",  # hardcoded_bind_all_interfaces (intentional for dev servers in examples)
+    "B301",  # pickle load (our FAISS/retriever persistence is trusted local files)
+    "B311",  # random for non-crypto (intentional)
+    "B608",  # hardcoded_sql_expressions (table names are validated, not user input)
+]
 
 [tool.coverage.run]
 source = ["src/ai_infra"]
