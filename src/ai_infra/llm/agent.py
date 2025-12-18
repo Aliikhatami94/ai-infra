@@ -62,59 +62,19 @@ from .utils import run_with_fallbacks as _run_fallbacks_util
 from .utils import with_retry as _with_retry_util
 
 # =============================================================================
-# DeepAgents Types (re-exported for convenience)
+# DeepAgents Types (imported from agents submodule)
 # =============================================================================
-
-try:
-    from deepagents import (  # type: ignore[import-untyped]
-        CompiledSubAgent,
-        FilesystemMiddleware,
-        SubAgent,
-        SubAgentMiddleware,
-    )
-    from deepagents import create_deep_agent as _create_deep_agent
-    from langchain.agents.middleware.types import AgentMiddleware
-
-    _HAS_DEEPAGENTS = True
-except ImportError:
-    _HAS_DEEPAGENTS = False
-
-    # Define placeholders when deepagents is not installed
-    def _missing_deepagents(*args, **kwargs):
-        raise ImportError(
-            "DeepAgents requires 'deepagents' package. "
-            "Install with: pip install deepagents"
-        )
-
-    class SubAgent(dict):  # type: ignore[no-redef]
-        """Placeholder for SubAgent when deepagents is not installed."""
-
-        def __init__(self, *args, **kwargs):
-            _missing_deepagents()
-
-    class CompiledSubAgent:  # type: ignore[no-redef]
-        """Placeholder for CompiledSubAgent when deepagents is not installed."""
-
-        def __init__(self, *args, **kwargs):
-            _missing_deepagents()
-
-    class SubAgentMiddleware:  # type: ignore[no-redef]
-        """Placeholder for SubAgentMiddleware when deepagents is not installed."""
-
-        def __init__(self, *args, **kwargs):
-            _missing_deepagents()
-
-    class FilesystemMiddleware:  # type: ignore[no-redef]
-        """Placeholder for FilesystemMiddleware when deepagents is not installed."""
-
-        def __init__(self, *args, **kwargs):
-            _missing_deepagents()
-
-    AgentMiddleware = Any  # type: ignore[misc, assignment]
-
-    def _create_deep_agent(*args, **kwargs):
-        _missing_deepagents()
-
+from ai_infra.llm.agents.deep import (
+    SubAgent,
+    CompiledSubAgent,
+    SubAgentMiddleware,
+    FilesystemMiddleware,
+    AgentMiddleware,
+    build_deep_agent as _build_deep_agent_impl,
+)
+from ai_infra.llm.agents.callbacks import (
+    wrap_tool_with_callbacks as _wrap_tool_with_callbacks_impl,
+)
 
 # Export DeepAgent types
 __all__ = [
@@ -123,6 +83,7 @@ __all__ = [
     "CompiledSubAgent",
     "SubAgentMiddleware",
     "FilesystemMiddleware",
+    "AgentMiddleware",
 ]
 
 
@@ -434,170 +395,7 @@ class Agent(BaseLLM):
         Returns:
             Wrapped tool that fires callback events
         """
-        import functools
-        import inspect
-
-        from langchain_core.tools import BaseTool
-
-        from ai_infra.callbacks import ToolEndEvent, ToolErrorEvent, ToolStartEvent
-
-        tool_name = getattr(tool, "name", getattr(tool, "__name__", str(tool)))
-
-        # For BaseTool subclasses, wrap _run/_arun methods directly
-        # This preserves the tool structure that LangGraph expects
-        if isinstance(tool, BaseTool):
-            original_run = tool._run
-            original_arun = tool._arun if hasattr(tool, "_arun") else None
-
-            def wrapped_run(*args, **kwargs):
-                callbacks.on_tool_start(
-                    ToolStartEvent(tool_name=tool_name, arguments=kwargs)
-                )
-                start_time = time.time()
-                try:
-                    result = original_run(*args, **kwargs)
-                    callbacks.on_tool_end(
-                        ToolEndEvent(
-                            tool_name=tool_name,
-                            result=result,
-                            latency_ms=(time.time() - start_time) * 1000,
-                        )
-                    )
-                    return result
-                except Exception as e:
-                    callbacks.on_tool_error(
-                        ToolErrorEvent(
-                            tool_name=tool_name,
-                            error=e,
-                            arguments=kwargs,
-                            latency_ms=(time.time() - start_time) * 1000,
-                        )
-                    )
-                    raise
-
-            async def wrapped_arun(*args, **kwargs):
-                await callbacks.on_tool_start_async(
-                    ToolStartEvent(tool_name=tool_name, arguments=kwargs)
-                )
-                start_time = time.time()
-                try:
-                    if original_arun:
-                        result = await original_arun(*args, **kwargs)
-                    else:
-                        # Fallback to sync run if no async version
-                        result = original_run(*args, **kwargs)
-                    await callbacks.on_tool_end_async(
-                        ToolEndEvent(
-                            tool_name=tool_name,
-                            result=result,
-                            latency_ms=(time.time() - start_time) * 1000,
-                        )
-                    )
-                    return result
-                except Exception as e:
-                    await callbacks.on_tool_error_async(
-                        ToolErrorEvent(
-                            tool_name=tool_name,
-                            error=e,
-                            arguments=kwargs,
-                            latency_ms=(time.time() - start_time) * 1000,
-                        )
-                    )
-                    raise
-
-            # Monkey-patch the methods
-            tool._run = wrapped_run  # type: ignore[method-assign]
-            tool._arun = wrapped_arun  # type: ignore[method-assign]
-            return tool
-
-        # For plain functions, wrap them as before
-        func = getattr(tool, "func", tool)
-        is_async = inspect.iscoroutinefunction(func)
-
-        if is_async:
-            # Async tool wrapper
-            @functools.wraps(func)
-            async def async_wrapper(*args, **kwargs):
-                callbacks.on_tool_start(
-                    ToolStartEvent(tool_name=tool_name, arguments=kwargs)
-                )
-                start_time = time.time()
-                try:
-                    result = await func(*args, **kwargs)
-                    callbacks.on_tool_end(
-                        ToolEndEvent(
-                            tool_name=tool_name,
-                            result=result,
-                            latency_ms=(time.time() - start_time) * 1000,
-                        )
-                    )
-                    return result
-                except Exception as e:
-                    callbacks.on_tool_error(
-                        ToolErrorEvent(
-                            tool_name=tool_name,
-                            error=e,
-                            arguments=kwargs,
-                            latency_ms=(time.time() - start_time) * 1000,
-                        )
-                    )
-                    raise
-
-            # Preserve tool attributes
-            if hasattr(tool, "name"):
-                async_wrapper.name = tool.name  # type: ignore
-            if hasattr(tool, "description"):
-                async_wrapper.description = tool.description  # type: ignore
-            if hasattr(tool, "args_schema"):
-                async_wrapper.args_schema = tool.args_schema  # type: ignore
-
-            # If it's a LangChain tool, wrap properly
-            if hasattr(tool, "func"):
-                tool.func = async_wrapper
-                return tool
-            return async_wrapper
-        else:
-            # Sync tool wrapper
-            @functools.wraps(func)
-            def sync_wrapper(*args, **kwargs):
-                callbacks.on_tool_start(
-                    ToolStartEvent(tool_name=tool_name, arguments=kwargs)
-                )
-                start_time = time.time()
-                try:
-                    result = func(*args, **kwargs)
-                    callbacks.on_tool_end(
-                        ToolEndEvent(
-                            tool_name=tool_name,
-                            result=result,
-                            latency_ms=(time.time() - start_time) * 1000,
-                        )
-                    )
-                    return result
-                except Exception as e:
-                    callbacks.on_tool_error(
-                        ToolErrorEvent(
-                            tool_name=tool_name,
-                            error=e,
-                            arguments=kwargs,
-                            latency_ms=(time.time() - start_time) * 1000,
-                        )
-                    )
-                    raise
-
-            # Preserve tool attributes
-            if hasattr(tool, "name"):
-                sync_wrapper.name = tool.name  # type: ignore
-            if hasattr(tool, "description"):
-                sync_wrapper.description = tool.description  # type: ignore
-            if hasattr(tool, "args_schema"):
-                sync_wrapper.args_schema = tool.args_schema  # type: ignore
-
-            # If it's a LangChain tool, wrap properly
-            if hasattr(tool, "func"):
-                tool.func = sync_wrapper
-                return tool
-            return sync_wrapper
+        return _wrap_tool_with_callbacks_impl(tool, callbacks)
 
     @classmethod
     def from_persona(
@@ -1606,57 +1404,25 @@ class Agent(BaseLLM):
         Returns:
             Compiled DeepAgent graph
         """
-        try:
-            from deepagents import create_deep_agent
-        except ImportError as e:
-            raise ImportError(
-                "DeepAgents mode requires 'deepagents' package. "
-                "Install with: pip install deepagents"
-            ) from e
-
         # Get model instance from registry
         model = self._get_model_for_deep_agent(provider, model_name)
-
-        # Extract session config
-        checkpointer = None
-        store = None
-        interrupt_on = None
-        if self._session_config:
-            checkpointer = self._session_config.storage.get_checkpointer()
-            store = self._session_config.storage.get_store()
-            # Convert pause_before/pause_after to interrupt_on dict
-            if self._session_config.pause_before or self._session_config.pause_after:
-                interrupt_on = {}
-                for tool_name in self._session_config.pause_before or []:
-                    interrupt_on[tool_name] = {"before": True}
-                for tool_name in self._session_config.pause_after or []:
-                    if tool_name in interrupt_on:
-                        interrupt_on[tool_name]["after"] = True
-                    else:
-                        interrupt_on[tool_name] = {"after": True}
 
         # Merge global tools with provided tools
         all_tools = list(self.tools) if self.tools else []
         if tools:
             all_tools.extend(tools)
 
-        # Get backend from workspace (if configured)
-        backend = None
-        if self._workspace:
-            backend = self._workspace.get_deepagent_backend()
-
-        return create_deep_agent(
+        # Delegate to the extracted build_deep_agent function
+        return _build_deep_agent_impl(
             model=model,
-            backend=backend,
+            workspace=self._workspace,
+            session_config=self._session_config,
             tools=all_tools if all_tools else None,
-            system_prompt=system,
-            middleware=tuple(self._middleware) if self._middleware else (),
+            system=system,
+            middleware=self._middleware,
             subagents=self._subagents,
             response_format=self._response_format,
             context_schema=self._context_schema,
-            checkpointer=checkpointer,
-            store=store,
-            interrupt_on=interrupt_on,
         )
 
     def _get_model_for_deep_agent(

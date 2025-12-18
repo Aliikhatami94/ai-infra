@@ -262,7 +262,7 @@ class TestAgentDeepParams:
 class TestBuildDeepAgent:
     """Test _build_deep_agent method."""
 
-    @patch("ai_infra.llm.agent._create_deep_agent")
+    @patch("ai_infra.llm.agents.deep._create_deep_agent")
     def test_build_deep_agent_called(self, mock_create):
         """_build_deep_agent calls create_deep_agent."""
         mock_create.return_value = MagicMock()
