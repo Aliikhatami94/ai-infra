@@ -4,8 +4,6 @@ These tests verify that approval events are properly created,
 emitted, and handled during approval workflows.
 """
 
-from typing import List
-
 import pytest
 
 from ai_infra.llm.tools.events import ApprovalEvent, ApprovalEvents
@@ -120,7 +118,7 @@ class TestApprovalEventsSync:
 
     def test_on_event_callback(self):
         """Test that on_event callback is called."""
-        received_events: List[ApprovalEvent] = []
+        received_events: list[ApprovalEvent] = []
 
         events = ApprovalEvents(
             on_event=lambda e: received_events.append(e),
@@ -134,7 +132,7 @@ class TestApprovalEventsSync:
 
     def test_on_requested_callback(self):
         """Test that on_requested callback is called."""
-        received_events: List[ApprovalEvent] = []
+        received_events: list[ApprovalEvent] = []
 
         events = ApprovalEvents(
             on_requested=lambda e: received_events.append(e),
@@ -147,7 +145,7 @@ class TestApprovalEventsSync:
 
     def test_on_granted_callback(self):
         """Test that on_granted callback is called."""
-        received_events: List[ApprovalEvent] = []
+        received_events: list[ApprovalEvent] = []
 
         events = ApprovalEvents(
             on_granted=lambda e: received_events.append(e),
@@ -165,7 +163,7 @@ class TestApprovalEventsSync:
 
     def test_on_denied_callback(self):
         """Test that on_denied callback is called."""
-        received_events: List[ApprovalEvent] = []
+        received_events: list[ApprovalEvent] = []
 
         events = ApprovalEvents(
             on_denied=lambda e: received_events.append(e),
@@ -190,7 +188,7 @@ class TestApprovalEventsSync:
 
     def test_include_args_false_strips_args(self):
         """Test that include_args=False strips args from events."""
-        received_events: List[ApprovalEvent] = []
+        received_events: list[ApprovalEvent] = []
 
         events = ApprovalEvents(
             on_event=lambda e: received_events.append(e),
@@ -204,7 +202,7 @@ class TestApprovalEventsSync:
 
     def test_include_metadata_false_strips_metadata(self):
         """Test that include_metadata=False strips metadata from events."""
-        received_events: List[ApprovalEvent] = []
+        received_events: list[ApprovalEvent] = []
 
         events = ApprovalEvents(
             on_event=lambda e: received_events.append(e),
@@ -223,7 +221,7 @@ class TestApprovalEventsAsync:
     @pytest.mark.asyncio
     async def test_on_event_async_callback(self):
         """Test that on_event_async callback is called."""
-        received_events: List[ApprovalEvent] = []
+        received_events: list[ApprovalEvent] = []
 
         async def handler(e: ApprovalEvent):
             received_events.append(e)
@@ -238,7 +236,7 @@ class TestApprovalEventsAsync:
     @pytest.mark.asyncio
     async def test_sync_handler_called_in_thread(self):
         """Test that sync handlers are called when async not available."""
-        received_events: List[ApprovalEvent] = []
+        received_events: list[ApprovalEvent] = []
 
         def sync_handler(e: ApprovalEvent):
             received_events.append(e)
@@ -266,7 +264,7 @@ class TestApprovalEventsAsync:
     @pytest.mark.asyncio
     async def test_on_granted_async(self):
         """Test async granted handler."""
-        received_events: List[ApprovalEvent] = []
+        received_events: list[ApprovalEvent] = []
 
         async def handler(e: ApprovalEvent):
             received_events.append(e)
@@ -281,7 +279,7 @@ class TestApprovalEventsAsync:
     @pytest.mark.asyncio
     async def test_on_denied_async(self):
         """Test async denied handler."""
-        received_events: List[ApprovalEvent] = []
+        received_events: list[ApprovalEvent] = []
 
         async def handler(e: ApprovalEvent):
             received_events.append(e)
@@ -310,7 +308,7 @@ class TestEventsWithApprovalConfig:
         from ai_infra.llm.tools import ApprovalConfig, ApprovalResponse
         from ai_infra.llm.tools.hitl import wrap_tool_for_approval
 
-        received_events: List[ApprovalEvent] = []
+        received_events: list[ApprovalEvent] = []
 
         async def event_handler(e: ApprovalEvent):
             received_events.append(e)
@@ -346,7 +344,7 @@ class TestEventsWithApprovalConfig:
         from ai_infra.llm.tools import ApprovalConfig, ApprovalResponse
         from ai_infra.llm.tools.hitl import wrap_tool_for_approval
 
-        received_events: List[ApprovalEvent] = []
+        received_events: list[ApprovalEvent] = []
 
         async def auto_deny(req):
             return ApprovalResponse.reject(reason="Test rejection")
@@ -381,7 +379,7 @@ class TestEventsWithApprovalConfig:
         from ai_infra.llm.tools import ApprovalConfig, ApprovalResponse
         from ai_infra.llm.tools.hitl import wrap_tool_for_approval
 
-        received_events: List[ApprovalEvent] = []
+        received_events: list[ApprovalEvent] = []
 
         async def modify_handler(req):
             return ApprovalResponse.approve(
@@ -419,7 +417,7 @@ class TestEventsWithApprovalConfig:
         from ai_infra.llm.tools import ApprovalConfig
         from ai_infra.llm.tools.hitl import wrap_tool_for_approval
 
-        received_events: List[ApprovalEvent] = []
+        received_events: list[ApprovalEvent] = []
 
         @tool
         def my_tool(x: int) -> int:
@@ -448,8 +446,8 @@ class TestEventsWithApprovalConfig:
         from ai_infra.llm.tools import ApprovalConfig, ApprovalResponse
         from ai_infra.llm.tools.hitl import wrap_tool_for_approval
 
-        granted_events: List[ApprovalEvent] = []
-        denied_events: List[ApprovalEvent] = []
+        granted_events: list[ApprovalEvent] = []
+        denied_events: list[ApprovalEvent] = []
 
         async def auto_approve(req):
             return ApprovalResponse.approve()

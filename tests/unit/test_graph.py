@@ -483,11 +483,7 @@ class TestGraphAnalysis:
         diagram = graph.get_arch_diagram()
         assert isinstance(diagram, str)
         # Mermaid diagrams typically start with graph or flowchart
-        assert (
-            "graph" in diagram.lower()
-            or "flowchart" in diagram.lower()
-            or "---" in diagram
-        )
+        assert "graph" in diagram.lower() or "flowchart" in diagram.lower() or "---" in diagram
 
 
 # ============================================================================
@@ -539,17 +535,17 @@ class TestErrorHandling:
 
     def test_missing_nodes_raises(self):
         """Test that missing nodes parameter raises."""
-        with pytest.raises(ValueError, match="nodes.*required"):
+        with pytest.raises(ValueError, match=r"nodes.*required"):
             Graph(edges=[])
 
     def test_missing_edges_raises(self):
         """Test that missing edges parameter raises."""
-        with pytest.raises(ValueError, match="edges.*required"):
+        with pytest.raises(ValueError, match=r"edges.*required"):
             Graph(nodes={"node": lambda s: s})
 
     def test_invalid_entry_raises(self):
         """Test that invalid entry node raises."""
-        with pytest.raises(ValueError, match="Entry node.*not a known node"):
+        with pytest.raises(ValueError, match=r"Entry node.*not a known node"):
             Graph(
                 nodes={"a": lambda s: s},
                 edges=[],

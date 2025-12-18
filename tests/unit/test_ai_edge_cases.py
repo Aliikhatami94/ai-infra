@@ -287,12 +287,14 @@ class TestContextOverflow:
 
     def test_tool_result_truncation_applied(self):
         """Test that tool results are truncated by wrapped tool."""
+        from unittest.mock import MagicMock
+
+        from langchain_core.tools import BaseTool
+
         from ai_infra.llm.tools.hitl import (
             ToolExecutionConfig,
             _ExecutionConfigWrappedTool,
         )
-        from langchain_core.tools import BaseTool
-        from unittest.mock import MagicMock
 
         # Create a mock base tool
         base_tool = MagicMock(spec=BaseTool)
@@ -638,10 +640,10 @@ class TestApprovalHandlerSafety:
     def test_literal_eval_used_not_eval(self):
         """Test that approval module uses safe parsing (ast.literal_eval)."""
         # Verify the approval module exists and has expected components
-        from ai_infra.llm.tools import approval
-
         # Check the module uses ast.literal_eval by inspecting source
         import inspect
+
+        from ai_infra.llm.tools import approval
 
         source = inspect.getsource(approval)
 
@@ -725,9 +727,7 @@ class TestMCPToolCallRequestValidation:
             "bool": True,
         }
 
-        request = MCPToolCallRequest(
-            name="test_tool", args=complex_args, server_name="server"
-        )
+        request = MCPToolCallRequest(name="test_tool", args=complex_args, server_name="server")
 
         assert request.args == complex_args
 

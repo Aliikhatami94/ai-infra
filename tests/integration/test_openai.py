@@ -52,10 +52,7 @@ class TestOpenAIChat:
         assert hasattr(response, "content")
         # Pirate-speak indicators
         assert (
-            any(
-                word in response.content.lower()
-                for word in ["arr", "matey", "ahoy", "ye", "aye"]
-            )
+            any(word in response.content.lower() for word in ["arr", "matey", "ahoy", "ye", "aye"])
             or response.content
         )  # Fallback: at least got a response
 
@@ -100,11 +97,11 @@ class TestOpenAIStructuredOutput:
 
     def test_structured_output_with_list(self):
         """Test structured output returning a list."""
+
         from pydantic import BaseModel
-        from typing import List
 
         class Colors(BaseModel):
-            colors: List[str]
+            colors: list[str]
 
         llm = LLM()
         result = llm.chat(

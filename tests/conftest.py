@@ -19,11 +19,10 @@ from __future__ import annotations
 
 import os
 import tempfile
-from typing import Any, Dict, List, Tuple
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
-
 
 # =============================================================================
 # PYTEST CONFIGURATION
@@ -158,7 +157,7 @@ class TrackingCallbacks:
     """
 
     def __init__(self):
-        self.events: List[Tuple[str, Any]] = []
+        self.events: list[tuple[str, Any]] = []
 
     def on_llm_start(self, event) -> None:
         self.events.append(("llm_start", event))
@@ -196,7 +195,7 @@ class TrackingCallbacks:
 
 
 @pytest.fixture
-def tracking_callbacks() -> Tuple[TrackingCallbacks, List]:
+def tracking_callbacks() -> tuple[TrackingCallbacks, list]:
     """Create callbacks that track all events.
 
     Returns a tuple of (callbacks, events_list) for testing.
@@ -225,7 +224,7 @@ def mock_embeddings() -> MagicMock:
 
 
 @pytest.fixture
-def sample_embeddings() -> List[List[float]]:
+def sample_embeddings() -> list[list[float]]:
     """Provide sample embedding vectors for testing."""
     return [
         [1.0, 0.0, 0.0],  # X axis
@@ -250,7 +249,7 @@ def memory_backend():
 
 
 @pytest.fixture
-def sample_documents() -> List[Dict[str, Any]]:
+def sample_documents() -> list[dict[str, Any]]:
     """Provide sample documents for retriever testing."""
     return [
         {"text": "Python is a programming language.", "metadata": {"source": "wiki"}},
@@ -299,7 +298,7 @@ def temp_directory():
 
 
 @pytest.fixture
-def mock_chat_response() -> Dict[str, Any]:
+def mock_chat_response() -> dict[str, Any]:
     """Provide a mock chat completion response."""
     return {
         "id": "chatcmpl-123",
@@ -321,7 +320,7 @@ def mock_chat_response() -> Dict[str, Any]:
 
 
 @pytest.fixture
-def mock_streaming_chunks() -> List[Dict[str, Any]]:
+def mock_streaming_chunks() -> list[dict[str, Any]]:
     """Provide mock streaming response chunks."""
     return [
         {"choices": [{"delta": {"role": "assistant", "content": ""}}]},
@@ -334,7 +333,7 @@ def mock_streaming_chunks() -> List[Dict[str, Any]]:
 
 
 @pytest.fixture
-def sample_messages() -> List[Dict[str, str]]:
+def sample_messages() -> list[dict[str, str]]:
     """Provide sample chat messages for testing."""
     return [
         {"role": "system", "content": "You are a helpful assistant."},
@@ -372,7 +371,7 @@ def async_tool():
 
 
 @pytest.fixture
-def sample_tools() -> List:
+def sample_tools() -> list:
     """Provide a list of sample tools for agent testing."""
 
     def calculator(expression: str) -> str:
@@ -407,7 +406,7 @@ def mock_mcp_server():
 
 
 @pytest.fixture
-def sample_mcp_tool_definition() -> Dict[str, Any]:
+def sample_mcp_tool_definition() -> dict[str, Any]:
     """Provide a sample MCP tool definition."""
     return {
         "name": "get_weather",
@@ -431,7 +430,7 @@ def sample_mcp_tool_definition() -> Dict[str, Any]:
 
 
 @pytest.fixture
-def mock_generated_image() -> Dict[str, Any]:
+def mock_generated_image() -> dict[str, Any]:
     """Provide a mock generated image response."""
     return {
         "url": "https://example.com/generated/image.png",
@@ -446,7 +445,7 @@ def mock_generated_image() -> Dict[str, Any]:
 
 
 @pytest.fixture
-def sample_session_data() -> Dict[str, Any]:
+def sample_session_data() -> dict[str, Any]:
     """Provide sample session data for memory testing."""
     return {
         "session_id": "test-session-123",

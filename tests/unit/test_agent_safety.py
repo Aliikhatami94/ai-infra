@@ -9,7 +9,6 @@ Tests cover critical scenarios that could cause:
 
 from __future__ import annotations
 
-
 import pytest
 
 from ai_infra import Agent

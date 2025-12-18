@@ -1,6 +1,7 @@
 """Tests for Agent.astream normalized streaming events."""
 
-from typing import Any, Iterable, Tuple
+from collections.abc import Iterable
+from typing import Any
 
 import pytest
 from langchain_core.messages import AIMessageChunk, ToolMessage
@@ -12,7 +13,7 @@ from ai_infra.llm.streaming import StreamConfig
 class DummyAgent(Agent):
     """Agent with a stubbed token stream for astream()."""
 
-    def __init__(self, token_stream: Iterable[Tuple[Any, Any]]):
+    def __init__(self, token_stream: Iterable[tuple[Any, Any]]):
         super().__init__()
         self._token_stream = list(token_stream)
 
@@ -34,9 +35,7 @@ async def test_astream_emits_tool_events_and_done():
             }
         ],
     )
-    tool_result = ToolMessage(
-        content="result", tool_call_id="call-1", name="search_docs"
-    )
+    tool_result = ToolMessage(content="result", tool_call_id="call-1", name="search_docs")
     final_chunk = AIMessageChunk(content="all done")
 
     agent = DummyAgent([(tool_call_chunk, {}), (tool_result, {}), (final_chunk, {})])
@@ -79,9 +78,7 @@ async def test_astream_standard_hides_tool_arguments():
             }
         ],
     )
-    tool_result = ToolMessage(
-        content="result", tool_call_id="call-2", name="search_docs"
-    )
+    tool_result = ToolMessage(content="result", tool_call_id="call-2", name="search_docs")
 
     agent = DummyAgent([(tool_call_chunk, {}), (tool_result, {})])
 
@@ -103,9 +100,7 @@ async def test_astream_standard_hides_tool_arguments():
 async def test_astream_minimal_visibility_only_tokens():
     tool_call_chunk = AIMessageChunk(
         content="",
-        tool_call_chunks=[
-            {"index": 0, "id": "call-3", "name": "search_docs", "args": "{}"}
-        ],
+        tool_call_chunks=[{"index": 0, "id": "call-3", "name": "search_docs", "args": "{}"}],
     )
     tool_result = ToolMessage(content="done", tool_call_id="call-3", name="search_docs")
     token_chunk = AIMessageChunk(content="final")
@@ -129,15 +124,11 @@ async def test_astream_minimal_visibility_only_tokens():
 async def test_astream_deduplicates_tool_starts():
     first_chunk = AIMessageChunk(
         content="",
-        tool_call_chunks=[
-            {"index": 0, "id": "call-4", "name": "search_docs", "args": "{}"}
-        ],
+        tool_call_chunks=[{"index": 0, "id": "call-4", "name": "search_docs", "args": "{}"}],
     )
     duplicate_chunk = AIMessageChunk(
         content="",
-        tool_call_chunks=[
-            {"index": 0, "id": "call-4", "name": "search_docs", "args": "{}"}
-        ],
+        tool_call_chunks=[{"index": 0, "id": "call-4", "name": "search_docs", "args": "{}"}],
     )
 
     agent = DummyAgent([(first_chunk, {}), (duplicate_chunk, {})])
@@ -170,9 +161,7 @@ async def test_astream_result_field_at_detailed_visibility():
         ],
     )
     full_result = "### Result 1 (svc-infra: auth.md)\nAuthentication docs...\n---\n### Result 2 (ai-infra: core/llm.md)\nLLM usage..."
-    tool_result = ToolMessage(
-        content=full_result, tool_call_id="call-5", name="search_docs"
-    )
+    tool_result = ToolMessage(content=full_result, tool_call_id="call-5", name="search_docs")
 
     agent = DummyAgent([(tool_call_chunk, {}), (tool_result, {})])
 
@@ -213,9 +202,7 @@ async def test_astream_result_field_at_debug_visibility():
         ],
     )
     full_result = "def Agent():\n    pass\n" * 50  # Long result
-    tool_result = ToolMessage(
-        content=full_result, tool_call_id="call-6", name="search_code"
-    )
+    tool_result = ToolMessage(content=full_result, tool_call_id="call-6", name="search_code")
 
     agent = DummyAgent([(tool_call_chunk, {}), (tool_result, {})])
 
@@ -253,9 +240,7 @@ async def test_astream_no_result_at_standard_visibility():
             }
         ],
     )
-    tool_result = ToolMessage(
-        content="some result", tool_call_id="call-7", name="search_docs"
-    )
+    tool_result = ToolMessage(content="some result", tool_call_id="call-7", name="search_docs")
 
     agent = DummyAgent([(tool_call_chunk, {}), (tool_result, {})])
 
@@ -302,9 +287,7 @@ Payment processing architecture...
 ---
 ### Result 3 (ai-infra: tools/billing.md)
 Billing tool for agents..."""
-    tool_result = ToolMessage(
-        content=mcp_result, tool_call_id="call-8", name="search_docs"
-    )
+    tool_result = ToolMessage(content=mcp_result, tool_call_id="call-8", name="search_docs")
 
     agent = DummyAgent([(tool_call_chunk, {}), (tool_result, {})])
 

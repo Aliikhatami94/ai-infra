@@ -93,11 +93,11 @@ class TestAnthropicStructuredOutput:
 
     def test_structured_output_with_list(self):
         """Test structured output returning a list."""
+
         from pydantic import BaseModel
-        from typing import List
 
         class Colors(BaseModel):
-            colors: List[str]
+            colors: list[str]
 
         llm = LLM()
         result = llm.chat(
