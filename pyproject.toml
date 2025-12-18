@@ -98,10 +98,12 @@ retriever-local = ["langchain-huggingface", "sentence-transformers", "pypdf", "p
 [tool.poetry.group.dev.dependencies]
 pytest = ">=8.0.0"
 pytest-asyncio = ">=0.23.0"
+pytest-cov = ">=4.0.0"
 ruff = ">=0.5.0"
 mypy = ">=1.10.0"
 pre-commit = ">=3.0.0"
 types-PyYAML = "*"
+bandit = ">=1.7.0"
 # Documentation
 mkdocs = ">=1.6.0"
 mkdocs-material = ">=9.5.0"
@@ -171,6 +173,20 @@ known-first-party = ["ai_infra"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
+
+[tool.bandit]
+exclude_dirs = ["tests", ".venv", "venv"]
+skips = ["B101", "B311"]  # B101: assert used, B311: random for non-crypto
+
+[tool.coverage.run]
+source = ["src/ai_infra"]
+branch = true
+omit = ["*/tests/*", "*/__pycache__/*"]
+
+[tool.coverage.report]
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "raise NotImplementedError"]
+fail_under = 70
+show_missing = true
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
