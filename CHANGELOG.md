@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 This file is auto-generated from conventional commits using [git-cliff](https://git-cliff.org/).
 
+## [0.1.163] - 2025-12-19
+
+
+### Bug Fixes
+
+- Update CI workflow to use 40% coverage threshold
+- Lower coverage threshold to 40% to match current state
+- Update bandit config to skip false positive security warnings
+- Add type ignore comment for __init__ access
+
+
+### Features
+
+- Add deprecation policy and helpers
+
 ## [0.1.161] - 2025-12-18
 
 
