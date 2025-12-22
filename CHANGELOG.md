@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 This file is auto-generated from conventional commits using [git-cliff](https://git-cliff.org/).
 
+## [0.1.164] - 2025-12-22
+
+
+### Other Changes
+
+- Add examples for schema-to-tools and progress streaming
+
+- Created `01_schema_tools.py` to demonstrate auto-generating CRUD tools from Pydantic/SQLAlchemy models, including examples for basic usage, custom executors, read-only mode, and integration with an Agent for natural language database access.
+- Created `02_progress.py` to showcase real-time updates from long-running tools using the @progress decorator, including examples for basic progress tools, handling multiple tools, and error handling in progress operations.
+- Added a `pyproject.toml` file for dependency management using Poetry.
+
 ## [0.1.163] - 2025-12-19
 
 
