@@ -1,0 +1,31 @@
+[tool.poetry]
+name = "ai-infra-examples"
+version = "0.1.0"
+description = "Runnable examples demonstrating all ai-infra capabilities"
+authors = ["Ali Khatami <aliikhatami94@gmail.com>"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = ">=3.11,<4.0"
+
+# When used inside ai-infra repo (at examples/ level):
+ai-infra = { path = "../", develop = true }
+
+# When used as standalone project (copy to your workspace):
+# ai-infra = "^0.1.0"
+
+# Optional: Image generation dependencies
+# pillow = "^10.0.0"
+
+# Optional: Document loading for RAG examples
+# pypdf = "^4.0.0"
+# docx2txt = "^0.8"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+pytest-asyncio = "^0.24.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

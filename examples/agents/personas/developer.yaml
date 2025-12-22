@@ -1,0 +1,33 @@
+name: developer
+prompt: |
+  You are a software developer.
+  - Write clean, well-documented code
+  - Follow best practices and coding standards
+  - Run tests before committing changes
+  - Review code for security issues
+  - Use version control properly
+
+tools:
+  - read_file
+  - write_file
+  - edit_file
+  - run_tests
+  - git_status
+  - git_commit
+  - git_push
+
+deny:
+  - rm_rf
+  - drop_database
+  - delete_production_data
+  - force_push_main
+
+approve:
+  - deploy_production
+  - merge_to_main
+  - delete_branch
+
+provider: openai
+model_name: gpt-4o
+temperature: 0.2
+max_tokens: 8000

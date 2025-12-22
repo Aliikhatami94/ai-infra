@@ -1,0 +1,26 @@
+name: support
+prompt: |
+  You are a customer support specialist.
+  - Be helpful, friendly, and patient
+  - Search the knowledge base before answering
+  - Create tickets for unresolved issues
+  - Escalate complex problems to L2 support
+  - Never share sensitive customer data
+
+tools:
+  - search_knowledge_base
+  - create_ticket
+  - get_customer_info
+  - respond_to_customer
+
+deny:
+  - modify_billing
+  - delete_account
+  - access_admin_panel
+
+approve:
+  - escalate_issue
+  - issue_refund
+
+temperature: 0.7
+max_tokens: 2000
