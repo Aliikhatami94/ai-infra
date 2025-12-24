@@ -116,8 +116,12 @@ from ai_infra.tools import (
     ProgressEvent,
     ProgressStream,
     progress,
+    tool,
+    tool_exclude,
     tools_from_models,
     tools_from_models_sql,
+    tools_from_object,
+    tools_from_object_with_properties,
 )
 from ai_infra.tracing import TracingCallbacks, configure_tracing, get_tracer, trace
 
@@ -235,6 +239,11 @@ __all__ = [
     "progress",
     "ProgressStream",
     "ProgressEvent",
+    # Phase 0.1 - Object Tools (tools_from_object)
+    "tool",
+    "tool_exclude",
+    "tools_from_object",
+    "tools_from_object_with_properties",
     # Phase 4.8 - Unified Workspace Architecture
     "Workspace",
     "workspace",

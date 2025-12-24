@@ -71,6 +71,7 @@ Tool utilities for agents.
 
 | Module | Description | Doc |
 |--------|-------------|-----|
+| **Object Tools** | Convert object methods to AI tools | [object-tools.md](tools/object-tools.md) |
 | **Schema Tools** | Auto-generate CRUD tools from models | [schema-tools.md](tools/schema-tools.md) |
 | **Progress** | Stream progress from long-running tools | [progress.md](tools/progress.md) |
 
