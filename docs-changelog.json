@@ -92,8 +92,8 @@
     },
     "index.md": {
       "created": "2025-12-01",
-      "lastUpdated": "2025-12-11",
-      "updateCount": 5,
+      "lastUpdated": "2025-12-24",
+      "updateCount": 6,
       "title": "ai-infra Documentation"
     },
     "infrastructure/errors.md": {
@@ -203,9 +203,39 @@
       "lastUpdated": "2025-12-18",
       "updateCount": 1,
       "title": "API Reference"
+    },
+    "integration-patterns.md": {
+      "created": "2025-12-24",
+      "lastUpdated": "2025-12-24",
+      "updateCount": 1,
+      "title": "Integration Patterns — tools_from_object()"
+    },
+    "tools/object-tools.md": {
+      "created": "2025-12-24",
+      "lastUpdated": "2025-12-24",
+      "updateCount": 1,
+      "title": "Object Tools"
     }
   },
   "history": [
+    {
+      "date": "2025-12-24",
+      "file": "tools/object-tools.md",
+      "type": "new",
+      "title": "Object Tools"
+    },
+    {
+      "date": "2025-12-24",
+      "file": "integration-patterns.md",
+      "type": "new",
+      "title": "Integration Patterns — tools_from_object()"
+    },
+    {
+      "date": "2025-12-24",
+      "file": "index.md",
+      "type": "updated",
+      "title": "ai-infra Documentation"
+    },
     {
       "date": "2025-12-18",
       "file": "reference/api.md",
