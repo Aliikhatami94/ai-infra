@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 This file is auto-generated from conventional commits using [git-cliff](https://git-cliff.org/).
 
+## [0.1.165] - 2025-12-24
+
+
+### Documentation
+
+- Update changelog [skip ci]
+
+
+### Other Changes
+
+- Implement object_tools module for converting Python objects to AI-compatible function tools
+
+- Added decorators `@tool` and `@tool_exclude` for method configuration.
+- Introduced `tools_from_object` and `tools_from_object_with_properties` functions to generate callable tools from object methods and properties.
+- Implemented helper functions for method filtering, docstring generation, and name conversion.
+- Created comprehensive unit tests for all functionalities, including edge cases and compatibility with async methods.
+- Ensured proper handling of method visibility and decorator configurations.
+
 ## [0.1.164] - 2025-12-22
 
 
