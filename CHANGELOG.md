@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 This file is auto-generated from conventional commits using [git-cliff](https://git-cliff.org/).
 
+## [0.1.166] - 2025-12-26
+
+
+### Bug Fixes
+
+- Prevent docs-changelog race condition with publish workflow
+
 ## [0.1.165] - 2025-12-24
 
 
