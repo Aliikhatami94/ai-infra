@@ -108,3 +108,23 @@ jobs:
           packages-dir: dist
           skip-existing: true
           attestations: false
+
+      # Create GitHub Release from the tag
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.bump.outputs.new_version }}
+          name: v${{ steps.bump.outputs.new_version }}
+          body: |
+            ## Release v${{ steps.bump.outputs.new_version }}
+
+            See [CHANGELOG.md](https://github.com/nfraxlab/ai-infra/blob/main/CHANGELOG.md) for details.
+
+            ### Install
+            ```bash
+            pip install ai-infra==${{ steps.bump.outputs.new_version }}
+            ```
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
