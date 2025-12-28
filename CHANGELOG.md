@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 This file is auto-generated from conventional commits using [git-cliff](https://git-cliff.org/).
 
+## [0.1.171] - 2025-12-28
+
+
+### Documentation
+
+- Remove stale ai_infra.cost reference from API docs
+
 ## [0.1.170] - 2025-12-28
 
 
