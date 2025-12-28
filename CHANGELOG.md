@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 This file is auto-generated from conventional commits using [git-cliff](https://git-cliff.org/).
 
+## [0.1.169] - 2025-12-28
+
+
+### Other Changes
+
+- Add advanced search features, agent integration, and async operations examples
+
+- Implemented advanced search capabilities in `08_advanced_search.py`, including minimum score thresholds, detailed results, context window search, multi-query strategies, and search quality evaluation.
+- Created `09_with_agent.py` to demonstrate retriever tool integration with agents, showcasing dynamic knowledge base queries and RAG capabilities.
+- Developed `10_async.py` to illustrate async search operations, concurrent searches, performance comparisons, and error handling in async contexts.
+
 ## [0.1.166] - 2025-12-26
 
 
