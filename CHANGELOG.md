@@ -4,6 +4,32 @@ All notable changes to this project will be documented in this file.
 
 This file is auto-generated from conventional commits using [git-cliff](https://git-cliff.org/).
 
+## [1.0.0] - 2025-12-28
+
+🎉 **First stable release!** ai-infra is now production-ready.
+
+### Features
+
+- **LLM**: Provider-agnostic chat with OpenAI, Anthropic, Google, xAI support
+- **Agent**: Tool calling, human-in-the-loop, deep mode for complex tasks
+- **MCP**: Full Model Context Protocol client/server with OpenAPI→MCP bridge
+- **RAG**: Embeddings, vector stores (Postgres, SQLite, Qdrant, Chroma, Pinecone, FAISS)
+- **Voice**: Text-to-speech, speech-to-text, realtime voice sessions
+- **Images**: DALL-E, Stability AI, Imagen generation
+- **Graph**: LangGraph workflows with typed state
+- **Memory**: Context fitting, rolling summaries
+- **Validation**: Prompt injection detection, PII scanning
+- **Tracing**: OpenTelemetry distributed tracing
+- **Callbacks**: Unified event system for all components
+
+### Infrastructure
+
+- 2428 tests passing
+- 64.93% code coverage
+- mypy strict mode: 0 errors
+- ruff: all checks passed
+- 51 examples with documentation
+
 ## [0.1.171] - 2025-12-28
 
 
