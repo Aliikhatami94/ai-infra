@@ -45,10 +45,3 @@ This section contains auto-generated API documentation from the ai-infra source 
     options:
       show_root_heading: true
       heading_level: 3
-
-### Cost
-
-::: ai_infra.cost
-    options:
-      show_root_heading: true
-      heading_level: 3
