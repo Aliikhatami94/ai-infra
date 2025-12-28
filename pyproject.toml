@@ -1,10 +1,6 @@
 [tool.poetry]
 name = "ai-infra"
-<<<<<<< Updated upstream
-version = "0.1.171"
-=======
 version = "1.0.0"
->>>>>>> Stashed changes
 description = "Infrastructure for efficient and scalable AI applications."
 authors = ["Ali Khatami <aliikhatami94@gmail.com>"]
 license = "MIT"
