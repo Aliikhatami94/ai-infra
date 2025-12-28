@@ -10,7 +10,7 @@ import os
 import uuid
 from typing import TYPE_CHECKING, Any
 
-from ai_infra.retriever.backends.base import BaseBackend
+from ai_infra.retriever.backends.base import BaseBackend, validate_sql_identifier
 
 if TYPE_CHECKING:
     import psycopg2
@@ -86,7 +86,8 @@ class PostgresBackend(BaseBackend):
                 password=resolved_password,
             )
 
-        self._table_name = table_name
+        # Validate table name to prevent SQL injection
+        self._table_name = validate_sql_identifier(table_name, "table_name")
         self._embedding_dimension = embedding_dimension
         self._similarity = similarity  # Store but currently only cosine is used
 

@@ -2,11 +2,47 @@
 
 from __future__ import annotations
 
+import re
 from abc import ABC, abstractmethod
 from typing import Any, Literal
 
 # Similarity metric type alias
 SimilarityMetric = Literal["cosine", "euclidean", "dot_product"]
+
+# SQL identifier validation pattern
+# Allows only alphanumeric characters and underscores, must start with a letter
+_SQL_IDENTIFIER_PATTERN = re.compile(r"^[a-zA-Z][a-zA-Z0-9_]*$")
+
+
+def validate_sql_identifier(name: str, field_name: str = "identifier") -> str:
+    """Validate and return a safe SQL identifier (table name, column name).
+
+    This prevents SQL injection by ensuring identifiers contain only
+    alphanumeric characters and underscores, and start with a letter.
+
+    Args:
+        name: The identifier to validate.
+        field_name: Name of the field for error messages.
+
+    Returns:
+        The validated identifier.
+
+    Raises:
+        ValueError: If the identifier is invalid.
+    """
+    if not name:
+        raise ValueError(f"{field_name} cannot be empty")
+
+    if len(name) > 63:
+        raise ValueError(f"{field_name} too long (max 63 characters): {name!r}")
+
+    if not _SQL_IDENTIFIER_PATTERN.match(name):
+        raise ValueError(
+            f"Invalid {field_name}: {name!r}. "
+            "Must start with a letter and contain only letters, numbers, and underscores."
+        )
+
+    return name
 
 
 class BaseBackend(ABC):

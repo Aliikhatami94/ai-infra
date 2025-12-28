@@ -11,7 +11,11 @@ import sqlite3
 import uuid
 from typing import TYPE_CHECKING, Any
 
-from ai_infra.retriever.backends.base import BaseBackend, SimilarityMetric
+from ai_infra.retriever.backends.base import (
+    BaseBackend,
+    SimilarityMetric,
+    validate_sql_identifier,
+)
 
 if TYPE_CHECKING:
     import numpy as np
@@ -73,7 +77,8 @@ class SQLiteBackend(BaseBackend):
         self._np = np
         self.similarity = similarity
         self._path = os.path.expanduser(path)
-        self._table_name = table_name
+        # Validate table name to prevent SQL injection
+        self._table_name = validate_sql_identifier(table_name, "table_name")
 
         # Create directory if needed
         dir_path = os.path.dirname(os.path.abspath(self._path))
