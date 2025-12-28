@@ -298,10 +298,10 @@ poetry install
 poetry run python -c "from ai_infra import LLM; print(LLM().chat('Hello!'))"
 
 # Agent
-poetry run python -c "from ai_infra.llm.examples.01_agent_basic import main; main()"
+poetry run python examples/agents/01_basic_tools.py
 
-# MCP
-poetry run ai-infra mcp test --url http://localhost:8080
+# See more examples
+ls examples/
 ```
 
 ## Related Packages
