@@ -13,7 +13,7 @@
 
 **One unified SDK for LLMs, agents, RAG, voice, images, and MCP—across 10+ providers.**
 
-[Documentation](docs/) · [Examples](examples/) · [PyPI](https://pypi.org/project/ai-infra/)
+[Documentation](docs/) · [Examples](examples/) · [Changelog](CHANGELOG.md) · [PyPI](https://pypi.org/project/ai-infra/)
 
 </div>
 

@@ -1,6 +1,10 @@
 [tool.poetry]
 name = "ai-infra"
+<<<<<<< Updated upstream
 version = "0.1.171"
+=======
+version = "1.0.0"
+>>>>>>> Stashed changes
 description = "Infrastructure for efficient and scalable AI applications."
 authors = ["Ali Khatami <aliikhatami94@gmail.com>"]
 license = "MIT"
@@ -9,7 +13,7 @@ packages = [{ include = "ai_infra", from = "src" }]
 keywords = ["ai", "langchain", "langgraph", "fastapi", "infra", "llm", "mcp"]
 
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
