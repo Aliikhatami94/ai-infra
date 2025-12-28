@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 This file is auto-generated from conventional commits using [git-cliff](https://git-cliff.org/).
 
+## [0.1.170] - 2025-12-28
+
+
+### Bug Fixes
+
+- Remove duplicate test_stt.py and test_tts.py files
+
+
+### Other Changes
+
+- Add SQL identifier validation to prevent injection in Postgres and SQLite backends
+- Add, search, delete, clear, and count.
+- Include tests for search with filtering capabilities.
+- Implement collection management tests for creation and recreation scenarios.
+- Cover edge cases and error handling in various methods.
+- Ensure tests validate expected behavior for both local and cloud configurations.
+
 ## [0.1.169] - 2025-12-28
 
 
