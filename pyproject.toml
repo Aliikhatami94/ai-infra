@@ -104,6 +104,7 @@ mypy = ">=1.10.0"
 pre-commit = ">=3.0.0"
 types-PyYAML = "*"
 bandit = ">=1.7.0"
+python-semantic-release = ">=9.0.0"
 # Documentation
 mkdocs = ">=1.6.0"
 mkdocs-material = ">=9.5.0"
@@ -193,6 +194,20 @@ omit = ["*/tests/*", "*/__pycache__/*", "*/examples/*", "*/cli/*"]
 exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "raise NotImplementedError"]
 fail_under = 40
 show_missing = true
+
+# Semantic Release configuration
+[tool.semantic_release]
+version_toml = ["pyproject.toml:tool.poetry.version"]
+branch = "main"
+tag_format = "v{version}"
+changelog_file = "CHANGELOG.md"
+upload_to_pypi = false  # We use separate publish workflow
+upload_to_release = false  # GH Release created by semantic-release publish
+
+[tool.semantic_release.commit_parser_options]
+allowed_tags = ["feat", "fix", "perf", "refactor", "docs", "chore", "test", "build", "ci"]
+minor_tags = ["feat"]
+patch_tags = ["fix", "perf"]
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
