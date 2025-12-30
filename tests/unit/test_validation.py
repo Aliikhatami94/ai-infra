@@ -8,12 +8,14 @@ from ai_infra.validation import (
     SUPPORTED_PROVIDERS,
     validate_config,
     validate_env_var,
+    validate_inputs,
     validate_json_output,
     validate_llm_params,
     validate_max_tokens,
     validate_messages,
     validate_output,
     validate_provider,
+    validate_return,
     validate_temperature,
 )
 
@@ -321,3 +323,151 @@ class TestValidateEnvVar:
 
         result = validate_env_var("OPTIONAL_VAR", required=False)
         assert result is None
+
+
+# =============================================================================
+# Decorator Tests
+# =============================================================================
+
+
+class TestValidateInputsDecorator:
+    """Tests for @validate_inputs decorator."""
+
+    def test_validates_dict_to_pydantic(self):
+        """Test decorator converts dict to Pydantic model."""
+
+        @validate_inputs
+        def process_person(person: Person) -> str:
+            return person.name
+
+        result = process_person({"name": "Alice", "age": 30})
+        assert result == "Alice"
+
+    def test_passes_already_pydantic(self):
+        """Test decorator passes through existing Pydantic model."""
+
+        @validate_inputs
+        def process_person(person: Person) -> str:
+            return person.name
+
+        alice = Person(name="Alice", age=30)
+        result = process_person(alice)
+        assert result == "Alice"
+
+    def test_validates_keyword_args(self):
+        """Test decorator validates keyword arguments."""
+
+        @validate_inputs
+        def process_person(person: Person) -> str:
+            return person.name
+
+        result = process_person(person={"name": "Bob", "age": 25})
+        assert result == "Bob"
+
+    def test_raises_on_invalid_input(self):
+        """Test decorator raises ValidationError on invalid input."""
+
+        @validate_inputs
+        def process_person(person: Person) -> str:
+            return person.name
+
+        with pytest.raises(ValidationError) as exc_info:
+            process_person({"name": "Alice"})  # Missing age
+
+        assert exc_info.value.field == "person"
+
+    def test_multiple_pydantic_args(self):
+        """Test decorator with multiple Pydantic arguments."""
+
+        @validate_inputs
+        def greet(person: Person, address: Address) -> str:
+            return f"{person.name} lives on {address.street}"
+
+        result = greet(
+            {"name": "Alice", "age": 30},
+            {"street": "Main St", "city": "NYC", "zip_code": "10001"},
+        )
+        assert result == "Alice lives on Main St"
+
+    def test_mixed_pydantic_and_regular_args(self):
+        """Test decorator with mixed Pydantic and regular args."""
+
+        @validate_inputs
+        def greet(greeting: str, person: Person) -> str:
+            return f"{greeting}, {person.name}!"
+
+        result = greet("Hello", {"name": "Alice", "age": 30})
+        assert result == "Hello, Alice!"
+
+    def test_no_validation_needed(self):
+        """Test decorator with no Pydantic hints is pass-through."""
+
+        @validate_inputs
+        def add(a: int, b: int) -> int:
+            return a + b
+
+        result = add(1, 2)
+        assert result == 3
+
+
+class TestValidateReturnDecorator:
+    """Tests for @validate_return decorator."""
+
+    def test_validates_dict_return(self):
+        """Test decorator validates dict return as Pydantic model."""
+
+        @validate_return(Person)
+        def get_person() -> Person:
+            return {"name": "Alice", "age": 30}  # type: ignore
+
+        result = get_person()
+        assert isinstance(result, Person)
+        assert result.name == "Alice"
+
+    def test_passes_pydantic_return(self):
+        """Test decorator passes through Pydantic model return."""
+
+        @validate_return(Person)
+        def get_person() -> Person:
+            return Person(name="Bob", age=25)
+
+        result = get_person()
+        assert isinstance(result, Person)
+        assert result.name == "Bob"
+
+    def test_raises_on_invalid_return(self):
+        """Test decorator raises ValidationError on invalid return."""
+
+        @validate_return(Person)
+        def get_person() -> Person:
+            return {"name": "Alice"}  # type: ignore  # Missing age
+
+        with pytest.raises(ValidationError) as exc_info:
+            get_person()
+
+        assert "Output validation failed" in str(exc_info.value)
+
+    def test_with_function_args(self):
+        """Test decorator works with function arguments."""
+
+        @validate_return(Person)
+        def create_person(name: str, age: int) -> Person:
+            return {"name": name, "age": age}  # type: ignore
+
+        result = create_person("Charlie", 35)
+        assert isinstance(result, Person)
+        assert result.name == "Charlie"
+        assert result.age == 35
+
+    def test_chain_with_validate_inputs(self):
+        """Test both decorators can be chained."""
+
+        @validate_return(Person)
+        @validate_inputs
+        def transform_person(person: Person) -> Person:
+            return {"name": person.name.upper(), "age": person.age + 1}  # type: ignore
+
+        result = transform_person({"name": "alice", "age": 30})
+        assert isinstance(result, Person)
+        assert result.name == "ALICE"
+        assert result.age == 31

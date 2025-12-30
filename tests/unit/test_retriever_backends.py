@@ -323,6 +323,229 @@ class TestSQLiteBackend:
         assert results[0]["text"] == "Type A"
 
 
+class TestSQLiteBackendSimilarityMetrics:
+    """Tests for SQLite backend similarity metrics."""
+
+    def test_cosine_similarity_default(self) -> None:
+        """Test cosine similarity is default."""
+        from ai_infra.retriever.backends.sqlite import SQLiteBackend
+
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+            db_path = f.name
+
+        try:
+            backend = SQLiteBackend(path=db_path)
+            assert backend.similarity == "cosine"
+            backend._conn.close()
+        finally:
+            if os.path.exists(db_path):
+                os.unlink(db_path)
+
+    def test_euclidean_similarity(self) -> None:
+        """Test euclidean similarity metric."""
+        from ai_infra.retriever.backends.sqlite import SQLiteBackend
+
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+            db_path = f.name
+
+        try:
+            backend = SQLiteBackend(path=db_path, similarity="euclidean")
+            backend.add(
+                embeddings=[[1.0, 0.0], [0.5, 0.5], [0.0, 1.0]],
+                texts=["Closest", "Middle", "Farthest"],
+            )
+
+            results = backend.search([1.0, 0.0], k=3)
+            # With euclidean, closest should be first
+            assert results[0]["text"] == "Closest"
+            backend._conn.close()
+        finally:
+            if os.path.exists(db_path):
+                os.unlink(db_path)
+
+    def test_dot_product_similarity(self) -> None:
+        """Test dot product similarity metric."""
+        from ai_infra.retriever.backends.sqlite import SQLiteBackend
+
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+            db_path = f.name
+
+        try:
+            backend = SQLiteBackend(path=db_path, similarity="dot_product")
+            backend.add(
+                embeddings=[[1.0, 1.0], [0.5, 0.5], [0.1, 0.1]],
+                texts=["Highest", "Middle", "Lowest"],
+            )
+
+            results = backend.search([1.0, 1.0], k=3)
+            # With dot product, higher dot product should come first
+            assert results[0]["text"] == "Highest"
+            backend._conn.close()
+        finally:
+            if os.path.exists(db_path):
+                os.unlink(db_path)
+
+    def test_unsupported_similarity_raises(self) -> None:
+        """Test unsupported similarity metric raises ValueError."""
+        from ai_infra.retriever.backends.sqlite import SQLiteBackend
+
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+            db_path = f.name
+
+        try:
+            with pytest.raises(ValueError, match="Unsupported similarity"):
+                SQLiteBackend(path=db_path, similarity="invalid")  # type: ignore
+        finally:
+            if os.path.exists(db_path):
+                os.unlink(db_path)
+
+
+class TestSQLiteBackendEdgeCases:
+    """Edge case tests for SQLite backend."""
+
+    def test_add_empty_list(self) -> None:
+        """Test adding empty list returns empty."""
+        from ai_infra.retriever.backends.sqlite import SQLiteBackend
+
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+            db_path = f.name
+
+        try:
+            backend = SQLiteBackend(path=db_path)
+            ids = backend.add([], [], [])
+            assert ids == []
+            assert backend.count() == 0
+            backend._conn.close()
+        finally:
+            if os.path.exists(db_path):
+                os.unlink(db_path)
+
+    def test_delete_empty_list(self) -> None:
+        """Test deleting empty list returns 0."""
+        from ai_infra.retriever.backends.sqlite import SQLiteBackend
+
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+            db_path = f.name
+
+        try:
+            backend = SQLiteBackend(path=db_path)
+            deleted = backend.delete([])
+            assert deleted == 0
+            backend._conn.close()
+        finally:
+            if os.path.exists(db_path):
+                os.unlink(db_path)
+
+    def test_search_empty_store(self) -> None:
+        """Test searching empty store returns empty."""
+        from ai_infra.retriever.backends.sqlite import SQLiteBackend
+
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+            db_path = f.name
+
+        try:
+            backend = SQLiteBackend(path=db_path)
+            results = backend.search([1.0, 0.0], k=5)
+            assert results == []
+            backend._conn.close()
+        finally:
+            if os.path.exists(db_path):
+                os.unlink(db_path)
+
+    def test_filter_non_matching(self) -> None:
+        """Test filter with no matches returns empty."""
+        from ai_infra.retriever.backends.sqlite import SQLiteBackend
+
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+            db_path = f.name
+
+        try:
+            backend = SQLiteBackend(path=db_path)
+            backend.add(
+                embeddings=[[1.0, 0.0]],
+                texts=["Test"],
+                metadatas=[{"type": "A"}],
+            )
+
+            results = backend.search([1.0, 0.0], k=5, filter={"type": "B"})
+            assert results == []
+            backend._conn.close()
+        finally:
+            if os.path.exists(db_path):
+                os.unlink(db_path)
+
+    def test_custom_table_name(self) -> None:
+        """Test using custom table name."""
+        from ai_infra.retriever.backends.sqlite import SQLiteBackend
+
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+            db_path = f.name
+
+        try:
+            backend = SQLiteBackend(path=db_path, table_name="my_vectors")
+            backend.add([[1.0, 0.0]], ["Test"])
+            assert backend.count() == 1
+            backend._conn.close()
+        finally:
+            if os.path.exists(db_path):
+                os.unlink(db_path)
+
+    def test_cosine_with_zero_vector(self) -> None:
+        """Test cosine similarity with zero vector returns 0."""
+        from ai_infra.retriever.backends.sqlite import SQLiteBackend
+
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+            db_path = f.name
+
+        try:
+            backend = SQLiteBackend(path=db_path)
+            backend.add([[0.0, 0.0]], ["Zero"], [{}])
+
+            results = backend.search([1.0, 1.0], k=1)
+            assert len(results) == 1
+            assert results[0]["score"] == 0.0  # Zero vector has no similarity
+            backend._conn.close()
+        finally:
+            if os.path.exists(db_path):
+                os.unlink(db_path)
+
+    def test_close_connection(self) -> None:
+        """Test closing database connection."""
+        from ai_infra.retriever.backends.sqlite import SQLiteBackend
+
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+            db_path = f.name
+
+        try:
+            backend = SQLiteBackend(path=db_path)
+            backend.add([[1.0, 0.0]], ["Test"])
+            backend.close()
+
+            # After close, operations should fail with sqlite3 error
+            import sqlite3
+
+            with pytest.raises(sqlite3.ProgrammingError):
+                backend.count()
+        finally:
+            if os.path.exists(db_path):
+                os.unlink(db_path)
+
+    def test_tilde_path_expansion(self) -> None:
+        """Test ~ is expanded in path."""
+        from ai_infra.retriever.backends.sqlite import SQLiteBackend
+
+        # Just test that it doesn't raise - full path testing is complex
+        path = "~/test_retriever.db"
+        try:
+            backend = SQLiteBackend(path=path)
+            # Should have created in home directory
+            assert "~" not in backend._path
+            backend._conn.close()
+        finally:
+            if os.path.exists(backend._path):
+                os.unlink(backend._path)
+
+
 # =============================================================================
 # Chroma Backend Tests (with mocks)
 # =============================================================================
@@ -409,23 +632,17 @@ class TestPineconeBackendWithMocks:
         mock_index = MagicMock()
         mock_index.upsert = MagicMock()
         mock_index.query = MagicMock(
-            return_value=MagicMock(
-                matches=[
-                    MagicMock(
-                        id="id1",
-                        score=0.95,
-                        metadata={"text": "Result 1", "key": "a"},
-                    ),
-                    MagicMock(
-                        id="id2",
-                        score=0.85,
-                        metadata={"text": "Result 2", "key": "b"},
-                    ),
+            return_value={
+                "matches": [
+                    {"id": "id1", "score": 0.95, "metadata": {"text": "Result 1", "key": "a"}},
+                    {"id": "id2", "score": 0.85, "metadata": {"text": "Result 2", "key": "b"}},
                 ]
-            )
+            }
         )
         mock_index.delete = MagicMock()
-        mock_index.describe_index_stats = MagicMock(return_value=MagicMock(total_vector_count=10))
+        mock_index.describe_index_stats = MagicMock(
+            return_value={"namespaces": {"test-ns": {"vector_count": 10}}}
+        )
 
         # Mock Pinecone class
         mock_pc = MagicMock()
@@ -455,6 +672,233 @@ class TestPineconeBackendWithMocks:
                 metadatas=[{"key": "value"}],
             )
             assert len(ids) == 1
+
+    def test_add_empty_list(self, mock_pinecone: MagicMock) -> None:
+        """Test adding empty list returns empty."""
+        with patch.dict("sys.modules", {"pinecone": mock_pinecone}):
+            import importlib
+
+            import ai_infra.retriever.backends.pinecone as pinecone_module
+
+            importlib.reload(pinecone_module)
+
+            backend = pinecone_module.PineconeBackend(
+                api_key="test-key",
+                index_name="test-index",
+            )
+
+            ids = backend.add(embeddings=[], texts=[], metadatas=[])
+            assert ids == []
+
+    def test_add_batch_over_100(self, mock_pinecone: MagicMock) -> None:
+        """Test adding more than 100 vectors batches correctly."""
+        with patch.dict("sys.modules", {"pinecone": mock_pinecone}):
+            import importlib
+
+            import ai_infra.retriever.backends.pinecone as pinecone_module
+
+            importlib.reload(pinecone_module)
+
+            backend = pinecone_module.PineconeBackend(
+                api_key="test-key",
+                index_name="test-index",
+            )
+
+            # Add 150 vectors
+            embeddings = [[float(i), 0.0, 0.0] for i in range(150)]
+            texts = [f"Text {i}" for i in range(150)]
+
+            ids = backend.add(embeddings=embeddings, texts=texts)
+
+            assert len(ids) == 150
+            # Should have called upsert twice (100 + 50)
+            mock_index = mock_pinecone.Pinecone.return_value.Index.return_value
+            assert mock_index.upsert.call_count == 2
+
+    def test_search_returns_results(self, mock_pinecone: MagicMock) -> None:
+        """Test search returns formatted results."""
+        with patch.dict("sys.modules", {"pinecone": mock_pinecone}):
+            import importlib
+
+            import ai_infra.retriever.backends.pinecone as pinecone_module
+
+            importlib.reload(pinecone_module)
+
+            backend = pinecone_module.PineconeBackend(
+                api_key="test-key",
+                index_name="test-index",
+                namespace="test-ns",
+            )
+
+            results = backend.search([0.1, 0.2, 0.3], k=2)
+
+            assert len(results) == 2
+            assert results[0]["id"] == "id1"
+            assert results[0]["text"] == "Result 1"
+            assert results[0]["score"] == 0.95
+            assert results[0]["metadata"] == {"key": "a"}
+
+    def test_search_with_filter(self, mock_pinecone: MagicMock) -> None:
+        """Test search with metadata filter."""
+        with patch.dict("sys.modules", {"pinecone": mock_pinecone}):
+            import importlib
+
+            import ai_infra.retriever.backends.pinecone as pinecone_module
+
+            importlib.reload(pinecone_module)
+
+            backend = pinecone_module.PineconeBackend(
+                api_key="test-key",
+                index_name="test-index",
+            )
+
+            backend.search([0.1, 0.2], k=5, filter={"category": "test"})
+
+            mock_index = mock_pinecone.Pinecone.return_value.Index.return_value
+            call_kwargs = mock_index.query.call_args.kwargs
+            assert call_kwargs["filter"] == {"category": {"$eq": "test"}}
+
+    def test_delete_ids(self, mock_pinecone: MagicMock) -> None:
+        """Test deleting by IDs."""
+        with patch.dict("sys.modules", {"pinecone": mock_pinecone}):
+            import importlib
+
+            import ai_infra.retriever.backends.pinecone as pinecone_module
+
+            importlib.reload(pinecone_module)
+
+            backend = pinecone_module.PineconeBackend(
+                api_key="test-key",
+                index_name="test-index",
+            )
+
+            deleted = backend.delete(["id1", "id2"])
+
+            assert deleted == 2
+            mock_index = mock_pinecone.Pinecone.return_value.Index.return_value
+            mock_index.delete.assert_called_once()
+
+    def test_delete_empty_list(self, mock_pinecone: MagicMock) -> None:
+        """Test deleting empty list returns zero."""
+        with patch.dict("sys.modules", {"pinecone": mock_pinecone}):
+            import importlib
+
+            import ai_infra.retriever.backends.pinecone as pinecone_module
+
+            importlib.reload(pinecone_module)
+
+            backend = pinecone_module.PineconeBackend(
+                api_key="test-key",
+                index_name="test-index",
+            )
+
+            deleted = backend.delete([])
+            assert deleted == 0
+
+    def test_clear_namespace(self, mock_pinecone: MagicMock) -> None:
+        """Test clearing all vectors in namespace."""
+        with patch.dict("sys.modules", {"pinecone": mock_pinecone}):
+            import importlib
+
+            import ai_infra.retriever.backends.pinecone as pinecone_module
+
+            importlib.reload(pinecone_module)
+
+            backend = pinecone_module.PineconeBackend(
+                api_key="test-key",
+                index_name="test-index",
+                namespace="test-ns",
+            )
+
+            backend.clear()
+
+            mock_index = mock_pinecone.Pinecone.return_value.Index.return_value
+            mock_index.delete.assert_called_with(delete_all=True, namespace="test-ns")
+
+    def test_count_returns_vector_count(self, mock_pinecone: MagicMock) -> None:
+        """Test count returns correct vector count."""
+        with patch.dict("sys.modules", {"pinecone": mock_pinecone}):
+            import importlib
+
+            import ai_infra.retriever.backends.pinecone as pinecone_module
+
+            importlib.reload(pinecone_module)
+
+            backend = pinecone_module.PineconeBackend(
+                api_key="test-key",
+                index_name="test-index",
+                namespace="test-ns",
+            )
+
+            count = backend.count()
+            assert count == 10
+
+    def test_missing_api_key_raises(self, mock_pinecone: MagicMock) -> None:
+        """Test missing API key raises ValueError."""
+        with patch.dict("sys.modules", {"pinecone": mock_pinecone}):
+            with patch.dict(os.environ, {}, clear=True):
+                import importlib
+
+                import ai_infra.retriever.backends.pinecone as pinecone_module
+
+                importlib.reload(pinecone_module)
+
+                # Temporarily clear env var
+                original = os.environ.pop("PINECONE_API_KEY", None)
+                try:
+                    with pytest.raises(ValueError, match="API key is required"):
+                        pinecone_module.PineconeBackend(index_name="test-index")
+                finally:
+                    if original:
+                        os.environ["PINECONE_API_KEY"] = original
+
+
+class TestPineconeFlattenMetadata:
+    """Tests for _flatten_metadata helper."""
+
+    def test_flattens_simple_dict(self) -> None:
+        """Test flattening simple metadata dict."""
+        from ai_infra.retriever.backends.pinecone import PineconeBackend
+
+        result = PineconeBackend._flatten_metadata({"name": "test", "count": 42, "active": True})
+        assert result == {"name": "test", "count": 42, "active": True}
+
+    def test_skips_nested_dicts(self) -> None:
+        """Test nested dicts are skipped."""
+        from ai_infra.retriever.backends.pinecone import PineconeBackend
+
+        result = PineconeBackend._flatten_metadata({"name": "test", "nested": {"key": "value"}})
+        assert result == {"name": "test"}
+
+    def test_keeps_string_lists(self) -> None:
+        """Test string lists are kept."""
+        from ai_infra.retriever.backends.pinecone import PineconeBackend
+
+        result = PineconeBackend._flatten_metadata({"tags": ["a", "b", "c"]})
+        assert result == {"tags": ["a", "b", "c"]}
+
+    def test_drops_mixed_lists(self) -> None:
+        """Test mixed lists are dropped."""
+        from ai_infra.retriever.backends.pinecone import PineconeBackend
+
+        result = PineconeBackend._flatten_metadata({"mixed": ["a", 1, True]})
+        assert "mixed" not in result
+
+    def test_converts_other_types_to_string(self) -> None:
+        """Test other types are converted to string."""
+        from datetime import date
+
+        from ai_infra.retriever.backends.pinecone import PineconeBackend
+
+        result = PineconeBackend._flatten_metadata({"date": date(2024, 1, 1)})
+        assert result == {"date": "2024-01-01"}
+
+    def test_skips_none_values(self) -> None:
+        """Test None values are skipped."""
+        from ai_infra.retriever.backends.pinecone import PineconeBackend
+
+        result = PineconeBackend._flatten_metadata({"name": "test", "empty": None})
+        assert result == {"name": "test"}
 
 
 # =============================================================================
