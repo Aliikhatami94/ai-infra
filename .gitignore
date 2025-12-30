@@ -25,6 +25,7 @@ __pycache__/
 .pypl-token
 .vscode/
 .venv/
+dist/
 
 # Documentation
 .github/AGENTS.md
