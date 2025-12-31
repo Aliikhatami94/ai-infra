@@ -222,7 +222,7 @@ def tool_filtering_demo():
     test_tools = ["query_database", "create_chart", "delete_record", "send_email"]
     for tool in test_tools:
         allowed = whitelist_filter(tool) if whitelist_filter else True
-        status = "✓" if allowed else "✗"
+        status = "[OK]" if allowed else "[X]"
         print(f"   {status} {tool}")
 
     # Blacklist only (deny specific tools)
@@ -233,7 +233,7 @@ def tool_filtering_demo():
     )
     for tool in test_tools:
         allowed = blacklist_filter(tool) if blacklist_filter else True
-        status = "✓" if allowed else "✗"
+        status = "[OK]" if allowed else "[X]"
         print(f"   {status} {tool}")
 
     # Combined (whitelist + blacklist)
@@ -244,7 +244,7 @@ def tool_filtering_demo():
     )
     for tool in test_tools:
         allowed = combined_filter(tool) if combined_filter else True
-        status = "✓" if allowed else "✗"
+        status = "[OK]" if allowed else "[X]"
         print(f"   {status} {tool}")
 
 

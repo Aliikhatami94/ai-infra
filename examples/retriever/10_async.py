@@ -202,12 +202,12 @@ async def async_with_timeout():
             )
             return result
         except TimeoutError:
-            print(f"    ⚠ Search timed out after {timeout}s")
+            print(f"    [!] Search timed out after {timeout}s")
             return []
 
     print("\n  Testing with 5s timeout (should succeed):")
     results = await search_with_timeout("test", timeout=5.0)
-    print(f"    ✓ Got {len(results)} results")
+    print(f"    [OK] Got {len(results)} results")
 
     print("\n  Timeout pattern protects against slow operations")
 

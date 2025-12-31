@@ -401,16 +401,16 @@ def trim_vs_summarize():
     print("=" * 60)
 
     print("\n  Use TRIM when:")
-    print("    ✓ Speed is critical (no LLM call)")
-    print("    ✓ Only recent context matters")
-    print("    ✓ Conversation is short enough")
-    print("    ✓ Cost is a concern")
+    print("    [OK] Speed is critical (no LLM call)")
+    print("    [OK] Only recent context matters")
+    print("    [OK] Conversation is short enough")
+    print("    [OK] Cost is a concern")
 
     print("\n  Use SUMMARIZE when:")
-    print("    ✓ Historical context is important")
-    print("    ✓ Long-running conversations")
-    print("    ✓ Need to preserve key decisions/facts")
-    print("    ✓ Quality > speed")
+    print("    [OK] Historical context is important")
+    print("    [OK] Long-running conversations")
+    print("    [OK] Need to preserve key decisions/facts")
+    print("    [OK] Quality > speed")
 
     print("\n  Hybrid approach with fit_context:")
     print("""

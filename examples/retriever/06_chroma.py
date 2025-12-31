@@ -95,7 +95,7 @@ def persistent_chroma():
         )
 
         print(f"  Found {len(retriever2)} existing documents")
-        print("\n✓ Data persisted between sessions!")
+        print("\n[OK] Data persisted between sessions!")
 
 
 # =============================================================================
@@ -267,7 +267,7 @@ def batch_operations():
     retriever.add(docs)
     elapsed = time.time() - start
 
-    print(f"  ✓ Added in {elapsed:.2f}s ({num_docs / elapsed:.0f} docs/sec)")
+    print(f"  [OK] Added in {elapsed:.2f}s ({num_docs / elapsed:.0f} docs/sec)")
 
     # Batch search
     queries = [f"topic {i}" for i in range(10)]
@@ -278,7 +278,7 @@ def batch_operations():
         retriever.search(query, k=5)
     elapsed = time.time() - start
 
-    print(f"  ✓ Searched in {elapsed:.2f}s ({len(queries) / elapsed:.0f} queries/sec)")
+    print(f"  [OK] Searched in {elapsed:.2f}s ({len(queries) / elapsed:.0f} queries/sec)")
 
 
 # =============================================================================

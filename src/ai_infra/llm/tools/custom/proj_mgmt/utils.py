@@ -122,7 +122,7 @@ def _confine(path: str | Path, *, workspace: Path | None = None) -> Path:
     """
     Map user-supplied path to a real path under the workspace root.
 
-    ⚠️ SECURITY: This function is the primary defense against path traversal attacks.
+    [!] SECURITY: This function is the primary defense against path traversal attacks.
     ALL user-supplied paths MUST be processed through this function before any
     filesystem operation. This prevents attacks like "../../etc/passwd".
 

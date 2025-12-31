@@ -418,12 +418,12 @@ tools = tools_from_object_with_properties(monitor, prefix="system")
 Docstrings become tool descriptions that the LLM reads. Make them clear:
 
 ```python
-# ❌ Poor: LLM doesn't understand what this does
+# [X] Poor: LLM doesn't understand what this does
 def get_data(self, id: str) -> dict:
     """Get data."""
     ...
 
-# ✅ Good: LLM understands purpose and parameters
+# [OK] Good: LLM understands purpose and parameters
 def get_user_profile(self, user_id: str) -> dict:
     """Get a user's profile information including name, email, and preferences.
 
@@ -441,11 +441,11 @@ def get_user_profile(self, user_id: str) -> dict:
 Type hints help the LLM understand parameter types:
 
 ```python
-# ❌ No type hints - LLM may guess wrong types
+# [X] No type hints - LLM may guess wrong types
 def search(self, query, limit):
     ...
 
-# ✅ Clear type hints - LLM knows exact types
+# [OK] Clear type hints - LLM knows exact types
 def search(self, query: str, limit: int = 10) -> list[dict]:
     ...
 ```
@@ -455,11 +455,11 @@ def search(self, query: str, limit: int = 10) -> list[dict]:
 Return types that serialize to JSON cleanly:
 
 ```python
-# ❌ Returns complex object - may not serialize
+# [X] Returns complex object - may not serialize
 def get_user(self, user_id: str) -> User:
     return self.db.get(user_id)  # SQLAlchemy model
 
-# ✅ Returns dict - clean JSON serialization
+# [OK] Returns dict - clean JSON serialization
 def get_user(self, user_id: str) -> dict:
     user = self.db.get(user_id)
     return {"id": user.id, "name": user.name, "email": user.email}

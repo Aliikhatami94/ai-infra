@@ -39,7 +39,7 @@ async def zero_config():
     print(f"  Configured providers: {configured}")
 
     if not configured:
-        print("\n  ⚠ No providers configured!")
+        print("\n  [!] No providers configured!")
         print("    Set OPENAI_API_KEY or GOOGLE_API_KEY")
         return
 
@@ -47,7 +47,7 @@ async def zero_config():
     voice = RealtimeVoice()
 
     print(f"\n  Selected provider: {voice.provider_name}")
-    print("  ✓ Ready for voice conversation")
+    print("  [OK] Ready for voice conversation")
 
 
 # =============================================================================
@@ -62,7 +62,7 @@ async def basic_callbacks():
     print("=" * 60)
 
     if not RealtimeVoice.configured_providers():
-        print("\n  ⚠ No providers configured")
+        print("\n  [!] No providers configured")
         return
 
     voice = RealtimeVoice()
@@ -91,7 +91,7 @@ async def basic_callbacks():
     print("    - on_audio: Handle AI audio output")
     print("    - on_error: Handle errors")
 
-    print("\n  ✓ Voice session ready with callbacks")
+    print("\n  [OK] Voice session ready with callbacks")
 
 
 # =============================================================================
@@ -106,7 +106,7 @@ async def simple_conversation():
     print("=" * 60)
 
     if not RealtimeVoice.configured_providers():
-        print("\n  ⚠ No providers configured")
+        print("\n  [!] No providers configured")
         return
 
     voice = RealtimeVoice()

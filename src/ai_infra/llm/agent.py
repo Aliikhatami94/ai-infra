@@ -968,7 +968,7 @@ class Agent(BaseLLM):
 
                                 logger = logging.getLogger(__name__)
                                 logger.info(
-                                    f"🔧 Emitting tool_start: tool={acc_name}, visibility={eff_visibility}, has_args={tc_args is not None}, args={tc_args}"
+                                    f" Emitting tool_start: tool={acc_name}, visibility={eff_visibility}, has_args={tc_args is not None}, args={tc_args}"
                                 )
 
                                 event = StreamEvent(
@@ -995,7 +995,7 @@ class Agent(BaseLLM):
 
                         logger = logging.getLogger(__name__)
                         logger.debug(
-                            f"🔄 Tool {acc_name} has empty args_str - waiting for complete tool_calls"
+                            f" Tool {acc_name} has empty args_str - waiting for complete tool_calls"
                         )
                         pass
 

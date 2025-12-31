@@ -591,12 +591,12 @@ def main():
     print("Examples complete!")
     print("=" * 60)
     print("\nProduction checklist:")
-    print("  ✓ PostgreSQL with pgvector extension")
-    print("  ✓ Connection pooler (PgBouncer)")
-    print("  ✓ Embedding provider configured")
-    print("  ✓ Monitoring and metrics")
-    print("  ✓ Backup strategy")
-    print("  ✓ Maintenance jobs scheduled")
+    print("  [OK] PostgreSQL with pgvector extension")
+    print("  [OK] Connection pooler (PgBouncer)")
+    print("  [OK] Embedding provider configured")
+    print("  [OK] Monitoring and metrics")
+    print("  [OK] Backup strategy")
+    print("  [OK] Maintenance jobs scheduled")
 
 
 if __name__ == "__main__":

@@ -101,7 +101,7 @@ def create_task(task: TaskInput) -> str:
     _tasks.append(task_dict)
 
     return (
-        f"✓ Created task #{task_id}: '{task.title}' "
+        f"[OK] Created task #{task_id}: '{task.title}' "
         f"(Priority: {task.priority.value}, Due in {task.due_days} days)"
         + (f", Assigned to: {task.assignee}" if task.assignee else "")
     )
@@ -174,7 +174,7 @@ def send_email(request: EmailRequest) -> str:
     cc_info = f" (CC: {len(request.cc)})" if request.cc else ""
     format_info = " [HTML]" if request.is_html else ""
 
-    return f"✓ Email sent to {recipients}{cc_info}{format_info}\n  Subject: {request.subject}"
+    return f"[OK] Email sent to {recipients}{cc_info}{format_info}\n  Subject: {request.subject}"
 
 
 # =============================================================================
@@ -344,7 +344,7 @@ def nested_schema_example():
         shipping = 9.99 if not order.express_shipping else 24.99
 
         return (
-            f"✓ Order created for {order.customer.name}\n"
+            f"[OK] Order created for {order.customer.name}\n"
             f"  Items: {len(order.items)}\n"
             f"  Subtotal: ${total:.2f}\n"
             f"  Shipping: ${shipping:.2f}\n"

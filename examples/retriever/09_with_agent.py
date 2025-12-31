@@ -47,7 +47,7 @@ def basic_retriever_tool():
         description="Search the product knowledge base for information about Widget Pro",
     )
 
-    print("\n  ✓ Created retriever tool")
+    print("\n  [OK] Created retriever tool")
     print(f"    Name: {search_tool.name}")
     print(f"    Description: {search_tool.description[:50]}...")
 
@@ -69,7 +69,7 @@ async def agent_with_retriever():
     print("=" * 60)
 
     if not os.getenv("OPENAI_API_KEY") and not os.getenv("ANTHROPIC_API_KEY"):
-        print("\n  ⚠ Set OPENAI_API_KEY or ANTHROPIC_API_KEY to run this example")
+        print("\n  [!] Set OPENAI_API_KEY or ANTHROPIC_API_KEY to run this example")
         return
 
     # Build knowledge base
@@ -231,7 +231,7 @@ def dynamic_knowledge_base():
     print("\n  Added: Sale pricing information")
     print(f"  Query 'price': {search_tool('Widget Pro price')[:60]}...")
 
-    print("\n  ✓ Knowledge base updated without recreating agent!")
+    print("\n  [OK] Knowledge base updated without recreating agent!")
 
 
 # =============================================================================
@@ -289,7 +289,7 @@ async def full_rag_pipeline():
     print("=" * 60)
 
     if not os.getenv("OPENAI_API_KEY") and not os.getenv("ANTHROPIC_API_KEY"):
-        print("\n  ⚠ Set OPENAI_API_KEY or ANTHROPIC_API_KEY to run this example")
+        print("\n  [!] Set OPENAI_API_KEY or ANTHROPIC_API_KEY to run this example")
         print("\n  RAG Pipeline components:")
         print("    1. Retriever with knowledge base")
         print("    2. create_retriever_tool() wraps retriever")
@@ -368,7 +368,7 @@ def error_handling():
     result = search_tool("content")
     print(f"    Result: {result[:50] if result else '(no results)'}...")
 
-    print("\n  ✓ Handles empty results gracefully")
+    print("\n  [OK] Handles empty results gracefully")
 
 
 # =============================================================================

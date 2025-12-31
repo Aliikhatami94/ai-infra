@@ -2,7 +2,7 @@
 
 Thank you for your interest in contributing to ai-infra! This document provides guidelines for contributing.
 
-## ⚠️ AI Safety Warning
+## [!] AI Safety Warning
 
 **ai-infra controls AI/LLM systems. Bugs here can cause runaway costs, security breaches, or system crashes.**
 
@@ -46,10 +46,10 @@ mypy src
 **All agent loops MUST have recursion limits:**
 
 ```python
-# ✅ Correct - Explicit limit
+# [OK] Correct - Explicit limit
 agent = create_react_agent(llm, tools, recursion_limit=50)
 
-# ❌ WRONG - Infinite loop = infinite cost
+# [X] WRONG - Infinite loop = infinite cost
 agent = create_react_agent(llm, tools)
 ```
 
@@ -58,12 +58,12 @@ agent = create_react_agent(llm, tools)
 **Always truncate tool results before sending to LLM:**
 
 ```python
-# ✅ Correct
+# [OK] Correct
 result = tool.run()
 if len(result) > max_chars:
     result = result[:max_chars] + "\n[TRUNCATED]"
 
-# ❌ WRONG - Could blow context window
+# [X] WRONG - Could blow context window
 result = tool.run()  # Could be 100MB
 messages.append({"role": "tool", "content": result})
 ```
@@ -73,10 +73,10 @@ messages.append({"role": "tool", "content": result})
 **Never use eval() or pickle.load() on untrusted data:**
 
 ```python
-# ❌ WRONG - Arbitrary code execution
+# [X] WRONG - Arbitrary code execution
 new_args = eval(user_input)
 
-# ✅ Correct - Safe parsing
+# [OK] Correct - Safe parsing
 import ast
 new_args = ast.literal_eval(user_input)
 ```
@@ -86,10 +86,10 @@ new_args = ast.literal_eval(user_input)
 **Sanitize external content:**
 
 ```python
-# ✅ Correct
+# [OK] Correct
 tool_desc = sanitize_description(mcp_server.get_tool_description())
 
-# ❌ WRONG - Could contain "IGNORE PREVIOUS INSTRUCTIONS"
+# [X] WRONG - Could contain "IGNORE PREVIOUS INSTRUCTIONS"
 system_prompt += mcp_server.get_tool_description()
 ```
 

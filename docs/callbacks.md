@@ -10,16 +10,16 @@ from ai_infra import Callbacks, Agent, LLM, MCPClient
 
 class MyCallbacks(Callbacks):
     def on_llm_start(self, event):
-        print(f"🚀 Starting {event.provider}/{event.model}")
+        print(f" Starting {event.provider}/{event.model}")
 
     def on_llm_end(self, event):
-        print(f"✅ Done in {event.latency_ms:.0f}ms, {event.total_tokens} tokens")
+        print(f"[OK] Done in {event.latency_ms:.0f}ms, {event.total_tokens} tokens")
 
     def on_tool_start(self, event):
-        print(f"🔧 Running {event.tool_name}")
+        print(f" Running {event.tool_name}")
 
     def on_tool_end(self, event):
-        print(f"✅ Tool done: {event.result[:50]}...")
+        print(f"[OK] Tool done: {event.result[:50]}...")
 
 # Use with Agent
 agent = Agent(tools=[...], callbacks=MyCallbacks())

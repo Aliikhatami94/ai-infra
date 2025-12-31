@@ -67,7 +67,7 @@ def tts_providers_cmd(
 
         typer.echo("\nTTS Providers:")
         for provider in providers:
-            status = "✓" if is_tts_configured(provider) else "✗"
+            status = "[OK]" if is_tts_configured(provider) else "[X]"
             typer.echo(f"  {status} {provider}")
 
 
@@ -178,7 +178,7 @@ def stt_providers_cmd(
 
         typer.echo("\nSTT Providers:")
         for provider in providers:
-            status = "✓" if is_stt_configured(provider) else "✗"
+            status = "[OK]" if is_stt_configured(provider) else "[X]"
             typer.echo(f"  {status} {provider}")
 
 

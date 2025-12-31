@@ -54,7 +54,7 @@ recognition, natural language processing, and recommendation systems.
         # Add the file to the retriever
         retriever.add_file(temp_path)
 
-        print("\n✓ File loaded")
+        print("\n[OK] File loaded")
         print(f"  Documents: {len(retriever)}")
 
         # Search the content
@@ -118,7 +118,7 @@ class Person:
 
         retriever.add_file(temp_path)
 
-        print("\n✓ Markdown loaded")
+        print("\n[OK] Markdown loaded")
         print(f"  Documents: {len(retriever)}")
 
         results = retriever.search("how to define functions", k=1)
@@ -167,7 +167,7 @@ def load_with_metadata():
             metadata={"language": "javascript", "category": "intro"},
         )
 
-        print(f"\n✓ Loaded {len(temp_paths)} files with metadata")
+        print(f"\n[OK] Loaded {len(temp_paths)} files with metadata")
 
         # Search with metadata filter
         results = retriever.search(
@@ -230,7 +230,7 @@ def load_json_file():
 
         retriever.add_file(temp_path)
 
-        print("\n✓ JSON loaded")
+        print("\n[OK] JSON loaded")
         print(f"  Documents: {len(retriever)}")
 
         results = retriever.search("professional widget", k=1)
@@ -276,7 +276,7 @@ on the previous ones to create a comprehensive overview.
 
         retriever.add_file(temp_path)
 
-        print("\n✓ Large file loaded and chunked")
+        print("\n[OK] Large file loaded and chunked")
         print(f"  Total chunks: {len(retriever)}")
 
         results = retriever.search("Section 25", k=1)
@@ -312,7 +312,7 @@ def source_tracking():
             path.write_text(content)
             retriever.add_file(str(path))
 
-        print(f"\n✓ Loaded {len(files)} files")
+        print(f"\n[OK] Loaded {len(files)} files")
 
         # Search and show sources
         results = retriever.search("API users", k=2)

@@ -56,7 +56,7 @@ def providers_cmd(
 
         typer.echo("\nImage Generation Providers:\n")
         for provider in result:
-            status = "✓" if is_provider_configured(provider) else "✗"
+            status = "[OK]" if is_provider_configured(provider) else "[X]"
             typer.echo(f"  {status} {provider}")
         typer.echo()
 

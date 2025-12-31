@@ -576,7 +576,7 @@ class TestQdrantBackendEdgeCases:
 
     def test_unicode_text(self, backend):
         """Test with unicode text."""
-        unicode_text = "Hello! 你好! مرحبا! 🎉"
+        unicode_text = "Hello! 你好! مرحبا! "
 
         backend.add(embeddings=[[0.1] * 1536], texts=[unicode_text])
 

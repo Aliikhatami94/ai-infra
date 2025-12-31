@@ -260,16 +260,16 @@ key = ProviderRegistry.get_api_key("openai")
 
 | Provider | Chat | Embed | TTS | STT | Image | Realtime |
 |----------|:----:|:-----:|:---:|:---:|:-----:|:--------:|
-| OpenAI | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Anthropic | ✅ | - | - | - | - | - |
-| Google | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| xAI | ✅ | - | - | - | - | - |
-| ElevenLabs | - | - | ✅ | - | - | - |
-| Deepgram | - | - | - | ✅ | - | - |
-| Stability | - | - | - | - | ✅ | - |
-| Replicate | - | - | - | - | ✅ | - |
-| Voyage | - | ✅ | - | - | - | - |
-| Cohere | - | ✅ | - | - | - | - |
+| OpenAI | [OK] | [OK] | [OK] | [OK] | [OK] | [OK] |
+| Anthropic | [OK] | - | - | - | - | - |
+| Google | [OK] | [OK] | [OK] | [OK] | [OK] | [OK] |
+| xAI | [OK] | - | - | - | - | - |
+| ElevenLabs | - | - | [OK] | - | - | - |
+| Deepgram | - | - | - | [OK] | - | - |
+| Stability | - | - | - | - | [OK] | - |
+| Replicate | - | - | - | - | [OK] | - |
+| Voyage | - | [OK] | - | - | - | - |
+| Cohere | - | [OK] | - | - | - | - |
 
 ---
 

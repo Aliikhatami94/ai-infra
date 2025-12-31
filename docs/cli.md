@@ -42,16 +42,16 @@ Output:
 ```
 Provider        Status      Capabilities
 ────────────────────────────────────────────
-openai          ✓ ready     CHAT, EMBEDDINGS, TTS, IMAGEGEN
-anthropic       ✓ ready     CHAT
-google_genai    ✗ not set   CHAT, EMBEDDINGS
-xai             ✗ not set   CHAT
-elevenlabs      ✓ ready     TTS
-deepgram        ✗ not set   STT
-stability       ✗ not set   IMAGEGEN
-replicate       ✗ not set   IMAGEGEN
-voyage          ✓ ready     EMBEDDINGS
-cohere          ✗ not set   EMBEDDINGS
+openai          [OK] ready     CHAT, EMBEDDINGS, TTS, IMAGEGEN
+anthropic       [OK] ready     CHAT
+google_genai    [X] not set   CHAT, EMBEDDINGS
+xai             [X] not set   CHAT
+elevenlabs      [OK] ready     TTS
+deepgram        [X] not set   STT
+stability       [X] not set   IMAGEGEN
+replicate       [X] not set   IMAGEGEN
+voyage          [OK] ready     EMBEDDINGS
+cohere          [X] not set   EMBEDDINGS
 ```
 
 Options:
@@ -79,9 +79,9 @@ ai-infra check openai
 Output:
 ```
 Checking openai...
-  ✓ API key found (OPENAI_API_KEY)
-  ✓ Connection successful
-  ✓ Model access: gpt-4o, gpt-4o-mini, dall-e-3
+  [OK] API key found (OPENAI_API_KEY)
+  [OK] Connection successful
+  [OK] Model access: gpt-4o, gpt-4o-mini, dall-e-3
 
 Provider openai is ready.
 ```
@@ -364,7 +364,7 @@ ai-infra mcp test --transport stdio --command npx --args "-y @modelcontextprotoc
 Output:
 ```
 ╭─── MCP Server Test ────╮
-│ ✓ Connected successfully │
+│ [OK] Connected successfully │
 │                          │
 │ Server: localhost:8000   │
 │ Transport: streamable_http │

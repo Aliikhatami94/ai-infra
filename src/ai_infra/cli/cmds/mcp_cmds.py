@@ -99,7 +99,7 @@ async def _run_with_client(
         await client.discover()
         return await func(client)
     except Exception as e:
-        console.print(f"[red]✗ {operation} failed: {e}[/red]")
+        console.print(f"[red][X] {operation} failed: {e}[/red]")
         raise typer.Exit(1)
     finally:
         await client.close()
@@ -163,7 +163,7 @@ def test_cmd(
         target = url or f"{command} {args or ''}"
         console.print(
             Panel(
-                f"[green]✓ Connected successfully[/green]\n\n"
+                f"[green][OK] Connected successfully[/green]\n\n"
                 f"Server: {target}\n"
                 f"Transport: {transport}\n"
                 f"Tools: {tools_count}\n"
@@ -514,7 +514,7 @@ def call_cmd(
         else:
             console.print(
                 Panel(
-                    f"[green]✓ Tool '{tool_name}' called successfully[/green]",
+                    f"[green][OK] Tool '{tool_name}' called successfully[/green]",
                     title="MCP Tool Call",
                     border_style="green",
                 )
@@ -592,7 +592,7 @@ def prompt_cmd(
         else:
             console.print(
                 Panel(
-                    f"[green]✓ Prompt '{prompt_name}' loaded[/green]\nMessages: {len(messages)}",
+                    f"[green][OK] Prompt '{prompt_name}' loaded[/green]\nMessages: {len(messages)}",
                     title="MCP Prompt",
                     border_style="green",
                 )
@@ -669,7 +669,7 @@ def resource_cmd(
             data = resource.data
             with open(output_file, mode) as f:
                 f.write(data)
-            console.print(f"[green]✓ Written to {output_file}[/green]")
+            console.print(f"[green][OK] Written to {output_file}[/green]")
         elif output_json:
             resource_data = {
                 "uri": resource.uri,
@@ -685,7 +685,7 @@ def resource_cmd(
         else:
             console.print(
                 Panel(
-                    f"[green]✓ Resource fetched[/green]\n"
+                    f"[green][OK] Resource fetched[/green]\n"
                     f"URI: {resource.uri}\n"
                     f"MIME: {resource.mime_type or 'unknown'}\n"
                     f"Type: {'text' if resource.is_text else 'binary'}",

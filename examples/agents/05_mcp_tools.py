@@ -51,7 +51,7 @@ async def basic_mcp_tools():
             transport="streamable_http",  # or "sse", "stdio"
         )
 
-        print(f"✓ Loaded {len(tools)} tools from MCP server")
+        print(f"[OK] Loaded {len(tools)} tools from MCP server")
         for tool in tools:
             name = getattr(tool, "name", str(tool))
             desc = getattr(tool, "description", "")[:80]
@@ -104,11 +104,11 @@ async def multi_server_mcp():
         async with MCPClient(configs, discover_timeout=10.0) as mcp:
             # Discover available servers
             servers = mcp.server_names()
-            print(f"\n✓ Discovered {len(servers)} servers: {servers}")
+            print(f"\n[OK] Discovered {len(servers)} servers: {servers}")
 
             # List all tools from all servers
             all_tools = await mcp.list_tools()
-            print(f"✓ Total tools available: {len(all_tools)}")
+            print(f"[OK] Total tools available: {len(all_tools)}")
 
             # Create agent with all discovered tools
             agent = Agent(tools=all_tools)
@@ -147,10 +147,10 @@ async def stdio_mcp_server():
     try:
         async with MCPClient([config], discover_timeout=30.0) as mcp:
             servers = mcp.server_names()
-            print(f"✓ Connected to: {servers}")
+            print(f"[OK] Connected to: {servers}")
 
             tools = await mcp.list_tools()
-            print(f"✓ Available tools: {len(tools)}")
+            print(f"[OK] Available tools: {len(tools)}")
             for tool in tools[:5]:  # Show first 5
                 name = getattr(tool, "name", str(tool))
                 print(f"  - {name}")
@@ -192,11 +192,11 @@ async def direct_tool_call():
                 return
 
             server_name = servers[0]
-            print(f"✓ Connected to server: {server_name}")
+            print(f"[OK] Connected to server: {server_name}")
 
             # List available tools
             tools = await mcp.list_tools(server=server_name)
-            print("✓ Available tools:")
+            print("[OK] Available tools:")
             for tool in tools[:5]:
                 name = getattr(tool, "name", str(tool))
                 desc = getattr(tool, "description", "")[:60]
@@ -364,7 +364,7 @@ async def health_check():
     status = await mcp.health_check()
     print("\nServer Status:")
     for server, health in status.items():
-        icon = "✓" if health == "healthy" else "✗"
+        icon = "[OK]" if health == "healthy" else "[X]"
         print(f"  {icon} {server}: {health}")
 
     # Get error details for failed servers

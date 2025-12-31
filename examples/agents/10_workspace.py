@@ -133,9 +133,9 @@ Sandboxed mode characteristics:
 
     # Path validation demo
     print("\nPath validation:")
-    print("  /home/user/project/src/main.py → ✓ Allowed")
-    print("  /home/user/project/../secrets.txt → ✗ Blocked (escapes sandbox)")
-    print("  /etc/passwd → ✗ Blocked (outside sandbox)")
+    print("  /home/user/project/src/main.py → [OK] Allowed")
+    print("  /home/user/project/../secrets.txt → [X] Blocked (escapes sandbox)")
+    print("  /etc/passwd → [X] Blocked (outside sandbox)")
 
 
 async def sandboxed_mode_demo():
@@ -183,7 +183,7 @@ def full_mode():
     print("=" * 60)
 
     print("""
-⚠️ SECURITY WARNING: Full mode gives unrestricted access!
+[!] SECURITY WARNING: Full mode gives unrestricted access!
 
 Full mode characteristics:
 - Full filesystem access from root
@@ -202,7 +202,7 @@ Good for:
     print(f"Created: {ws}")
 
     print("""
-⚠️ Never use full mode with:
+[!] Never use full mode with:
 - Untrusted user prompts
 - External/unvalidated inputs
 - Cloud functions handling user requests
@@ -264,7 +264,7 @@ def path_resolution():
     for path in examples:
         resolved = (ws.root / path).resolve()
         in_sandbox = resolved.is_relative_to(ws.root)
-        status = "✓ Allowed" if in_sandbox else "✗ Blocked"
+        status = "[OK] Allowed" if in_sandbox else "[X] Blocked"
         print(f"  {path:25} → {status}")
 
 
@@ -283,31 +283,31 @@ def security_best_practices():
 1. DEFAULT TO SANDBOXED
    Always use sandboxed mode unless you need something else.
 
-   ✓ Good:
+   [OK] Good:
      workspace = Workspace(".", mode="sandboxed")
 
-   ✗ Avoid:
+   [X] Avoid:
      workspace = Workspace("/", mode="full")  # Too permissive
 
 
 2. MINIMIZE WORKSPACE SCOPE
    Give agent access to only what it needs.
 
-   ✓ Good:
+   [OK] Good:
      workspace = Workspace("./src", mode="sandboxed")  # Only src/
 
-   ✗ Avoid:
+   [X] Avoid:
      workspace = Workspace("/home/user", mode="sandboxed")  # Too broad
 
 
 3. USE VIRTUAL FOR UNTRUSTED INPUT
    If processing user-provided prompts, use virtual mode.
 
-   ✓ Good:
+   [OK] Good:
      # User prompt from web form
      agent = Agent(deep=True, workspace=Workspace(mode="virtual"))
 
-   ✗ Dangerous:
+   [X] Dangerous:
      # User prompt with full filesystem access
      agent = Agent(deep=True, workspace=Workspace("/", mode="full"))
 
@@ -325,10 +325,10 @@ def security_best_practices():
 5. REVIEW AGENT PROMPTS
    Ensure system prompts don't encourage path traversal.
 
-   ✓ Good:
+   [OK] Good:
      "Read files from the project directory."
 
-   ✗ Bad:
+   [X] Bad:
      "Read any file from the system."
 """)
 

@@ -116,7 +116,7 @@ Control what data is included in streaming events:
 - Thinking indicator
 - **No** tool arguments or results
 
-### `detailed` ✨
+### `detailed`
 - Everything in `standard`
 - **Tool arguments** (inputs)
 - **FULL tool results** (outputs) ← NEW!
@@ -320,7 +320,7 @@ if (event.type === "tool_results") {
 ```
 
 **Key benefits**:
-- ✅ Full tool results available at `detailed` visibility
-- ✅ Parse once in backend, send structured data to frontend
-- ✅ Frontend receives clean, clickable links
-- ✅ No string truncation issues (unlike `debug` preview)
+- [OK] Full tool results available at `detailed` visibility
+- [OK] Parse once in backend, send structured data to frontend
+- [OK] Frontend receives clean, clickable links
+- [OK] No string truncation issues (unlike `debug` preview)

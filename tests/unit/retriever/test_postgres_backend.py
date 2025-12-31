@@ -628,7 +628,7 @@ class TestPostgresBackendEdgeCases:
 
     def test_add_with_unicode_text(self, backend):
         """Test adding documents with unicode text."""
-        unicode_text = "Hello! 你好! مرحبا! 🎉"
+        unicode_text = "Hello! 你好! مرحبا! "
 
         result = backend.add(embeddings=[[0.1, 0.2]], texts=[unicode_text])
 

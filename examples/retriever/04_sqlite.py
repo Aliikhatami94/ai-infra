@@ -47,7 +47,7 @@ def basic_sqlite():
             ]
         )
 
-        print(f"\n✓ Added {len(retriever)} documents")
+        print(f"\n[OK] Added {len(retriever)} documents")
         print(f"  Database size: {db_path.stat().st_size:,} bytes")
 
 
@@ -89,7 +89,7 @@ def persistent_storage():
         if results:
             print(f"\n  Search result: {results[0].document.text}")
 
-        print("\n✓ Data persisted across sessions!")
+        print("\n[OK] Data persisted across sessions!")
 
 
 # =============================================================================
@@ -177,7 +177,7 @@ def incremental_updates():
         retriever.add(["Final document from day 3"])
         print(f"  Day 3: {len(retriever)} documents")
 
-        print("\n✓ Documents accumulated over time")
+        print("\n[OK] Documents accumulated over time")
 
 
 # =============================================================================
@@ -314,7 +314,7 @@ def large_dataset():
         retriever.add(docs)
         add_time = time.time() - start
 
-        print(f"  ✓ Added in {add_time:.2f}s")
+        print(f"  [OK] Added in {add_time:.2f}s")
         print(f"  Database size: {db_path.stat().st_size / 1024:.1f} KB")
 
         # Search performance

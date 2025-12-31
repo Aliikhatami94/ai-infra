@@ -35,10 +35,10 @@ async def openai_provider():
     print("=" * 60)
 
     if not os.getenv("OPENAI_API_KEY"):
-        print("\n  ⚠ OPENAI_API_KEY not set")
+        print("\n  [!] OPENAI_API_KEY not set")
         print("    Set the environment variable to use OpenAI")
     else:
-        print("\n  ✓ OPENAI_API_KEY configured")
+        print("\n  [OK] OPENAI_API_KEY configured")
 
     # Explicit OpenAI selection
     voice = RealtimeVoice(provider="openai")
@@ -73,10 +73,10 @@ async def gemini_provider():
     print("=" * 60)
 
     if not os.getenv("GOOGLE_API_KEY") and not os.getenv("GEMINI_API_KEY"):
-        print("\n  ⚠ GOOGLE_API_KEY / GEMINI_API_KEY not set")
+        print("\n  [!] GOOGLE_API_KEY / GEMINI_API_KEY not set")
         print("    Set the environment variable to use Gemini")
     else:
-        print("\n  ✓ Google API key configured")
+        print("\n  [OK] Google API key configured")
 
     # Explicit Gemini selection
     voice = RealtimeVoice(provider="gemini")
@@ -180,7 +180,7 @@ async def provider_configuration():
     print("\n  Provider status:")
     for name, provider_class, env_var in providers:
         configured = provider_class.is_configured()
-        status = "✓ Configured" if configured else "✗ Not configured"
+        status = "[OK] Configured" if configured else "[X] Not configured"
         print(f"    {name}: {status}")
         if not configured:
             print(f"      Set: {env_var}")
@@ -359,16 +359,16 @@ async def selection_guide():
     print("=" * 60)
 
     print("\n  Choose OpenAI when:")
-    print("    ✓ You need the best voice quality")
-    print("    ✓ Interruption handling is critical")
-    print("    ✓ Using GPT-4 level reasoning")
-    print("    ✓ Extensive tool calling")
+    print("    [OK] You need the best voice quality")
+    print("    [OK] Interruption handling is critical")
+    print("    [OK] Using GPT-4 level reasoning")
+    print("    [OK] Extensive tool calling")
 
     print("\n  Choose Gemini when:")
-    print("    ✓ You need multimodal (video) support")
-    print("    ✓ Cost optimization is priority")
-    print("    ✓ Already using Google Cloud")
-    print("    ✓ Need 16kHz audio (smaller bandwidth)")
+    print("    [OK] You need multimodal (video) support")
+    print("    [OK] Cost optimization is priority")
+    print("    [OK] Already using Google Cloud")
+    print("    [OK] Need 16kHz audio (smaller bandwidth)")
 
     print("\n  Comparison summary:")
     print("""

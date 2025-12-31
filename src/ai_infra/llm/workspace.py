@@ -78,7 +78,7 @@ class Workspace:
             For "sandboxed" mode, paths are validated to stay within root_dir.
             For "full" mode, the agent has full filesystem access from root.
 
-            ⚠️ If using "full" mode, the agent can access ANY file the process
+            [!] If using "full" mode, the agent can access ANY file the process
             can access. Only use with trusted inputs in controlled environments.
         """
         from deepagents.backends import FilesystemBackend
@@ -92,7 +92,7 @@ class Workspace:
             return FilesystemBackend(root_dir=str(self.root), virtual_mode=False)
         else:  # full
             # Full filesystem access from root
-            # ⚠️ SECURITY: No sandboxing - agent can access any file
+            # [!] SECURITY: No sandboxing - agent can access any file
             return FilesystemBackend(root_dir=str(self.root), virtual_mode=False)
 
     def configure_proj_mgmt(self) -> None:

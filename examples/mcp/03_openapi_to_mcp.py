@@ -42,7 +42,7 @@ def simple_openapi_to_mcp():
         spec="https://petstore3.swagger.io/api/v3/openapi.json",
     )
 
-    print("\n✓ Created MCP server from Petstore OpenAPI spec")
+    print("\n[OK] Created MCP server from Petstore OpenAPI spec")
     print("  All endpoints are now available as MCP tools!")
     print()
     print("  Example tools generated:")
@@ -86,7 +86,7 @@ def filtered_openapi_to_mcp():
         tool_prefix="github",  # Tools become: github_repos_get, etc.
     )
 
-    print("\n✓ Created filtered MCP server from GitHub API")
+    print("\n[OK] Created filtered MCP server from GitHub API")
     print("  Filters applied:")
     print("    - Paths: /repos/*, /users/*, /search/*")
     print("    - Methods: GET, POST only")
@@ -119,7 +119,7 @@ def authenticated_openapi_to_mcp():
         auth={"Authorization": f"Bearer {api_key}"},  # Header auth
     )
 
-    print("\n✓ Authentication methods supported:")
+    print("\n[OK] Authentication methods supported:")
     print()
     print("  # Header-based (Bearer token, API key)")
     print('  auth={"Authorization": "Bearer token123"}')
@@ -209,7 +209,7 @@ def custom_naming_openapi():
         tool_description_fn=custom_description,
     )
 
-    print("\n✓ Custom naming functions applied")
+    print("\n[OK] Custom naming functions applied")
     print()
     print("  tool_name_fn(method, path, operation) → str")
     print("  tool_description_fn(operation) → str")
@@ -234,7 +234,7 @@ def local_openapi_sources():
 
     server = MCPServer()
 
-    print("\n✓ Supported OpenAPI sources:")
+    print("\n[OK] Supported OpenAPI sources:")
     print()
     print("  # From URL")
     print('  spec="https://api.example.com/openapi.json"')
@@ -283,7 +283,7 @@ def local_openapi_sources():
     )
 
     print()
-    print("  ✓ Created server from dict spec with base_url")
+    print("  [OK] Created server from dict spec with base_url")
 
     return server
 
@@ -365,7 +365,7 @@ def multiple_openapi_specs():
     #     auth={"Authorization": "Bearer sk-test-xxx"},
     # )
 
-    print("\n✓ Combined MCP server with multiple APIs:")
+    print("\n[OK] Combined MCP server with multiple APIs:")
     print("  /petstore → Petstore tools (pet_*)")
     print("  /github   → GitHub tools (github_*)")
     print("  /stripe   → Stripe tools (stripe_*)")

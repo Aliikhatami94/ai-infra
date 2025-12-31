@@ -116,7 +116,7 @@ def specific_provider():
 
     if os.getenv("OPENAI_API_KEY"):
         embeddings = Embeddings(provider="openai")
-        print(f"\n✓ OpenAI provider: {embeddings.model}")
+        print(f"\n[OK] OpenAI provider: {embeddings.model}")
         vector = embeddings.embed("Test")
         print(f"  Dimensions: {len(vector)}")
     else:
@@ -124,7 +124,7 @@ def specific_provider():
 
     # Always available: local
     embeddings = Embeddings(provider="huggingface")
-    print(f"\n✓ HuggingFace provider: {embeddings.model}")
+    print(f"\n[OK] HuggingFace provider: {embeddings.model}")
     vector = embeddings.embed("Test")
     print(f"  Dimensions: {len(vector)}")
 

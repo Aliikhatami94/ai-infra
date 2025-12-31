@@ -40,9 +40,9 @@ def zero_config_tts():
         print(f"\n  Provider: {tts.provider}")
         print(f"  Voice: {tts.voice}")
         print(f"  Model: {tts.model}")
-        print("  ✓ TTS ready")
+        print("  [OK] TTS ready")
     except ValueError as e:
-        print(f"\n  ⚠ No TTS provider configured: {e}")
+        print(f"\n  [!] No TTS provider configured: {e}")
         print("    Set OPENAI_API_KEY, ELEVEN_API_KEY, or GOOGLE_APPLICATION_CREDENTIALS")
 
 
@@ -63,9 +63,9 @@ def zero_config_stt():
         print(f"\n  Provider: {stt.provider}")
         print(f"  Model: {stt.model}")
         print(f"  Language: {stt.language or 'auto-detect'}")
-        print("  ✓ STT ready")
+        print("  [OK] STT ready")
     except ValueError as e:
-        print(f"\n  ⚠ No STT provider configured: {e}")
+        print(f"\n  [!] No STT provider configured: {e}")
         print("    Set OPENAI_API_KEY, DEEPGRAM_API_KEY, or GOOGLE_APPLICATION_CREDENTIALS")
 
 
@@ -88,7 +88,7 @@ def explicit_provider():
         print(f"    Voice: {tts.voice}")
         print(f"    Model: {tts.model}")
     except Exception as e:
-        print(f"    ⚠ {e}")
+        print(f"    [!] {e}")
 
     # STT with specific provider
     print("\n  STT with Deepgram:")
@@ -97,7 +97,7 @@ def explicit_provider():
         print(f"    Provider: {stt.provider}")
         print(f"    Model: {stt.model}")
     except Exception as e:
-        print(f"    ⚠ {e}")
+        print(f"    [!] {e}")
 
 
 # =============================================================================
@@ -114,7 +114,7 @@ def text_to_speech():
     try:
         tts = TTS()
     except ValueError:
-        print("\n  ⚠ No TTS provider configured")
+        print("\n  [!] No TTS provider configured")
         return
 
     text = "Hello! This is a demonstration of ai-infra text to speech capabilities."
@@ -125,15 +125,15 @@ def text_to_speech():
 
     try:
         audio_bytes = tts.speak(text)
-        print(f"  ✓ Generated {len(audio_bytes):,} bytes of audio")
+        print(f"  [OK] Generated {len(audio_bytes):,} bytes of audio")
     except Exception as e:
-        print(f"  ⚠ Error: {e}")
+        print(f"  [!] Error: {e}")
         return
 
     # Save to file
     with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
         tts.speak_to_file(text, f.name)
-        print(f"  ✓ Saved to: {f.name}")
+        print(f"  [OK] Saved to: {f.name}")
 
 
 # =============================================================================
@@ -151,7 +151,7 @@ def speech_to_text():
         stt = STT()
         print(f"\n  Provider: {stt.provider}")
     except ValueError:
-        print("\n  ⚠ No STT provider configured")
+        print("\n  [!] No STT provider configured")
         return
 
     # Note: This example shows the API, but requires an actual audio file
@@ -184,7 +184,7 @@ def voices_and_formats():
     try:
         tts = TTS(provider="openai")
     except ValueError:
-        print("\n  ⚠ OpenAI TTS not configured")
+        print("\n  [!] OpenAI TTS not configured")
         return
 
     from ai_infra.llm.multimodal.models import AudioFormat
@@ -201,9 +201,9 @@ def voices_and_formats():
     print("\n  Generating with 'nova' voice...")
     try:
         audio = tts.speak(text, voice="nova")
-        print(f"  ✓ Generated {len(audio):,} bytes")
+        print(f"  [OK] Generated {len(audio):,} bytes")
     except Exception as e:
-        print(f"  ⚠ Error: {e}")
+        print(f"  [!] Error: {e}")
 
     # Different formats
     print("\n  Audio formats:")
@@ -212,7 +212,7 @@ def voices_and_formats():
             audio = tts.speak(text, output_format=fmt)
             print(f"    {fmt.value}: {len(audio):,} bytes")
         except Exception as e:
-            print(f"    {fmt.value}: ⚠ {e}")
+            print(f"    {fmt.value}: [!] {e}")
 
 
 # =============================================================================
@@ -229,7 +229,7 @@ async def async_operations():
     try:
         tts = TTS()
     except ValueError:
-        print("\n  ⚠ No TTS provider configured")
+        print("\n  [!] No TTS provider configured")
         return
 
     texts = [
@@ -248,9 +248,9 @@ async def async_operations():
         for i, (text, audio) in enumerate(zip(texts, results), 1):
             print(f"    {i}. '{text[:30]}...' -> {len(audio):,} bytes")
 
-        print("  ✓ All conversions complete")
+        print("  [OK] All conversions complete")
     except Exception as e:
-        print(f"  ⚠ Error: {e}")
+        print(f"  [!] Error: {e}")
 
 
 # =============================================================================
@@ -267,7 +267,7 @@ def streaming_tts():
     try:
         tts = TTS(provider="openai")
     except ValueError:
-        print("\n  ⚠ OpenAI TTS not configured")
+        print("\n  [!] OpenAI TTS not configured")
         return
 
     text = "This is a longer text that will be streamed in chunks for real-time playback."
@@ -283,9 +283,9 @@ def streaming_tts():
             total_bytes += len(chunk)
             print(f"    Chunk {chunk_count}: {len(chunk):,} bytes")
 
-        print(f"  ✓ Total: {total_bytes:,} bytes in {chunk_count} chunks")
+        print(f"  [OK] Total: {total_bytes:,} bytes in {chunk_count} chunks")
     except Exception as e:
-        print(f"  ⚠ Error: {e}")
+        print(f"  [!] Error: {e}")
 
 
 # =============================================================================
@@ -303,7 +303,7 @@ def round_trip():
         tts = TTS()
         stt = STT()
     except ValueError as e:
-        print(f"\n  ⚠ Provider not configured: {e}")
+        print(f"\n  [!] Provider not configured: {e}")
         return
 
     original_text = "Hello, this is a test of the round trip conversion."
@@ -316,18 +316,18 @@ def round_trip():
     print("\n  Step 1: Converting to speech...")
     try:
         audio = tts.speak(original_text)
-        print(f"    ✓ Generated {len(audio):,} bytes")
+        print(f"    [OK] Generated {len(audio):,} bytes")
     except Exception as e:
-        print(f"    ⚠ TTS Error: {e}")
+        print(f"    [!] TTS Error: {e}")
         return
 
     # Convert back to text
     print("  Step 2: Transcribing audio...")
     try:
         result = stt.transcribe(audio)
-        print(f"    ✓ Transcribed: '{result.text}'")
+        print(f"    [OK] Transcribed: '{result.text}'")
     except Exception as e:
-        print(f"    ⚠ STT Error: {e}")
+        print(f"    [!] STT Error: {e}")
         return
 
     # Compare

@@ -36,11 +36,11 @@ def main():
     # Check specific provider
     for provider in all_providers:
         is_configured = LLM.is_provider_configured(provider)
-        status = "✓ Configured" if is_configured else "✗ Not configured"
+        status = "[OK] Configured" if is_configured else "[X] Not configured"
         print(f"  {provider}: {status}")
 
     if not configured_providers:
-        print("\n⚠️  No providers configured! Set at least one API key.")
+        print("\n[!]  No providers configured! Set at least one API key.")
         return
 
     # List models for configured providers
@@ -124,7 +124,7 @@ def provider_specific_models():
 
     for provider, model in models_to_test:
         if not LLM.is_provider_configured(provider):
-            print(f"\n{provider}/{model}: ⏭️  Skipped (not configured)")
+            print(f"\n{provider}/{model}: ⏭  Skipped (not configured)")
             continue
 
         try:
@@ -162,11 +162,11 @@ def fallback_strategy():
     for provider in configured:
         try:
             response = llm.chat(prompt, provider=provider, max_tokens=50)
-            print(f"✓ {provider} succeeded:")
+            print(f"[OK] {provider} succeeded:")
             print(f"  {response.content.strip()}")
             break  # Stop at first success
         except Exception as e:
-            print(f"✗ {provider} failed: {e}")
+            print(f"[X] {provider} failed: {e}")
             continue
     else:
         print("All providers failed!")

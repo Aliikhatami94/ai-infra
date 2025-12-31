@@ -40,7 +40,7 @@ async def list_providers():
     print("\n  Provider details:")
     for provider in available:
         is_ready = provider in configured
-        status = "✓ Ready" if is_ready else "✗ Not configured"
+        status = "[OK] Ready" if is_ready else "[X] Not configured"
         print(f"    {provider}: {status}")
 
 
@@ -153,7 +153,7 @@ async def check_configuration():
     configured = RealtimeVoice.configured_providers()
 
     for provider, reqs in requirements.items():
-        status = "✓ Configured" if provider in configured else "✗ Missing"
+        status = "[OK] Configured" if provider in configured else "[X] Missing"
         print(f"\n  {provider.title()} ({status}):")
         print(f"    Required: {' or '.join(reqs['env_vars'])}")
         if reqs["optional"]:

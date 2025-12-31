@@ -53,7 +53,7 @@ def providers_cmd(
             raise typer.Exit(1)
 
         for provider in result:
-            status = "✓" if is_provider_configured(provider) else "✗"
+            status = "[OK]" if is_provider_configured(provider) else "[X]"
             typer.echo(f"  {status} {provider}")
 
 
