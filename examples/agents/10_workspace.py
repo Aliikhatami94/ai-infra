@@ -133,9 +133,9 @@ Sandboxed mode characteristics:
 
     # Path validation demo
     print("\nPath validation:")
-    print("  /home/user/project/src/main.py → [OK] Allowed")
-    print("  /home/user/project/../secrets.txt → [X] Blocked (escapes sandbox)")
-    print("  /etc/passwd → [X] Blocked (outside sandbox)")
+    print("  /home/user/project/src/main.py -> [OK] Allowed")
+    print("  /home/user/project/../secrets.txt -> [X] Blocked (escapes sandbox)")
+    print("  /etc/passwd -> [X] Blocked (outside sandbox)")
 
 
 async def sandboxed_mode_demo():
@@ -265,7 +265,7 @@ def path_resolution():
         resolved = (ws.root / path).resolve()
         in_sandbox = resolved.is_relative_to(ws.root)
         status = "[OK] Allowed" if in_sandbox else "[X] Blocked"
-        print(f"  {path:25} → {status}")
+        print(f"  {path:25} -> {status}")
 
 
 # =============================================================================

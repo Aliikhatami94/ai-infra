@@ -32,7 +32,7 @@ print(len(vector))  # 1536 (depends on model)
 ```python
 from ai_infra import Embeddings
 
-# Auto-detects from env vars (OpenAI → Voyage → Google → Cohere)
+# Auto-detects from env vars (OpenAI -> Voyage -> Google -> Cohere)
 embeddings = Embeddings()
 vector = embeddings.embed("Some text")
 ```

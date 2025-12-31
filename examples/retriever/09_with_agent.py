@@ -158,10 +158,10 @@ def multiple_knowledge_bases():
 
     # Test each
     print("\n  Product query: 'cheapest widget'")
-    print(f"    → {product_tool('cheapest widget')[:80]}...")
+    print(f"    -> {product_tool('cheapest widget')[:80]}...")
 
     print("\n  Support query: 'reset password'")
-    print(f"    → {support_tool('reset password')[:80]}...")
+    print(f"    -> {support_tool('reset password')[:80]}...")
 
 
 # =============================================================================
@@ -400,7 +400,7 @@ async def main():
     print("  2. Configure with name, description, and k")
     print("  3. Multiple retrievers = specialized search")
     print("  4. Knowledge base can be updated dynamically")
-    print("  5. Full RAG: Retrieve → Augment → Generate")
+    print("  5. Full RAG: Retrieve -> Augment -> Generate")
 
 
 if __name__ == "__main__":

@@ -205,14 +205,14 @@ async def direct_tool_call():
             if tools:
                 # Call a tool directly
                 tool_name = getattr(tools[0], "name", "")
-                print(f"\n→ Calling tool: {tool_name}")
+                print(f"\n-> Calling tool: {tool_name}")
 
                 result = await mcp.call_tool(
                     server_name=server_name,
                     tool_name=tool_name,
                     arguments={},  # Provide required arguments
                 )
-                print(f"← Result: {result}")
+                print(f"<- Result: {result}")
 
     except Exception as e:
         print(f"Error: {e}")

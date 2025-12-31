@@ -109,10 +109,10 @@ make pr m="feat: add your feature"
 
 **Mode A: Start a new PR** (on default branch OR with `new=1`)
 ```bash
-# On main → creates new branch + PR, stays on new branch
+# On main -> creates new branch + PR, stays on new branch
 make pr m="feat: add streaming support"
 
-# On feature branch → split commits into new PR
+# On feature branch -> split commits into new PR
 make pr m="feat: split this work" new=1
 ```
 
@@ -272,9 +272,9 @@ test: add unit tests for memory module
 
 **Bad examples (will be grouped as "Other Changes"):**
 ```
-Refactor code for improved readability  ← Missing type prefix!
-updating docs                           ← Missing type prefix!
-bug fix                                 ← Missing type prefix!
+Refactor code for improved readability  <- Missing type prefix!
+updating docs                           <- Missing type prefix!
+bug fix                                 <- Missing type prefix!
 ```
 
 ### PR Title Enforcement
@@ -282,7 +282,7 @@ bug fix                                 ← Missing type prefix!
 A GitHub Action automatically ensures your PR title reflects the highest-priority commit type:
 
 1. Scans all commits in the PR for conventional commit prefixes
-2. Auto-updates the PR title if needed (e.g., `docs:` → `feat:` if there's a `feat:` commit)
+2. Auto-updates the PR title if needed (e.g., `docs:` -> `feat:` if there's a `feat:` commit)
 3. Passes with a warning after update
 
 **Priority order:** `feat!` > `feat` > `fix` > `perf` > `refactor` > `docs` > `chore` > `test` > `ci` > `build`

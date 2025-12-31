@@ -317,15 +317,15 @@ async def error_handling():
 
     except MCPTimeoutError as e:
         print(f"⏱  Timeout error: {e}")
-        print("   → Increase timeout or check server responsiveness")
+        print("   -> Increase timeout or check server responsiveness")
 
     except MCPServerError as e:
-        print(f"🔌 Server error: {e}")
-        print("   → Check if server is running")
+        print(f" Server error: {e}")
+        print("   -> Check if server is running")
 
     except Exception as e:
         print(f"[X] Connection error: {type(e).__name__}: {e}")
-        print("   → Server is not reachable")
+        print("   -> Server is not reachable")
 
     print("\n[OK] Error handled gracefully - agent can fall back to local tools")
 

@@ -97,7 +97,7 @@ async def concurrent_searches():
     for query, results in zip(queries, all_results):
         if results:
             print(f"\n  '{query}':")
-            print(f"    → {results[0].document.text[:50]}...")
+            print(f"    -> {results[0].document.text[:50]}...")
 
 
 # =============================================================================

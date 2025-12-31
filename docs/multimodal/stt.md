@@ -31,7 +31,7 @@ print(result.text)  # "Hello, world!"
 ```python
 from ai_infra import STT
 
-# Auto-detects from env vars (OpenAI → Deepgram → Google)
+# Auto-detects from env vars (OpenAI -> Deepgram -> Google)
 stt = STT()
 result = stt.transcribe("recording.mp3")
 print(result.text)

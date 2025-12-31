@@ -22,10 +22,10 @@ from ai_infra import Agent
 # Define Simple Tools (Plain Python Functions)
 # =============================================================================
 # Tools are just functions! ai-infra auto-generates schemas from:
-# - Function name → tool name
-# - Docstring → tool description
-# - Type hints → parameter types
-# - Default values → optional parameters
+# - Function name -> tool name
+# - Docstring -> tool description
+# - Type hints -> parameter types
+# - Default values -> optional parameters
 
 
 def get_weather(city: str) -> str:

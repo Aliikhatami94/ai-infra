@@ -29,7 +29,7 @@ Operation = dict[str, Any]
 
 @dataclass
 class AuthConfig:
-    """Authentication configuration for OpenAPI→MCP.
+    """Authentication configuration for OpenAPI->MCP.
 
     Supports multiple auth schemes:
     - Header-based API keys
@@ -97,7 +97,7 @@ class AuthConfig:
 
 @dataclass
 class OpenAPIOptions:
-    """Options for OpenAPI→MCP tool generation.
+    """Options for OpenAPI->MCP tool generation.
 
     Provides flexible filtering and customization:
     - Filter by paths (glob patterns)

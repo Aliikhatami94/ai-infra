@@ -52,7 +52,7 @@ def basic_batch():
 
     # Show preview
     for i, (text, vector) in enumerate(zip(texts, vectors)):
-        print(f"  {i + 1}. '{text[:40]}...' → [{vector[0]:.4f}, ...]")
+        print(f"  {i + 1}. '{text[:40]}...' -> [{vector[0]:.4f}, ...]")
 
 
 # =============================================================================

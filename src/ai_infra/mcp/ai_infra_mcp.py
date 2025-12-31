@@ -12,7 +12,7 @@ async def ai_infra_cmd_help() -> str:
     """
     Get help text for ai-infra CLI.
     - Prepares project env without chdir (so we can 'cd' in the command itself).
-    - Tries poetry → console script → python -m ai_infra.cli_shim.
+    - Tries poetry -> console script -> python -m ai_infra.cli_shim.
     """
     import json
 

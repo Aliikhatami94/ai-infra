@@ -87,7 +87,7 @@ def free_local_embeddings():
     print("\nGenerating embeddings for 3 texts...")
     for text in texts:
         vector = embeddings.embed(text)
-        print(f"  '{text[:40]}...' → {len(vector)} dims")
+        print(f"  '{text[:40]}...' -> {len(vector)} dims")
 
 
 # =============================================================================

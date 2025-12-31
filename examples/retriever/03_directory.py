@@ -282,7 +282,7 @@ def health_check():
             if results:
                 source = Path(results[0].document.source).name
                 print(f"\n  '{query}'")
-                print(f"  → {source}: {results[0].document.text[:50]}...")
+                print(f"  -> {source}: {results[0].document.text[:50]}...")
 
 
 # =============================================================================

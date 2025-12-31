@@ -31,7 +31,7 @@ audio.save("output.mp3")
 ```python
 from ai_infra import TTS
 
-# Auto-detects from env vars (OpenAI → ElevenLabs → Google)
+# Auto-detects from env vars (OpenAI -> ElevenLabs -> Google)
 tts = TTS()
 audio = tts.speak("Hello!")
 ```

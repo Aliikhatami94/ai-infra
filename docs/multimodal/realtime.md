@@ -56,7 +56,7 @@ async with voice.connect() as session:
 ```python
 from ai_infra import RealtimeVoice
 
-# Auto-detects from env vars (OpenAI → Google)
+# Auto-detects from env vars (OpenAI -> Google)
 voice = RealtimeVoice()
 ```
 

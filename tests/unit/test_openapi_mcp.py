@@ -1,4 +1,4 @@
-"""Tests for OpenAPI→MCP conversion.
+"""Tests for OpenAPI->MCP conversion.
 
 Tests 3.5.1-3.5.4:
 - 3.5.1: Zero-Config Conversion
@@ -216,7 +216,7 @@ def complex_schema_spec() -> dict[str, Any]:
 
 
 class TestZeroConfig:
-    """Test 3.5.1: Zero-Config OpenAPI→MCP conversion."""
+    """Test 3.5.1: Zero-Config OpenAPI->MCP conversion."""
 
     def test_dict_spec(self, simple_spec):
         """Spec as dict works directly."""

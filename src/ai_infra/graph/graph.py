@@ -166,7 +166,7 @@ class Graph:
         if self._validate_state and initial_state is not None:
             validate_state_against_schema(initial_state, self.state_type)
 
-        # fast path: no hooks → use cached compiled graph
+        # fast path: no hooks -> use cached compiled graph
         if not (on_enter or on_exit or trace):
             compiled = (
                 self._build_graph(sync=sync).compile(

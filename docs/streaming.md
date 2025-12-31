@@ -119,7 +119,7 @@ Control what data is included in streaming events:
 ### `detailed`
 - Everything in `standard`
 - **Tool arguments** (inputs)
-- **FULL tool results** (outputs) ← NEW!
+- **FULL tool results** (outputs) <- NEW!
 - For applications that need to parse tool outputs
 - Example: Create clickable links from search results
 
