@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.1.1 (2025-12-31)
+
+### Bug Fixes
+
+- Sync formatting and docs updates ([#9](https://github.com/nfraxlab/ai-infra/pull/9),
+  [`c9fc328`](https://github.com/nfraxlab/ai-infra/commit/c9fc3283907ab69ae4d01fe55356cbbc1300846a))
+
+
 ## v1.1.0 (2025-12-30)
 
 ### Bug Fixes
