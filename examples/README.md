@@ -2,7 +2,7 @@
 
 Runnable examples demonstrating **all** ai-infra capabilities for AI/LLM application development.
 
-## ⚡ Quick Setup
+##  Quick Setup
 
 ```bash
 cd examples
@@ -15,7 +15,7 @@ export ANTHROPIC_API_KEY="sk-ant-..."
 export GOOGLE_API_KEY="..."
 ```
 
-## 🔑 API Keys
+##  API Keys
 
 Different examples require different API keys. Set the ones you need:
 
@@ -37,9 +37,9 @@ ANTHROPIC_API_KEY=sk-ant-...
 GOOGLE_API_KEY=...
 ```
 
-## 📁 Example Categories
+##  Example Categories
 
-### 💬 Chat (`chat/`)
+###  Chat (`chat/`)
 Basic LLM interactions - the foundation of ai-infra.
 
 | Example | Description |
@@ -51,7 +51,7 @@ Basic LLM interactions - the foundation of ai-infra.
 | [05_vision.py](chat/05_vision.py) | Vision/multimodal with images |
 | [06_conversation.py](chat/06_conversation.py) | Multi-turn conversation |
 
-### 🤖 Agents (`agents/`)
+###  Agents (`agents/`)
 Autonomous agents with tool calling and HITL.
 
 | Example | Description |
@@ -62,7 +62,7 @@ Autonomous agents with tool calling and HITL.
 | [04_fallbacks.py](agents/04_fallbacks.py) | Provider fallback chain |
 | [05_mcp_tools.py](agents/05_mcp_tools.py) | Agent using MCP tools |
 
-### 📊 Graph (`graph/`)
+###  Graph (`graph/`)
 LangGraph workflows for complex orchestration.
 
 | Example | Description |
@@ -106,14 +106,14 @@ RAG (Retrieval-Augmented Generation) pipelines.
 | [09_with_agent.py](retriever/09_with_agent.py) | RAG as Agent tool |
 | [10_async.py](retriever/10_async.py) | Async add and search |
 
-### 🎨 Image Generation (`imagegen/`)
+###  Image Generation (`imagegen/`)
 AI image generation.
 
 | Example | Description |
 |---------|-------------|
 | [01_basic.py](imagegen/01_basic.py) | Basic image generation |
 
-### 🎙️ Realtime Voice (`realtime/`)
+### 🎙 Realtime Voice (`realtime/`)
 Voice conversations with streaming audio.
 
 | Example | Description |
@@ -136,7 +136,7 @@ Conversation memory and context management.
 | [05_agent_with_memory.py](memory/05_agent_with_memory.py) | Agent with full memory stack |
 | [06_production_setup.py](memory/06_production_setup.py) | PostgreSQL backend for production |
 
-## ▶️ Running Examples
+## > Running Examples
 
 Each example is a standalone Python script:
 
@@ -151,7 +151,7 @@ OPENAI_API_KEY=sk-... python chat/01_basic.py
 python chat/02_streaming.py
 ```
 
-## 🧪 Testing Examples
+##  Testing Examples
 
 To verify all examples work with your configuration:
 
@@ -163,7 +163,7 @@ for f in chat/*.py; do python "$f"; done
 python -m pytest examples/ -v  # If examples have test mode
 ```
 
-## 📝 Example Template
+##  Example Template
 
 All examples follow this structure:
 
@@ -192,7 +192,7 @@ if __name__ == "__main__":
     main()
 ```
 
-## 🔗 Related Documentation
+##  Related Documentation
 
 - [ai-infra README](../README.md) - Main package documentation
 - [API Reference](https://nfrax.com/ai-infra) - Full API documentation

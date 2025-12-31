@@ -47,7 +47,7 @@ def basic_batch():
     vectors = embeddings.embed_batch(texts)
     elapsed = time.time() - start
 
-    print(f"\n✓ Generated {len(vectors)} embeddings in {elapsed:.2f}s")
+    print(f"\n[OK] Generated {len(vectors)} embeddings in {elapsed:.2f}s")
     print(f"  Dimensions per vector: {len(vectors[0])}")
 
     # Show preview
@@ -125,7 +125,7 @@ async def async_batch():
     vectors = await embeddings.aembed_batch(texts)
     elapsed = time.time() - start
 
-    print(f"\n✓ Completed in {elapsed:.2f}s")
+    print(f"\n[OK] Completed in {elapsed:.2f}s")
     print(f"  Generated {len(vectors)} vectors of {len(vectors[0])} dimensions")
 
 
@@ -154,7 +154,7 @@ def large_batch():
     vectors = embeddings.embed_batch(texts)
     elapsed = time.time() - start
 
-    print(f"\n✓ Embedded {len(vectors)} texts in {elapsed:.2f}s")
+    print(f"\n[OK] Embedded {len(vectors)} texts in {elapsed:.2f}s")
     print(f"  Rate: {len(vectors) / elapsed:.1f} texts/second")
     print(f"  Dimensions: {len(vectors[0])}")
 
@@ -191,7 +191,7 @@ def vectorstore_integration():
     # Add documents (automatically batches embeddings)
     store.add_texts(documents)
 
-    print("✓ Documents added")
+    print("[OK] Documents added")
 
     # Search for similar documents
     queries = [
@@ -251,7 +251,7 @@ def batch_with_metadata():
     # Add documents
     store.add_documents(docs)
 
-    print("✓ Documents added")
+    print("[OK] Documents added")
 
     # Search with metadata filter
     print("\nSearch 'programming' filtered by lang='python':")
@@ -334,7 +334,7 @@ def chunked_batch():
 
     elapsed = time.time() - start
 
-    print(f"\n✓ Completed in {elapsed:.2f}s")
+    print(f"\n[OK] Completed in {elapsed:.2f}s")
     print(f"  Total vectors: {len(all_vectors)}")
     print(f"  Rate: {len(all_vectors) / elapsed:.1f} docs/second")
 

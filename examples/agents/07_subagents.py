@@ -81,7 +81,7 @@ def code_review(code: str) -> str:
     Returns:
         Review comments.
     """
-    return "Code review:\n- Style: ✓ Good\n- Logic: ✓ Sound\n- Security: ✓ No issues"
+    return "Code review:\n- Style: [OK] Good\n- Logic: [OK] Sound\n- Security: [OK] No issues"
 
 
 def run_tests(code: str) -> str:
@@ -348,7 +348,7 @@ def subagent_requirements():
     print()
 
     # Correct usage
-    print("✓ Correct:")
+    print("[OK] Correct:")
     print("  researcher = Agent(")
     print("      name='researcher',  # Required!")
     print("      description='Researches topics',  # Required!")
@@ -357,7 +357,7 @@ def subagent_requirements():
     print()
 
     # Incorrect usage (would raise error)
-    print("✗ Incorrect (will raise ValueError):")
+    print("[X] Incorrect (will raise ValueError):")
     print("  bad_agent = Agent(")
     print("      tools=[web_search],")
     print("      # Missing name and description!")
@@ -390,28 +390,28 @@ def best_practices():
 
     print("\n1. Single Responsibility")
     print("   Each subagent should do one thing well.")
-    print("   ✓ Good: 'researcher', 'writer', 'reviewer'")
-    print("   ✗ Bad: 'do_everything_agent'")
+    print("   [OK] Good: 'researcher', 'writer', 'reviewer'")
+    print("   [X] Bad: 'do_everything_agent'")
 
     print("\n2. Clear Descriptions")
     print("   Help the main agent know when to delegate.")
-    print("   ✓ Good: 'Searches the web for academic papers'")
-    print("   ✗ Bad: 'Helps with stuff'")
+    print("   [OK] Good: 'Searches the web for academic papers'")
+    print("   [X] Bad: 'Helps with stuff'")
 
     print("\n3. Appropriate Tools")
     print("   Give each subagent only the tools it needs.")
-    print("   ✓ Good: researcher gets search_web, writer gets write_file")
-    print("   ✗ Bad: Every agent gets every tool")
+    print("   [OK] Good: researcher gets search_web, writer gets write_file")
+    print("   [X] Bad: Every agent gets every tool")
 
     print("\n4. Focused System Prompts")
     print("   Keep subagent prompts focused on their specialty.")
-    print("   ✓ Good: 'You are a code reviewer. Focus on security.'")
-    print("   ✗ Bad: Generic prompts")
+    print("   [OK] Good: 'You are a code reviewer. Focus on security.'")
+    print("   [X] Bad: Generic prompts")
 
     print("\n5. Consider Model Selection")
     print("   Use cheaper models for simple tasks.")
-    print("   ✓ Good: Code review → GPT-4, Search → GPT-3.5")
-    print("   ✗ Bad: GPT-4 for everything")
+    print("   [OK] Good: Code review → GPT-4, Search → GPT-3.5")
+    print("   [X] Bad: GPT-4 for everything")
 
 
 if __name__ == "__main__":

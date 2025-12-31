@@ -162,7 +162,7 @@ def create_simple_server():
         functions=[get_weather, get_time, calculate, search_knowledge, echo],
     )
 
-    print("\n✓ Server created with tools:")
+    print("\n[OK] Server created with tools:")
     print("  - get_weather")
     print("  - get_time")
     print("  - calculate")
@@ -265,7 +265,7 @@ def create_server_with_security():
         security=auto_security,
     )
 
-    print("\n✓ Server created with auto-detected security")
+    print("\n[OK] Server created with auto-detected security")
     return mcp
 
 
@@ -301,7 +301,7 @@ def create_server_with_tooldef():
 
     mcp = mcp_from_functions(name="custom-tools", functions=tools)
 
-    print("\n✓ Server created with custom tool definitions:")
+    print("\n[OK] Server created with custom tool definitions:")
     print("  - get_weather (from function)")
     print("  - math_eval (from ToolDef, was 'calculate')")
     print("  - test_echo (from ToolDef, was 'echo')")
@@ -350,7 +350,7 @@ async def async_example():
         functions=[fetch_data, process_async],
     )
 
-    print("\n✓ Server created with async tools:")
+    print("\n[OK] Server created with async tools:")
     print("  - fetch_data (async)")
     print("  - process_async (async)")
 

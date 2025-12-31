@@ -66,7 +66,7 @@ def basic_recording():
 
     # Save to storage
     recorder.save()
-    print("\n✓ Workflow saved with ID: demo_workflow_001")
+    print("\n[OK] Workflow saved with ID: demo_workflow_001")
 
 
 def basic_replay():
@@ -207,7 +207,7 @@ def multi_step_workflow():
     )
 
     recorder.save()
-    print("✓ Multi-step workflow saved\n")
+    print("[OK] Multi-step workflow saved\n")
 
     # Replay and show timeline
     result = replay("multi_step_001")

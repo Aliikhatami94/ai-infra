@@ -375,7 +375,7 @@ def quality_evaluation():
             matches = sum(1 for kw in test["expected_keywords"] if kw.lower() in result_text)
             score = matches / len(test["expected_keywords"])
 
-            status = "✓ PASS" if score >= 0.5 else "✗ FAIL"
+            status = "[OK] PASS" if score >= 0.5 else "[X] FAIL"
             print(f"\n  {status} Query: '{test['query']}'")
             print(f"    Result: {results[0].document.text[:50]}...")
             print(f"    Keyword match: {matches}/{len(test['expected_keywords'])}")

@@ -36,7 +36,7 @@ def zero_config():
     retriever.add("Python is great for data science")
     retriever.add("JavaScript powers the web")
 
-    print("\n✓ Retriever ready with 2 documents")
+    print("\n[OK] Retriever ready with 2 documents")
 
 
 # =============================================================================
@@ -55,7 +55,7 @@ def adding_content():
     # Method 1: add() - simple text
     print("\nMethod 1: add() for simple text")
     retriever.add("Machine learning is a subset of AI")
-    print("  ✓ Added single text")
+    print("  [OK] Added single text")
 
     # Method 2: add() with multiple texts
     print("\nMethod 2: add() with multiple texts")
@@ -66,7 +66,7 @@ def adding_content():
             "Computer vision processes images",
         ]
     )
-    print("  ✓ Added 3 texts as list")
+    print("  [OK] Added 3 texts as list")
 
     # Method 3: add_text() with metadata
     print("\nMethod 3: add_text() with metadata")
@@ -74,7 +74,7 @@ def adding_content():
         "Reinforcement learning learns from rewards",
         metadata={"category": "ml", "level": "advanced"},
     )
-    print("  ✓ Added text with metadata")
+    print("  [OK] Added text with metadata")
 
     # Method 4: add_text() with source
     print("\nMethod 4: add_text() with source")
@@ -82,7 +82,7 @@ def adding_content():
         "Transfer learning reuses trained models",
         source="ml_textbook.pdf",
     )
-    print("  ✓ Added text with source reference")
+    print("  [OK] Added text with source reference")
 
     print(f"\nTotal documents: {len(retriever)}")
 

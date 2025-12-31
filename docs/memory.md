@@ -294,9 +294,9 @@ store = MemoryStore.postgres(os.environ["DATABASE_URL"])
 
 | Backend | Use Case | Persistence | Multi-Instance |
 |---------|----------|-------------|----------------|
-| `MemoryStore()` | Dev/testing | ❌ | ❌ |
-| `MemoryStore.sqlite()` | Single server | ✅ | ❌ |
-| `MemoryStore.postgres()` | Production | ✅ | ✅ |
+| `MemoryStore()` | Dev/testing | [X] | [X] |
+| `MemoryStore.sqlite()` | Single server | [OK] | [X] |
+| `MemoryStore.postgres()` | Production | [OK] | [OK] |
 
 ---
 

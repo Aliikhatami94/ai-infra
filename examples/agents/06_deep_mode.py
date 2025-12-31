@@ -301,10 +301,10 @@ def comparison():
     print("=" * 60)
 
     print("\nRegular Agent (deep=False, default):")
-    print("  ✓ Custom tools only")
-    print("  ✓ Simpler, more controlled")
-    print("  ✓ Good for: API calls, calculations, simple tasks")
-    print("  ✓ Uses: create_react_agent")
+    print("  [OK] Custom tools only")
+    print("  [OK] Simpler, more controlled")
+    print("  [OK] Good for: API calls, calculations, simple tasks")
+    print("  [OK] Uses: create_react_agent")
     print()
 
     regular = Agent(
@@ -314,11 +314,11 @@ def comparison():
     print(f"  Example: {regular}")
 
     print("\nDeep Agent (deep=True):")
-    print("  ✓ Built-in file tools (read, write, edit, glob, grep)")
-    print("  ✓ Todo management")
-    print("  ✓ Subagent delegation")
-    print("  ✓ Good for: Code generation, file processing, complex automation")
-    print("  ✓ Uses: create_deep_agent from deepagents")
+    print("  [OK] Built-in file tools (read, write, edit, glob, grep)")
+    print("  [OK] Todo management")
+    print("  [OK] Subagent delegation")
+    print("  [OK] Good for: Code generation, file processing, complex automation")
+    print("  [OK] Uses: create_deep_agent from deepagents")
     print()
 
     try:

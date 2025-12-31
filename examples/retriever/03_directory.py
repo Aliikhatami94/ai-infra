@@ -48,7 +48,7 @@ def basic_directory():
         # Load entire directory
         retriever.add_directory(tmpdir)
 
-        print(f"\n✓ Loaded {len(retriever)} documents")
+        print(f"\n[OK] Loaded {len(retriever)} documents")
 
         results = retriever.search("how to install", k=1)
         if results:
@@ -86,7 +86,7 @@ def glob_patterns():
         retriever = Retriever()
         retriever.add_directory(tmpdir, pattern="*.md")
 
-        print(f"\n✓ Pattern '*.md' loaded {len(retriever)} documents")
+        print(f"\n[OK] Pattern '*.md' loaded {len(retriever)} documents")
 
         results = retriever.search("documentation", k=2)
         print("\nResults from markdown files only:")
@@ -129,7 +129,7 @@ def recursive_loading():
         retriever = Retriever()
         retriever.add_directory(tmpdir, pattern="**/*.md", recursive=True)
 
-        print(f"\n✓ Recursively loaded {len(retriever)} markdown files")
+        print(f"\n[OK] Recursively loaded {len(retriever)} markdown files")
 
         results = retriever.search("API authentication", k=2)
         print("\nSearch results:")
@@ -170,7 +170,7 @@ def multiple_patterns():
             retriever.add_directory(tmpdir, pattern=pattern)
 
         print(f"\nPatterns: {patterns}")
-        print(f"✓ Loaded {len(retriever)} documents")
+        print(f"[OK] Loaded {len(retriever)} documents")
 
         for i, result in enumerate(retriever.search("", k=10)):
             source = Path(result.document.source).name if result.document.source else "?"
@@ -212,7 +212,7 @@ def exclude_patterns():
             if dir_path.exists():
                 retriever.add_directory(str(dir_path), pattern="*.*")
 
-        print(f"\n✓ Loaded {len(retriever)} documents (excluding tests, .git, node_modules)")
+        print(f"\n[OK] Loaded {len(retriever)} documents (excluding tests, .git, node_modules)")
 
         print("\nLoaded files:")
         for result in retriever.search("", k=10):
@@ -269,7 +269,7 @@ def health_check():
         retriever = Retriever()
         retriever.add_directory(tmpdir, pattern="*.py")
 
-        print(f"\n✓ Loaded {len(retriever)} Python file chunks")
+        print(f"\n[OK] Loaded {len(retriever)} Python file chunks")
 
         queries = [
             "email validation function",
@@ -314,7 +314,7 @@ def directory_with_metadata():
                 metadata={"version": version},
             )
 
-        print("\n✓ Loaded documentation for v1 and v2")
+        print("\n[OK] Loaded documentation for v1 and v2")
 
         # Search only v2
         results = retriever.search("API", k=2, filter={"version": "v2"})

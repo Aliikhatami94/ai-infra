@@ -18,9 +18,9 @@ print(result.text)  # "Hello, world!"
 
 | Provider | Models | Languages | Streaming |
 |----------|--------|-----------|-----------|
-| OpenAI | whisper-1 | 50+ | ❌ |
-| Deepgram | nova-2, nova | 30+ | ✅ |
-| Google | Multiple | 100+ | ✅ |
+| OpenAI | whisper-1 | 50+ | [X] |
+| Deepgram | nova-2, nova | 30+ | [OK] |
+| Google | Multiple | 100+ | [OK] |
 
 ---
 

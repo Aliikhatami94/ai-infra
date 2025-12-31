@@ -430,8 +430,8 @@ def _run_repl(
 
                 if cmd in ("quit", "exit", "q"):
                     _save_session()
-                    typer.secho("✓ Session saved", fg=typer.colors.GREEN)
-                    typer.echo("\nGoodbye! 👋")
+                    typer.secho("[OK] Session saved", fg=typer.colors.GREEN)
+                    typer.echo("\nGoodbye! ")
                     break
 
                 elif cmd == "help":
@@ -440,7 +440,7 @@ def _run_repl(
 
                 elif cmd == "clear":
                     conversation = []
-                    typer.secho("✓ Conversation cleared", fg=typer.colors.YELLOW)
+                    typer.secho("[OK] Conversation cleared", fg=typer.colors.YELLOW)
                     continue
 
                 elif cmd == "history":
@@ -463,7 +463,7 @@ def _run_repl(
                     if arg:
                         current_system = arg
                         typer.secho(
-                            f"✓ System prompt set: {arg[:50]}...",
+                            f"[OK] System prompt set: {arg[:50]}...",
                             fg=typer.colors.YELLOW,
                         )
                     else:
@@ -497,7 +497,7 @@ def _run_repl(
                     current_session_id = new_id
                     _save_session()
                     typer.secho(
-                        f"✓ Session saved as: {current_session_id}",
+                        f"[OK] Session saved as: {current_session_id}",
                         fg=typer.colors.GREEN,
                     )
                     continue
@@ -508,7 +508,7 @@ def _run_repl(
                         continue
                     load_id = arg.strip()
                     if not storage.exists(load_id):
-                        typer.secho(f"✗ Session not found: {load_id}", fg=typer.colors.RED)
+                        typer.secho(f"[X] Session not found: {load_id}", fg=typer.colors.RED)
                         typer.echo("Use /sessions to list available sessions")
                         continue
                     # Save current session before switching
@@ -529,7 +529,7 @@ def _run_repl(
                         if metadata.get("temperature"):
                             current_temp = metadata["temperature"]
                         typer.secho(
-                            f"✓ Loaded session: {load_id} ({len(conversation)} messages)",
+                            f"[OK] Loaded session: {load_id} ({len(conversation)} messages)",
                             fg=typer.colors.GREEN,
                         )
                     continue
@@ -541,7 +541,7 @@ def _run_repl(
                     current_session_id = arg.strip() if arg else _generate_session_id()
                     conversation = []
                     current_system = system  # Reset to original system prompt
-                    typer.secho(f"✓ New session: {current_session_id}", fg=typer.colors.GREEN)
+                    typer.secho(f"[OK] New session: {current_session_id}", fg=typer.colors.GREEN)
                     continue
 
                 elif cmd == "delete":
@@ -551,14 +551,14 @@ def _run_repl(
                     delete_id = arg.strip()
                     if delete_id == current_session_id:
                         typer.secho(
-                            "✗ Cannot delete current session. Use /new first.",
+                            "[X] Cannot delete current session. Use /new first.",
                             fg=typer.colors.RED,
                         )
                         continue
                     if storage.delete(delete_id):
-                        typer.secho(f"✓ Deleted session: {delete_id}", fg=typer.colors.GREEN)
+                        typer.secho(f"[OK] Deleted session: {delete_id}", fg=typer.colors.GREEN)
                     else:
-                        typer.secho(f"✗ Session not found: {delete_id}", fg=typer.colors.RED)
+                        typer.secho(f"[X] Session not found: {delete_id}", fg=typer.colors.RED)
                     continue
 
                 elif cmd == "rename":
@@ -568,7 +568,7 @@ def _run_repl(
                     new_name = arg.strip()
                     if storage.exists(new_name):
                         typer.secho(
-                            f"✗ Session already exists: {new_name}",
+                            f"[X] Session already exists: {new_name}",
                             fg=typer.colors.RED,
                         )
                         continue
@@ -577,7 +577,7 @@ def _run_repl(
                     _save_session()
                     storage.delete(old_id)
                     typer.secho(
-                        f"✓ Renamed: {old_id} → {new_name}",
+                        f"[OK] Renamed: {old_id} → {new_name}",
                         fg=typer.colors.GREEN,
                     )
                     continue
@@ -585,7 +585,7 @@ def _run_repl(
                 elif cmd == "model":
                     if arg:
                         current_model = arg
-                        typer.secho(f"✓ Model changed to: {arg}", fg=typer.colors.YELLOW)
+                        typer.secho(f"[OK] Model changed to: {arg}", fg=typer.colors.YELLOW)
                     else:
                         display = current_model or "default (auto)"
                         typer.echo(f"Current model: {display}")
@@ -596,9 +596,9 @@ def _run_repl(
                         current_provider = arg
                         try:
                             llm = _get_llm(current_provider, current_model)
-                            typer.secho(f"✓ Provider changed to: {arg}", fg=typer.colors.YELLOW)
+                            typer.secho(f"[OK] Provider changed to: {arg}", fg=typer.colors.YELLOW)
                         except Exception as e:
-                            typer.secho(f"✗ Failed to change provider: {e}", fg=typer.colors.RED)
+                            typer.secho(f"[X] Failed to change provider: {e}", fg=typer.colors.RED)
                     else:
                         display = current_provider or _get_default_provider() + " (auto)"
                         typer.echo(f"Current provider: {display}")
@@ -609,12 +609,12 @@ def _run_repl(
                         try:
                             current_temp = float(arg)
                             typer.secho(
-                                f"✓ Temperature set to: {current_temp}",
+                                f"[OK] Temperature set to: {current_temp}",
                                 fg=typer.colors.YELLOW,
                             )
                         except ValueError:
                             typer.secho(
-                                "✗ Invalid temperature. Use a number 0.0-2.0",
+                                "[X] Invalid temperature. Use a number 0.0-2.0",
                                 fg=typer.colors.RED,
                             )
                     else:
@@ -687,7 +687,7 @@ def _run_repl(
                 continue
 
             except Exception as e:
-                typer.secho(f"\n✗ Error: {e}", fg=typer.colors.RED)
+                typer.secho(f"\n[X] Error: {e}", fg=typer.colors.RED)
                 conversation.pop()
                 continue
 
@@ -695,12 +695,12 @@ def _run_repl(
 
         except EOFError:
             _save_session()
-            typer.echo("\nGoodbye! 👋")
+            typer.echo("\nGoodbye! ")
             break
 
         except KeyboardInterrupt:
             _save_session()
-            typer.echo("\nGoodbye! 👋")
+            typer.echo("\nGoodbye! ")
             break
 
 
@@ -953,11 +953,11 @@ def session_delete_cmd(
         for s in sessions:
             if storage.delete(s["session_id"]):
                 deleted += 1
-        typer.secho(f"✓ Deleted {deleted} session(s)", fg=typer.colors.GREEN)
+        typer.secho(f"[OK] Deleted {deleted} session(s)", fg=typer.colors.GREEN)
 
     else:
         if not storage.exists(session_name):
-            typer.secho(f"✗ Session not found: {session_name}", fg=typer.colors.RED)
+            typer.secho(f"[X] Session not found: {session_name}", fg=typer.colors.RED)
             raise typer.Exit(1)
 
         if not force:
@@ -967,9 +967,9 @@ def session_delete_cmd(
                 return
 
         if storage.delete(session_name):
-            typer.secho(f"✓ Deleted: {session_name}", fg=typer.colors.GREEN)
+            typer.secho(f"[OK] Deleted: {session_name}", fg=typer.colors.GREEN)
         else:
-            typer.secho(f"✗ Failed to delete: {session_name}", fg=typer.colors.RED)
+            typer.secho(f"[X] Failed to delete: {session_name}", fg=typer.colors.RED)
             raise typer.Exit(1)
 
 

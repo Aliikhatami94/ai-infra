@@ -87,7 +87,7 @@ async def basic_agent_with_mcp():
             transport="streamable_http",
         )
 
-        print(f"✓ Loaded {len(mcp_tools)} tools from MCP server")
+        print(f"[OK] Loaded {len(mcp_tools)} tools from MCP server")
 
         # Create agent with MCP tools
         agent = Agent(tools=mcp_tools)
@@ -97,7 +97,7 @@ async def basic_agent_with_mcp():
         print(f"\nAgent: {result}")
 
     except Exception as e:
-        print(f"❌ Could not connect to MCP server: {e}")
+        print(f"[X] Could not connect to MCP server: {e}")
         print("   Make sure an MCP server is running, or set MCP_SERVER_URL")
 
 
@@ -132,14 +132,14 @@ async def combined_tools():
         # Create agent with combined tools
         agent = Agent(tools=all_tools)
 
-        print(f"\n✓ Agent created with {len(all_tools)} total tools")
+        print(f"\n[OK] Agent created with {len(all_tools)} total tools")
 
         # The agent can use both local and MCP tools
         result = await agent.arun("What is the current time, and also calculate sqrt(144)?")
         print(f"\nAgent: {result}")
 
     except Exception as e:
-        print(f"\n⚠️  MCP unavailable: {e}")
+        print(f"\n[!]  MCP unavailable: {e}")
         print("   Falling back to local tools only...")
 
         # Fallback: agent with only local tools
@@ -183,7 +183,7 @@ async def agent_with_mcp_client():
         async with MCPClient(configs) as mcp:
             # Get tools from MCP
             mcp_tools = await mcp.list_tools()
-            print(f"\n✓ Discovered {len(mcp_tools)} tools")
+            print(f"\n[OK] Discovered {len(mcp_tools)} tools")
 
             # Create agent
             agent = Agent(
@@ -198,9 +198,9 @@ async def agent_with_mcp_client():
             print(f"\nAgent: {result}")
 
     except FileNotFoundError:
-        print("❌ npx not found. Install Node.js for this example.")
+        print("[X] npx not found. Install Node.js for this example.")
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"[X] Error: {e}")
 
 
 # =============================================================================
@@ -226,21 +226,21 @@ async def production_pattern():
     try:
         # First load - may be slow
         tools_1 = await load_mcp_tools_cached(mcp_url, transport="streamable_http")
-        print(f"✓ First load: {len(tools_1)} tools")
+        print(f"[OK] First load: {len(tools_1)} tools")
 
         # Second load - instant from cache
         tools_2 = await load_mcp_tools_cached(mcp_url, transport="streamable_http")
-        print(f"✓ Cached load: {len(tools_2)} tools (instant)")
+        print(f"[OK] Cached load: {len(tools_2)} tools (instant)")
 
         # Force refresh if needed
         # clear_mcp_cache(mcp_url)
         # tools = await load_mcp_tools_cached(mcp_url, transport="streamable_http")
 
     except Exception as e:
-        print(f"⚠️  MCP unavailable: {e}")
+        print(f"[!]  MCP unavailable: {e}")
         tools_1 = []
 
-    print("\n✓ Production best practices:")
+    print("\n[OK] Production best practices:")
     print("  - Use load_mcp_tools_cached() for performance")
     print("  - Always have fallback local tools")
     print("  - Set recursion_limit on agents")
@@ -264,13 +264,13 @@ async def agent_with_callbacks():
         """Observer for MCP tool calls."""
 
         def on_tool_start(self, event: ToolStartEvent) -> None:
-            print(f"  🔧 Tool starting: {event.tool_name}")
+            print(f"   Tool starting: {event.tool_name}")
             if event.tool_args:
                 print(f"     Args: {event.tool_args}")
 
         def on_tool_end(self, event: ToolEndEvent) -> None:
             result_preview = str(event.result)[:100]
-            print(f"  ✓ Tool finished: {event.tool_name}")
+            print(f"  [OK] Tool finished: {event.tool_name}")
             print(f"     Result: {result_preview}...")
             if event.latency_ms:
                 print(f"     Latency: {event.latency_ms:.0f}ms")
@@ -316,7 +316,7 @@ async def error_handling():
             await mcp.list_tools()
 
     except MCPTimeoutError as e:
-        print(f"⏱️  Timeout error: {e}")
+        print(f"⏱  Timeout error: {e}")
         print("   → Increase timeout or check server responsiveness")
 
     except MCPServerError as e:
@@ -324,10 +324,10 @@ async def error_handling():
         print("   → Check if server is running")
 
     except Exception as e:
-        print(f"❌ Connection error: {type(e).__name__}: {e}")
+        print(f"[X] Connection error: {type(e).__name__}: {e}")
         print("   → Server is not reachable")
 
-    print("\n✓ Error handled gracefully - agent can fall back to local tools")
+    print("\n[OK] Error handled gracefully - agent can fall back to local tools")
 
     # Fallback pattern
     agent = Agent(tools=[get_current_time, calculate])
@@ -366,7 +366,7 @@ async def mcp_with_hitl():
         require_approval=["dangerous_operation"],  # Only this tool needs approval
     )
 
-    print("✓ Agent created with HITL for 'dangerous_operation'")
+    print("[OK] Agent created with HITL for 'dangerous_operation'")
     print()
     print("In production, the agent would pause and ask for approval")
     print("before executing any call to 'dangerous_operation'.")

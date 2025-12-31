@@ -44,8 +44,8 @@ async with voice.connect() as session:
 
 | Provider | Models | VAD | Tools |
 |----------|--------|-----|-------|
-| OpenAI | gpt-4o-realtime-preview | ✅ | ✅ |
-| Google | gemini-2.0-flash-exp | ✅ | ✅ |
+| OpenAI | gpt-4o-realtime-preview | [OK] | [OK] |
+| Google | gemini-2.0-flash-exp | [OK] | [OK] |
 
 ---
 

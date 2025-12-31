@@ -82,10 +82,10 @@ The object instance whose methods will be converted to tools.
 ```python
 # Pass an instance, not a class
 service = UserService(db=database)
-tools = tools_from_object(service)  # ✅ Correct
+tools = tools_from_object(service)  # [OK] Correct
 
 # NOT the class itself
-tools = tools_from_object(UserService)  # ❌ Wrong
+tools = tools_from_object(UserService)  # [X] Wrong
 ```
 
 ### `methods`
@@ -185,13 +185,13 @@ Methods are filtered in this order:
 
 ```python
 class Example:
-    def __init__(self): ...           # ❌ Dunder - excluded
-    def __str__(self): ...            # ❌ Dunder - excluded
-    def _private(self): ...           # ❌ Private - excluded by default
-    def public_action(self): ...      # ✅ Included
+    def __init__(self): ...           # [X] Dunder - excluded
+    def __str__(self): ...            # [X] Dunder - excluded
+    def _private(self): ...           # [X] Private - excluded by default
+    def public_action(self): ...      # [OK] Included
 
     @property
-    def value(self): ...              # ❌ Property - excluded
+    def value(self): ...              # [X] Property - excluded
 ```
 
 ---

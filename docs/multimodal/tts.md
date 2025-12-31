@@ -18,9 +18,9 @@ audio.save("output.mp3")
 
 | Provider | Voices | Models | Streaming |
 |----------|--------|--------|-----------|
-| OpenAI | 6 voices | tts-1, tts-1-hd | ✅ |
-| ElevenLabs | 10+ voices | eleven_multilingual_v2 | ✅ |
-| Google | 5 voices | Multiple | ✅ |
+| OpenAI | 6 voices | tts-1, tts-1-hd | [OK] |
+| ElevenLabs | 10+ voices | eleven_multilingual_v2 | [OK] |
+| Google | 5 voices | Multiple | [OK] |
 
 ---
 

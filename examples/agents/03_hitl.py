@@ -58,7 +58,7 @@ def transfer_money(from_account: str, to_account: str, amount: float) -> str:
     Returns:
         Confirmation of transfer.
     """
-    return f"✓ Transferred ${amount:.2f} from {from_account} to {to_account}"
+    return f"[OK] Transferred ${amount:.2f} from {from_account} to {to_account}"
 
 
 def delete_account(account_id: str, confirm: bool = False) -> str:
@@ -73,7 +73,7 @@ def delete_account(account_id: str, confirm: bool = False) -> str:
     """
     if not confirm:
         return "Error: confirm must be True to delete account"
-    return f"⚠️ Account {account_id} has been permanently deleted"
+    return f"[!] Account {account_id} has been permanently deleted"
 
 
 def send_notification(user_id: str, message: str) -> str:
@@ -86,7 +86,7 @@ def send_notification(user_id: str, message: str) -> str:
     Returns:
         Confirmation.
     """
-    return f"✓ Notification sent to user {user_id}"
+    return f"[OK] Notification sent to user {user_id}"
 
 
 # =============================================================================
@@ -197,7 +197,7 @@ def custom_sync_handler():
 
     def my_approval_handler(request: ApprovalRequest) -> ApprovalResponse:
         """Custom approval handler with logging."""
-        print("\n📋 APPROVAL REQUIRED")
+        print("\n APPROVAL REQUIRED")
         print(f"   Tool: {request.tool_name}")
         print(f"   Args: {request.args}")
         print(f"   Request ID: {request.id}")
@@ -211,7 +211,7 @@ def custom_sync_handler():
             original = modified_args.get("amount", 0)
             modified_args["amount"] = min(original, 100)  # Cap at $100
 
-            print(f"   ⚠️ Modified amount from ${original} to ${modified_args['amount']}")
+            print(f"   [!] Modified amount from ${original} to ${modified_args['amount']}")
 
             return ApprovalResponse(
                 approved=True,
@@ -250,7 +250,7 @@ async def custom_async_handler():
         2. Send a notification (WebSocket, email, Slack, etc.)
         3. Wait for the response (or timeout)
         """
-        print("\n🌐 WEB APPROVAL REQUEST")
+        print("\n WEB APPROVAL REQUEST")
         print(f"   Request ID: {request.id}")
         print(f"   Tool: {request.tool_name}")
         print(f"   Args: {request.args}")
@@ -259,11 +259,11 @@ async def custom_async_handler():
         pending_approvals[request.id] = request
 
         # Simulate sending WebSocket notification
-        print("   📤 Sending to frontend via WebSocket...")
+        print("    Sending to frontend via WebSocket...")
         await asyncio.sleep(0.5)  # Simulate network delay
 
         # Simulate receiving approval (in real app, would wait for user response)
-        print("   📥 Received approval from user via WebSocket")
+        print("    Received approval from user via WebSocket")
 
         # Simulate approval
         approval_responses[request.id] = ApprovalResponse(
@@ -299,7 +299,7 @@ def selective_handler_example():
 
     def handle_delete(request: ApprovalRequest) -> ApprovalResponse:
         """Custom handler for deletes - always require manual approval."""
-        print("\n⚠️  DELETE OPERATION REQUIRES MANUAL APPROVAL ⚠️")
+        print("\n[!]  DELETE OPERATION REQUIRES MANUAL APPROVAL [!]")
         return console_approval_handler(request)
 
     # Create handler that routes to different handlers per tool
@@ -371,7 +371,7 @@ def argument_modification_example():
             sanitized = original_message.replace("password", "****")
 
             if original_message != sanitized:
-                print("\n⚠️ Sanitized message content")
+                print("\n[!] Sanitized message content")
                 return ApprovalResponse(
                     approved=True,
                     modified_args={

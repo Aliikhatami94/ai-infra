@@ -33,7 +33,7 @@ async def main():
     from ai_infra import Retriever
     from ai_infra.retriever.retriever import KNOWN_EMBEDDING_DIMENSIONS, _get_embedding_dimension
 
-    print(f"\n📊 KNOWN_EMBEDDING_DIMENSIONS has {len(KNOWN_EMBEDDING_DIMENSIONS)} models")
+    print(f"\n KNOWN_EMBEDDING_DIMENSIONS has {len(KNOWN_EMBEDDING_DIMENSIONS)} models")
     print("   Sample models:")
     for model in list(KNOWN_EMBEDDING_DIMENSIONS.keys())[:5]:
         print(f"     - {model}: {KNOWN_EMBEDDING_DIMENSIONS[model]} dims")
@@ -48,7 +48,7 @@ async def main():
         dim = _get_embedding_dimension(provider, model)
         print(f"   {provider}/{model}: {dim} dims")
 
-    print("\n🔧 Testing auto_configure parameter:")
+    print("\n Testing auto_configure parameter:")
     Retriever(auto_configure=True)
     print("   auto_configure=True: Created successfully")
     Retriever(auto_configure=False)
@@ -73,35 +73,35 @@ async def main():
             branch="main",
             metadata={"package": "svc-infra"},
         )
-        print(f"   ✅ Loaded {len(ids)} chunks from GitHub")
+        print(f"   [OK] Loaded {len(ids)} chunks from GitHub")
         print(f"   Total chunks in retriever: {retriever.count}")
     except Exception as e:
-        print(f"   ❌ Failed: {e}")
+        print(f"   [X] Failed: {e}")
 
     # Test add_from_url (real URL fetch)
-    print("\n🌐 Testing add_from_url() - Loading from raw GitHub URL...")
+    print("\n Testing add_from_url() - Loading from raw GitHub URL...")
     try:
         url = "https://raw.githubusercontent.com/nfraxlab/svc-infra/main/README.md"
         ids = await retriever.add_from_url(
             url,
             metadata={"source_type": "url", "package": "svc-infra"},
         )
-        print(f"   ✅ Loaded {len(ids)} chunks from URL")
+        print(f"   [OK] Loaded {len(ids)} chunks from URL")
         print(f"   Total chunks in retriever: {retriever.count}")
     except Exception as e:
-        print(f"   ❌ Failed: {e}")
+        print(f"   [X] Failed: {e}")
 
     # Test sync wrappers
-    print("\n🔄 Testing sync wrappers...")
+    print("\n Testing sync wrappers...")
     r_sync = Retriever()
     try:
         ids = r_sync.add_from_url_sync(
             "https://raw.githubusercontent.com/nfraxlab/ai-infra/main/README.md",
             metadata={"package": "ai-infra"},
         )
-        print(f"   ✅ add_from_url_sync() loaded {len(ids)} chunks")
+        print(f"   [OK] add_from_url_sync() loaded {len(ids)} chunks")
     except Exception as e:
-        print(f"   ❌ add_from_url_sync() failed: {e}")
+        print(f"   [X] add_from_url_sync() failed: {e}")
 
     # =========================================================================
     # 6.9.3 SearchResult Enhancements
@@ -111,32 +111,32 @@ async def main():
     print("=" * 70)
 
     # Search for something
-    print("\n🔍 Searching for 'authentication'...")
+    print("\n Searching for 'authentication'...")
     results = retriever.search("authentication", k=3, detailed=True)
     print(f"   Found {len(results)} results")
 
     if results:
         result = results[0]
-        print("\n📋 First result:")
+        print("\n First result:")
         print(f"   Score: {result.score:.4f}")
         print(f"   Text preview: {result.text[:80]}...")
 
         # Test convenience properties
-        print("\n🏷️  Convenience properties:")
+        print("\n🏷  Convenience properties:")
         print(f"   result.package: {result.package}")
         print(f"   result.path: {result.path}")
         print(f"   result.repo: {result.repo}")
         print(f"   result.content_type: {result.content_type}")
 
         # Test to_dict()
-        print("\n📦 to_dict() output:")
+        print("\n to_dict() output:")
         d = result.to_dict()
         print(f"   Keys: {list(d.keys())}")
         print(f"   Score rounded: {d['score']}")
 
         # Test JSON serialization
         json_str = json.dumps(d)
-        print(f"   JSON serializable: ✅ ({len(json_str)} chars)")
+        print(f"   JSON serializable: [OK] ({len(json_str)} chars)")
 
     # =========================================================================
     # 6.9.4 Structured Tool Results
@@ -151,14 +151,14 @@ async def main():
     )
 
     # Test structured=False (default)
-    print("\n📝 Testing create_retriever_tool(structured=False):")
+    print("\n Testing create_retriever_tool(structured=False):")
     tool_text = create_retriever_tool(retriever, structured=False)
     result_text = tool_text.invoke({"query": "authentication"})
     print(f"   Return type: {type(result_text).__name__}")
     print(f"   Preview: {result_text[:100]}...")
 
     # Test structured=True
-    print("\n📦 Testing create_retriever_tool(structured=True):")
+    print("\n Testing create_retriever_tool(structured=True):")
     tool_structured = create_retriever_tool(retriever, structured=True)
     result_structured = tool_structured.invoke({"query": "authentication"})
     print(f"   Return type: {type(result_structured).__name__}")
@@ -171,10 +171,10 @@ async def main():
 
     # Test JSON serialization
     json_str = json.dumps(result_structured)
-    print(f"   JSON serializable: ✅ ({len(json_str)} chars)")
+    print(f"   JSON serializable: [OK] ({len(json_str)} chars)")
 
     # Test async version
-    print("\n⚡ Testing create_retriever_tool_async(structured=True):")
+    print("\n Testing create_retriever_tool_async(structured=True):")
     tool_async = create_retriever_tool_async(retriever, structured=True)
     result_async = await tool_async.ainvoke({"query": "backend"})
     print(f"   Return type: {type(result_async).__name__}")
@@ -190,7 +190,7 @@ async def main():
     from ai_infra.llm.streaming import StreamEvent
 
     # Test text result
-    print("\n📝 StreamEvent with text result:")
+    print("\n StreamEvent with text result:")
     event_text = StreamEvent(
         type="tool_end",
         tool="search_docs",
@@ -205,7 +205,7 @@ async def main():
     print(f"   to_dict() has 'structured_result' key: {'structured_result' in d}")
 
     # Test structured result
-    print("\n📦 StreamEvent with structured result:")
+    print("\n StreamEvent with structured result:")
     event_structured = StreamEvent(
         type="tool_end",
         tool="search_docs",
@@ -218,7 +218,7 @@ async def main():
     print(f"   result_structured: {event_structured.result_structured}")
     print(f"   to_dict() has 'result' key: {'result' in d}")
     print(f"   to_dict() has 'structured_result' key: {'structured_result' in d}")
-    print("   JSON serializable: ✅")
+    print("   JSON serializable: [OK]")
 
     # =========================================================================
     # 6.9.6 Module Exports
@@ -228,7 +228,7 @@ async def main():
     print("=" * 70)
 
     # Test retriever module exports
-    print("\n📦 ai_infra.retriever exports:")
+    print("\n ai_infra.retriever exports:")
     from ai_infra.retriever import Chunk, SearchResult
     from ai_infra.retriever import Retriever as R
 
@@ -237,15 +237,15 @@ async def main():
     print(f"   Chunk: {Chunk}")
 
     # Test top-level exports
-    print("\n📦 ai_infra top-level exports:")
+    print("\n ai_infra top-level exports:")
     from ai_infra import RetrieverChunk, RetrieverSearchResult
 
     print(f"   RetrieverSearchResult: {RetrieverSearchResult}")
     print(f"   RetrieverChunk: {RetrieverChunk}")
 
     # Verify they are the same
-    print(f"\n✅ RetrieverSearchResult is SearchResult: {RetrieverSearchResult is SearchResult}")
-    print(f"✅ RetrieverChunk is Chunk: {RetrieverChunk is Chunk}")
+    print(f"\n[OK] RetrieverSearchResult is SearchResult: {RetrieverSearchResult is SearchResult}")
+    print(f"[OK] RetrieverChunk is Chunk: {RetrieverChunk is Chunk}")
 
     # =========================================================================
     # Summary
@@ -255,30 +255,30 @@ async def main():
     print("=" * 70)
     print(
         f"""
-✅ 6.9.1 Environment Auto-Configuration
+[OK] 6.9.1 Environment Auto-Configuration
    - KNOWN_EMBEDDING_DIMENSIONS: {len(KNOWN_EMBEDDING_DIMENSIONS)} models
    - _get_embedding_dimension() works for known models
    - auto_configure parameter works
 
-✅ 6.9.2 Remote Content Loading
+[OK] 6.9.2 Remote Content Loading
    - add_from_github() loads from GitHub API
    - add_from_url() loads from raw URLs
    - Sync wrappers work
 
-✅ 6.9.3 SearchResult Enhancements
+[OK] 6.9.3 SearchResult Enhancements
    - to_dict() produces JSON-serializable output
    - Convenience properties: package, path, repo, content_type
 
-✅ 6.9.4 Structured Tool Results
+[OK] 6.9.4 Structured Tool Results
    - structured=False returns text
    - structured=True returns dict with results/query/count
    - Async version works
 
-✅ 6.9.5 StreamEvent Structured Result Support
+[OK] 6.9.5 StreamEvent Structured Result Support
    - result_structured field works
    - to_dict() outputs structured_result key when structured
 
-✅ 6.9.6 Module Exports
+[OK] 6.9.6 Module Exports
    - Chunk, SearchResult exported from ai_infra.retriever
    - RetrieverChunk, RetrieverSearchResult exported from ai_infra
 
@@ -286,7 +286,7 @@ Total chunks loaded: {retriever.count}
 """
     )
     print("=" * 70)
-    print("🎉 All Phase 6.9 features working!")
+    print(" All Phase 6.9 features working!")
     print("=" * 70)
 
 

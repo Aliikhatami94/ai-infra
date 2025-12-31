@@ -52,18 +52,18 @@ def test_1_llm_callbacks():
     class TestCallbacks(Callbacks):
         def on_llm_start(self, event: LLMStartEvent) -> None:
             events.append("llm_start")
-            log(f"  🚀 LLM Start: {event.provider}/{event.model}", YELLOW)
+            log(f"   LLM Start: {event.provider}/{event.model}", YELLOW)
             log(f"     Messages: {len(event.messages)} message(s)", YELLOW)
 
         def on_llm_end(self, event: LLMEndEvent) -> None:
             events.append("llm_end")
-            log(f"  ✅ LLM End: {event.latency_ms:.0f}ms", GREEN)
+            log(f"  [OK] LLM End: {event.latency_ms:.0f}ms", GREEN)
             log(f"     Tokens: {event.total_tokens} total", GREEN)
             log(f"     Response: {event.response[:80]}...", GREEN)
 
         def on_llm_error(self, event: LLMErrorEvent) -> None:
             events.append("llm_error")
-            log(f"  ❌ LLM Error: {event.error_type}", RED)
+            log(f"  [X] LLM Error: {event.error_type}", RED)
 
     callbacks = TestCallbacks()
     llm = LLM(callbacks=callbacks)
@@ -75,7 +75,7 @@ def test_1_llm_callbacks():
     # Verify events fired
     assert "llm_start" in events, "LLMStartEvent not fired!"
     assert "llm_end" in events, "LLMEndEvent not fired!"
-    log(f"\n✓ Events fired: {events}", GREEN)
+    log(f"\n[OK] Events fired: {events}", GREEN)
     return True
 
 
@@ -97,11 +97,11 @@ async def test_2_async_llm_callbacks():
     class AsyncTestCallbacks(Callbacks):
         async def on_llm_start_async(self, event: LLMStartEvent) -> None:
             events.append("llm_start_async")
-            log(f"  🚀 Async LLM Start: {event.provider}/{event.model}", YELLOW)
+            log(f"   Async LLM Start: {event.provider}/{event.model}", YELLOW)
 
         async def on_llm_end_async(self, event: LLMEndEvent) -> None:
             events.append("llm_end_async")
-            log(f"  ✅ Async LLM End: {event.latency_ms:.0f}ms", GREEN)
+            log(f"  [OK] Async LLM End: {event.latency_ms:.0f}ms", GREEN)
             log(f"     Tokens: {event.total_tokens}", GREEN)
 
     callbacks = AsyncTestCallbacks()
@@ -113,7 +113,7 @@ async def test_2_async_llm_callbacks():
 
     assert "llm_start_async" in events, "Async LLMStartEvent not fired!"
     assert "llm_end_async" in events, "Async LLMEndEvent not fired!"
-    log(f"\n✓ Async events fired: {events}", GREEN)
+    log(f"\n[OK] Async events fired: {events}", GREEN)
     return True
 
 
@@ -136,7 +136,7 @@ async def test_3_streaming_callbacks():
     class StreamingCallbacks(Callbacks):
         async def on_llm_start_async(self, event: LLMStartEvent) -> None:
             events.append("llm_start")
-            log(f"  🚀 Stream Start: {event.provider}/{event.model}", YELLOW)
+            log(f"   Stream Start: {event.provider}/{event.model}", YELLOW)
 
         async def on_llm_token_async(self, event: LLMTokenEvent) -> None:
             events.append("llm_token")
@@ -147,7 +147,7 @@ async def test_3_streaming_callbacks():
         async def on_llm_end_async(self, event: LLMEndEvent) -> None:
             events.append("llm_end")
             print()  # Newline after streaming
-            log(f"  ✅ Stream End: {event.latency_ms:.0f}ms", GREEN)
+            log(f"  [OK] Stream End: {event.latency_ms:.0f}ms", GREEN)
 
     callbacks = StreamingCallbacks()
     llm = LLM(callbacks=callbacks)
@@ -160,7 +160,7 @@ async def test_3_streaming_callbacks():
     assert "llm_start" in events, "LLMStartEvent not fired!"
     assert "llm_token" in events, "LLMTokenEvent not fired!"
     assert "llm_end" in events, "LLMEndEvent not fired!"
-    log(f"\n✓ Received {len(tokens_received)} tokens via callbacks", GREEN)
+    log(f"\n[OK] Received {len(tokens_received)} tokens via callbacks", GREEN)
     return True
 
 
@@ -189,20 +189,20 @@ def test_4_agent_with_tools():
     class AgentCallbacks(Callbacks):
         def on_llm_start(self, event: LLMStartEvent) -> None:
             events.append("llm_start")
-            log(f"  🚀 Agent LLM Start: {event.provider}/{event.model}", YELLOW)
+            log(f"   Agent LLM Start: {event.provider}/{event.model}", YELLOW)
 
         def on_llm_end(self, event: LLMEndEvent) -> None:
             events.append("llm_end")
-            log(f"  ✅ Agent LLM End: {event.latency_ms:.0f}ms", GREEN)
+            log(f"  [OK] Agent LLM End: {event.latency_ms:.0f}ms", GREEN)
 
         def on_tool_start(self, event: ToolStartEvent) -> None:
             events.append("tool_start")
-            log(f"  🔧 Tool Start: {event.tool_name}", YELLOW)
+            log(f"   Tool Start: {event.tool_name}", YELLOW)
             log(f"     Arguments: {event.arguments}", YELLOW)
 
         def on_tool_end(self, event: ToolEndEvent) -> None:
             events.append("tool_end")
-            log(f"  ✅ Tool End: {event.tool_name} ({event.latency_ms:.0f}ms)", GREEN)
+            log(f"  [OK] Tool End: {event.tool_name} ({event.latency_ms:.0f}ms)", GREEN)
             log(f"     Result: {event.result}", GREEN)
 
     @lc_tool
@@ -232,7 +232,7 @@ def test_4_agent_with_tools():
     assert "llm_start" in events, "LLMStartEvent not fired!"
     assert "tool_start" in events, "ToolStartEvent not fired!"
     assert "tool_end" in events, "ToolEndEvent not fired!"
-    log(f"\n✓ Events fired: {events}", GREEN)
+    log(f"\n[OK] Events fired: {events}", GREEN)
     return True
 
 
@@ -254,20 +254,20 @@ def test_5_callback_manager():
     class Handler1(Callbacks):
         def on_llm_start(self, event: LLMStartEvent) -> None:
             handler1_events.append("start")
-            log(f"  [Handler1] 🚀 Start: {event.model}", YELLOW)
+            log(f"  [Handler1]  Start: {event.model}", YELLOW)
 
         def on_llm_end(self, event: LLMEndEvent) -> None:
             handler1_events.append("end")
-            log(f"  [Handler1] ✅ End: {event.latency_ms:.0f}ms", GREEN)
+            log(f"  [Handler1] [OK] End: {event.latency_ms:.0f}ms", GREEN)
 
     class Handler2(Callbacks):
         def on_llm_start(self, event: LLMStartEvent) -> None:
             handler2_events.append("start")
-            log(f"  [Handler2] 🚀 Start: {event.model}", YELLOW)
+            log(f"  [Handler2]  Start: {event.model}", YELLOW)
 
         def on_llm_end(self, event: LLMEndEvent) -> None:
             handler2_events.append("end")
-            log(f"  [Handler2] ✅ End: {event.latency_ms:.0f}ms", GREEN)
+            log(f"  [Handler2] [OK] End: {event.latency_ms:.0f}ms", GREEN)
 
     manager = CallbackManager([Handler1(), Handler2()])
     llm = LLM(callbacks=manager)
@@ -278,8 +278,8 @@ def test_5_callback_manager():
 
     assert handler1_events == ["start", "end"], f"Handler1 events wrong: {handler1_events}"
     assert handler2_events == ["start", "end"], f"Handler2 events wrong: {handler2_events}"
-    log(f"\n✓ Handler1 events: {handler1_events}", GREEN)
-    log(f"✓ Handler2 events: {handler2_events}", GREEN)
+    log(f"\n[OK] Handler1 events: {handler1_events}", GREEN)
+    log(f"[OK] Handler2 events: {handler2_events}", GREEN)
     return True
 
 
@@ -316,7 +316,7 @@ def test_6_builtin_callbacks():
     # Check if metrics were recorded
     if hasattr(metrics, "metrics"):
         log(f"Metrics recorded: {metrics.metrics}", GREEN)
-    log("✓ MetricsCallbacks works", GREEN)
+    log("[OK] MetricsCallbacks works", GREEN)
 
     subsection("Testing Combined Callbacks")
     manager = CallbackManager(
@@ -330,7 +330,7 @@ def test_6_builtin_callbacks():
     result = llm.chat("What is the opposite of hot? One word.")
     log(f"Result: {result.content}", CYAN)
 
-    log("\n✓ All built-in callbacks work correctly", GREEN)
+    log("\n[OK] All built-in callbacks work correctly", GREEN)
     return True
 
 
@@ -367,12 +367,12 @@ def test_7_all_exports():
         ToolStartEvent,
     )
 
-    log("  ✓ Callbacks, CallbackManager", GREEN)
-    log("  ✓ LLMStartEvent, LLMEndEvent, LLMErrorEvent, LLMTokenEvent", GREEN)
-    log("  ✓ ToolStartEvent, ToolEndEvent, ToolErrorEvent", GREEN)
-    log("  ✓ MCPConnectEvent, MCPDisconnectEvent, MCPProgressEvent, MCPLoggingEvent", GREEN)
-    log("  ✓ GraphNodeStartEvent, GraphNodeEndEvent, GraphNodeErrorEvent", GREEN)
-    log("  ✓ LoggingCallbacks, MetricsCallbacks, PrintCallbacks", GREEN)
+    log("  [OK] Callbacks, CallbackManager", GREEN)
+    log("  [OK] LLMStartEvent, LLMEndEvent, LLMErrorEvent, LLMTokenEvent", GREEN)
+    log("  [OK] ToolStartEvent, ToolEndEvent, ToolErrorEvent", GREEN)
+    log("  [OK] MCPConnectEvent, MCPDisconnectEvent, MCPProgressEvent, MCPLoggingEvent", GREEN)
+    log("  [OK] GraphNodeStartEvent, GraphNodeEndEvent, GraphNodeErrorEvent", GREEN)
+    log("  [OK] LoggingCallbacks, MetricsCallbacks, PrintCallbacks", GREEN)
 
     # Verify they're all classes/types
     assert Callbacks is not None
@@ -381,7 +381,7 @@ def test_7_all_exports():
     assert MCPProgressEvent is not None
     assert GraphNodeStartEvent is not None
 
-    log("\n✓ All 19 callback exports are available", GREEN)
+    log("\n[OK] All 19 callback exports are available", GREEN)
     return True
 
 
@@ -402,11 +402,11 @@ def test_8_mcp_client_callbacks():
     class MCPCallbacks(Callbacks):
         async def on_mcp_progress_async(self, event: MCPProgressEvent) -> None:
             events.append("mcp_progress")
-            log(f"  📊 MCP Progress: {event.server_name} - {event.progress}", YELLOW)
+            log(f"   MCP Progress: {event.server_name} - {event.progress}", YELLOW)
 
         async def on_mcp_logging_async(self, event: MCPLoggingEvent) -> None:
             events.append("mcp_logging")
-            log(f"  📝 MCP Log: {event.server_name} [{event.level}] {event.data}", YELLOW)
+            log(f"   MCP Log: {event.server_name} [{event.level}] {event.data}", YELLOW)
 
     # Test that MCPClient accepts callbacks
     callbacks = MCPCallbacks()
@@ -414,7 +414,7 @@ def test_8_mcp_client_callbacks():
         [{"transport": "stdio", "command": "echo", "args": ["test"]}],
         callbacks=callbacks,
     )
-    log("✓ MCPClient accepts Callbacks instance", GREEN)
+    log("[OK] MCPClient accepts Callbacks instance", GREEN)
 
     # Test with CallbackManager
     manager = CallbackManager([MCPCallbacks()])
@@ -422,7 +422,7 @@ def test_8_mcp_client_callbacks():
         [{"transport": "stdio", "command": "echo", "args": ["test"]}],
         callbacks=manager,
     )
-    log("✓ MCPClient accepts CallbackManager", GREEN)
+    log("[OK] MCPClient accepts CallbackManager", GREEN)
 
     # Test normalization (check both mcp and mcp2)
     assert isinstance(mcp._callbacks, CallbackManager), (
@@ -431,9 +431,9 @@ def test_8_mcp_client_callbacks():
     assert isinstance(mcp2._callbacks, CallbackManager), (
         "CallbackManager not passed through correctly"
     )
-    log("✓ Callbacks normalized to CallbackManager internally", GREEN)
+    log("[OK] Callbacks normalized to CallbackManager internally", GREEN)
 
-    log("\n✓ MCPClient unified callbacks work correctly", GREEN)
+    log("\n[OK] MCPClient unified callbacks work correctly", GREEN)
     return True
 
 
@@ -454,28 +454,28 @@ async def run_all_tests():
     try:
         results["test_1_llm_callbacks"] = test_1_llm_callbacks()
     except Exception as e:
-        log(f"❌ Test 1 FAILED: {e}", RED)
+        log(f"[X] Test 1 FAILED: {e}", RED)
         results["test_1_llm_callbacks"] = False
 
     # Test 2: Async LLM callbacks
     try:
         results["test_2_async_llm_callbacks"] = await test_2_async_llm_callbacks()
     except Exception as e:
-        log(f"❌ Test 2 FAILED: {e}", RED)
+        log(f"[X] Test 2 FAILED: {e}", RED)
         results["test_2_async_llm_callbacks"] = False
 
     # Test 3: Streaming callbacks
     try:
         results["test_3_streaming_callbacks"] = await test_3_streaming_callbacks()
     except Exception as e:
-        log(f"❌ Test 3 FAILED: {e}", RED)
+        log(f"[X] Test 3 FAILED: {e}", RED)
         results["test_3_streaming_callbacks"] = False
 
     # Test 4: Agent with tools
     try:
         results["test_4_agent_with_tools"] = test_4_agent_with_tools()
     except Exception as e:
-        log(f"❌ Test 4 FAILED: {e}", RED)
+        log(f"[X] Test 4 FAILED: {e}", RED)
         import traceback
 
         traceback.print_exc()
@@ -485,28 +485,28 @@ async def run_all_tests():
     try:
         results["test_5_callback_manager"] = test_5_callback_manager()
     except Exception as e:
-        log(f"❌ Test 5 FAILED: {e}", RED)
+        log(f"[X] Test 5 FAILED: {e}", RED)
         results["test_5_callback_manager"] = False
 
     # Test 6: Built-in callbacks
     try:
         results["test_6_builtin_callbacks"] = test_6_builtin_callbacks()
     except Exception as e:
-        log(f"❌ Test 6 FAILED: {e}", RED)
+        log(f"[X] Test 6 FAILED: {e}", RED)
         results["test_6_builtin_callbacks"] = False
 
     # Test 7: All exports
     try:
         results["test_7_all_exports"] = test_7_all_exports()
     except Exception as e:
-        log(f"❌ Test 7 FAILED: {e}", RED)
+        log(f"[X] Test 7 FAILED: {e}", RED)
         results["test_7_all_exports"] = False
 
     # Test 8: MCP Client callbacks
     try:
         results["test_8_mcp_client_callbacks"] = test_8_mcp_client_callbacks()
     except Exception as e:
-        log(f"❌ Test 8 FAILED: {e}", RED)
+        log(f"[X] Test 8 FAILED: {e}", RED)
         results["test_8_mcp_client_callbacks"] = False
 
     # Summary
@@ -515,14 +515,14 @@ async def run_all_tests():
     failed = sum(1 for v in results.values() if not v)
 
     for name, result in results.items():
-        status = f"{GREEN}✓ PASSED{RESET}" if result else f"{RED}✗ FAILED{RESET}"
+        status = f"{GREEN}[OK] PASSED{RESET}" if result else f"{RED}[X] FAILED{RESET}"
         print(f"  {name}: {status}")
 
     print()
     if failed == 0:
-        log(f"🎉 All {passed} tests passed!", GREEN)
+        log(f" All {passed} tests passed!", GREEN)
     else:
-        log(f"⚠️  {passed} passed, {failed} failed", YELLOW)
+        log(f"[!]  {passed} passed, {failed} failed", YELLOW)
 
     return failed == 0
 

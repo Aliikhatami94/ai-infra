@@ -35,7 +35,7 @@ def basic_postgres():
     conn_str = os.getenv("DATABASE_URL") or os.getenv("POSTGRES_URL")
 
     if not conn_str:
-        print("\n  ⚠ Set DATABASE_URL to run this example:")
+        print("\n  [!] Set DATABASE_URL to run this example:")
         print("    export DATABASE_URL='postgresql://user:pass@localhost:5432/mydb'")
         return
 
@@ -43,7 +43,7 @@ def basic_postgres():
     retriever = Retriever(backend="postgres", connection_string=conn_str)
 
     print(f"\n  Backend: {retriever.backend}")
-    print("  ✓ Connected to PostgreSQL")
+    print("  [OK] Connected to PostgreSQL")
 
     # Add some content
     retriever.add(
@@ -99,7 +99,7 @@ def table_configuration():
 
     conn_str = os.getenv("DATABASE_URL")
     if not conn_str:
-        print("\n  ⚠ Set DATABASE_URL to run this example")
+        print("\n  [!] Set DATABASE_URL to run this example")
         return
 
     # Custom table name

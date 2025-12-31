@@ -337,7 +337,7 @@ class TestGeminiVoiceSession:
     @pytest.mark.asyncio
     async def test_send_text_unicode(self, voice_session: GeminiVoiceSession, mock_ws: MagicMock):
         """Test sending unicode text."""
-        unicode_text = "Hello! 你好! مرحبا! 🎉"
+        unicode_text = "Hello! 你好! مرحبا! "
         await voice_session.send_text(unicode_text)
 
         call_args = mock_ws.send_json.call_args[0][0]

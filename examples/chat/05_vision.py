@@ -187,7 +187,7 @@ def vision_with_specific_models():
 
     for provider, model in vision_models:
         if not LLM.is_provider_configured(provider):
-            print(f"\n{provider}/{model}: ⏭️  Skipped (not configured)")
+            print(f"\n{provider}/{model}: ⏭  Skipped (not configured)")
             continue
 
         try:

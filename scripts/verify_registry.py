@@ -27,29 +27,29 @@ def test_registry_basics():
 
     # Test list_all
     all_providers = ProviderRegistry.list_all()
-    print(f"\n✓ All registered providers ({len(all_providers)}): {all_providers}")
+    print(f"\n[OK] All registered providers ({len(all_providers)}): {all_providers}")
     assert len(all_providers) >= 10, "Expected at least 10 providers"
 
     # Test capabilities
     for cap in ProviderCapability:
         providers = list_providers_for_capability(cap)
-        print(f"✓ {cap.name} providers: {providers}")
+        print(f"[OK] {cap.name} providers: {providers}")
         assert isinstance(providers, list)
 
     # Test get_provider
     openai = get_provider("openai")
     assert openai is not None, "OpenAI provider not found"
     assert openai.display_name == "OpenAI"
-    print(f"\n✓ OpenAI config: name={openai.name}, env_var={openai.env_var}")
+    print(f"\n[OK] OpenAI config: name={openai.name}, env_var={openai.env_var}")
 
     # Test capabilities on provider
     assert openai.has_capability(ProviderCapability.CHAT)
     assert openai.has_capability(ProviderCapability.TTS)
     assert openai.has_capability(ProviderCapability.STT)
     assert openai.has_capability(ProviderCapability.EMBEDDINGS)
-    print("✓ OpenAI capabilities verified")
+    print("[OK] OpenAI capabilities verified")
 
-    print("\n✅ Registry basics: PASSED")
+    print("\n[OK] Registry basics: PASSED")
     return True
 
 
@@ -67,13 +67,13 @@ def test_embeddings_integration():
     from ai_infra.providers import ProviderCapability, ProviderRegistry
 
     # Check that embeddings uses registry
-    print(f"\n✓ Provider priority: {_PROVIDER_PRIORITY}")
-    print(f"✓ Provider aliases: {_PROVIDER_ALIASES}")
-    print(f"✓ LangChain mappings: {list(_LANGCHAIN_MAPPINGS.keys())}")
+    print(f"\n[OK] Provider priority: {_PROVIDER_PRIORITY}")
+    print(f"[OK] Provider aliases: {_PROVIDER_ALIASES}")
+    print(f"[OK] LangChain mappings: {list(_LANGCHAIN_MAPPINGS.keys())}")
 
     # Verify embeddings providers match registry
     registry_emb_providers = ProviderRegistry.list_for_capability(ProviderCapability.EMBEDDINGS)
-    print(f"✓ Registry EMBEDDINGS providers: {registry_emb_providers}")
+    print(f"[OK] Registry EMBEDDINGS providers: {registry_emb_providers}")
 
     # Test provider detection uses registry
     for provider in ["openai", "voyage", "cohere"]:
@@ -82,9 +82,9 @@ def test_embeddings_integration():
             assert config is not None, f"Provider {provider} not in registry"
             cap = config.get_capability(ProviderCapability.EMBEDDINGS)
             assert cap is not None, f"Provider {provider} missing EMBEDDINGS capability"
-            print(f"✓ {provider}: models={cap.models[:2]}..., default={cap.default_model}")
+            print(f"[OK] {provider}: models={cap.models[:2]}..., default={cap.default_model}")
 
-    print("\n✅ Embeddings integration: PASSED")
+    print("\n[OK] Embeddings integration: PASSED")
     return True
 
 
@@ -105,35 +105,35 @@ def test_tts_stt_integration():
 
     # TTS tests
     tts_providers = list_tts_providers()
-    print(f"\n✓ TTS providers from discovery: {tts_providers}")
+    print(f"\n[OK] TTS providers from discovery: {tts_providers}")
     registry_tts = ProviderRegistry.list_for_capability(ProviderCapability.TTS)
-    print(f"✓ TTS providers from registry: {registry_tts}")
+    print(f"[OK] TTS providers from registry: {registry_tts}")
     assert set(tts_providers) == set(registry_tts), "TTS provider mismatch"
 
     # Test OpenAI TTS voices come from registry
     voices = list_tts_voices("openai")
-    print(f"✓ OpenAI TTS voices: {voices}")
+    print(f"[OK] OpenAI TTS voices: {voices}")
     assert "alloy" in voices
     assert "nova" in voices
 
     # Test models
     models = list_tts_models("openai")
-    print(f"✓ OpenAI TTS models: {models}")
+    print(f"[OK] OpenAI TTS models: {models}")
     assert "tts-1" in models
 
     # STT tests
     stt_providers = list_stt_providers()
-    print(f"\n✓ STT providers from discovery: {stt_providers}")
+    print(f"\n[OK] STT providers from discovery: {stt_providers}")
     registry_stt = ProviderRegistry.list_for_capability(ProviderCapability.STT)
-    print(f"✓ STT providers from registry: {registry_stt}")
+    print(f"[OK] STT providers from registry: {registry_stt}")
     assert set(stt_providers) == set(registry_stt), "STT provider mismatch"
 
     # Test OpenAI STT models
     stt_models = list_stt_models("openai")
-    print(f"✓ OpenAI STT models: {stt_models}")
+    print(f"[OK] OpenAI STT models: {stt_models}")
     assert "whisper-1" in stt_models
 
-    print("\n✅ TTS/STT integration: PASSED")
+    print("\n[OK] TTS/STT integration: PASSED")
     return True
 
 
@@ -148,7 +148,7 @@ def test_imagegen_integration():
 
     # Test list_providers uses registry
     providers = list_providers()
-    print(f"\n✓ ImageGen providers: {providers}")
+    print(f"\n[OK] ImageGen providers: {providers}")
     registry_ig = ProviderRegistry.list_for_capability(ProviderCapability.IMAGEGEN)
     # Account for google/google_genai alias
     assert len(providers) == len(registry_ig), "ImageGen provider count mismatch"
@@ -156,7 +156,7 @@ def test_imagegen_integration():
     # Test list_models for each provider
     for provider in ["openai", "stability", "replicate"]:
         models = list_models(provider)
-        print(f"✓ {provider} models: {models[:3]}...")
+        print(f"[OK] {provider} models: {models[:3]}...")
 
         # Verify against registry
         config = ProviderRegistry.get(provider)
@@ -167,9 +167,9 @@ def test_imagegen_integration():
 
     # Test Google (which maps to google_genai)
     google_models = list_models("google")
-    print(f"✓ Google models: {google_models[:3]}...")
+    print(f"[OK] Google models: {google_models[:3]}...")
 
-    print("\n✅ ImageGen integration: PASSED")
+    print("\n[OK] ImageGen integration: PASSED")
     return True
 
 
@@ -191,15 +191,15 @@ def test_realtime_integration():
     rt_cap = openai_rt.get_capability(ProviderCapability.REALTIME)
     assert rt_cap is not None
 
-    print(f"\n✓ OpenAI Realtime models (module): {OPENAI_REALTIME_MODELS}")
-    print(f"✓ OpenAI Realtime models (registry): {rt_cap.models}")
+    print(f"\n[OK] OpenAI Realtime models (module): {OPENAI_REALTIME_MODELS}")
+    print(f"[OK] OpenAI Realtime models (registry): {rt_cap.models}")
     assert rt_cap.models == OPENAI_REALTIME_MODELS, "OpenAI realtime models mismatch"
 
-    print(f"✓ OpenAI Realtime voices (module): {OPENAI_REALTIME_VOICES}")
-    print(f"✓ OpenAI Realtime voices (registry): {rt_cap.voices}")
+    print(f"[OK] OpenAI Realtime voices (module): {OPENAI_REALTIME_VOICES}")
+    print(f"[OK] OpenAI Realtime voices (registry): {rt_cap.voices}")
     assert rt_cap.voices == OPENAI_REALTIME_VOICES, "OpenAI realtime voices mismatch"
 
-    print(f"✓ OpenAI default model: {OPENAI_DEFAULT}")
+    print(f"[OK] OpenAI default model: {OPENAI_DEFAULT}")
     assert rt_cap.default_model == OPENAI_DEFAULT
 
     # Test Gemini realtime config
@@ -208,18 +208,18 @@ def test_realtime_integration():
     grt_cap = gemini_rt.get_capability(ProviderCapability.REALTIME)
     assert grt_cap is not None
 
-    print(f"\n✓ Gemini Realtime models (module): {GEMINI_LIVE_MODELS}")
-    print(f"✓ Gemini Realtime models (registry): {grt_cap.models}")
+    print(f"\n[OK] Gemini Realtime models (module): {GEMINI_LIVE_MODELS}")
+    print(f"[OK] Gemini Realtime models (registry): {grt_cap.models}")
     assert grt_cap.models == GEMINI_LIVE_MODELS, "Gemini realtime models mismatch"
 
-    print(f"✓ Gemini voices (module): {GEMINI_VOICES}")
-    print(f"✓ Gemini voices (registry): {grt_cap.voices}")
+    print(f"[OK] Gemini voices (module): {GEMINI_VOICES}")
+    print(f"[OK] Gemini voices (registry): {grt_cap.voices}")
     assert grt_cap.voices == GEMINI_VOICES, "Gemini realtime voices mismatch"
 
-    print(f"✓ Gemini default model: {GEMINI_DEFAULT}")
+    print(f"[OK] Gemini default model: {GEMINI_DEFAULT}")
     assert grt_cap.default_model == GEMINI_DEFAULT
 
-    print("\n✅ Realtime Voice integration: PASSED")
+    print("\n[OK] Realtime Voice integration: PASSED")
     return True
 
 
@@ -241,16 +241,16 @@ def test_llm_discovery_integration():
     # Test list_providers returns chat providers
     chat_providers = list_providers()
     registry_chat = ProviderRegistry.list_for_capability(ProviderCapability.CHAT)
-    print(f"\n✓ LLM providers (list_providers): {chat_providers}")
-    print(f"✓ Registry CHAT providers: {registry_chat}")
+    print(f"\n[OK] LLM providers (list_providers): {chat_providers}")
+    print(f"[OK] Registry CHAT providers: {registry_chat}")
     assert set(chat_providers) == set(registry_chat), "Chat provider mismatch"
 
     # Test SUPPORTED_PROVIDERS matches
-    print(f"✓ SUPPORTED_PROVIDERS: {SUPPORTED_PROVIDERS}")
+    print(f"[OK] SUPPORTED_PROVIDERS: {SUPPORTED_PROVIDERS}")
     assert set(SUPPORTED_PROVIDERS) == set(registry_chat)
 
     # Test env vars match registry
-    print(f"\n✓ PROVIDER_ENV_VARS: {PROVIDER_ENV_VARS}")
+    print(f"\n[OK] PROVIDER_ENV_VARS: {PROVIDER_ENV_VARS}")
     for provider, env_var in PROVIDER_ENV_VARS.items():
         config = ProviderRegistry.get(provider)
         assert config is not None, f"Provider {provider} not in registry"
@@ -260,18 +260,18 @@ def test_llm_discovery_integration():
     for provider in ["openai", "anthropic", "google_genai"]:
         is_configured = is_provider_configured(provider)
         registry_configured = ProviderRegistry.is_configured(provider)
-        print(f"✓ {provider} configured: {is_configured} (registry: {registry_configured})")
+        print(f"[OK] {provider} configured: {is_configured} (registry: {registry_configured})")
         # Note: values might differ if env var set in current session but not passed through
 
     # Test default models
-    print(f"\n✓ DEFAULT_MODELS: {DEFAULT_MODELS}")
+    print(f"\n[OK] DEFAULT_MODELS: {DEFAULT_MODELS}")
     for provider in ["openai", "anthropic"]:
         default = get_default_model(provider)
         config = ProviderRegistry.get(provider)
         cap = config.get_capability(ProviderCapability.CHAT)
-        print(f"✓ {provider} default: {default} (registry: {cap.default_model})")
+        print(f"[OK] {provider} default: {default} (registry: {cap.default_model})")
 
-    print("\n✅ LLM discovery integration: PASSED")
+    print("\n[OK] LLM discovery integration: PASSED")
     return True
 
 
@@ -289,21 +289,21 @@ def test_public_exports():
         list_providers_for_capability,
     )
 
-    print("\n✓ All public exports imported successfully")
+    print("\n[OK] All public exports imported successfully")
 
     # Test they work
     providers = list_providers()
     assert len(providers) > 0
-    print(f"✓ list_providers(): {len(providers)} providers")
+    print(f"[OK] list_providers(): {len(providers)} providers")
 
     chat_providers = list_providers_for_capability(ProviderCapability.CHAT)
-    print(f"✓ list_providers_for_capability(CHAT): {chat_providers}")
+    print(f"[OK] list_providers_for_capability(CHAT): {chat_providers}")
 
     openai = get_provider("openai")
     assert openai is not None
-    print(f"✓ get_provider('openai'): {openai.display_name}")
+    print(f"[OK] get_provider('openai'): {openai.display_name}")
 
-    print("\n✅ Public exports: PASSED")
+    print("\n[OK] Public exports: PASSED")
     return True
 
 
@@ -341,9 +341,9 @@ def test_provider_config_completeness():
                         f"{name}.TTS default_voice not in voices list"
                     )
 
-        print(f"✓ {name}: {len(config.capabilities)} capabilities OK")
+        print(f"[OK] {name}: {len(config.capabilities)} capabilities OK")
 
-    print(f"\n✅ All {len(all_providers)} provider configs complete: PASSED")
+    print(f"\n[OK] All {len(all_providers)} provider configs complete: PASSED")
     return True
 
 
@@ -373,7 +373,7 @@ def main():
                 passed += 1
         except Exception as e:
             failed += 1
-            print(f"\n❌ {test.__name__}: FAILED")
+            print(f"\n[X] {test.__name__}: FAILED")
             print(f"   Error: {e}")
             import traceback
 
@@ -382,15 +382,15 @@ def main():
     print("\n" + "=" * 60)
     print("VERIFICATION SUMMARY")
     print("=" * 60)
-    print(f"\n✅ Passed: {passed}")
-    print(f"❌ Failed: {failed}")
+    print(f"\n[OK] Passed: {passed}")
+    print(f"[X] Failed: {failed}")
     print(f"Total: {passed + failed}")
 
     if failed > 0:
-        print("\n⚠️  Some tests failed. Please review the errors above.")
+        print("\n[!]  Some tests failed. Please review the errors above.")
         sys.exit(1)
     else:
-        print("\n🎉 All verification tests passed!")
+        print("\n All verification tests passed!")
         sys.exit(0)
 
 

@@ -284,9 +284,9 @@ Use the appropriate tool based on the user's request.""",
                     # Streaming token from LLM
                     print(event.content, end="", flush=True)
                 elif event.type == "tool_call":
-                    print(f"\n🔧 Calling tool: {event.tool}")
+                    print(f"\n Calling tool: {event.tool}")
                 elif event.type == "tool_result":
-                    print(f"\n✓ Tool completed: {event.tool}")
+                    print(f"\n[OK] Tool completed: {event.tool}")
             else:
                 # Handle dict-style events
                 if isinstance(event, dict):

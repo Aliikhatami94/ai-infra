@@ -274,9 +274,9 @@ def storage_backends():
     print("\n  Backend comparison:")
     print("    | Backend    | Persistence | Multi-process | Semantic |")
     print("    |------------|-------------|---------------|----------|")
-    print("    | In-memory  | ❌          | ❌            | ✅       |")
-    print("    | SQLite     | ✅          | ⚠️ (limited)  | ✅       |")
-    print("    | PostgreSQL | ✅          | ✅            | ✅       |")
+    print("    | In-memory  | [X]          | [X]            | [OK]       |")
+    print("    | SQLite     | [OK]          | [!] (limited)  | [OK]       |")
+    print("    | PostgreSQL | [OK]          | [OK]            | [OK]       |")
 
 
 # =============================================================================

@@ -143,16 +143,16 @@ ai-infra supports **10 providers** across **6 capabilities**:
 
 | Provider | Chat | Embeddings | TTS | STT | ImageGen | Realtime |
 |----------|:----:|:----------:|:---:|:---:|:--------:|:--------:|
-| OpenAI | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Anthropic | ✅ | - | - | - | - | - |
-| Google | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| xAI | ✅ | - | - | - | - | - |
-| ElevenLabs | - | - | ✅ | - | - | - |
-| Deepgram | - | - | - | ✅ | - | - |
-| Stability | - | - | - | - | ✅ | - |
-| Replicate | - | - | - | - | ✅ | - |
-| Voyage | - | ✅ | - | - | - | - |
-| Cohere | - | ✅ | - | - | - | - |
+| OpenAI | [OK] | [OK] | [OK] | [OK] | [OK] | [OK] |
+| Anthropic | [OK] | - | - | - | - | - |
+| Google | [OK] | [OK] | [OK] | [OK] | [OK] | [OK] |
+| xAI | [OK] | - | - | - | - | - |
+| ElevenLabs | - | - | [OK] | - | - | - |
+| Deepgram | - | - | - | [OK] | - | - |
+| Stability | - | - | - | - | [OK] | - |
+| Replicate | - | - | - | - | [OK] | - |
+| Voyage | - | [OK] | - | - | - | - |
+| Cohere | - | [OK] | - | - | - | - |
 
 ---
 

@@ -62,7 +62,7 @@ async def connect_stdio():
         async with MCPClient(config) as mcp:
             # List available tools
             tools = await mcp.list_tools()
-            print(f"\n✓ Connected! Found {len(tools)} tools:")
+            print(f"\n[OK] Connected! Found {len(tools)} tools:")
             for tool in tools:
                 name = getattr(tool, "name", str(tool))
                 desc = getattr(tool, "description", "")[:60]
@@ -74,9 +74,9 @@ async def connect_stdio():
             print(f"Result: {str(result)[:200]}...")
 
     except FileNotFoundError:
-        print("❌ npx not found. Install Node.js to run this example.")
+        print("[X] npx not found. Install Node.js to run this example.")
     except Exception as e:
-        print(f"❌ Error connecting: {e}")
+        print(f"[X] Error connecting: {e}")
 
 
 # =============================================================================
@@ -114,14 +114,14 @@ async def connect_http():
             discover_timeout=10.0,  # 10 second timeout for discovery
         ) as mcp:
             tools = await mcp.list_tools()
-            print(f"\n✓ Connected! Found {len(tools)} tools")
+            print(f"\n[OK] Connected! Found {len(tools)} tools")
 
             for tool in tools:
                 name = getattr(tool, "name", str(tool))
                 print(f"  - {name}")
 
     except Exception as e:
-        print(f"❌ Could not connect: {e}")
+        print(f"[X] Could not connect: {e}")
         print("   Start an MCP server first, or set MCP_SERVER_URL")
 
 
@@ -154,10 +154,10 @@ async def connect_sse():
     try:
         async with MCPClient(config) as mcp:
             tools = await mcp.list_tools()
-            print(f"\n✓ Connected! Found {len(tools)} tools")
+            print(f"\n[OK] Connected! Found {len(tools)} tools")
 
     except Exception as e:
-        print(f"❌ Could not connect: {e}")
+        print(f"[X] Could not connect: {e}")
 
 
 # =============================================================================
@@ -201,7 +201,7 @@ async def connect_multiple_servers():
     try:
         async with MCPClient(configs) as mcp:
             tools = await mcp.list_tools()
-            print(f"\n✓ Connected to all servers! Total tools: {len(tools)}")
+            print(f"\n[OK] Connected to all servers! Total tools: {len(tools)}")
 
             # Group tools by server prefix
             by_server: dict[str, list[str]] = {}
@@ -221,7 +221,7 @@ async def connect_multiple_servers():
                     print(f"    ... and {len(tool_names) - 5} more")
 
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"[X] Error: {e}")
 
 
 # =============================================================================
@@ -250,13 +250,13 @@ async def error_handling():
         mcp = MCPClient(config, discover_timeout=3.0)
         await mcp.discover()
     except MCPTimeoutError as e:
-        print(f"⏱️  Timeout: {e}")
+        print(f"⏱  Timeout: {e}")
     except MCPServerError as e:
         print(f"🔌 Server error: {e}")
     except Exception as e:
-        print(f"❌ Connection failed (expected): {type(e).__name__}: {e}")
+        print(f"[X] Connection failed (expected): {type(e).__name__}: {e}")
 
-    print("\n✓ Error was caught and handled gracefully")
+    print("\n[OK] Error was caught and handled gracefully")
 
 
 # =============================================================================

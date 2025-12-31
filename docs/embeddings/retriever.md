@@ -24,13 +24,13 @@ print(results[0].content)  # "Python is a programming language"
 
 | Backend | Persistence | Scalability | Setup |
 |---------|-------------|-------------|-------|
-| Memory | ❌ | Low | Zero config |
-| SQLite | ✅ | Low | Local file |
-| PostgreSQL | ✅ | High | pgvector extension |
-| Chroma | ✅ | Medium | Local or server |
-| Pinecone | ✅ | High | Managed cloud |
-| Qdrant | ✅ | High | Cloud or self-hosted |
-| FAISS | ❌ | High | Local, fast |
+| Memory | [X] | Low | Zero config |
+| SQLite | [OK] | Low | Local file |
+| PostgreSQL | [OK] | High | pgvector extension |
+| Chroma | [OK] | Medium | Local or server |
+| Pinecone | [OK] | High | Managed cloud |
+| Qdrant | [OK] | High | Cloud or self-hosted |
+| FAISS | [X] | High | Local, fast |
 
 ---
 

@@ -43,7 +43,7 @@ class TestDetectInputType:
     def test_text_with_special_chars(self) -> None:
         """Test text with special characters is detected as text."""
         assert detect_input_type("Special chars: @#$%^&*()") == "text"
-        assert detect_input_type("Unicode: 你好世界 🎉") == "text"
+        assert detect_input_type("Unicode: 你好世界 ") == "text"
 
     def test_existing_file(self) -> None:
         """Test existing file is detected as file."""

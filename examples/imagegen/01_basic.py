@@ -45,14 +45,14 @@ def zero_config():
     try:
         images = gen.generate("A serene mountain landscape at sunset")
 
-        print(f"\n  ✓ Generated {len(images)} image(s)")
+        print(f"\n  [OK] Generated {len(images)} image(s)")
         if images:
             img = images[0]
             print(f"    URL: {img.url[:50]}..." if img.url else f"    Data: {len(img.data)} bytes")
             if img.revised_prompt:
                 print(f"    Revised prompt: {img.revised_prompt[:60]}...")
     except Exception as e:
-        print(f"\n  ⚠ Generation failed: {e}")
+        print(f"\n  [!] Generation failed: {e}")
         print("    Make sure you have an API key configured")
 
 
@@ -76,7 +76,7 @@ def explicit_provider():
 
     for provider, env_var, model in providers:
         configured = bool(os.getenv(env_var))
-        status = "✓" if configured else "✗"
+        status = "[OK]" if configured else "[X]"
         print(f"\n  {status} {provider}: {model}")
         if not configured:
             print(f"    Set {env_var} to use")
@@ -298,7 +298,7 @@ def provider_discovery():
 
     for provider, env_var in env_vars.items():
         configured = bool(os.getenv(env_var))
-        print(f"    {provider}: {'✓' if configured else '✗'}")
+        print(f"    {provider}: {'[OK]' if configured else '[X]'}")
 
 
 # =============================================================================

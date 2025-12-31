@@ -3,7 +3,7 @@
 This module provides helper functions for working with audio data
 in realtime voice applications:
 
-- Sample rate conversion between providers (16kHz ↔ 24kHz)
+- Sample rate conversion between providers (16kHz <-> 24kHz)
 - Audio chunking for streaming
 - Format conversion utilities
 

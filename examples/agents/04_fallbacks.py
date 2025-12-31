@@ -168,11 +168,11 @@ def manual_fallback_pattern():
         try:
             print(f"\n  Trying {provider}...")
             result = agent.run(prompt, provider=provider)
-            print(f"  ✓ Success with {provider}")
+            print(f"  [OK] Success with {provider}")
             print(f"\nResult: {result}")
             return
         except Exception as e:
-            print(f"  ✗ Failed: {e}")
+            print(f"  [X] Failed: {e}")
             last_error = e
             continue
 

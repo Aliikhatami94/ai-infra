@@ -33,7 +33,7 @@ def basic_pinecone():
 
     api_key = os.getenv("PINECONE_API_KEY")
     if not api_key:
-        print("\n  ⚠ Set PINECONE_API_KEY to run this example:")
+        print("\n  [!] Set PINECONE_API_KEY to run this example:")
         print("    export PINECONE_API_KEY='your-api-key'")
         return
 
@@ -44,7 +44,7 @@ def basic_pinecone():
     )
 
     print(f"\n  Backend: {retriever.backend}")
-    print("  ✓ Connected to Pinecone")
+    print("  [OK] Connected to Pinecone")
 
     # Add documents
     retriever.add(
@@ -119,7 +119,7 @@ def using_namespaces():
 
     api_key = os.getenv("PINECONE_API_KEY")
     if not api_key:
-        print("\n  ⚠ Set PINECONE_API_KEY to run this example")
+        print("\n  [!] Set PINECONE_API_KEY to run this example")
         print("\n  Namespaces allow data segregation:")
         print("    - Multi-tenant applications")
         print("    - Environment separation (dev/staging/prod)")
@@ -168,7 +168,7 @@ def metadata_filtering():
 
     api_key = os.getenv("PINECONE_API_KEY")
     if not api_key:
-        print("\n  ⚠ Set PINECONE_API_KEY to run this example")
+        print("\n  [!] Set PINECONE_API_KEY to run this example")
         print("\n  Pinecone supports rich metadata filtering:")
         return
 

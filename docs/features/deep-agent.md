@@ -394,7 +394,7 @@ async def main():
 
         # Handle approval requests
         if progress.requires_approval:
-            print(f"\n⚠️  Approval needed: {progress.pending_action}")
+            print(f"\n[!]  Approval needed: {progress.pending_action}")
             print(f"   Tool: {progress.tool_name}")
             print(f"   Args: {progress.tool_args}")
 
@@ -407,7 +407,7 @@ async def main():
     result = agent.get_result()
 
     # Summary
-    print(f"\n✅ Completed in {result.steps_count} steps")
+    print(f"\n[OK] Completed in {result.steps_count} steps")
     print(f"   Duration: {result.duration_seconds:.1f}s")
     print(f"   Tokens: {result.total_tokens}")
     print(f"   Cost: ${result.estimated_cost:.4f}")
