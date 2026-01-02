@@ -577,7 +577,7 @@ def _run_repl(
                     _save_session()
                     storage.delete(old_id)
                     typer.secho(
-                        f"[OK] Renamed: {old_id} → {new_name}",
+                        f"[OK] Renamed: {old_id} -> {new_name}",
                         fg=typer.colors.GREEN,
                     )
                     continue

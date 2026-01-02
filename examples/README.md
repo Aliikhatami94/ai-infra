@@ -72,7 +72,7 @@ LangGraph workflows for complex orchestration.
 | [03_with_agent.py](graph/03_with_agent.py) | Graph containing agent nodes |
 | [04_parallel.py](graph/04_parallel.py) | Parallel execution |
 
-### 🔌 MCP (`mcp/`)
+###  MCP (`mcp/`)
 Model Context Protocol for tool discovery.
 
 | Example | Description |

@@ -265,12 +265,12 @@ class Retriever:
                       use (add or search). Makes server startup faster.
             auto_configure: If True (default), auto-detect configuration from
                            environment variables:
-                           - DATABASE_URL → backend="postgres" with auto dimension
-                           - OPENAI_API_KEY → provider="openai"
-                           - VOYAGE_API_KEY → provider="voyage"
-                           - COHERE_API_KEY → provider="cohere"
-                           - GOOGLE_API_KEY → provider="google_genai"
-                           - No API keys → provider="huggingface" (free local)
+                           - DATABASE_URL -> backend="postgres" with auto dimension
+                           - OPENAI_API_KEY -> provider="openai"
+                           - VOYAGE_API_KEY -> provider="voyage"
+                           - COHERE_API_KEY -> provider="cohere"
+                           - GOOGLE_API_KEY -> provider="google_genai"
+                           - No API keys -> provider="huggingface" (free local)
             **backend_config: Backend-specific options:
                 - postgres: connection_string, embedding_dimension, table_name
                 - sqlite: path

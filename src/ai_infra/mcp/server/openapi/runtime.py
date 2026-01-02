@@ -176,7 +176,7 @@ def pick_effective_base_url(
 ) -> str:
     if override:
         return override.rstrip("/")
-    for node in (op or {}, path_item or {}, spec):  # op → path → root
+    for node in (op or {}, path_item or {}, spec):  # op -> path -> root
         servers = node.get("servers") or []
         if servers:
             return str(servers[0].get("url", "")).rstrip("/") or ""

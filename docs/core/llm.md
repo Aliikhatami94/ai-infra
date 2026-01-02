@@ -27,7 +27,7 @@ llm = LLM()  # Uses OpenAI with gpt-4o-mini
 llm = LLM()  # Uses Anthropic with claude-3-5-haiku
 ```
 
-**Detection order**: OpenAI → Anthropic → Google → xAI
+**Detection order**: OpenAI -> Anthropic -> Google -> xAI
 
 ---
 

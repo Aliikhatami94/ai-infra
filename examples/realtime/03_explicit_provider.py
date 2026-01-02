@@ -239,8 +239,8 @@ async def env_priority():
 
     print("\n  Auto-selection priority (first configured wins):")
     print("    1. REALTIME_VOICE_PROVIDER (explicit override)")
-    print("    2. OPENAI_API_KEY → OpenAI")
-    print("    3. GOOGLE_API_KEY or GEMINI_API_KEY → Gemini")
+    print("    2. OPENAI_API_KEY -> OpenAI")
+    print("    3. GOOGLE_API_KEY or GEMINI_API_KEY -> Gemini")
 
     print("\n  Force specific provider:")
     print("""

@@ -172,8 +172,8 @@ llm = LLM(model="claude-3")  # Infers Anthropic
 
 ### 0.1.100+
 
-- `CoreLLM` → `LLM` (simpler name)
-- `CoreAgent` → `Agent` (simpler name)
+- `CoreLLM` -> `LLM` (simpler name)
+- `CoreAgent` -> `Agent` (simpler name)
 - Explicit `provider` parameter may become optional
 
 ### 0.1.150+

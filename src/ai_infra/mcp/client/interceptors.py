@@ -153,7 +153,7 @@ def build_interceptor_chain(
 
     Example:
         ```python
-        # Order: logging → retry → cache → base_handler
+        # Order: logging -> retry -> cache -> base_handler
         chain = build_interceptor_chain(
             base_handler,
             [LoggingInterceptor(), RetryInterceptor(), CachingInterceptor()],

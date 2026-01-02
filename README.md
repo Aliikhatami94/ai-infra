@@ -1,23 +1,24 @@
-<div align="center">
-
 # ai-infra
 
-[![CI](https://github.com/nfraxlab/ai-infra/actions/workflows/ci.yml/badge.svg)](https://github.com/nfraxlab/ai-infra/actions/workflows/ci.yml)
+**Build AI applications in minutes, not months.**
+
 [![PyPI](https://img.shields.io/pypi/v/ai-infra.svg)](https://pypi.org/project/ai-infra/)
+[![CI](https://github.com/nfraxlab/ai-infra/actions/workflows/ci.yml/badge.svg)](https://github.com/nfraxlab/ai-infra/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/pypi/pyversions/ai-infra.svg)](https://pypi.org/project/ai-infra/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Downloads](https://img.shields.io/pypi/dm/ai-infra.svg)](https://pypi.org/project/ai-infra/)
-[![codecov](https://codecov.io/gh/nfraxlab/ai-infra/branch/main/graph/badge.svg)](https://codecov.io/gh/nfraxlab/ai-infra)
 
-### Build AI applications in minutes, not months
+## Overview
 
-**One unified SDK for LLMs, agents, RAG, voice, images, and MCP—across 10+ providers.**
+One unified SDK for LLMs, agents, RAG, voice, images, and MCP—across 10+ providers.
 
-[Documentation](docs/) · [Examples](examples/) · [Changelog](CHANGELOG.md) · [PyPI](https://pypi.org/project/ai-infra/)
+### Key Features
 
-</div>
-
----
+- **LLM Chat** - Chat, streaming, structured output, retries across providers
+- **Agents** - Tool calling, human-in-the-loop, deep research mode
+- **RAG** - Embeddings, vector stores, retrieval pipelines
+- **MCP** - Client/server, OpenAPI->MCP conversion, tool discovery
+- **Voice** - Text-to-speech, speech-to-text, realtime conversations
+- **Tracing** - OpenTelemetry distributed tracing built-in
 
 ## Why ai-infra?
 
@@ -50,7 +51,7 @@ pip install ai-infra
 | **LLM Chat** | Chat, streaming, structured output, retries | `LLM().chat("Hello")` |
 | **Agents** | Tool calling, human-in-the-loop, deep mode | `Agent(tools=[...]).run(...)` |
 | **RAG** | Embeddings, vector stores, retrieval | `Retriever().search(...)` |
-| **MCP** | Client/server, OpenAPI→MCP, tool discovery | `MCPClient(url)` |
+| **MCP** | Client/server, OpenAPI->MCP, tool discovery | `MCPClient(url)` |
 | **Voice** | Text-to-speech, speech-to-text, realtime | `TTS().speak(...)` |
 | **Images** | DALL-E, Stability, Imagen generation | `ImageGen().generate(...)` |
 | **Graph** | LangGraph workflows, typed state | `Graph().add_node(...)` |

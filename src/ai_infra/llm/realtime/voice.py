@@ -139,7 +139,7 @@ class RealtimeVoice:
     Provider Selection Order:
         1. Explicit provider passed to constructor
         2. REALTIME_VOICE_PROVIDER environment variable
-        3. First configured provider (OpenAI → Gemini)
+        3. First configured provider (OpenAI -> Gemini)
 
     Attributes:
         config: The realtime configuration for voice sessions.

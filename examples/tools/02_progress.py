@@ -372,7 +372,7 @@ The @progress decorator works as follows:
    - Callback routes updates to agent streaming
 
 3. Progress events flow:
-   Tool → stream.update() → callback → agent.astream()
+   Tool -> stream.update() -> callback -> agent.astream()
 
 4. Event format:
    ProgressEvent(

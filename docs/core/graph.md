@@ -87,7 +87,7 @@ graph.add_node("generate_response", generate_response)
 ### Simple Edges
 
 ```python
-# Linear flow: fetch → generate → end
+# Linear flow: fetch -> generate -> end
 graph.add_edge("fetch_context", "generate_response")
 graph.add_edge("generate_response", "__end__")
 ```

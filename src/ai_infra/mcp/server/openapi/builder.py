@@ -39,7 +39,7 @@ log = logging.getLogger(__name__)
 
 
 class OpenAPIError(Exception):
-    """Base error for OpenAPI→MCP conversion errors."""
+    """Base error for OpenAPI->MCP conversion errors."""
 
     pass
 
@@ -76,7 +76,7 @@ def _maybe_log_report(report: BuildReport, report_log: bool) -> None:
     if not report_log:
         return
     log.info(
-        "[OpenAPI→MCP] title=%s tools=%d/%d skipped=%d warnings=%d",
+        "[OpenAPI->MCP] title=%s tools=%d/%d skipped=%d warnings=%d",
         report.title,
         report.registered_tools,
         report.total_ops,
@@ -85,7 +85,7 @@ def _maybe_log_report(report: BuildReport, report_log: bool) -> None:
     )
     for op in report.ops:
         log.debug(
-            "[OpenAPI→MCP] %s %s -> tool=%s base=%s (%s) params={path:%d query:%d header:%d cookie:%d} "
+            "[OpenAPI->MCP] %s %s -> tool=%s base=%s (%s) params={path:%d query:%d header:%d cookie:%d} "
             "body(%s, req=%s) fields=%d media=%s warn=%s",
             op.method,
             op.path,
@@ -103,7 +103,7 @@ def _maybe_log_report(report: BuildReport, report_log: bool) -> None:
             op.warnings,
         )
     for w in report.warnings:
-        log.warning("[OpenAPI→MCP][global-warning] %s", w)
+        log.warning("[OpenAPI->MCP][global-warning] %s", w)
 
 
 # ---------------------- Security ----------------------

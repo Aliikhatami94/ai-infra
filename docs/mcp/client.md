@@ -308,7 +308,7 @@ interceptors = [
 ]
 
 async with MCPClient(config, interceptors=interceptors) as client:
-    # Rate limit → Retry → Cache → actual call
+    # Rate limit -> Retry -> Cache -> actual call
     result = await client.call_tool("server", "tool", {})
 ```
 

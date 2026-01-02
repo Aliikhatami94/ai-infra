@@ -69,7 +69,7 @@ async def connect_stdio():
                 print(f"  - {name}: {desc}...")
 
             # Call a tool
-            print("\n→ Calling 'list_directory' tool...")
+            print("\n-> Calling 'list_directory' tool...")
             result = await mcp.call_tool("list_directory", {"path": "/tmp"})
             print(f"Result: {str(result)[:200]}...")
 
@@ -252,7 +252,7 @@ async def error_handling():
     except MCPTimeoutError as e:
         print(f"⏱  Timeout: {e}")
     except MCPServerError as e:
-        print(f"🔌 Server error: {e}")
+        print(f" Server error: {e}")
     except Exception as e:
         print(f"[X] Connection failed (expected): {type(e).__name__}: {e}")
 

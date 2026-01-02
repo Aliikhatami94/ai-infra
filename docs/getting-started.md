@@ -164,10 +164,10 @@ When you don't specify a model, ai-infra uses sensible defaults:
 
 When no provider is specified, ai-infra checks for API keys in this order:
 
-1. `OPENAI_API_KEY` → OpenAI
-2. `ANTHROPIC_API_KEY` → Anthropic
-3. `GEMINI_API_KEY` / `GOOGLE_API_KEY` → Google
-4. `XAI_API_KEY` → xAI
+1. `OPENAI_API_KEY` -> OpenAI
+2. `ANTHROPIC_API_KEY` -> Anthropic
+3. `GEMINI_API_KEY` / `GOOGLE_API_KEY` -> Google
+4. `XAI_API_KEY` -> xAI
 
 The first provider with a configured API key is used.
 

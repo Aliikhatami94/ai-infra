@@ -203,7 +203,7 @@ def common_locations():
         expanded = Path(path).expanduser()
         print(f"\n  {name}:")
         print(f"    {path}")
-        print(f"    → {expanded}")
+        print(f"    -> {expanded}")
 
     print("\nExample usage:")
     print('  retriever = Retriever(backend="sqlite", path="./data/vectors.db")')

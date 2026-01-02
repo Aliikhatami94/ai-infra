@@ -73,9 +73,9 @@ def calculate(expression: str) -> str:
         The result of the calculation.
 
     Examples:
-        calculate("2 + 2") → "4"
-        calculate("sqrt(16)") → "4.0"
-        calculate("3.14 * 2**2") → "12.56"
+        calculate("2 + 2") -> "4"
+        calculate("sqrt(16)") -> "4.0"
+        calculate("3.14 * 2**2") -> "12.56"
     """
     import math
 

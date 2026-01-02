@@ -46,11 +46,11 @@ def simple_openapi_to_mcp():
     print("  All endpoints are now available as MCP tools!")
     print()
     print("  Example tools generated:")
-    print("    - getPetById(petId) → GET /pet/{petId}")
-    print("    - addPet(body) → POST /pet")
-    print("    - findPetsByStatus(status) → GET /pet/findByStatus")
-    print("    - updatePet(body) → PUT /pet")
-    print("    - deletePet(petId) → DELETE /pet/{petId}")
+    print("    - getPetById(petId) -> GET /pet/{petId}")
+    print("    - addPet(body) -> POST /pet")
+    print("    - findPetsByStatus(status) -> GET /pet/findByStatus")
+    print("    - updatePet(body) -> PUT /pet")
+    print("    - deletePet(petId) -> DELETE /pet/{petId}")
 
     return server
 
@@ -148,9 +148,9 @@ def authenticated_openapi_to_mcp():
 
     print()
     print("  Per-endpoint auth:")
-    print("    /admin/*  → Uses admin token")
-    print("    /public/* → No authentication")
-    print("    others    → Default token")
+    print("    /admin/*  -> Uses admin token")
+    print("    /public/* -> No authentication")
+    print("    others    -> Default token")
 
     return server
 
@@ -211,12 +211,12 @@ def custom_naming_openapi():
 
     print("\n[OK] Custom naming functions applied")
     print()
-    print("  tool_name_fn(method, path, operation) → str")
-    print("  tool_description_fn(operation) → str")
+    print("  tool_name_fn(method, path, operation) -> str")
+    print("  tool_description_fn(operation) -> str")
     print()
     print("  Examples:")
-    print("    GET /users/{id}  → get_users_id")
-    print("    POST /orders     → create_order (from operationId)")
+    print("    GET /users/{id}  -> get_users_id")
+    print("    POST /orders     -> create_order (from operationId)")
 
     return server
 
@@ -312,7 +312,7 @@ def run_openapi_server(port: int = 8000):
     print(f"\nStarting server at http://127.0.0.1:{port}")
     print()
     print("Mount points:")
-    print("  /petstore → Petstore API tools")
+    print("  /petstore -> Petstore API tools")
     print()
     print("Connect with MCPClient:")
     print("  mcp = MCPClient([{")
@@ -366,9 +366,9 @@ def multiple_openapi_specs():
     # )
 
     print("\n[OK] Combined MCP server with multiple APIs:")
-    print("  /petstore → Petstore tools (pet_*)")
-    print("  /github   → GitHub tools (github_*)")
-    print("  /stripe   → Stripe tools (stripe_*)")
+    print("  /petstore -> Petstore tools (pet_*)")
+    print("  /github   -> GitHub tools (github_*)")
+    print("  /stripe   -> Stripe tools (stripe_*)")
     print()
     print("  Each API mounted at its own path,")
     print("  all accessible via a single MCPClient!")

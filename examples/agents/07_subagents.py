@@ -410,7 +410,7 @@ def best_practices():
 
     print("\n5. Consider Model Selection")
     print("   Use cheaper models for simple tasks.")
-    print("   [OK] Good: Code review → GPT-4, Search → GPT-3.5")
+    print("   [OK] Good: Code review -> GPT-4, Search -> GPT-3.5")
     print("   [X] Bad: GPT-4 for everything")
 
 

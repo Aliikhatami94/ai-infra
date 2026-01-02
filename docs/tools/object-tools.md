@@ -430,14 +430,14 @@ agent.run("Rebalance my portfolio to 60% stocks and 40% bonds")
 **Use `tools_from_models`** when you need CRUD operations on data models.
 
 ```python
-# Service with methods → tools_from_object
+# Service with methods -> tools_from_object
 class OrderService:
     def create_order(self, items: list[str]) -> Order: ...
     def ship_order(self, order_id: str) -> bool: ...
 
 tools = tools_from_object(OrderService(db))
 
-# Data model → tools_from_models
+# Data model -> tools_from_models
 class Order(BaseModel):
     id: str
     items: list[str]
