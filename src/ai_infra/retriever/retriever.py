@@ -1246,21 +1246,28 @@ class Retriever:
     # Persistence methods
     # =========================================================================
 
+    # File format constants
+    _SAVE_FORMAT_VERSION = 2  # v2 = JSON + numpy, v1 = pickle (legacy)
+    _STATE_FILE = "state.json"
+    _EMBEDDINGS_FILE = "embeddings.npy"
+    _LEGACY_PICKLE_FILE = "retriever.pkl"
+
     def save(self, path: str | Path) -> Path:
         """Save the retriever state to disk for later loading.
 
-        Serializes the backend data, embeddings config, and metadata to a pickle file.
-        Also creates a JSON sidecar file with human-readable metadata.
+        Uses a secure JSON + numpy format (no pickle). Creates a directory with:
+        - state.json: Configuration and text data
+        - embeddings.npy: Embedding vectors in numpy format
 
         Only works with in-memory-like backends (memory, faiss). For database
         backends (postgres, sqlite, chroma), data is already persisted.
 
         Args:
-            path: Path to save the retriever state. Can be a file path or directory.
-                  If directory, creates 'retriever.pkl' inside it.
+            path: Path to save the retriever state. Should be a directory path.
+                  Creates the directory if it doesn't exist.
 
         Returns:
-            Path to the saved pickle file.
+            Path to the save directory.
 
         Raises:
             ValueError: If the backend doesn't support serialization.
@@ -1268,20 +1275,22 @@ class Retriever:
         Example:
             >>> r = Retriever()
             >>> r.add("Some text to search")
-            >>> r.save("./cache/my_retriever.pkl")
+            >>> r.save("./cache/my_retriever")
 
             >>> # Later...
-            >>> r2 = Retriever.load("./cache/my_retriever.pkl")
+            >>> r2 = Retriever.load("./cache/my_retriever")
             >>> r2.search("text")
         """
+        import numpy as np
+
         path = Path(path)
 
-        # If path is a directory, add default filename
-        if path.is_dir() or not path.suffix:
-            path.mkdir(parents=True, exist_ok=True)
-            path = path / "retriever.pkl"
-        else:
-            path.parent.mkdir(parents=True, exist_ok=True)
+        # Handle legacy .pkl paths - convert to directory
+        if path.suffix == ".pkl":
+            path = path.with_suffix("")
+
+        # Create directory
+        path.mkdir(parents=True, exist_ok=True)
 
         # Get backend state (only memory backend supports this for now)
         from ai_infra.retriever.backends.memory import MemoryBackend
@@ -1295,9 +1304,10 @@ class Retriever:
 
         backend = self._backend
 
-        # Serialize the state
+        # Build state dict (JSON-serializable, no embeddings)
         state = {
-            "version": 1,
+            "version": self._SAVE_FORMAT_VERSION,
+            "created_at": datetime.utcnow().isoformat() + "Z",
             "backend_name": self._backend_name,
             "chunk_size": self._chunk_size,
             "chunk_overlap": self._chunk_overlap,
@@ -1305,44 +1315,39 @@ class Retriever:
             "doc_ids": list(self._doc_ids),
             "embeddings_provider": self._embeddings.provider,
             "embeddings_model": self._embeddings.model,
-            # Backend data (memory backend specific)
+            "doc_count": len(self._doc_ids),
+            "chunk_count": self.count,
+            # Backend data (text only, embeddings separate)
             "backend_data": {
                 "ids": backend._ids,
                 "texts": backend._texts,
                 "metadatas": backend._metadatas,
-                "embeddings": [e.tolist() for e in backend._embeddings],
             },
         }
 
-        # Save pickle
-        with open(path, "wb") as f:
-            pickle.dump(state, f, protocol=pickle.HIGHEST_PROTOCOL)
+        # Save state as JSON
+        state_path = path / self._STATE_FILE
+        with open(state_path, "w", encoding="utf-8") as f:
+            json.dump(state, f, indent=2, ensure_ascii=False)
 
-        # Save JSON sidecar with human-readable metadata
-        metadata_path = path.with_suffix(".json")
-        metadata = {
-            "version": 1,
-            "created_at": datetime.utcnow().isoformat() + "Z",
-            "backend": self._backend_name,
-            "embeddings_provider": self._embeddings.provider,
-            "embeddings_model": self._embeddings.model,
-            "similarity": self._similarity,
-            "chunk_size": self._chunk_size,
-            "chunk_overlap": self._chunk_overlap,
-            "doc_count": len(self._doc_ids),
-            "chunk_count": self.count,
-        }
-        with open(metadata_path, "w") as f:
-            json.dump(metadata, f, indent=2)
+        # Save embeddings as numpy binary
+        embeddings_path = path / self._EMBEDDINGS_FILE
+        if backend._embeddings:
+            embeddings_array = np.array(backend._embeddings, dtype=np.float32)
+            np.save(embeddings_path, embeddings_array)
 
+        logger.info(f"Saved retriever to {path} (v{self._SAVE_FORMAT_VERSION} format)")
         return path
 
     @classmethod
     def load(cls, path: str | Path) -> Retriever:
         """Load a retriever from a previously saved state.
 
+        Supports both the new JSON + numpy format (v2) and legacy pickle format (v1).
+        Legacy pickle files are automatically migrated to the new format on load.
+
         Args:
-            path: Path to the saved retriever pickle file, or directory containing it.
+            path: Path to the saved retriever directory, or legacy .pkl file.
 
         Returns:
             A fully initialized Retriever with the loaded data.
@@ -1351,57 +1356,138 @@ class Retriever:
             FileNotFoundError: If the save file doesn't exist.
             ValueError: If the save file is corrupted or incompatible.
 
-        Security Warning:
-            This method uses pickle to load data, which can execute arbitrary code.
-            Only load retriever files from trusted sources. A future version will
-            migrate to a safer JSON-based format.
-
         Example:
             >>> # Save a retriever
             >>> r = Retriever()
             >>> r.add("Hello world")
-            >>> r.save("./cache/retriever.pkl")
+            >>> r.save("./cache/retriever")
 
             >>> # Load it later (even after restart)
-            >>> r2 = Retriever.load("./cache/retriever.pkl")
+            >>> r2 = Retriever.load("./cache/retriever")
             >>> r2.search("hello")
             ['Hello world']
         """
-        import logging
         import warnings
-
-        logger = logging.getLogger("ai_infra.retriever")
 
         path = Path(path)
 
-        # If path is a directory, look for default filename
-        if path.is_dir():
-            path = path / "retriever.pkl"
+        # Detect format: v2 (directory with state.json) or v1 (pickle file)
+        state_file = path / cls._STATE_FILE if path.is_dir() else None
+        legacy_pkl = path if path.suffix == ".pkl" else path / cls._LEGACY_PICKLE_FILE
 
-        if not path.exists():
-            raise FileNotFoundError(f"No saved retriever found at: {path}")
-
-        # Security warning for pickle files
-        if path.suffix == ".pkl":
+        if state_file and state_file.exists():
+            # v2 format: JSON + numpy
+            return cls._load_v2(path)
+        elif legacy_pkl.exists():
+            # v1 format: pickle (with migration warning)
             warnings.warn(
-                "Loading a pickle file can execute arbitrary code. "
-                "Only load retriever files from trusted sources. "
-                "A future version will migrate to a safer JSON format.",
-                UserWarning,
+                "Loading from legacy pickle format. "
+                "The retriever will be migrated to the new JSON format on next save(). "
+                "Run `Retriever.migrate(path)` to migrate now.",
+                DeprecationWarning,
                 stacklevel=2,
             )
-            logger.warning(
-                f"Loading pickle file from {path}. Ensure this file is from a trusted source."
+            return cls._load_v1_pickle(legacy_pkl)
+        else:
+            raise FileNotFoundError(
+                f"No saved retriever found at: {path}\n"
+                f"Expected either {path / cls._STATE_FILE} (v2 format) "
+                f"or {legacy_pkl} (legacy pickle format)."
             )
 
-        # Load the state
+    @classmethod
+    def _load_v2(cls, path: Path) -> Retriever:
+        """Load from v2 format (JSON + numpy)."""
+        import numpy as np
+
+        from ai_infra.retriever.backends.memory import MemoryBackend
+
+        state_path = path / cls._STATE_FILE
+        embeddings_path = path / cls._EMBEDDINGS_FILE
+
+        # Load state JSON
+        with open(state_path, encoding="utf-8") as f:
+            state = json.load(f)
+
+        version = state.get("version", 0)
+        if version != cls._SAVE_FORMAT_VERSION:
+            raise ValueError(
+                f"Unsupported save format version: {version}. Expected {cls._SAVE_FORMAT_VERSION}."
+            )
+
+        backend_name = state.get("backend_name")
+        if backend_name != "memory":
+            raise ValueError(
+                f"Unsupported backend for load(): {backend_name!r}. "
+                "Only 'memory' backend save/load is supported."
+            )
+
+        # Load embeddings from numpy file
+        if embeddings_path.exists():
+            embeddings_array = np.load(embeddings_path)
+        else:
+            embeddings_array = np.array([], dtype=np.float32)
+
+        # Create retriever instance without calling __init__
+        retriever = object.__new__(cls)
+
+        # Restore config
+        retriever._persist_path = None
+        retriever._auto_save = False
+        retriever._chunk_size = state["chunk_size"]
+        retriever._chunk_overlap = state["chunk_overlap"]
+        retriever._backend_name = state["backend_name"]
+        retriever._similarity = state.get("similarity", "cosine")
+        retriever._doc_ids = set(state["doc_ids"])
+
+        # Create lazy embeddings placeholder
+        retriever._embeddings = _LazyEmbeddings(
+            provider=state["embeddings_provider"],
+            model=state["embeddings_model"],
+        )
+
+        # Initialize backend with loaded data
+        retriever._backend = get_backend("memory", similarity=retriever._similarity)
+
+        if not isinstance(retriever._backend, MemoryBackend):
+            raise RuntimeError("Expected memory backend during load()")
+
+        backend = retriever._backend
+        backend_data = state["backend_data"]
+        backend._ids = backend_data["ids"]
+        backend._texts = backend_data["texts"]
+        backend._metadatas = backend_data["metadatas"]
+        backend._embeddings = [embeddings_array[i] for i in range(len(embeddings_array))]
+
+        logger.info(f"Loaded retriever from {path} (v{version} format)")
+        return retriever
+
+    @classmethod
+    def _load_v1_pickle(cls, path: Path) -> Retriever:
+        """Load from legacy v1 pickle format."""
+        import warnings
+
+        import numpy as np
+
+        from ai_infra.retriever.backends.memory import MemoryBackend
+
+        warnings.warn(
+            "Loading a pickle file can execute arbitrary code. "
+            "Only load retriever files from trusted sources.",
+            UserWarning,
+            stacklevel=3,
+        )
+        logger.warning(
+            f"Loading legacy pickle file from {path}. Ensure this file is from a trusted source."
+        )
+
+        # Load pickle state
         with open(path, "rb") as f:
             state = pickle.load(f)
 
-        # Validate version
         version = state.get("version", 0)
         if version != 1:
-            raise ValueError(f"Unsupported save file version: {version}")
+            raise ValueError(f"Unsupported legacy save file version: {version}")
 
         backend_name = state.get("backend_name")
         if backend_name != "memory":
@@ -1411,7 +1497,6 @@ class Retriever:
             )
 
         # Create retriever instance without calling __init__
-        # This avoids loading the embedding model (we have embeddings already)
         retriever = object.__new__(cls)
 
         # Restore config
@@ -1420,35 +1505,83 @@ class Retriever:
         retriever._chunk_size = state["chunk_size"]
         retriever._chunk_overlap = state["chunk_overlap"]
         retriever._backend_name = state["backend_name"]
-        retriever._similarity = state.get("similarity", "cosine")  # Default for old saves
+        retriever._similarity = state.get("similarity", "cosine")
         retriever._doc_ids = set(state["doc_ids"])
 
-        # Create a lazy embeddings placeholder that stores provider/model info
-        # Actual embedding model only loads if user calls add() after load
+        # Create lazy embeddings placeholder
         retriever._embeddings = _LazyEmbeddings(
             provider=state["embeddings_provider"],
             model=state["embeddings_model"],
         )
 
-        # Initialize backend with loaded data (include similarity)
+        # Initialize backend
         retriever._backend = get_backend("memory", similarity=retriever._similarity)
-
-        # Restore backend data
-        backend_data = state["backend_data"]
-        import numpy as np
-
-        from ai_infra.retriever.backends.memory import MemoryBackend
 
         if not isinstance(retriever._backend, MemoryBackend):
             raise RuntimeError("Expected memory backend during load()")
 
         backend = retriever._backend
+        backend_data = state["backend_data"]
         backend._ids = backend_data["ids"]
         backend._texts = backend_data["texts"]
         backend._metadatas = backend_data["metadatas"]
         backend._embeddings = [np.array(e, dtype=np.float32) for e in backend_data["embeddings"]]
 
+        logger.info(f"Loaded retriever from legacy pickle: {path}")
         return retriever
+
+    @classmethod
+    def migrate(cls, path: str | Path, remove_pickle: bool = False) -> Path:
+        """Migrate a legacy pickle retriever to the new JSON + numpy format.
+
+        Args:
+            path: Path to the legacy pickle file or directory containing it.
+            remove_pickle: If True, delete the old pickle file after migration.
+
+        Returns:
+            Path to the new format directory.
+
+        Example:
+            >>> Retriever.migrate("./cache/retriever.pkl")
+            >>> # Now loads from ./cache/retriever/ with state.json + embeddings.npy
+        """
+        path = Path(path)
+
+        # Find pickle file
+        if path.is_dir():
+            pkl_path = path / cls._LEGACY_PICKLE_FILE
+        elif path.suffix == ".pkl":
+            pkl_path = path
+        else:
+            pkl_path = path / cls._LEGACY_PICKLE_FILE
+
+        if not pkl_path.exists():
+            raise FileNotFoundError(f"No pickle file found at: {pkl_path}")
+
+        # Load from pickle
+        retriever = cls._load_v1_pickle(pkl_path)
+
+        # Determine output path
+        if pkl_path.suffix == ".pkl":
+            output_path = pkl_path.with_suffix("")
+        else:
+            output_path = pkl_path.parent
+
+        # Save in new format
+        retriever.save(output_path)
+
+        logger.info(f"Migrated {pkl_path} -> {output_path}")
+
+        # Optionally remove old pickle
+        if remove_pickle:
+            pkl_path.unlink()
+            # Also remove JSON sidecar if it exists
+            json_sidecar = pkl_path.with_suffix(".json")
+            if json_sidecar.exists():
+                json_sidecar.unlink()
+            logger.info(f"Removed legacy pickle: {pkl_path}")
+
+        return output_path
 
 
 class _LazyEmbeddings:

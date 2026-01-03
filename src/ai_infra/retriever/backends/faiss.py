@@ -9,7 +9,6 @@ Install: pip install ai-infra[faiss]
 
 from __future__ import annotations
 
-import pickle
 import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
@@ -110,8 +109,14 @@ class FAISSBackend(BaseBackend):
             return self._load_index()
         return self._create_index()
 
+    # File format constants
+    _METADATA_FILE = "metadata.json"
+    _LEGACY_METADATA_FILE = "metadata.pkl"
+
     def _save_index(self) -> None:
-        """Save index and metadata to disk."""
+        """Save index and metadata to disk using JSON format."""
+        import json
+
         if not self._persist_path:
             return
 
@@ -121,21 +126,23 @@ class FAISSBackend(BaseBackend):
         index_path = self._persist_path / "index.faiss"
         self._faiss.write_index(self._index, str(index_path))
 
-        # Save texts and metadata
-        meta_path = self._persist_path / "metadata.pkl"
-        with open(meta_path, "wb") as f:
-            pickle.dump(
+        # Save texts and metadata as JSON (no pickle)
+        meta_path = self._persist_path / self._METADATA_FILE
+        with open(meta_path, "w", encoding="utf-8") as f:
+            json.dump(
                 {"texts": self._texts, "metadatas": self._metadatas, "ids": self._ids},
                 f,
+                indent=2,
+                ensure_ascii=False,
             )
 
     def _load_index(self) -> faiss.Index:
         """Load index and metadata from disk.
 
-        Security Warning:
-            This method uses pickle to load metadata, which can execute arbitrary code.
-            Only load from trusted sources.
+        Supports both JSON (new) and pickle (legacy) metadata formats.
+        Legacy pickle files trigger a deprecation warning.
         """
+        import json
         import logging
         import warnings
 
@@ -143,7 +150,8 @@ class FAISSBackend(BaseBackend):
             return self._create_index()
 
         index_path = self._persist_path / "index.faiss"
-        meta_path = self._persist_path / "metadata.pkl"
+        meta_json_path = self._persist_path / self._METADATA_FILE
+        meta_pkl_path = self._persist_path / self._LEGACY_METADATA_FILE
 
         if not index_path.exists():
             return self._create_index()
@@ -151,19 +159,29 @@ class FAISSBackend(BaseBackend):
         # Load FAISS index
         index = self._faiss.read_index(str(index_path))
 
-        # Load texts and metadata
-        if meta_path.exists():
-            # Security warning for pickle files
+        # Load metadata - prefer JSON, fallback to pickle
+        if meta_json_path.exists():
+            # New JSON format
+            with open(meta_json_path, encoding="utf-8") as f:
+                data = json.load(f)
+                self._texts = data.get("texts", [])
+                self._metadatas = data.get("metadatas", [])
+                self._ids = data.get("ids", [])
+        elif meta_pkl_path.exists():
+            # Legacy pickle format with warning
             warnings.warn(
-                "Loading a pickle metadata file can execute arbitrary code. "
-                "Only load from trusted sources.",
-                UserWarning,
+                "Loading from legacy pickle metadata format. "
+                "Metadata will be migrated to JSON on next save.",
+                DeprecationWarning,
                 stacklevel=2,
             )
             logging.getLogger("ai_infra.retriever.faiss").warning(
-                f"Loading pickle metadata from {meta_path}. Ensure this is from a trusted source."
+                f"Loading legacy pickle metadata from {meta_pkl_path}. "
+                "Will be migrated to JSON on next save."
             )
-            with open(meta_path, "rb") as f:
+            with open(meta_pkl_path, "rb") as f:
+                import pickle
+
                 data = pickle.load(f)
                 self._texts = data.get("texts", [])
                 self._metadatas = data.get("metadatas", [])
