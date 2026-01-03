@@ -580,6 +580,8 @@ class MCPServer:
         return app
 
     def run_uvicorn(self, host: str = "0.0.0.0", port: int = 8000, log_level: str = "info"):
+        # Security: B104 skip justified - MCP servers run in containers where 0.0.0.0
+        # binding is required. Callers can override host for local development.
         import uvicorn
 
         uvicorn.run(self.build_asgi_root(), host=host, port=port, log_level=log_level)
