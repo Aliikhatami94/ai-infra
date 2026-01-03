@@ -1,6 +1,32 @@
 # CHANGELOG
 
 
+## v1.1.2 (2026-01-03)
+
+### Bug Fixes
+
+- Remove emojis from examples/README.md ([#13](https://github.com/nfraxlab/ai-infra/pull/13),
+  [`6911324`](https://github.com/nfraxlab/ai-infra/commit/69113249823da07f3d01785e8efb1b3aef6c42fc))
+
+### Continuous Integration
+
+- Add branch protection settings to dismiss stale reviews
+  ([#11](https://github.com/nfraxlab/ai-infra/pull/11),
+  [`a083440`](https://github.com/nfraxlab/ai-infra/commit/a0834407ad84731e8b04c7b1afd359c024801ab8))
+
+### Documentation
+
+- Align README hero section with robo-infra style
+  ([#10](https://github.com/nfraxlab/ai-infra/pull/10),
+  [`f098e41`](https://github.com/nfraxlab/ai-infra/commit/f098e41e293242ad006b00690daecce1f132a2b0))
+
+### Testing
+
+- Add comprehensive unit tests for MCP, providers, retriever, and streaming (Phase 1.1)
+  ([#12](https://github.com/nfraxlab/ai-infra/pull/12),
+  [`1961b47`](https://github.com/nfraxlab/ai-infra/commit/1961b47f2a613a6c3bf44957bb3586bca0e0d7a6))
+
+
 ## v1.1.1 (2025-12-31)
 
 ### Bug Fixes
