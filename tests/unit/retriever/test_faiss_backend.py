@@ -576,11 +576,11 @@ class TestFAISSBackendPersistence:
         _mock_faiss.write_index.assert_called()
 
     def test_save_writes_metadata_file(self, temp_path):
-        """Test save writes metadata pickle file."""
+        """Test save writes metadata JSON file."""
         backend = FAISSBackend(dimension=1536, persist_path=temp_path)
         backend.add(embeddings=[[0.1] * 1536], texts=["test"], metadatas=[{"key": "value"}])
 
-        meta_path = temp_path / "metadata.pkl"
+        meta_path = temp_path / "metadata.json"
         assert meta_path.exists()
 
     def test_load_existing_index(self, temp_path):

@@ -773,39 +773,41 @@ class TestRetrieverPersistence:
             # Save
             saved_path = retriever.save(path)
 
-            # Check files exist
+            # Check v2 directory format exists
             assert saved_path.exists()
-            assert saved_path.with_suffix(".json").exists()
+            assert saved_path.is_dir()
+            assert (saved_path / "state.json").exists()
 
             # Check JSON metadata
             import json
 
-            with open(saved_path.with_suffix(".json")) as f:
+            with open(saved_path / "state.json") as f:
                 metadata = json.load(f)
 
-            assert metadata["version"] == 1
-            assert metadata["backend"] == "memory"
+            assert metadata["version"] == 2
+            assert metadata["backend_name"] == "memory"
             assert metadata["chunk_count"] == 2
             assert "created_at" in metadata
 
     def test_save_to_directory(self, retriever: Any, mock_embeddings: MagicMock) -> None:
-        """Test save() to a directory creates default filename."""
+        """Test save() to a directory saves in that directory."""
         with tempfile.TemporaryDirectory() as tmpdir:
             retriever.add_text("Test content")
 
             # Save to directory (not file)
             saved_path = retriever.save(tmpdir)
 
-            # Should create retriever.pkl in the directory
-            assert saved_path == Path(tmpdir) / "retriever.pkl"
-            assert saved_path.exists()
+            # Should save in the directory with v2 format
+            assert saved_path == Path(tmpdir)
+            assert saved_path.is_dir()
+            assert (saved_path / "state.json").exists()
 
     def test_load_restores_data(self, retriever: Any, mock_embeddings: MagicMock) -> None:
         """Test load() restores saved data."""
         from ai_infra.retriever import Retriever
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            path = Path(tmpdir) / "test_load.pkl"
+            path = Path(tmpdir) / "test_load"
 
             # Add content and save
             retriever.add_text("Hello world")
@@ -832,7 +834,7 @@ class TestRetrieverPersistence:
         from ai_infra.retriever import Retriever
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            path = Path(tmpdir) / "auto_load.pkl"
+            path = Path(tmpdir) / "auto_load"
 
             # Create and save first retriever
             with patch("ai_infra.embeddings.Embeddings", return_value=mock_embeddings):
@@ -853,20 +855,21 @@ class TestRetrieverPersistence:
         from ai_infra.retriever import Retriever
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            path = Path(tmpdir) / "auto_save.pkl"
+            path = Path(tmpdir) / "auto_save"
 
-            # Create retriever with persist_path (file doesn't exist yet)
+            # Create retriever with persist_path (directory doesn't exist yet)
             with patch("ai_infra.embeddings.Embeddings", return_value=mock_embeddings):
                 r1 = Retriever(backend="memory", persist_path=path)
 
-            # File shouldn't exist yet
+            # Directory shouldn't exist yet
             assert not path.exists()
 
             # Add content - should trigger auto-save
             r1.add_text("Auto-saved content")
 
-            # File should now exist
+            # Directory should now exist with state.json
             assert path.exists()
+            assert (path / "state.json").exists()
 
             # Load and verify
             r2 = Retriever.load(path)
@@ -877,7 +880,7 @@ class TestRetrieverPersistence:
         from ai_infra.retriever import Retriever
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            path = Path(tmpdir) / "no_auto_save.pkl"
+            path = Path(tmpdir) / "no_auto_save"
 
             # Create retriever with auto_save=False
             with patch("ai_infra.embeddings.Embeddings", return_value=mock_embeddings):
@@ -886,12 +889,13 @@ class TestRetrieverPersistence:
             # Add content
             r1.add_text("Not auto-saved")
 
-            # File should NOT exist (auto_save disabled)
+            # Directory should NOT exist (auto_save disabled)
             assert not path.exists()
 
             # Manual save should work
             r1.save(path)
             assert path.exists()
+            assert (path / "state.json").exists()
 
     def test_save_unsupported_backend_raises(self, mock_embeddings: MagicMock) -> None:
         """Test save() raises for unsupported backends."""
@@ -1130,7 +1134,7 @@ class TestRetrieverSimilarityMetrics:
         from ai_infra.retriever import Retriever
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            path = Path(tmpdir) / "similarity_test.pkl"
+            path = Path(tmpdir) / "similarity_test"
 
             # Mock embeddings for this test
             mock_emb = MagicMock()
