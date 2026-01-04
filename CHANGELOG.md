@@ -1,6 +1,15 @@
 # CHANGELOG
 
 
+## v1.2.0 (2026-01-04)
+
+### Features
+
+- Add architecture, quickstart, troubleshooting, and performance docs
+  ([#14](https://github.com/nfraxlab/ai-infra/pull/14),
+  [`5f55e8a`](https://github.com/nfraxlab/ai-infra/commit/5f55e8ad23ea0eb2702e71bae422cf38eada3a5f))
+
+
 ## v1.1.2 (2026-01-03)
 
 ### Bug Fixes
