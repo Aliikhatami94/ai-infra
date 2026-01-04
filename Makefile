@@ -59,6 +59,19 @@ test: _poetry-check
 	@echo "[test] Running all tests"
 	@poetry run pytest -q tests/
 
+# --- Benchmarks ---
+benchmark: _poetry-check
+	@echo "[benchmark] Running performance benchmarks"
+	@poetry run pytest benchmarks/ --benchmark-only --benchmark-sort=mean
+
+benchmark-save: _poetry-check
+	@echo "[benchmark] Running benchmarks and saving results"
+	@poetry run pytest benchmarks/ --benchmark-only --benchmark-autosave --benchmark-save-data
+
+benchmark-compare: _poetry-check
+	@echo "[benchmark] Comparing with previous benchmark results"
+	@poetry run pytest benchmarks/ --benchmark-only --benchmark-compare
+
 # --- Code Quality ---
 format: _poetry-check
 	@echo "[format] Formatting with ruff"
