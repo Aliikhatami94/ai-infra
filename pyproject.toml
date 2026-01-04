@@ -99,6 +99,7 @@ retriever-local = ["langchain-huggingface", "sentence-transformers", "pypdf", "p
 pytest = ">=8.0.0"
 pytest-asyncio = ">=0.23.0"
 pytest-cov = ">=4.0.0"
+pytest-benchmark = ">=4.0.0"
 ruff = ">=0.5.0"
 mypy = ">=1.10.0"
 pre-commit = ">=3.0.0"
@@ -180,7 +181,7 @@ exclude_dirs = ["tests", ".venv", "venv"]
 skips = [
     "B101",  # assert used (intentional in tests and contracts)
     "B104",  # hardcoded_bind_all_interfaces (intentional for dev servers in examples)
-    "B301",  # pickle load (our FAISS/retriever persistence is trusted local files)
+    "B301",  # pickle load - LEGACY ONLY: for migrating old retriever.pkl files (v2 uses JSON+numpy)
     "B311",  # random for non-crypto (intentional)
     "B608",  # hardcoded_sql_expressions (table names are validated, not user input)
 ]

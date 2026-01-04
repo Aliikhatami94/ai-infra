@@ -9,6 +9,62 @@ This guide documents breaking changes and migration paths between versions of ai
 | 0.1.x | 3.11+ | >=1.0.0 | >=1.0.0 | Current stable |
 | 0.2.x (planned) | 3.11+ | >=1.0.0 | >=1.0.0 | API simplification |
 
+## Migrating to 1.0.0
+
+### Retriever Persistence Format (Breaking)
+
+**v1.0.0 replaces pickle serialization with JSON + numpy for security.**
+
+The Retriever now saves to a directory with `state.json` + `embeddings.npy` instead of a single `retriever.pkl` file.
+
+#### Automatic Migration
+
+Legacy pickle files are automatically detected and loaded with a deprecation warning:
+
+```python
+# Old pickle files still work but emit a warning
+retriever = Retriever.load("./my_retriever.pkl")
+# DeprecationWarning: Loading from legacy pickle format. Run Retriever.migrate() to convert.
+```
+
+#### Explicit Migration
+
+Convert legacy files to the new format:
+
+```python
+from ai_infra import Retriever
+
+# Migrate and keep the old pickle file as backup
+Retriever.migrate("./my_retriever.pkl")
+
+# Migrate and remove the old pickle file
+Retriever.migrate("./my_retriever.pkl", remove_pickle=True)
+```
+
+After migration, the directory structure is:
+```
+my_retriever/
+    state.json      # Metadata, texts, config
+    embeddings.npy  # Embedding vectors (numpy binary)
+```
+
+#### New Save/Load API
+
+```python
+# Saving (creates directory)
+retriever.save("./my_retriever")
+
+# Loading (from directory)
+retriever = Retriever.load("./my_retriever")
+```
+
+### Why This Change?
+
+Pickle deserialization is a code execution risk (Bandit B301). The new format:
+- Uses JSON for metadata (human-readable, safe)
+- Uses numpy binary for embeddings (efficient, safe)
+- Prevents arbitrary code execution from malicious files
+
 ## Migrating to 0.1.x
 
 ### From Direct LangChain

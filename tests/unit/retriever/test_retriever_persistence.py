@@ -1,20 +1,22 @@
 """Tests for Retriever persistence (save/load).
 
 Tests cover:
-- Saving and loading retriever state
+- Saving and loading retriever state (v2 JSON + numpy format)
 - State integrity after load
 - Error handling for invalid paths
 - Metadata preservation
-- Sidecar JSON file creation
+- Legacy pickle format migration
 """
 
 from __future__ import annotations
 
 import json
+import pickle
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import numpy as np
 import pytest
 
 from ai_infra.retriever.retriever import Retriever
@@ -43,48 +45,62 @@ class TestRetrieverSave:
             r.add_text("Paris is the capital of France")
             return r
 
-    def test_save_creates_pickle_file(self, retriever_with_data: Retriever) -> None:
-        """Test that save creates a pickle file."""
+    def test_save_creates_directory(self, retriever_with_data: Retriever) -> None:
+        """Test that save creates a directory with state.json and embeddings.npy."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            path = Path(tmpdir) / "test.pkl"
+            path = Path(tmpdir) / "test_retriever"
             result = retriever_with_data.save(path)
 
-            assert result.exists()
-            assert result.suffix == ".pkl"
+            assert result.is_dir()
+            assert (result / "state.json").exists()
+            assert (result / "embeddings.npy").exists()
 
-    def test_save_creates_json_sidecar(self, retriever_with_data: Retriever) -> None:
-        """Test that save creates a JSON metadata sidecar file."""
+    def test_save_creates_valid_json(self, retriever_with_data: Retriever) -> None:
+        """Test that save creates a valid JSON state file."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            path = Path(tmpdir) / "test.pkl"
+            path = Path(tmpdir) / "test_retriever"
             result = retriever_with_data.save(path)
 
-            json_path = result.with_suffix(".json")
-            assert json_path.exists()
+            state_path = result / "state.json"
+            with open(state_path) as f:
+                state = json.load(f)
 
-            with open(json_path) as f:
-                metadata = json.load(f)
+            assert state["version"] == 2
+            assert "created_at" in state
+            assert "backend_name" in state
+            assert state["backend_name"] == "memory"
+            assert "backend_data" in state
+            assert "ids" in state["backend_data"]
+            assert "texts" in state["backend_data"]
 
-            assert "version" in metadata
-            assert "created_at" in metadata
-            assert "backend" in metadata
-            assert metadata["backend"] == "memory"
-
-    def test_save_to_directory_uses_default_filename(self, retriever_with_data: Retriever) -> None:
-        """Test that saving to a directory uses default filename."""
+    def test_save_to_directory_without_suffix(self, retriever_with_data: Retriever) -> None:
+        """Test that saving to a path without suffix creates directory."""
         with tempfile.TemporaryDirectory() as tmpdir:
             result = retriever_with_data.save(tmpdir)
 
-            assert result.name == "retriever.pkl"
-            assert result.parent == Path(tmpdir)
+            assert result.is_dir()
+            assert (result / "state.json").exists()
+
+    def test_save_handles_legacy_pkl_path(self, retriever_with_data: Retriever) -> None:
+        """Test that save with .pkl path converts to directory."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "test.pkl"
+            result = retriever_with_data.save(path)
+
+            # Should create directory named 'test' (without .pkl)
+            expected_dir = Path(tmpdir) / "test"
+            assert result == expected_dir
+            assert result.is_dir()
+            assert (result / "state.json").exists()
 
     def test_save_creates_parent_directories(self, retriever_with_data: Retriever) -> None:
         """Test that save creates parent directories if they don't exist."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            path = Path(tmpdir) / "nested" / "deep" / "retriever.pkl"
+            path = Path(tmpdir) / "nested" / "deep" / "retriever"
             result = retriever_with_data.save(path)
 
             assert result.exists()
-            assert result.parent.exists()
+            assert result.is_dir()
 
     def test_save_fails_for_non_memory_backend(self) -> None:
         """Test that save fails for backends that don't support it."""
@@ -94,46 +110,42 @@ class TestRetrieverSave:
             mock_emb.model = "test"
             MockEmb.return_value = mock_emb
 
-            # Mock a non-memory backend
             with patch("ai_infra.retriever.backends.get_backend") as mock_backend:
                 mock_backend.return_value = MagicMock()
                 mock_backend.return_value.__class__.__name__ = "PostgresBackend"
 
                 r = Retriever(auto_configure=False, backend="memory")
                 r._embeddings = mock_emb
-                # Override with a non-memory backend
                 r._backend = MagicMock()
                 r._backend_name = "postgres"
 
                 with tempfile.TemporaryDirectory() as tmpdir:
                     with pytest.raises(ValueError, match="doesn't support save"):
-                        r.save(Path(tmpdir) / "test.pkl")
+                        r.save(Path(tmpdir) / "test")
 
     def test_save_includes_embeddings_config(self, retriever_with_data: Retriever) -> None:
         """Test that saved state includes embeddings configuration."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            path = Path(tmpdir) / "test.pkl"
+            path = Path(tmpdir) / "test"
             retriever_with_data.save(path)
 
-            json_path = path.with_suffix(".json")
-            with open(json_path) as f:
-                metadata = json.load(f)
+            with open(path / "state.json") as f:
+                state = json.load(f)
 
-            assert "embeddings_provider" in metadata
-            assert "embeddings_model" in metadata
+            assert "embeddings_provider" in state
+            assert "embeddings_model" in state
 
     def test_save_includes_chunk_count(self, retriever_with_data: Retriever) -> None:
-        """Test that saved metadata includes chunk count."""
+        """Test that saved state includes chunk count."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            path = Path(tmpdir) / "test.pkl"
+            path = Path(tmpdir) / "test"
             retriever_with_data.save(path)
 
-            json_path = path.with_suffix(".json")
-            with open(json_path) as f:
-                metadata = json.load(f)
+            with open(path / "state.json") as f:
+                state = json.load(f)
 
-            assert "chunk_count" in metadata
-            assert metadata["chunk_count"] >= 1
+            assert "chunk_count" in state
+            assert state["chunk_count"] >= 1
 
 
 class TestRetrieverLoad:
@@ -156,7 +168,7 @@ class TestRetrieverLoad:
             MockEmb.return_value = mock_embeddings
 
             tmpdir = tempfile.mkdtemp()
-            path = Path(tmpdir) / "test.pkl"
+            path = Path(tmpdir) / "test_retriever"
 
             r = Retriever(auto_configure=False, backend="memory")
             r._embeddings = mock_embeddings
@@ -167,36 +179,20 @@ class TestRetrieverLoad:
 
     def test_load_restores_retriever(self, saved_retriever_path: Path) -> None:
         """Test that load restores a retriever from saved state."""
-        # Expect pickle warning
-        import warnings
-
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", category=UserWarning)
-            loaded = Retriever.load(saved_retriever_path)
+        loaded = Retriever.load(saved_retriever_path)
 
         assert loaded is not None
         assert loaded.count >= 1
 
     def test_load_from_directory(self, saved_retriever_path: Path) -> None:
         """Test that load works when given a directory path."""
-        # Rename to use default filename
-        directory = saved_retriever_path.parent
-        default_path = directory / "retriever.pkl"
-        saved_retriever_path.rename(default_path)
-        saved_retriever_path.with_suffix(".json").rename(default_path.with_suffix(".json"))
-
-        import warnings
-
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", category=UserWarning)
-            loaded = Retriever.load(directory)
-
+        loaded = Retriever.load(saved_retriever_path)
         assert loaded is not None
 
     def test_load_raises_for_missing_file(self) -> None:
         """Test that load raises FileNotFoundError for missing file."""
         with pytest.raises(FileNotFoundError):
-            Retriever.load("/nonexistent/path/retriever.pkl")
+            Retriever.load("/nonexistent/path/retriever")
 
     def test_load_preserves_chunk_settings(self, mock_embeddings: MagicMock) -> None:
         """Test that load preserves chunk size and overlap settings."""
@@ -204,7 +200,7 @@ class TestRetrieverLoad:
             MockEmb.return_value = mock_embeddings
 
             with tempfile.TemporaryDirectory() as tmpdir:
-                path = Path(tmpdir) / "test.pkl"
+                path = Path(tmpdir) / "test"
 
                 r = Retriever(
                     auto_configure=False,
@@ -216,25 +212,157 @@ class TestRetrieverLoad:
                 r.add_text("Test content")
                 r.save(path)
 
-                import warnings
-
-                with warnings.catch_warnings():
-                    warnings.filterwarnings("ignore", category=UserWarning)
-                    loaded = Retriever.load(path)
+                loaded = Retriever.load(path)
 
                 assert loaded._chunk_size == 1000
                 assert loaded._chunk_overlap == 100
 
-    def test_load_emits_pickle_warning(self, saved_retriever_path: Path) -> None:
-        """Test that load emits a security warning for pickle files."""
+
+class TestRetrieverLegacyPickleLoad:
+    """Tests for loading legacy pickle format retrievers."""
+
+    @pytest.fixture
+    def mock_embeddings(self) -> MagicMock:
+        """Create mock embeddings for testing."""
+        mock = MagicMock()
+        mock.embed.return_value = [0.1, 0.2, 0.3]
+        mock.embed_batch.return_value = [[0.1, 0.2, 0.3]]
+        mock.provider = "huggingface"
+        mock.model = "test-model"
+        return mock
+
+    def _create_legacy_pickle(self, path: Path, mock_embeddings: MagicMock) -> None:
+        """Create a legacy v1 pickle file for testing migration."""
+        state = {
+            "version": 1,
+            "backend_name": "memory",
+            "chunk_size": 500,
+            "chunk_overlap": 50,
+            "similarity": "cosine",
+            "doc_ids": ["doc-1"],
+            "embeddings_provider": mock_embeddings.provider,
+            "embeddings_model": mock_embeddings.model,
+            "backend_data": {
+                "ids": ["chunk-1"],
+                "texts": ["Legacy pickle content"],
+                "metadatas": [{"doc_id": "doc-1"}],
+                "embeddings": [[0.1, 0.2, 0.3]],
+            },
+        }
+        with open(path, "wb") as f:
+            pickle.dump(state, f)
+
+    def test_load_legacy_pickle_emits_deprecation_warning(self, mock_embeddings: MagicMock) -> None:
+        """Test that loading legacy pickle emits deprecation warning."""
         import warnings
 
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            Retriever.load(saved_retriever_path)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pkl_path = Path(tmpdir) / "retriever.pkl"
+            self._create_legacy_pickle(pkl_path, mock_embeddings)
 
-            pickle_warnings = [x for x in w if "pickle" in str(x.message).lower()]
-            assert len(pickle_warnings) >= 1
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                Retriever.load(pkl_path)
+
+                deprecation_warnings = [x for x in w if issubclass(x.category, DeprecationWarning)]
+                assert len(deprecation_warnings) >= 1
+
+    def test_load_legacy_pickle_restores_data(self, mock_embeddings: MagicMock) -> None:
+        """Test that loading legacy pickle restores data correctly."""
+        import warnings
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pkl_path = Path(tmpdir) / "retriever.pkl"
+            self._create_legacy_pickle(pkl_path, mock_embeddings)
+
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore")
+                loaded = Retriever.load(pkl_path)
+
+            assert loaded.count == 1
+            assert loaded._chunk_size == 500
+
+
+class TestRetrieverMigrate:
+    """Tests for Retriever.migrate() method."""
+
+    @pytest.fixture
+    def mock_embeddings(self) -> MagicMock:
+        """Create mock embeddings for testing."""
+        mock = MagicMock()
+        mock.embed.return_value = [0.1, 0.2, 0.3]
+        mock.embed_batch.return_value = [[0.1, 0.2, 0.3]]
+        mock.provider = "huggingface"
+        mock.model = "test-model"
+        return mock
+
+    def _create_legacy_pickle(self, path: Path, mock_embeddings: MagicMock) -> None:
+        """Create a legacy v1 pickle file for testing migration."""
+        state = {
+            "version": 1,
+            "backend_name": "memory",
+            "chunk_size": 500,
+            "chunk_overlap": 50,
+            "similarity": "cosine",
+            "doc_ids": ["doc-1"],
+            "embeddings_provider": mock_embeddings.provider,
+            "embeddings_model": mock_embeddings.model,
+            "backend_data": {
+                "ids": ["chunk-1"],
+                "texts": ["Legacy pickle content"],
+                "metadatas": [{"doc_id": "doc-1"}],
+                "embeddings": [[0.1, 0.2, 0.3]],
+            },
+        }
+        with open(path, "wb") as f:
+            pickle.dump(state, f)
+
+    def test_migrate_creates_v2_format(self, mock_embeddings: MagicMock) -> None:
+        """Test that migrate creates new v2 format directory."""
+        import warnings
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pkl_path = Path(tmpdir) / "retriever.pkl"
+            self._create_legacy_pickle(pkl_path, mock_embeddings)
+
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore")
+                result = Retriever.migrate(pkl_path)
+
+            assert result.is_dir()
+            assert (result / "state.json").exists()
+            assert (result / "embeddings.npy").exists()
+
+    def test_migrate_removes_pickle_when_requested(self, mock_embeddings: MagicMock) -> None:
+        """Test that migrate can remove the legacy pickle file."""
+        import warnings
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pkl_path = Path(tmpdir) / "retriever.pkl"
+            self._create_legacy_pickle(pkl_path, mock_embeddings)
+
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore")
+                Retriever.migrate(pkl_path, remove_pickle=True)
+
+            assert not pkl_path.exists()
+
+    def test_migrate_preserves_data(self, mock_embeddings: MagicMock) -> None:
+        """Test that migration preserves all data."""
+        import warnings
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pkl_path = Path(tmpdir) / "retriever.pkl"
+            self._create_legacy_pickle(pkl_path, mock_embeddings)
+
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore")
+                result = Retriever.migrate(pkl_path)
+
+            # Load from new format
+            loaded = Retriever.load(result)
+            assert loaded.count == 1
+            assert loaded._chunk_size == 500
 
 
 class TestRetrieverAutoSave:
@@ -256,7 +384,7 @@ class TestRetrieverAutoSave:
             MockEmb.return_value = mock_embeddings
 
             with tempfile.TemporaryDirectory() as tmpdir:
-                path = Path(tmpdir) / "auto.pkl"
+                path = Path(tmpdir) / "auto"
 
                 r = Retriever(
                     auto_configure=False,
@@ -267,8 +395,9 @@ class TestRetrieverAutoSave:
                 r._embeddings = mock_embeddings
                 r.add_text("Auto-saved content")
 
-                # File should exist after add
-                assert path.exists()
+                # Directory with state.json should exist after add
+                assert path.is_dir()
+                assert (path / "state.json").exists()
 
     def test_auto_save_disabled(self, mock_embeddings: MagicMock) -> None:
         """Test that auto_save=False prevents automatic saving."""
@@ -276,7 +405,7 @@ class TestRetrieverAutoSave:
             MockEmb.return_value = mock_embeddings
 
             with tempfile.TemporaryDirectory() as tmpdir:
-                path = Path(tmpdir) / "no_auto.pkl"
+                path = Path(tmpdir) / "no_auto"
 
                 r = Retriever(
                     auto_configure=False,
@@ -287,7 +416,7 @@ class TestRetrieverAutoSave:
                 r._embeddings = mock_embeddings
                 r.add_text("Not auto-saved")
 
-                # File should NOT exist after add
+                # Directory should NOT exist after add
                 assert not path.exists()
 
 
@@ -310,7 +439,7 @@ class TestRetrieverPersistenceRoundTrip:
             MockEmb.return_value = mock_embeddings
 
             with tempfile.TemporaryDirectory() as tmpdir:
-                path = Path(tmpdir) / "roundtrip.pkl"
+                path = Path(tmpdir) / "roundtrip"
 
                 r = Retriever(auto_configure=False, backend="memory")
                 r._embeddings = mock_embeddings
@@ -320,11 +449,7 @@ class TestRetrieverPersistenceRoundTrip:
                 original_count = r.count
                 r.save(path)
 
-                import warnings
-
-                with warnings.catch_warnings():
-                    warnings.filterwarnings("ignore", category=UserWarning)
-                    loaded = Retriever.load(path)
+                loaded = Retriever.load(path)
 
                 assert loaded.count == original_count
 
@@ -334,7 +459,7 @@ class TestRetrieverPersistenceRoundTrip:
             MockEmb.return_value = mock_embeddings
 
             with tempfile.TemporaryDirectory() as tmpdir:
-                path = Path(tmpdir) / "roundtrip.pkl"
+                path = Path(tmpdir) / "roundtrip"
 
                 r = Retriever(auto_configure=False, backend="memory")
                 r._embeddings = mock_embeddings
@@ -344,11 +469,7 @@ class TestRetrieverPersistenceRoundTrip:
                 original_doc_count = len(r._doc_ids)
                 r.save(path)
 
-                import warnings
-
-                with warnings.catch_warnings():
-                    warnings.filterwarnings("ignore", category=UserWarning)
-                    loaded = Retriever.load(path)
+                loaded = Retriever.load(path)
 
                 assert len(loaded._doc_ids) == original_doc_count
 
@@ -358,7 +479,7 @@ class TestRetrieverPersistenceRoundTrip:
             MockEmb.return_value = mock_embeddings
 
             with tempfile.TemporaryDirectory() as tmpdir:
-                path = Path(tmpdir) / "roundtrip.pkl"
+                path = Path(tmpdir) / "roundtrip"
 
                 r = Retriever(
                     auto_configure=False,
@@ -370,13 +491,30 @@ class TestRetrieverPersistenceRoundTrip:
 
                 r.save(path)
 
-                import warnings
-
-                with warnings.catch_warnings():
-                    warnings.filterwarnings("ignore", category=UserWarning)
-                    loaded = Retriever.load(path)
+                loaded = Retriever.load(path)
 
                 assert loaded._similarity == "cosine"
+
+    def test_roundtrip_preserves_embeddings(self, mock_embeddings: MagicMock) -> None:
+        """Test that save/load preserves embeddings correctly."""
+        with patch("ai_infra.embeddings.Embeddings") as MockEmb:
+            MockEmb.return_value = mock_embeddings
+
+            with tempfile.TemporaryDirectory() as tmpdir:
+                path = Path(tmpdir) / "roundtrip"
+
+                r = Retriever(auto_configure=False, backend="memory")
+                r._embeddings = mock_embeddings
+                r.add_text("Test content")
+
+                # Get original embeddings
+                original_embeddings = r._backend._embeddings[0].copy()
+                r.save(path)
+
+                loaded = Retriever.load(path)
+                loaded_embeddings = loaded._backend._embeddings[0]
+
+                np.testing.assert_array_almost_equal(original_embeddings, loaded_embeddings)
 
 
 class TestRetrieverLoadOnInit:
@@ -398,7 +536,7 @@ class TestRetrieverLoadOnInit:
             MockEmb.return_value = mock_embeddings
 
             with tempfile.TemporaryDirectory() as tmpdir:
-                path = Path(tmpdir) / "persist.pkl"
+                path = Path(tmpdir) / "persist"
 
                 # Create and save a retriever
                 r1 = Retriever(auto_configure=False, backend="memory")
@@ -408,15 +546,11 @@ class TestRetrieverLoadOnInit:
                 original_count = r1.count
 
                 # Create new retriever with same persist_path
-                import warnings
-
-                with warnings.catch_warnings():
-                    warnings.filterwarnings("ignore", category=UserWarning)
-                    r2 = Retriever(
-                        auto_configure=False,
-                        backend="memory",
-                        persist_path=path,
-                    )
+                r2 = Retriever(
+                    auto_configure=False,
+                    backend="memory",
+                    persist_path=path,
+                )
 
                 assert r2.count == original_count
 
@@ -426,7 +560,7 @@ class TestRetrieverLoadOnInit:
             MockEmb.return_value = mock_embeddings
 
             with tempfile.TemporaryDirectory() as tmpdir:
-                path = Path(tmpdir) / "new.pkl"
+                path = Path(tmpdir) / "new"
 
                 r = Retriever(
                     auto_configure=False,

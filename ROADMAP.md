@@ -769,7 +769,7 @@
 ## Phase 14: Model Router
 
 > **Goal**: Intelligently route requests to different models based on complexity, cost, or latency
-> **Priority**: 🟡 MEDIUM
+> **Priority**: MEDIUM
 > **Effort**: 1 week
 
 ### 14.1 Core Router Infrastructure
@@ -920,7 +920,7 @@
 ## Phase 15: Prompt Registry
 
 > **Goal**: Store, version, and retrieve prompts for better prompt management
-> **Priority**: 🟡 MEDIUM
+> **Priority**: MEDIUM
 > **Effort**: 1 week
 
 ### 15.1 Core Registry Infrastructure
@@ -1066,7 +1066,7 @@
 ## Phase 16: Local Model Support (Ollama/vLLM)
 
 > **Goal**: Support local/self-hosted models for privacy and cost savings
-> **Priority**: 🟡 MEDIUM
+> **Priority**: MEDIUM
 > **Effort**: 1 week
 
 ### 16.1 Ollama Provider
@@ -1199,6 +1199,807 @@
 
 ---
 
+## Phase 17: LiteLLM Integration (100+ Providers)
+
+> **Goal**: Integrate LiteLLM as optional backend to instantly support 100+ LLM providers
+> **Priority**: HIGH (Competitive parity)
+> **Effort**: 1 week
+> **Philosophy**: Use LiteLLM for provider breadth, keep ai-infra's unified API
+
+### 17.1 LiteLLM Backend Provider
+
+**Files**: `src/ai_infra/llm/providers/litellm_provider.py`
+
+- [ ] **Add LiteLLM as optional dependency**
+  ```toml
+  # pyproject.toml
+  [tool.poetry.extras]
+  litellm = ["litellm>=1.50.0"]
+  all-providers = ["litellm>=1.50.0"]
+  ```
+
+- [ ] **Implement LiteLLM provider adapter**
+  ```python
+  from ai_infra import LLM
+
+  # Use LiteLLM for any of its 100+ supported providers
+  llm = LLM(
+      provider="litellm",
+      model="bedrock/anthropic.claude-v2",  # AWS Bedrock
+  )
+
+  llm = LLM(
+      provider="litellm",
+      model="azure/gpt-4",  # Azure OpenAI
+  )
+
+  llm = LLM(
+      provider="litellm",
+      model="vertex_ai/gemini-pro",  # Google Vertex
+  )
+  ```
+
+- [ ] **Map LiteLLM response to ai-infra format**
+  - [ ] Chat completions (sync/async)
+  - [ ] Streaming responses
+  - [ ] Tool calling
+  - [ ] Error mapping (LiteLLM errors -> ai-infra exceptions)
+
+### 17.2 LiteLLM Embeddings Integration
+
+**File**: `src/ai_infra/embeddings/providers/litellm_embeddings.py`
+
+- [ ] **Implement LiteLLM embeddings adapter**
+  ```python
+  from ai_infra import Embeddings
+
+  # Access 30+ embedding providers via LiteLLM
+  embeddings = Embeddings(
+      provider="litellm",
+      model="bedrock/amazon.titan-embed-text-v1",
+  )
+
+  embeddings = Embeddings(
+      provider="litellm",
+      model="vertex_ai/textembedding-gecko",
+  )
+  ```
+
+- [ ] **Supported LiteLLM embedding providers**
+  - [ ] AWS Bedrock (Titan, Cohere)
+  - [ ] Azure OpenAI
+  - [ ] Google Vertex AI
+  - [ ] Mistral
+  - [ ] HuggingFace Inference API
+  - [ ] All others LiteLLM supports
+
+### 17.3 LiteLLM Audio/Transcription Integration
+
+**File**: `src/ai_infra/multimodal/providers/litellm_stt.py`
+
+- [ ] **Implement LiteLLM transcription adapter**
+  ```python
+  from ai_infra import STT
+
+  # Access multiple transcription providers via LiteLLM
+  stt = STT(
+      provider="litellm",
+      model="groq/whisper-large-v3",  # Groq's fast Whisper
+  )
+
+  stt = STT(
+      provider="litellm",
+      model="deepgram/nova-2",  # Deepgram
+  )
+  ```
+
+### 17.4 Auto-Discovery of LiteLLM Models
+
+**File**: `src/ai_infra/providers/discovery.py` (modification)
+
+- [ ] **Enhance provider discovery to include LiteLLM models**
+  ```python
+  from ai_infra.providers import discover_providers
+
+  # Discover all available providers (native + LiteLLM)
+  providers = discover_providers()
+  # {
+  #   "openai": {...},  # Native
+  #   "anthropic": {...},  # Native
+  #   "litellm/bedrock": {...},  # Via LiteLLM
+  #   "litellm/azure": {...},  # Via LiteLLM
+  #   ...
+  # }
+  ```
+
+### 17.5 Tests for LiteLLM Integration
+
+- [ ] **Unit tests** (`tests/providers/test_litellm.py`)
+  - [ ] Test chat completion mapping
+  - [ ] Test streaming response handling
+  - [ ] Test embeddings integration
+  - [ ] Test error mapping
+  - [ ] Test provider discovery
+
+- [ ] **Integration tests** (require API keys)
+  - [ ] Test with real LiteLLM providers
+
+---
+
+## Phase 18: LangChain Document Loaders Integration
+
+> **Goal**: Integrate LangChain's 160+ document loaders for comprehensive data ingestion
+> **Priority**: HIGH (RAG completeness)
+> **Effort**: 1 week
+> **Philosophy**: Use LangChain loaders, output to ai-infra Document format
+
+### 18.1 LangChain Loader Adapter
+
+**Files**: `src/ai_infra/loaders/__init__.py`, `src/ai_infra/loaders/langchain_adapter.py`
+
+- [ ] **Add LangChain as optional dependency**
+  ```toml
+  # pyproject.toml
+  [tool.poetry.extras]
+  loaders = ["langchain-community>=0.3.0", "langchain-text-splitters>=0.3.0"]
+  ```
+
+- [ ] **Create loader module structure**
+  ```
+  src/ai_infra/loaders/
+  ├── __init__.py          # Public API
+  ├── base.py              # ai-infra Document class
+  ├── langchain_adapter.py # Wrapper for LC loaders
+  ├── splitters.py         # Text splitter wrappers
+  └── native/              # Native loaders (no deps)
+      ├── text.py
+      ├── json.py
+      └── csv.py
+  ```
+
+- [ ] **Implement LangChain loader wrapper**
+  ```python
+  from ai_infra.loaders import load_documents
+
+  # Simple API wrapping LangChain loaders
+  docs = load_documents(
+      source="https://example.com/page",
+      loader="web",  # Uses WebBaseLoader
+  )
+
+  docs = load_documents(
+      source="./data.pdf",
+      loader="pdf",  # Uses PyPDFLoader
+  )
+
+  docs = load_documents(
+      source="./report.docx",
+      loader="docx",  # Uses Docx2txtLoader
+  )
+
+  # Returns list[ai_infra.Document]
+  ```
+
+### 18.2 Popular Loaders to Wrap
+
+- [ ] **File loaders**
+  - [ ] `pdf` - PyPDFLoader, PDFPlumberLoader
+  - [ ] `docx` - Docx2txtLoader
+  - [ ] `pptx` - UnstructuredPowerPointLoader
+  - [ ] `xlsx` - UnstructuredExcelLoader
+  - [ ] `html` - BSHTMLLoader
+  - [ ] `markdown` - UnstructuredMarkdownLoader
+  - [ ] `csv` - CSVLoader
+  - [ ] `json` - JSONLoader
+
+- [ ] **Web loaders**
+  - [ ] `web` - WebBaseLoader
+  - [ ] `sitemap` - SitemapLoader
+  - [ ] `youtube` - YoutubeLoader
+  - [ ] `github` - GithubLoader
+
+- [ ] **Database loaders**
+  - [ ] `sql` - SQLDatabaseLoader
+  - [ ] `mongodb` - MongodbLoader
+
+- [ ] **Cloud loaders**
+  - [ ] `s3` - S3FileLoader
+  - [ ] `gcs` - GCSFileLoader
+  - [ ] `notion` - NotionDBLoader
+  - [ ] `confluence` - ConfluenceLoader
+
+### 18.3 Text Splitters
+
+**File**: `src/ai_infra/loaders/splitters.py`
+
+- [ ] **Wrap LangChain text splitters**
+  ```python
+  from ai_infra.loaders import split_documents
+
+  # Wrap LangChain's RecursiveCharacterTextSplitter
+  chunks = split_documents(
+      documents=docs,
+      splitter="recursive",
+      chunk_size=1000,
+      chunk_overlap=200,
+  )
+
+  # Semantic splitting
+  chunks = split_documents(
+      documents=docs,
+      splitter="semantic",
+      embedding_provider="openai",
+  )
+
+  # Code-aware splitting
+  chunks = split_documents(
+      documents=docs,
+      splitter="code",
+      language="python",
+  )
+  ```
+
+### 18.4 Native Loaders (Zero Dependencies)
+
+**Files**: `src/ai_infra/loaders/native/`
+
+- [ ] **Implement native loaders for common cases**
+  ```python
+  # These work without langchain dependency
+  from ai_infra.loaders import load_documents
+
+  # Native text loader
+  docs = load_documents("./file.txt", loader="text")
+
+  # Native JSON loader
+  docs = load_documents("./data.json", loader="json", jq_schema=".messages[]")
+
+  # Native CSV loader
+  docs = load_documents("./data.csv", loader="csv", content_columns=["text"])
+  ```
+
+### 18.5 Integration with Retriever
+
+**File**: `src/ai_infra/retriever/retriever.py` (modification)
+
+- [ ] **Add loader integration to Retriever**
+  ```python
+  from ai_infra import Retriever
+
+  retriever = Retriever(embedding_provider="openai")
+
+  # Load and index in one call
+  retriever.add_documents(
+      source="./docs/",
+      loader="directory",
+      glob="**/*.md",
+      splitter="recursive",
+      chunk_size=1000,
+  )
+
+  # Query
+  results = retriever.search("How to configure?")
+  ```
+
+### 18.6 Tests for Loaders
+
+- [ ] **Unit tests** (`tests/loaders/`)
+  - [ ] Test each native loader
+  - [ ] Test LangChain adapter (mocked)
+  - [ ] Test text splitters
+  - [ ] Test Document format conversion
+
+- [ ] **Integration tests**
+  - [ ] Test with real files (PDF, DOCX)
+  - [ ] Test web loader
+
+---
+
+## Phase 19: Durable Execution Integration
+
+> **Goal**: Support long-running, fault-tolerant agent workflows via Temporal/DBOS/Prefect
+> **Priority**: HIGH (Enterprise requirement)
+> **Effort**: 2 weeks
+> **Philosophy**: Integrate with existing orchestrators rather than building our own
+
+### 19.1 Temporal Integration
+
+**Files**: `src/ai_infra/durable/__init__.py`, `src/ai_infra/durable/temporal.py`
+
+- [ ] **Add Temporal as optional dependency**
+  ```toml
+  # pyproject.toml
+  [tool.poetry.extras]
+  temporal = ["temporalio>=1.7.0"]
+  durable = ["temporalio>=1.7.0"]
+  ```
+
+- [ ] **Create durable execution module**
+  ```
+  src/ai_infra/durable/
+  ├── __init__.py       # Public API
+  ├── base.py           # DurableAgent base
+  ├── temporal.py       # Temporal adapter
+  ├── dbos.py           # DBOS adapter
+  └── prefect.py        # Prefect adapter
+  ```
+
+- [ ] **Implement Temporal-backed Agent**
+  ```python
+  from ai_infra import Agent
+  from ai_infra.durable import TemporalAgent
+
+  # Define agent as Temporal workflow
+  @TemporalAgent(
+      task_queue="ai-agents",
+      retry_policy=RetryPolicy(maximum_attempts=3),
+  )
+  class ResearchAgent(Agent):
+      tools = [web_search, summarize]
+
+  # Run durably (survives crashes, restarts)
+  async with TemporalClient.connect("localhost:7233") as client:
+      result = await client.execute_workflow(
+          ResearchAgent.run,
+          "Research quantum computing advances",
+          id="research-123",
+      )
+  ```
+
+- [ ] **Key features**
+  - [ ] Automatic state persistence
+  - [ ] Retry on failure with exponential backoff
+  - [ ] Resume from last successful step after crash
+  - [ ] Long-running workflow support (hours/days)
+  - [ ] Workflow history and debugging
+
+### 19.2 DBOS Integration (Simpler Alternative)
+
+**File**: `src/ai_infra/durable/dbos.py`
+
+- [ ] **Add DBOS as optional dependency**
+  ```toml
+  [tool.poetry.extras]
+  dbos = ["dbos>=1.0.0"]
+  ```
+
+- [ ] **Implement DBOS-backed Agent**
+  ```python
+  from ai_infra import Agent
+  from ai_infra.durable import DBOSAgent
+  from dbos import DBOS
+
+  DBOS()  # Initialize DBOS
+
+  @DBOSAgent(
+      recovery=True,  # Enable crash recovery
+  )
+  class DataProcessor(Agent):
+      tools = [fetch_data, transform, save]
+
+  # Run with automatic durability
+  result = await DataProcessor().run("Process customer data")
+
+  # If crash occurs, re-running picks up where it left off
+  ```
+
+- [ ] **DBOS advantages**
+  - [ ] Simpler than Temporal (no separate server)
+  - [ ] Uses PostgreSQL for state
+  - [ ] Decorator-based API
+
+### 19.3 Prefect Integration
+
+**File**: `src/ai_infra/durable/prefect.py`
+
+- [ ] **Add Prefect as optional dependency**
+  ```toml
+  [tool.poetry.extras]
+  prefect = ["prefect>=3.0.0"]
+  ```
+
+- [ ] **Implement Prefect-backed Agent**
+  ```python
+  from ai_infra import Agent
+  from ai_infra.durable import PrefectAgent
+  from prefect import flow
+
+  @PrefectAgent(
+      retries=3,
+      retry_delay_seconds=60,
+  )
+  class ETLAgent(Agent):
+      tools = [extract, transform, load]
+
+  # Run as Prefect flow
+  result = ETLAgent().run("Process daily data")
+  ```
+
+### 19.4 Agent Checkpointing
+
+**File**: `src/ai_infra/agents/checkpointing.py`
+
+- [ ] **Implement agent state checkpointing**
+  ```python
+  from ai_infra import Agent
+  from ai_infra.agents import CheckpointStore
+
+  # Checkpoint to file/Redis/Postgres
+  store = CheckpointStore(backend="sqlite", path="./checkpoints.db")
+
+  agent = Agent(
+      tools=[...],
+      checkpoint_store=store,
+      checkpoint_interval="step",  # Checkpoint after each tool call
+  )
+
+  # Run with checkpointing
+  result = await agent.run(
+      "Long complex task",
+      run_id="task-123",  # Unique ID for this run
+  )
+
+  # If interrupted, resume from checkpoint
+  result = await agent.resume(run_id="task-123")
+  ```
+
+- [ ] **Checkpoint data includes**
+  - [ ] Conversation history
+  - [ ] Tool call results
+  - [ ] Agent state
+  - [ ] Current step index
+
+### 19.5 Tests for Durable Execution
+
+- [ ] **Unit tests** (`tests/durable/`)
+  - [ ] Test checkpointing to each backend
+  - [ ] Test state serialization/deserialization
+  - [ ] Test resume logic
+
+- [ ] **Integration tests** (require services)
+  - [ ] Test with Temporal (mocked worker)
+  - [ ] Test with DBOS (requires Postgres)
+  - [ ] Test crash recovery scenarios
+
+---
+
+## Phase 20: Pydantic-AI Interoperability
+
+> **Goal**: Seamless interop with Pydantic-AI for typed outputs and advanced agent patterns
+> **Priority**: MEDIUM (Ecosystem compatibility)
+> **Effort**: 1 week
+> **Philosophy**: Complement, don't compete - let users use both together
+
+### 20.1 Pydantic-AI Agent Adapter
+
+**Files**: `src/ai_infra/interop/__init__.py`, `src/ai_infra/interop/pydantic_ai.py`
+
+- [ ] **Add Pydantic-AI as optional dependency**
+  ```toml
+  [tool.poetry.extras]
+  pydantic-ai = ["pydantic-ai>=0.1.0"]
+  interop = ["pydantic-ai>=0.1.0"]
+  ```
+
+- [ ] **Create interop module**
+  ```
+  src/ai_infra/interop/
+  ├── __init__.py        # Public API
+  ├── pydantic_ai.py     # Pydantic-AI adapters
+  └── langchain.py       # LangChain adapters (future)
+  ```
+
+- [ ] **Wrap ai-infra tools for Pydantic-AI**
+  ```python
+  from pydantic_ai import Agent as PydanticAgent
+  from ai_infra.interop import to_pydantic_tools
+  from ai_infra.mcp import MCPClient
+
+  # Convert ai-infra MCP tools to Pydantic-AI format
+  mcp_client = MCPClient("npx @anthropic/mcp-server-filesystem")
+  pydantic_tools = to_pydantic_tools(mcp_client.tools)
+
+  # Use in Pydantic-AI agent
+  agent = PydanticAgent(
+      model="openai:gpt-4o",
+      tools=pydantic_tools,
+  )
+  ```
+
+- [ ] **Wrap Pydantic-AI agents for ai-infra**
+  ```python
+  from pydantic_ai import Agent as PydanticAgent
+  from ai_infra.interop import from_pydantic_agent
+
+  # Create Pydantic-AI agent with typed output
+  pydantic_agent = PydanticAgent(
+      model="openai:gpt-4o",
+      result_type=MyResponseModel,
+  )
+
+  # Wrap for use in ai-infra pipelines
+  ai_infra_agent = from_pydantic_agent(pydantic_agent)
+
+  # Use with ai-infra features (memory, callbacks, etc.)
+  result = ai_infra_agent.run(
+      "Extract data from this text",
+      memory=my_memory,
+      callbacks=[my_callback],
+  )
+  ```
+
+### 20.2 Use Pydantic-AI for Typed Outputs
+
+**File**: `src/ai_infra/agents/typed_output.py`
+
+- [ ] **Add typed output support (via Pydantic-AI or native)**
+  ```python
+  from pydantic import BaseModel
+  from ai_infra import Agent
+
+  class ExtractedData(BaseModel):
+      name: str
+      email: str
+      company: str | None
+
+  agent = Agent(
+      tools=[...],
+      output_type=ExtractedData,  # Typed output
+  )
+
+  result: ExtractedData = agent.run("Extract info from: John at john@acme.com")
+  print(result.name)  # "John"
+  print(result.email)  # "john@acme.com"
+  ```
+
+- [ ] **Implementation options**
+  - [ ] Native: Use LLM JSON mode + Pydantic validation
+  - [ ] Via Pydantic-AI: Delegate to their implementation
+
+### 20.3 Use Pydantic-AI Evals (Optional)
+
+**File**: `src/ai_infra/eval/pydantic_ai_adapter.py`
+
+- [ ] **Integrate with pydantic-evals if installed**
+  ```python
+  from ai_infra.eval import Evaluator
+
+  # If pydantic-ai installed, can use their evaluators
+  evaluator = Evaluator(
+      backend="pydantic-ai",  # Use pydantic-evals
+      metrics=["correctness", "llm-judge"],
+  )
+
+  results = evaluator.evaluate(
+      target=my_agent.run,
+      dataset=my_dataset,
+  )
+  ```
+
+### 20.4 Tests for Pydantic-AI Interop
+
+- [ ] **Unit tests** (`tests/interop/`)
+  - [ ] Test tool conversion (both directions)
+  - [ ] Test agent wrapping
+  - [ ] Test typed output
+
+---
+
+## Phase 21: Agent-to-Agent (A2A) Protocol
+
+> **Goal**: Enable agents to communicate and delegate tasks to each other
+> **Priority**: MEDIUM (Advanced use case)
+> **Effort**: 1 week
+> **Reference**: Google's A2A protocol, Pydantic-AI's fasta2a
+
+### 21.1 A2A Server
+
+**Files**: `src/ai_infra/a2a/__init__.py`, `src/ai_infra/a2a/server.py`
+
+- [ ] **Create A2A module**
+  ```
+  src/ai_infra/a2a/
+  ├── __init__.py    # Public API
+  ├── server.py      # A2A server (expose agent as service)
+  ├── client.py      # A2A client (call remote agents)
+  └── protocol.py    # A2A protocol types
+  ```
+
+- [ ] **Implement A2A server**
+  ```python
+  from ai_infra import Agent
+  from ai_infra.a2a import A2AServer
+
+  # Define an agent
+  research_agent = Agent(
+      name="research-agent",
+      tools=[web_search, summarize],
+      description="Researches topics and provides summaries",
+  )
+
+  # Expose as A2A service
+  server = A2AServer(
+      agents=[research_agent],
+      host="0.0.0.0",
+      port=8080,
+  )
+
+  # Run server
+  await server.serve()
+  ```
+
+- [ ] **A2A endpoints**
+  - [ ] `GET /.well-known/agent.json` - Agent card (discovery)
+  - [ ] `POST /tasks` - Submit task
+  - [ ] `GET /tasks/{id}` - Get task status
+  - [ ] `POST /tasks/{id}/messages` - Send message
+  - [ ] `GET /tasks/{id}/messages` - Get messages
+
+### 21.2 A2A Client
+
+**File**: `src/ai_infra/a2a/client.py`
+
+- [ ] **Implement A2A client**
+  ```python
+  from ai_infra.a2a import A2AClient
+
+  # Connect to remote agent
+  client = A2AClient("http://research-agent.example.com")
+
+  # Discover agent capabilities
+  card = await client.get_agent_card()
+  print(card.name, card.description, card.capabilities)
+
+  # Submit task
+  task = await client.create_task(
+      message="Research recent AI developments",
+  )
+
+  # Poll for result
+  result = await client.wait_for_completion(task.id)
+  print(result.output)
+  ```
+
+### 21.3 Agent Delegation
+
+**File**: `src/ai_infra/agents/delegation.py`
+
+- [ ] **Enable agents to delegate to other agents**
+  ```python
+  from ai_infra import Agent
+  from ai_infra.a2a import A2AClient
+
+  # Remote agent as a tool
+  research_client = A2AClient("http://research-agent.example.com")
+
+  coordinator = Agent(
+      name="coordinator",
+      tools=[
+          research_client.as_tool(),  # Delegate research to remote agent
+          email_sender,
+          calendar,
+      ],
+  )
+
+  # Coordinator can now delegate research tasks
+  result = coordinator.run(
+      "Research quantum computing and email me a summary"
+  )
+  ```
+
+### 21.4 Tests for A2A
+
+- [ ] **Unit tests** (`tests/a2a/`)
+  - [ ] Test server endpoints
+  - [ ] Test client methods
+  - [ ] Test agent card generation
+  - [ ] Test task lifecycle
+
+- [ ] **Integration tests**
+  - [ ] Test client-server communication
+  - [ ] Test agent delegation
+
+---
+
+## Phase 22: Web/UI SDK Integration
+
+> **Goal**: Integrate with frontend SDKs for building AI-powered web apps
+> **Priority**: MEDIUM (Full-stack developers)
+> **Effort**: 1 week
+> **Philosophy**: Integrate with Vercel AI SDK rather than building our own
+
+### 22.1 Vercel AI SDK Compatibility
+
+**Files**: `src/ai_infra/web/__init__.py`, `src/ai_infra/web/vercel_ai.py`
+
+- [ ] **Create web module**
+  ```
+  src/ai_infra/web/
+  ├── __init__.py      # Public API
+  ├── vercel_ai.py     # Vercel AI SDK streaming format
+  ├── fastapi.py       # FastAPI integration helpers
+  └── streamlit.py     # Streamlit helpers
+  ```
+
+- [ ] **Implement Vercel AI SDK streaming format**
+  ```python
+  from fastapi import FastAPI
+  from fastapi.responses import StreamingResponse
+  from ai_infra import Agent
+  from ai_infra.web import vercel_ai_stream
+
+  app = FastAPI()
+
+  agent = Agent(tools=[...])
+
+  @app.post("/api/chat")
+  async def chat(request: ChatRequest):
+      # Returns streaming response in Vercel AI SDK format
+      return StreamingResponse(
+          vercel_ai_stream(agent.astream(request.message)),
+          media_type="text/event-stream",
+      )
+  ```
+
+- [ ] **Vercel AI SDK format support**
+  - [ ] Text streaming (`0:` prefix)
+  - [ ] Tool calls (`9:` prefix)
+  - [ ] Tool results (`a:` prefix)
+  - [ ] Finish reasons (`d:` prefix)
+  - [ ] Error handling (`3:` prefix)
+
+### 22.2 FastAPI Integration Helpers
+
+**File**: `src/ai_infra/web/fastapi.py`
+
+- [ ] **Provide FastAPI router for common patterns**
+  ```python
+  from fastapi import FastAPI
+  from ai_infra import Agent
+  from ai_infra.web import create_chat_router
+
+  app = FastAPI()
+  agent = Agent(tools=[...])
+
+  # Auto-creates /chat, /chat/stream, /chat/history endpoints
+  router = create_chat_router(
+      agent=agent,
+      path_prefix="/api",
+      auth=my_auth_middleware,  # Optional
+  )
+
+  app.include_router(router)
+  ```
+
+### 22.3 Streamlit Integration
+
+**File**: `src/ai_infra/web/streamlit.py`
+
+- [ ] **Provide Streamlit helpers**
+  ```python
+  import streamlit as st
+  from ai_infra import Agent
+  from ai_infra.web.streamlit import chat_interface
+
+  agent = Agent(tools=[...])
+
+  # Renders chat UI with agent
+  chat_interface(
+      agent=agent,
+      title="AI Assistant",
+      initial_message="Hello! How can I help?",
+  )
+  ```
+
+### 22.4 Tests for Web Integration
+
+- [ ] **Unit tests** (`tests/web/`)
+  - [ ] Test Vercel AI stream format
+  - [ ] Test FastAPI router
+  - [ ] Test response formatting
+
+---
+
 ## Appendix: Coverage Targets by Phase
 
 | Phase | Files | Current | Target |
@@ -1222,8 +2023,43 @@
 | 11 | Evaluation Framework | HIGH | 2 weeks | v1.1.0 |
 | 12 | Guardrails & Safety | HIGH | 2 weeks | v1.1.0 |
 | 13 | Semantic Cache | HIGH | 1 week | v1.2.0 |
-| 14 | Model Router | 🟡 MEDIUM | 1 week | v1.3.0 |
-| 15 | Prompt Registry | 🟡 MEDIUM | 1 week | v1.3.0 |
-| 16 | Local Models | 🟡 MEDIUM | 1 week | v1.4.0 |
+| 14 | Model Router | MEDIUM | 1 week | v1.3.0 |
+| 15 | Prompt Registry | MEDIUM | 1 week | v1.3.0 |
+| 16 | Local Models (Ollama/vLLM) | MEDIUM | 1 week | v1.4.0 |
+| 17 | LiteLLM Integration (100+ providers) | HIGH | 1 week | v1.4.0 |
+| 18 | LangChain Document Loaders | HIGH | 1 week | v1.5.0 |
+| 19 | Durable Execution (Temporal/DBOS) | HIGH | 2 weeks | v1.5.0 |
+| 20 | Pydantic-AI Interoperability | MEDIUM | 1 week | v1.6.0 |
+| 21 | Agent-to-Agent (A2A) Protocol | MEDIUM | 1 week | v1.6.0 |
+| 22 | Web/UI SDK Integration | MEDIUM | 1 week | v1.7.0 |
 
-**Total Estimated Effort**: 8 weeks
+**Total Estimated Effort**: 14 weeks
+
+---
+
+## Competitive Feature Matrix
+
+After completing all phases, ai-infra will surpass competitors:
+
+| Feature | ai-infra | LiteLLM | Pydantic-AI | LangChain |
+|---------|:--------:|:-------:|:-----------:|:---------:|
+| LLM Providers | 100+ (via LiteLLM) | 100+ | ~15 | Via integrations |
+| Embeddings | Built-in + LiteLLM | Built-in | Built-in | Via integrations |
+| Agents | Built-in + HITL | None | Built-in | Via LangGraph |
+| MCP Client/Server | Built-in | None | Built-in | None |
+| TTS/STT | Built-in | Basic | None | None |
+| Realtime Voice | Built-in | None | None | None |
+| Image Generation | Built-in | Basic | None | None |
+| RAG/Retriever | Built-in | None | Example | Via integrations |
+| Document Loaders | 160+ (via LangChain) | None | None | 160+ native |
+| Evals | Built-in | None | Built-in | Via LangSmith |
+| Guardrails | Built-in | None | None | Via integrations |
+| Semantic Cache | Built-in | None | None | Via integrations |
+| Durable Execution | Via Temporal/DBOS | None | Via integrations | Via LangGraph |
+| A2A Protocol | Built-in | None | Built-in | None |
+| Web/UI SDK | Vercel AI compatible | None | AG-UI, Vercel | None |
+| Model Router | Built-in | Built-in | None | None |
+| Prompt Registry | Built-in | None | None | Via LangSmith |
+| Local Models | Ollama, vLLM | Via proxy | Via model | Via integrations |
+
+**ai-infra Philosophy**: One unified SDK that does it all, leveraging the best of the ecosystem
