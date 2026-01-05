@@ -1,0 +1,1272 @@
+{
+  "name": "Agent",
+  "module": "ai_infra.llm",
+  "docstring": "Agent-oriented interface (tool calling, streaming updates, fallbacks).\n\nThe Agent class provides a simple API for running LLM agents with tools.\nTools can be plain Python functions, LangChain tools, or MCP tools.\n\nExample - Basic usage:\n    ```python\n    def get_weather(city: str) -> str:\n        '''Get weather for a city.'''\n        return f\"Weather in {city}: Sunny, 72\u00b0F\"\n\n    # Simple usage with tools\n    agent = Agent(tools=[get_weather])\n    result = agent.run(\"What's the weather in NYC?\")\n    ```\n\nExample - With session memory (conversations persist):\n    ```python\n    from ai_infra.llm.session import memory\n\n    agent = Agent(tools=[...], session=memory())\n\n    # Conversation 1 - remembered\n    agent.run(\"I'm Bob\", session_id=\"user-123\")\n    agent.run(\"What's my name?\", session_id=\"user-123\")  # Knows \"Bob\"\n\n    # Different session - fresh start\n    agent.run(\"What's my name?\", session_id=\"user-456\")  # Doesn't know\n    ```\n\nExample - Pause and resume (HITL):\n    ```python\n    from ai_infra.llm.session import memory\n\n    agent = Agent(\n        tools=[dangerous_tool],\n        session=memory(),\n        pause_before=[\"dangerous_tool\"],  # Pause before this tool\n    )\n\n    result = agent.run(\"Delete file.txt\", session_id=\"task-1\")\n\n    if result.paused:\n        # Show user what's pending, get approval\n        print(result.pending_action)\n\n        # Resume with decision\n        result = agent.resume(session_id=\"task-1\", approved=True)\n    ```\n\nExample - Production with Postgres:\n    ```python\n    from ai_infra.llm.session import postgres\n\n    agent = Agent(\n        tools=[...],\n        session=postgres(\"postgresql://...\"),\n    )\n    # Sessions persist across restarts\n    ```\n\nExample - Human approval (sync, per-request):\n    ```python\n    agent = Agent(\n        tools=[dangerous_tool],\n        require_approval=True,  # Console prompt for approval\n    )\n    ```\n\nExample - DeepAgents mode (autonomous multi-step tasks):\n    ```python\n    from ai_infra.llm import Agent\n    from ai_infra.llm.session import memory\n\n    # Define specialized agents\n    researcher = Agent(\n        name=\"researcher\",\n        description=\"Searches and analyzes code\",\n        system=\"You are a code research assistant.\",\n        tools=[search_codebase],\n    )\n\n    writer = Agent(\n        name=\"writer\",\n        description=\"Writes and edits documentation\",\n        system=\"You are a technical writer.\",\n    )\n\n    # Create a deep agent that can delegate to subagents\n    agent = Agent(\n        deep=True,\n        session=memory(),\n        subagents=[researcher, writer],  # Agents auto-convert to subagents\n    )\n\n    # The agent can now autonomously:\n    # - Read/write/edit files\n    # - Execute shell commands\n    # - Delegate to subagents\n    # - Maintain todo lists\n    result = agent.run(\"Refactor the auth module to use JWT tokens\")\n    ```",
+  "parameters": [
+    {
+      "name": "tools",
+      "type": "list[Any] | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "provider",
+      "type": "str | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "model_name",
+      "type": "str | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "name",
+      "type": "str | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "description",
+      "type": "str | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "system",
+      "type": "str | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "callbacks",
+      "type": "Callbacks | CallbackManager | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "on_tool_error",
+      "type": "Literal['return_error', 'retry', 'abort']",
+      "default": "'return_error'",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "tool_timeout",
+      "type": "float | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "validate_tool_results",
+      "type": "bool",
+      "default": "False",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "max_tool_retries",
+      "type": "int",
+      "default": "1",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "require_approval",
+      "type": "bool | list[str] | Callable[[str, dict[str, Any]], bool]",
+      "default": "False",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "approval_handler",
+      "type": "ApprovalHandler | AsyncApprovalHandler | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "session",
+      "type": "SessionStorage | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "pause_before",
+      "type": "list[str] | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "pause_after",
+      "type": "list[str] | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "deep",
+      "type": "bool",
+      "default": "False",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "subagents",
+      "type": "list[Agent | SubAgent] | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "middleware",
+      "type": "Sequence[AgentMiddleware] | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "response_format",
+      "type": "Any | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "context_schema",
+      "type": "type[Any] | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "use_longterm_memory",
+      "type": "bool",
+      "default": "False",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "workspace",
+      "type": "str | Path | Workspace | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "guardrails",
+      "type": "Any | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "recursion_limit",
+      "type": "int",
+      "default": "50",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "model_kwargs",
+      "type": null,
+      "default": "{}",
+      "description": null,
+      "required": false
+    }
+  ],
+  "methods": [
+    {
+      "name": "__init__",
+      "signature": "(tools: list[Any] | None = None, provider: str | None = None, model_name: str | None = None, name: str | None = None, description: str | None = None, system: str | None = None, callbacks: Callbacks | CallbackManager | None = None, on_tool_error: Literal['return_error', 'retry', 'abort'] = 'return_error', tool_timeout: float | None = None, validate_tool_results: bool = False, max_tool_retries: int = 1, require_approval: bool | list[str] | Callable[[str, dict[str, Any]], bool] = False, approval_handler: ApprovalHandler | AsyncApprovalHandler | None = None, session: SessionStorage | None = None, pause_before: list[str] | None = None, pause_after: list[str] | None = None, deep: bool = False, subagents: list[Agent | SubAgent] | None = None, middleware: Sequence[AgentMiddleware] | None = None, response_format: Any | None = None, context_schema: type[Any] | None = None, use_longterm_memory: bool = False, workspace: str | Path | Workspace | None = None, guardrails: Any | None = None, recursion_limit: int = 50, model_kwargs = {})",
+      "docstring": "Initialize an Agent with optional tools and provider settings.\n\nArgs:\n    tools: List of tools (functions, LangChain tools, or MCP tools)\n    provider: LLM provider (auto-detected if None)\n    model_name: Model name (uses provider default if None)\n\n    Agent Identity (for use as subagent):\n        name: Agent name (required when used as a subagent)\n        description: What this agent does (used by parent to decide delegation)\n        system: System prompt / instructions for this agent\n\n    Callbacks (observability):\n        callbacks: Callback handler(s) for observing agent events.\n            Receives events for LLM calls (start, end, error, tokens)\n            and tool executions (start, end, error).\n            Can be a single Callbacks instance or a CallbackManager.\n            Example: callbacks=MyCallbacks() or callbacks=CallbackManager([...])\n\n    Tool Execution:\n        on_tool_error: How to handle tool execution errors:\n            - \"return_error\": Return error message to agent (default, allows recovery)\n            - \"retry\": Retry the tool call up to max_tool_retries times\n            - \"abort\": Re-raise the exception and stop execution\n        tool_timeout: Timeout in seconds per tool call (None = no timeout)\n        validate_tool_results: Validate tool results match return type annotations\n        max_tool_retries: Max retry attempts when on_tool_error=\"retry\" (default 1)\n\n    Human Approval:\n        require_approval: Tools that require human approval:\n            - False: No approval needed (default)\n            - True: All tools need approval\n            - List[str]: Only specified tools need approval\n            - Callable: Function(tool_name, args) -> bool for dynamic approval\n        approval_handler: Custom approval handler function:\n            - If None and require_approval is True, uses console prompts\n            - Can be sync or async function taking ApprovalRequest\n\n    Session & Persistence:\n        session: Session storage backend for conversation memory and pause/resume.\n            Use memory() for development, postgres() for production.\n            Example: session=memory()\n        pause_before: Tool names to pause before executing (requires session).\n            The agent will return a SessionResult with paused=True.\n        pause_after: Tool names to pause after executing (requires session).\n\n    DeepAgents Mode (autonomous multi-step tasks):\n        deep: Enable DeepAgents mode for autonomous task execution.\n            When True, the agent has built-in tools for file operations\n            (ls, read_file, write_file, edit_file, glob, grep, execute),\n            todo management, and subagent orchestration.\n        subagents: List of agents for delegation. Can be Agent instances\n            (automatically converted) or SubAgent dicts. Agent instances\n            must have name and description set.\n        middleware: Additional middleware to apply to the deep agent.\n        response_format: Structured output format for agent responses.\n        context_schema: Schema for the deep agent context.\n        use_longterm_memory: Enable long-term memory (requires session with store).\n\n    Workspace Configuration:\n        workspace: Workspace configuration for file operations. Can be:\n            - String/Path: Directory to sandbox file operations to\n            - Workspace: Full workspace config with mode (\"virtual\", \"sandboxed\", \"full\")\n            For deep agents, configures the filesystem backend.\n            For regular agents, configures proj_mgmt tools.\n            Example: workspace=\".\", workspace=Workspace(\".\", mode=\"sandboxed\")\n\n    Guardrails Configuration:\n        guardrails: Guardrails configuration for input/output validation.\n            Can be a GuardrailPipeline or GuardrailsMiddleware instance.\n            Automatically validates user input before sending to LLM and\n            LLM output before returning to user.\n            Example: guardrails=GuardrailPipeline(\n                input_guardrails=[PromptInjection()],\n                output_guardrails=[Toxicity()],\n            )\n\n    Safety Limits:\n        recursion_limit: Maximum number of agent iterations (default: 50).\n            Prevents infinite loops when agent keeps calling tools without\n            making progress. This is a critical safety measure to prevent\n            runaway token costs. Raise only if you have monitoring in place.\n\n    **model_kwargs: Additional kwargs passed to the model",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "tools",
+          "type": "list[Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "provider",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "model_name",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "name",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "description",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "system",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "callbacks",
+          "type": "Callbacks | CallbackManager | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "on_tool_error",
+          "type": "Literal['return_error', 'retry', 'abort']",
+          "default": "'return_error'",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "tool_timeout",
+          "type": "float | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "validate_tool_results",
+          "type": "bool",
+          "default": "False",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "max_tool_retries",
+          "type": "int",
+          "default": "1",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "require_approval",
+          "type": "bool | list[str] | Callable[[str, dict[str, Any]], bool]",
+          "default": "False",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "approval_handler",
+          "type": "ApprovalHandler | AsyncApprovalHandler | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "session",
+          "type": "SessionStorage | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "pause_before",
+          "type": "list[str] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "pause_after",
+          "type": "list[str] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "deep",
+          "type": "bool",
+          "default": "False",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "subagents",
+          "type": "list[Agent | SubAgent] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "middleware",
+          "type": "Sequence[AgentMiddleware] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "response_format",
+          "type": "Any | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "context_schema",
+          "type": "type[Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "use_longterm_memory",
+          "type": "bool",
+          "default": "False",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "workspace",
+          "type": "str | Path | Workspace | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "guardrails",
+          "type": "Any | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "recursion_limit",
+          "type": "int",
+          "default": "50",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "model_kwargs",
+          "type": null,
+          "default": "{}",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": null,
+      "is_async": false
+    },
+    {
+      "name": "agent",
+      "signature": "(provider: str, model_name: str | None = None, tools: list[Any] | None = None, extra: dict[str, Any] | None = None, model_kwargs: dict[str, Any] | None = None)",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "provider",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "model_name",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "tools",
+          "type": "list[Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "extra",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "model_kwargs",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": null,
+      "is_async": false
+    },
+    {
+      "name": "aresume",
+      "signature": "(session_id: str, approved: bool = True, modified_args: dict[str, Any] | None = None, reason: str | None = None, provider: str | None = None, model_name: str | None = None) -> str | SessionResult",
+      "docstring": "Async version of resume().\n\nArgs:\n    session_id: The session ID of the paused agent\n    approved: Whether to approve the pending action\n    modified_args: Modified arguments (optional, if approved)\n    reason: Reason for the decision\n    provider: Override provider\n    model_name: Override model\n\nReturns:\n    str or SessionResult depending on session configuration",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "session_id",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "approved",
+          "type": "bool",
+          "default": "True",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "modified_args",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "reason",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "provider",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "model_name",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "str | SessionResult",
+      "is_async": false
+    },
+    {
+      "name": "arun",
+      "signature": "(prompt: str, provider: str | None = None, model_name: str | None = None, tools: list[Any] | None = None, system: str | None = None, session_id: str | None = None, model_kwargs = {}) -> str | SessionResult",
+      "docstring": "Async version of run().\n\nArgs:\n    prompt: User prompt/message\n    provider: Override provider (uses default if None)\n    model_name: Override model (uses default if None)\n    tools: Override tools (uses global tools if None)\n    system: Optional system message\n    session_id: Session ID for conversation persistence (requires session=...)\n    **model_kwargs: Additional model kwargs\n\nReturns:\n    str: The agent's final text response (if no session configured)\n    SessionResult: Rich result with pause state (if session configured)",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "prompt",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "provider",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "model_name",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "tools",
+          "type": "list[Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "system",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "session_id",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "model_kwargs",
+          "type": null,
+          "default": "{}",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "str | SessionResult",
+      "is_async": false
+    },
+    {
+      "name": "arun_agent",
+      "signature": "(messages: list[dict[str, Any]], provider: str, model_name: str | None = None, tools: list[Any] | None = None, extra: dict[str, Any] | None = None, model_kwargs: dict[str, Any] | None = None, tool_controls: ToolCallControls | dict[str, Any] | None = None, config: dict[str, Any] | None = None) -> Any",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "messages",
+          "type": "list[dict[str, Any]]",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "provider",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "model_name",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "tools",
+          "type": "list[Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "extra",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "model_kwargs",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "tool_controls",
+          "type": "ToolCallControls | dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "config",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "Any",
+      "is_async": false
+    },
+    {
+      "name": "arun_agent_stream",
+      "signature": "(messages: list[dict[str, Any]], provider: str, model_name: str | None = None, tools: list[Any] | None = None, extra: dict[str, Any] | None = None, model_kwargs: dict[str, Any] | None = None, stream_mode: str | Sequence[str] = ('updates', 'values'), tool_controls: ToolCallControls | dict[str, Any] | None = None, config: dict[str, Any] | None = None)",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "messages",
+          "type": "list[dict[str, Any]]",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "provider",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "model_name",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "tools",
+          "type": "list[Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "extra",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "model_kwargs",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "stream_mode",
+          "type": "str | Sequence[str]",
+          "default": "('updates', 'values')",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "tool_controls",
+          "type": "ToolCallControls | dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "config",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": null,
+      "is_async": false
+    },
+    {
+      "name": "arun_with_fallbacks",
+      "signature": "(messages: list[dict[str, Any]], candidates: list[tuple[str, str]], tools: list[Any] | None = None, extra: dict[str, Any] | None = None, model_kwargs: dict[str, Any] | None = None, tool_controls: ToolCallControls | dict[str, Any] | None = None, config: dict[str, Any] | None = None)",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "messages",
+          "type": "list[dict[str, Any]]",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "candidates",
+          "type": "list[tuple[str, str]]",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "tools",
+          "type": "list[Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "extra",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "model_kwargs",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "tool_controls",
+          "type": "ToolCallControls | dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "config",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": null,
+      "is_async": false
+    },
+    {
+      "name": "astream",
+      "signature": "(prompt: str, provider: str | None = None, model_name: str | None = None, tools: list[Any] | None = None, system: str | None = None, visibility: Literal['minimal', 'standard', 'detailed', 'debug'] = 'standard', stream_mode: str | list[str] = 'messages', config: dict[str, Any] | None = None, stream_config: StreamConfig | None = None, model_kwargs = {})",
+      "docstring": "Stream agent responses as normalized, typed events.\n\nThis is the recommended way to stream agent responses in applications.\nUnlike astream_agent_tokens() which yields raw LangChain message chunks,\nthis method yields clean StreamEvent objects ready for any framework.\n\nArgs:\n    prompt: User message/prompt\n    provider: LLM provider (uses default if None)\n    model_name: Model name (uses default if None)\n    tools: Override tools (uses global tools if None)\n    system: System prompt\n\n    visibility: Event detail level\n        - \"minimal\": Only response tokens\n        - \"standard\": + tool names and timing (default)\n        - \"detailed\": + tool arguments\n        - \"debug\": + tool result previews\n\n    stream_mode: LangGraph stream mode(s) - passed through to underlying graph\n        Supports: \"messages\", \"values\", \"updates\", \"custom\", \"debug\"\n\n    config: Full LangGraph RunnableConfig for advanced use cases\n        - config[\"configurable\"][\"thread_id\"] for persistence\n        - config[\"tags\"] for tracing\n        - Any other LangGraph config options\n\n    stream_config: Advanced streaming configuration (StreamConfig)\n    **model_kwargs: Passed through to LLM (temperature, max_tokens, etc.)\n\nYields:\n    StreamEvent objects with typed data\n\nExample - Basic usage:\n    ```python\n    agent = Agent(tools=[search_docs])\n\n    async for event in agent.astream(\"What is the refund policy?\"):\n        if event.type == \"token\":\n            print(event.content, end=\"\", flush=True)\n    ```\n\nExample - With visibility:\n    ```python\n    async for event in agent.astream(\n        \"Search for authentication docs\",\n        visibility=\"detailed\",  # Include tool arguments\n    ):\n        if event.type == \"tool_start\":\n            print(f\"Calling {event.tool} with {event.arguments}\")\n    ```\n\nExample - FastAPI SSE endpoint:\n    ```python\n    @app.post(\"/chat\")\n    async def chat(message: str):\n        async def generate():\n            async for event in agent.astream(message):\n                yield f\"data: {json.dumps(event.to_dict())}\\n\\n\"\n        return StreamingResponse(generate(), media_type=\"text/event-stream\")\n    ```",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "prompt",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "provider",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "model_name",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "tools",
+          "type": "list[Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "system",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "visibility",
+          "type": "Literal['minimal', 'standard', 'detailed', 'debug']",
+          "default": "'standard'",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "stream_mode",
+          "type": "str | list[str]",
+          "default": "'messages'",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "config",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "stream_config",
+          "type": "StreamConfig | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "model_kwargs",
+          "type": null,
+          "default": "{}",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": null,
+      "is_async": false
+    },
+    {
+      "name": "astream_agent_tokens",
+      "signature": "(messages: list[dict[str, Any]], provider: str, model_name: str | None = None, tools: list[Any] | None = None, extra: dict[str, Any] | None = None, model_kwargs: dict[str, Any] | None = None, tool_controls: ToolCallControls | dict[str, Any] | None = None, config: dict[str, Any] | None = None)",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "messages",
+          "type": "list[dict[str, Any]]",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "provider",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "model_name",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "tools",
+          "type": "list[Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "extra",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "model_kwargs",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "tool_controls",
+          "type": "ToolCallControls | dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "config",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": null,
+      "is_async": false
+    },
+    {
+      "name": "from_persona",
+      "signature": "(path: str | None = None, persona: Any | None = None, name: str | None = None, prompt: str | None = None, allowed_tools: list[str] | None = None, deny: list[str] | None = None, approve: list[str] | None = None, kwargs = {}) -> Agent",
+      "docstring": "Create an Agent from a persona configuration.\n\nPersonas define agent behavior, allowed tools, and safety constraints\nin a declarative format. Load from YAML files or configure inline.\n\nArgs:\n    path: Path to YAML persona file. If provided, loads configuration\n        from file. File fields can be overridden by other arguments.\n    persona: Pre-built Persona object. Alternative to path.\n    name: Persona name (for logging/debugging)\n    prompt: System prompt defining agent behavior\n    allowed_tools: List of allowed tool names (whitelist). If provided,\n        only these tools are available to the agent.\n    deny: List of denied tool names (blacklist). These tools\n        are blocked even if passed to the agent.\n    approve: List of tools requiring human approval before execution.\n        Maps to Agent's require_approval parameter.\n    **kwargs: Additional Agent kwargs (provider, model_name, tools, etc.)\n        The 'tools' kwarg passes actual tool objects to the Agent.\n\nReturns:\n    Configured Agent instance\n\nExample - From YAML file:\n    ```python\n    # personas/analyst.yaml:\n    # name: analyst\n    # prompt: You are a data analyst...\n    # tools: [query_database, create_chart]\n    # deny: [delete_record, drop_table]\n    # approve: [send_email]\n    # temperature: 0.3\n\n    agent = Agent.from_persona(\"personas/analyst.yaml\")\n    ```\n\nExample - Inline configuration:\n    ```python\n    agent = Agent.from_persona(\n        name=\"analyst\",\n        prompt=\"You are a data analyst. Be precise and data-driven.\",\n        allowed_tools=[\"query_database\", \"create_chart\"],\n        deny=[\"delete_record\", \"drop_table\"],\n        approve=[\"send_email\"],\n        temperature=0.3,\n    )\n    ```\n\nExample - With Persona object and tools:\n    ```python\n    persona = Persona(name=\"db-admin\", prompt=\"You manage databases.\")\n    tools = tools_from_models(User, Product)\n    agent = Agent.from_persona(persona=persona, tools=tools)\n    ```",
+      "parameters": [
+        {
+          "name": "cls",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "path",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "persona",
+          "type": "Any | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "name",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "prompt",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "allowed_tools",
+          "type": "list[str] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "deny",
+          "type": "list[str] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "approve",
+          "type": "list[str] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "kwargs",
+          "type": null,
+          "default": "{}",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "Agent",
+      "is_async": false
+    },
+    {
+      "name": "resume",
+      "signature": "(session_id: str, approved: bool = True, modified_args: dict[str, Any] | None = None, reason: str | None = None, provider: str | None = None, model_name: str | None = None) -> str | SessionResult",
+      "docstring": "Resume a paused agent with a decision.\n\nArgs:\n    session_id: The session ID of the paused agent\n    approved: Whether to approve the pending action\n    modified_args: Modified arguments (optional, if approved)\n    reason: Reason for the decision\n    provider: Override provider\n    model_name: Override model\n\nReturns:\n    str or SessionResult depending on session configuration\n\nExample:\n    ```python\n    # Agent was paused\n    result = agent.run(\"Delete file.txt\", session_id=\"task-1\")\n\n    if result.paused:\n        # Resume with approval\n        result = agent.resume(session_id=\"task-1\", approved=True)\n    ```",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "session_id",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "approved",
+          "type": "bool",
+          "default": "True",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "modified_args",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "reason",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "provider",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "model_name",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "str | SessionResult",
+      "is_async": false
+    },
+    {
+      "name": "run",
+      "signature": "(prompt: str, provider: str | None = None, model_name: str | None = None, tools: list[Any] | None = None, system: str | None = None, session_id: str | None = None, model_kwargs = {}) -> str | SessionResult",
+      "docstring": "Run the agent with a simple prompt and return the response.\n\nArgs:\n    prompt: User prompt/message\n    provider: Override provider (uses default if None)\n    model_name: Override model (uses default if None)\n    tools: Override tools (uses global tools if None)\n    system: Optional system message\n    session_id: Session ID for conversation persistence (requires session=...)\n    **model_kwargs: Additional model kwargs\n\nReturns:\n    str: The agent's final text response (if no session configured)\n    SessionResult: Rich result with pause state (if session configured)\n\nExample - Basic:\n    ```python\n    agent = Agent(tools=[get_weather])\n    result = agent.run(\"What's the weather in NYC?\")\n    print(result)  # \"The weather in NYC is Sunny, 72\u00b0F\"\n    ```\n\nExample - With session:\n    ```python\n    from ai_infra.llm.session import memory\n\n    agent = Agent(tools=[...], session=memory())\n    result = agent.run(\"Hello\", session_id=\"user-123\")\n    print(result.content)\n    ```",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "prompt",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "provider",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "model_name",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "tools",
+          "type": "list[Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "system",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "session_id",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "model_kwargs",
+          "type": null,
+          "default": "{}",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "str | SessionResult",
+      "is_async": false
+    },
+    {
+      "name": "run_agent",
+      "signature": "(messages: list[dict[str, Any]], provider: str, model_name: str | None = None, tools: list[Any] | None = None, extra: dict[str, Any] | None = None, model_kwargs: dict[str, Any] | None = None, tool_controls: ToolCallControls | dict[str, Any] | None = None, config: dict[str, Any] | None = None) -> Any",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "messages",
+          "type": "list[dict[str, Any]]",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "provider",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "model_name",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "tools",
+          "type": "list[Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "extra",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "model_kwargs",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "tool_controls",
+          "type": "ToolCallControls | dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "config",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "Any",
+      "is_async": false
+    },
+    {
+      "name": "run_with_fallbacks",
+      "signature": "(messages: list[dict[str, Any]], candidates: list[tuple[str, str]], tools: list[Any] | None = None, extra: dict[str, Any] | None = None, model_kwargs: dict[str, Any] | None = None, tool_controls: ToolCallControls | dict[str, Any] | None = None, config: dict[str, Any] | None = None)",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "messages",
+          "type": "list[dict[str, Any]]",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "candidates",
+          "type": "list[tuple[str, str]]",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "tools",
+          "type": "list[Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "extra",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "model_kwargs",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "tool_controls",
+          "type": "ToolCallControls | dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "config",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": null,
+      "is_async": false
+    }
+  ],
+  "bases": [
+    "BaseLLM"
+  ]
+}

@@ -1,0 +1,504 @@
+{
+  "name": "MCPClient",
+  "module": "ai_infra.mcp",
+  "docstring": "MCP Client for connecting to one or more MCP servers.\n\nProduction-ready features:\n- Multi-server support with automatic discovery\n- All transports: stdio, sse, streamable_http\n- Auto-reconnect with configurable retry\n- Health checks\n- Timeout handling\n- Graceful shutdown via async context manager\n\nExample:\n    ```python\n    # Simple usage\n    mcp = MCPClient([\n        {\"command\": \"npx\", \"args\": [\"-y\", \"@anthropic/mcp-server-filesystem\", \"/tmp\"]},\n    ])\n    await mcp.discover()\n    tools = await mcp.list_tools()\n\n    # With async context manager\n    async with MCPClient(configs) as mcp:\n        tools = await mcp.list_tools()\n    # Automatic cleanup on exit\n    ```",
+  "parameters": [
+    {
+      "name": "config",
+      "type": "list[dict] | list[McpServerConfig]",
+      "default": null,
+      "description": null,
+      "required": true
+    },
+    {
+      "name": "callbacks",
+      "type": "Callbacks | CallbackManager | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "interceptors",
+      "type": "list[ToolCallInterceptor] | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "auto_reconnect",
+      "type": "bool",
+      "default": "False",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "reconnect_delay",
+      "type": "float",
+      "default": "1.0",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "max_reconnect_attempts",
+      "type": "int",
+      "default": "5",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "tool_timeout",
+      "type": "float | None",
+      "default": "60.0",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "discover_timeout",
+      "type": "float | None",
+      "default": "30.0",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "pool_size",
+      "type": "int",
+      "default": "10",
+      "description": null,
+      "required": false
+    }
+  ],
+  "methods": [
+    {
+      "name": "__init__",
+      "signature": "(config: list[dict] | list[McpServerConfig], callbacks: Callbacks | CallbackManager | None = None, interceptors: list[ToolCallInterceptor] | None = None, auto_reconnect: bool = False, reconnect_delay: float = 1.0, max_reconnect_attempts: int = 5, tool_timeout: float | None = 60.0, discover_timeout: float | None = 30.0, pool_size: int = 10)",
+      "docstring": "Initialize MCP Client.\n\nArgs:\n    config: List of MCP server configurations.\n    callbacks: Callback handler(s) for MCP events (progress, logging).\n        Receives MCPProgressEvent and MCPLoggingEvent during tool execution.\n        Can be a single Callbacks instance or a CallbackManager.\n        Example: callbacks=MyCallbacks() or callbacks=CallbackManager([...])\n    interceptors: List of tool call interceptors for request/response modification.\n    auto_reconnect: Whether to auto-reconnect on connection failure.\n    reconnect_delay: Delay between reconnect attempts in seconds.\n    max_reconnect_attempts: Maximum number of reconnect attempts.\n    tool_timeout: Timeout for tool calls in seconds (default: 60.0).\n        Set to None to disable timeout (not recommended).\n    discover_timeout: Timeout for server discovery in seconds (default: 30.0).\n        Set to None to disable timeout (not recommended).\n    pool_size: HTTP connection pool size (for future use).",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "config",
+          "type": "list[dict] | list[McpServerConfig]",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "callbacks",
+          "type": "Callbacks | CallbackManager | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "interceptors",
+          "type": "list[ToolCallInterceptor] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "auto_reconnect",
+          "type": "bool",
+          "default": "False",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "reconnect_delay",
+          "type": "float",
+          "default": "1.0",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "max_reconnect_attempts",
+          "type": "int",
+          "default": "5",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "tool_timeout",
+          "type": "float | None",
+          "default": "60.0",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "discover_timeout",
+          "type": "float | None",
+          "default": "30.0",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "pool_size",
+          "type": "int",
+          "default": "10",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": null,
+      "is_async": false
+    },
+    {
+      "name": "call_tool",
+      "signature": "(server_name: str, tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]",
+      "docstring": "Call a tool on a specific server.\n\nArgs:\n    server_name: Name of the server (from discovery).\n    tool_name: Name of the tool to call.\n    arguments: Arguments to pass to the tool.\n\nReturns:\n    Dict with 'content' or 'structured' key containing the result.\n\nRaises:\n    MCPToolError: If the tool call fails.\n    MCPTimeoutError: If tool_timeout is set and exceeded.\n    MCPServerError: If the server is not found.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "server_name",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "tool_name",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "arguments",
+          "type": "dict[str, Any]",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "dict[str, Any]",
+      "is_async": false
+    },
+    {
+      "name": "close",
+      "signature": "() -> None",
+      "docstring": "Graceful shutdown - cleanup any resources.\n\nCurrently MCP connections are stateless per-call, but this\nprovides a hook for future connection pooling.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "discover",
+      "signature": "(strict: bool = False) -> dict[str, McpServerConfig]",
+      "docstring": "Probe each server to learn its MCP-declared name.\n\nArgs:\n    strict: If True, raise ExceptionGroup on any failures.\n           If False (default), collect errors and continue.\n\nReturns:\n    Dict mapping server names to their configs.\n\nRaises:\n    MCPTimeoutError: If discover_timeout is set and exceeded.\n    ExceptionGroup: If strict=True and any servers fail.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "strict",
+          "type": "bool",
+          "default": "False",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "dict[str, McpServerConfig]",
+      "is_async": false
+    },
+    {
+      "name": "get_client",
+      "signature": "(server_name: str) -> AbstractAsyncContextManager[ClientSession]",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "server_name",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "AbstractAsyncContextManager[ClientSession]",
+      "is_async": false
+    },
+    {
+      "name": "get_openmcp",
+      "signature": "(server_name: str | None = None, schema_url: str = 'https://meta.local/schemas/mcps-0.1.json') -> dict[str, Any]",
+      "docstring": "Build an OpenAPI-like MCP Spec (MCPS) document for exactly one server.\nAll top-level info is read from the server's initialize() metadata.\nIf multiple servers are configured and `server_name` is not provided,\nraises a helpful error listing available names.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "server_name",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "schema_url",
+          "type": "str",
+          "default": "'https://meta.local/schemas/mcps-0.1.json'",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "dict[str, Any]",
+      "is_async": false
+    },
+    {
+      "name": "get_prompt",
+      "signature": "(server_name: str, prompt_name: str, arguments: dict[str, Any] | None = None) -> list[BaseMessage]",
+      "docstring": "Get a prompt from an MCP server as LangChain messages.\n\nFetches the prompt template from the server, optionally substituting\narguments, and returns the result as a list of LangChain messages\nready for use with an LLM.\n\nArgs:\n    server_name: Name of the server to get the prompt from.\n    prompt_name: Name of the prompt to fetch.\n    arguments: Optional arguments to substitute into the prompt template.\n\nReturns:\n    List of LangChain BaseMessage objects (HumanMessage, AIMessage, etc.).\n\nRaises:\n    MCPServerError: If the server is not found.\n    MCPToolError: If the prompt fetch fails.\n\nExample:\n    ```python\n    # Get a simple prompt\n    messages = await mcp.get_prompt(\"my-server\", \"greeting\")\n\n    # Get a prompt with arguments\n    messages = await mcp.get_prompt(\n        \"my-server\",\n        \"code-review\",\n        arguments={\"language\": \"python\", \"code\": code_snippet},\n    )\n\n    # Use with LLM\n    response = await llm.ainvoke(messages)\n    ```",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "server_name",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "prompt_name",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "arguments",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "list[BaseMessage]",
+      "is_async": false
+    },
+    {
+      "name": "get_resources",
+      "signature": "(server_name: str, uris: str | list[str] | None = None) -> list[MCPResource]",
+      "docstring": "Get resources from an MCP server.\n\nFetches the actual content of resources. If no URIs are specified,\nfetches all available resources from the server.\n\nArgs:\n    server_name: Name of the server to get resources from.\n    uris: Optional URI(s) to fetch. Can be a single URI string,\n        a list of URIs, or None to fetch all resources.\n\nReturns:\n    List of MCPResource objects with loaded content.\n\nRaises:\n    MCPServerError: If the server is not found.\n    MCPToolError: If resource fetch fails.\n\nExample:\n    ```python\n    # Get all resources\n    resources = await mcp.get_resources(\"my-server\")\n\n    # Get specific resource\n    resources = await mcp.get_resources(\n        \"my-server\",\n        uris=\"file:///config.json\",\n    )\n    for r in resources:\n        if r.is_text:\n            print(r.data)\n        else:\n            print(f\"Binary: {r.size} bytes\")\n    ```",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "server_name",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "uris",
+          "type": "str | list[str] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "list[MCPResource]",
+      "is_async": false
+    },
+    {
+      "name": "health_check",
+      "signature": "() -> dict[str, str]",
+      "docstring": "Check health of all configured servers.\n\nReturns:\n    Dict mapping server names to health status:\n    - \"healthy\": Server is responding\n    - \"unhealthy\": Server failed to respond\n    - \"unknown\": Server not yet discovered\n\nExample:\n    ```python\n    status = await mcp.health_check()\n    # {\"filesystem\": \"healthy\", \"github\": \"unhealthy\"}\n    ```",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "dict[str, str]",
+      "is_async": false
+    },
+    {
+      "name": "last_errors",
+      "signature": "() -> list[dict[str, Any]]",
+      "docstring": "Return error records from the last discover() run.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "list[dict[str, Any]]",
+      "is_async": false
+    },
+    {
+      "name": "list_clients",
+      "signature": "() -> MultiServerMCPClient",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "MultiServerMCPClient",
+      "is_async": false
+    },
+    {
+      "name": "list_openmcp",
+      "signature": "(schema_url: str = 'https://meta.local/schemas/mcps-0.1.json') -> dict[str, dict[str, Any]]",
+      "docstring": "Return an MCPS doc per discovered server, keyed by server name.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "schema_url",
+          "type": "str",
+          "default": "'https://meta.local/schemas/mcps-0.1.json'",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "dict[str, dict[str, Any]]",
+      "is_async": false
+    },
+    {
+      "name": "list_prompts",
+      "signature": "(server_name: str | None = None) -> dict[str, list[PromptInfo]]",
+      "docstring": "List available prompts from MCP servers.\n\nArgs:\n    server_name: If provided, only list prompts from this server.\n                If None, list prompts from all servers.\n\nReturns:\n    Dict mapping server names to lists of PromptInfo objects.\n\nRaises:\n    MCPServerError: If specified server is not found.\n\nExample:\n    ```python\n    prompts = await mcp.list_prompts()\n    # {\"my-server\": [PromptInfo(name=\"code-review\", ...)]}\n\n    for server, prompt_list in prompts.items():\n        for p in prompt_list:\n            print(f\"{server}/{p.name}: {p.description}\")\n    ```",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "server_name",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "dict[str, list[PromptInfo]]",
+      "is_async": false
+    },
+    {
+      "name": "list_resources",
+      "signature": "(server_name: str | None = None) -> dict[str, list[ResourceInfo]]",
+      "docstring": "List available resources from MCP servers.\n\nArgs:\n    server_name: If provided, only list resources from this server.\n                If None, list resources from all servers.\n\nReturns:\n    Dict mapping server names to lists of ResourceInfo objects.\n\nRaises:\n    MCPServerError: If specified server is not found.\n\nExample:\n    ```python\n    resources = await mcp.list_resources()\n    # {\"my-server\": [ResourceInfo(uri=\"file:///config.json\", ...)]}\n\n    for server, resource_list in resources.items():\n        for r in resource_list:\n            print(f\"{server}: {r.uri} ({r.mime_type})\")\n    ```",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "server_name",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "dict[str, list[ResourceInfo]]",
+      "is_async": false
+    },
+    {
+      "name": "list_tools",
+      "signature": "(server: str | None = None) -> list[Any]",
+      "docstring": "List tools from servers.\n\nArgs:\n    server: If provided, only list tools from this server.\n           If None, list tools from all servers (prefixed with server name).\n\nReturns:\n    List of tool objects.\n\nRaises:\n    MCPServerError: If specified server is not found.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "server",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "list[Any]",
+      "is_async": false
+    },
+    {
+      "name": "server_names",
+      "signature": "() -> list[str]",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "list[str]",
+      "is_async": false
+    }
+  ],
+  "bases": []
+}

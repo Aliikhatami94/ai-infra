@@ -1,0 +1,107 @@
+{
+  "name": "RAGFaithfulness",
+  "module": "ai_infra.eval",
+  "docstring": "Evaluate if an answer is grounded in the provided context.\n\nUses an LLM judge to verify that the generated answer is faithful\nto the retrieved context and doesn't contain hallucinations.\n\nArgs:\n    llm_judge: Model to use for judging (e.g., \"gpt-4o-mini\").\n        If None, uses default from environment.\n    provider: LLM provider (openai, anthropic, google, etc.).\n    context_key: Metadata key containing the context/retrieved docs.\n        Default: \"context\".\n    strict: If True, requires exact grounding. If False, allows\n        reasonable inferences. Default: False.\n\nExample:\n    >>> from ai_infra.eval.evaluators import RAGFaithfulness\n    >>> from pydantic_evals import Case, Dataset\n    >>>\n    >>> dataset = Dataset(\n    ...     cases=[\n    ...         Case(\n    ...             inputs=\"What is the refund policy?\",\n    ...             metadata={\"context\": \"Refunds are available within 30 days.\"},\n    ...         ),\n    ...     ],\n    ...     evaluators=[RAGFaithfulness(llm_judge=\"gpt-4o-mini\")],\n    ... )\n\nReturns:\n    EvaluationReason with:\n    - value: float (faithfulness score 0.0-1.0)\n    - reason: Explanation from the LLM judge",
+  "parameters": [
+    {
+      "name": "llm_judge",
+      "type": "str | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "provider",
+      "type": "str | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "context_key",
+      "type": "str",
+      "default": "'context'",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "strict",
+      "type": "bool",
+      "default": "False",
+      "description": null,
+      "required": false
+    }
+  ],
+  "methods": [
+    {
+      "name": "__init__",
+      "signature": "(llm_judge: str | None = None, provider: str | None = None, context_key: str = 'context', strict: bool = False) -> None",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "llm_judge",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "provider",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "context_key",
+          "type": "str",
+          "default": "'context'",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "strict",
+          "type": "bool",
+          "default": "False",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "evaluate",
+      "signature": "(ctx: EvaluatorContext[str, str]) -> EvaluatorOutput",
+      "docstring": "Evaluate faithfulness of output to context.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "ctx",
+          "type": "EvaluatorContext[str, str]",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "EvaluatorOutput",
+      "is_async": false
+    }
+  ],
+  "bases": [
+    "Evaluator[str, str]"
+  ]
+}

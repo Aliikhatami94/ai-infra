@@ -1,47 +1,58 @@
 # API Reference
 
-This section contains auto-generated API documentation from the ai-infra source code.
+This section provides API documentation for the ai-infra package.
+
+For detailed class documentation with parameters and methods, see the [AI-Infra API Reference](/ai-infra/api) on nfrax.dev.
 
 ## Core Modules
 
 ### LLM
 
-::: ai_infra.llm
-    options:
-      show_root_heading: true
-      heading_level: 3
+The `LLM` class provides a unified interface for interacting with language models.
+
+See [LLM API Reference](/ai-infra/api/llm) for full documentation.
 
 ### Agent
 
-::: ai_infra.llm.agent
-    options:
-      show_root_heading: true
-      heading_level: 3
+The `Agent` class extends LLM with tool execution and agentic capabilities.
+
+See [Agent API Reference](/ai-infra/api/agent) for full documentation.
 
 ### Graph
 
-::: ai_infra.graph
-    options:
-      show_root_heading: true
-      heading_level: 3
+The `Graph` class provides workflow orchestration with nodes and edges.
+
+See [Graph API Reference](/ai-infra/api/graph) for full documentation.
 
 ### MCP
 
-::: ai_infra.mcp
-    options:
-      show_root_heading: true
-      heading_level: 3
+Model Context Protocol client and server implementations.
 
-### Tools
-
-::: ai_infra.llm.tools
-    options:
-      show_root_heading: true
-      heading_level: 3
+- [MCPClient API Reference](/ai-infra/api/mcpclient) - Connect to MCP servers
+- [MCPServer API Reference](/ai-infra/api/mcpserver) - Build MCP servers
 
 ### Embeddings
 
-::: ai_infra.embeddings
-    options:
-      show_root_heading: true
-      heading_level: 3
+The `Embeddings` class provides text embedding generation and similarity search.
+
+See [Embeddings API Reference](/ai-infra/api/embeddings) for full documentation.
+
+### Retriever
+
+The `Retriever` class provides RAG (Retrieval-Augmented Generation) capabilities.
+
+See [Retriever API Reference](/ai-infra/api/retriever) for full documentation.
+
+### ImageGen
+
+The `ImageGen` class provides image generation capabilities.
+
+See [ImageGen API Reference](/ai-infra/api/imagegen) for full documentation.
+
+## Evaluation
+
+### Evaluators
+
+- [SemanticSimilarity](/ai-infra/api/semanticsimilarity) - Evaluate semantic similarity
+- [ToolUsageEvaluator](/ai-infra/api/toolusageevaluator) - Evaluate tool usage
+- [RAGFaithfulness](/ai-infra/api/ragfaithfulness) - Evaluate RAG faithfulness

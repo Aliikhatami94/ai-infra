@@ -1,0 +1,1041 @@
+{
+  "name": "Retriever",
+  "module": "ai_infra.retriever",
+  "docstring": "Semantic search made simple.\n\nThe Retriever automatically handles:\n- Embedding generation (via any provider)\n- Text chunking for long documents\n- File loading (PDF, DOCX, TXT, CSV, JSON, HTML)\n- Directory scanning\n- Vector storage and search\n\nProgressive complexity:\n- Zero-config: `Retriever()` uses memory storage and auto-detected embeddings\n- Simple: `Retriever(backend=\"postgres\", connection_string=\"...\")`\n- Advanced: Pass your own `Embeddings` instance for full control\n\nExample - Dead simple:\n    >>> r = Retriever()\n    >>> r.add(\"Your text here\")\n    >>> r.add(\"./documents/\")  # Add all files from a directory\n    >>> results = r.search(\"query\")  # Returns list of strings\n\nExample - Production with PostgreSQL:\n    >>> r = Retriever(\n    ...     backend=\"postgres\",\n    ...     connection_string=\"postgresql://user:pass@localhost/db\",\n    ... )\n    >>> r.add(\"./knowledge_base/\")\n    >>> results = r.search(\"query\", detailed=True)  # Returns SearchResult objects\n\nExample - LLM context generation:\n    >>> r = Retriever()\n    >>> r.add(\"./docs/\")\n    >>> context = r.get_context(\"user question\", k=5)\n    >>> prompt = f\"Context:\\n{context}\\n\\nQuestion: {question}\"",
+  "parameters": [
+    {
+      "name": "provider",
+      "type": "str | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "model",
+      "type": "str | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "embeddings",
+      "type": "Embeddings | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "backend",
+      "type": "str | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "similarity",
+      "type": "str",
+      "default": "'cosine'",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "chunk_size",
+      "type": "int",
+      "default": "500",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "chunk_overlap",
+      "type": "int",
+      "default": "50",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "persist_path",
+      "type": "str | Path | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "auto_save",
+      "type": "bool",
+      "default": "True",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "lazy_init",
+      "type": "bool",
+      "default": "False",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "auto_configure",
+      "type": "bool",
+      "default": "True",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "backend_config",
+      "type": "Any",
+      "default": "{}",
+      "description": null,
+      "required": false
+    }
+  ],
+  "methods": [
+    {
+      "name": "__init__",
+      "signature": "(provider: str | None = None, model: str | None = None, embeddings: Embeddings | None = None, backend: str | None = None, similarity: str = 'cosine', chunk_size: int = 500, chunk_overlap: int = 50, persist_path: str | Path | None = None, auto_save: bool = True, lazy_init: bool = False, auto_configure: bool = True, backend_config: Any = {}) -> None",
+      "docstring": "Initialize the Retriever.\n\nArgs:\n    provider: Embedding provider (openai, google, voyage, cohere, huggingface).\n             If not specified and auto_configure=True, auto-detects from\n             environment (falls back to free huggingface if no API keys).\n    model: Embedding model name. Uses provider default if not specified.\n    embeddings: Pre-configured Embeddings instance. If provided,\n               `provider` and `model` are ignored.\n    backend: Storage backend name. Options:\n        - None: Auto-detect from DATABASE_URL (default if auto_configure=True)\n        - \"memory\": In-memory (no persistence)\n        - \"postgres\": PostgreSQL with pgvector (production)\n        - \"sqlite\": SQLite file (lightweight persistence)\n        - \"chroma\": ChromaDB (good for prototyping)\n        - \"faiss\": FAISS (high-performance local)\n        - \"pinecone\": Pinecone (managed cloud)\n        - \"qdrant\": Qdrant (cloud or self-hosted)\n    similarity: Similarity metric for search. Options:\n        - \"cosine\": Cosine similarity (default). Best general choice.\n        - \"euclidean\": Euclidean distance-based similarity.\n        - \"dot_product\": Dot product. Best for normalized embeddings.\n    chunk_size: Maximum characters per chunk (default 500).\n    chunk_overlap: Overlapping characters between chunks (default 50).\n    persist_path: Path to save/load retriever state. If provided and the\n                 file exists, the retriever loads from it. Works with\n                 memory backend to add persistence.\n    auto_save: If True (default) and persist_path is set, automatically\n              saves after each add operation.\n    lazy_init: If True, defer loading the embedding model until first\n              use (add or search). Makes server startup faster.\n    auto_configure: If True (default), auto-detect configuration from\n                   environment variables:\n                   - DATABASE_URL -> backend=\"postgres\" with auto dimension\n                   - OPENAI_API_KEY -> provider=\"openai\"\n                   - VOYAGE_API_KEY -> provider=\"voyage\"\n                   - COHERE_API_KEY -> provider=\"cohere\"\n                   - GOOGLE_API_KEY -> provider=\"google_genai\"\n                   - No API keys -> provider=\"huggingface\" (free local)\n    **backend_config: Backend-specific options:\n        - postgres: connection_string, embedding_dimension, table_name\n        - sqlite: path\n        - chroma: persist_directory, collection_name\n        - faiss: persist_path, index_type\n        - pinecone: api_key, environment, index_name, namespace\n        - qdrant: url, api_key, collection_name\n\nExample:\n    >>> # Zero-config (auto-detects from environment)\n    >>> r = Retriever()\n\n    >>> # Explicit configuration (overrides auto-detect)\n    >>> r = Retriever(provider=\"openai\", model=\"text-embedding-3-large\")\n\n    >>> # Production with PostgreSQL (auto-detects DATABASE_URL)\n    >>> # Just set DATABASE_URL env var!\n    >>> r = Retriever()\n\n    >>> # Or explicit postgres config\n    >>> r = Retriever(\n    ...     backend=\"postgres\",\n    ...     connection_string=\"postgresql://user:pass@localhost/db\",\n    ... )\n\n    >>> # Disable auto-configuration\n    >>> r = Retriever(auto_configure=False, backend=\"memory\")\n\n    >>> # Lazy initialization (fast startup)\n    >>> r = Retriever(lazy_init=True)",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "provider",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "model",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "embeddings",
+          "type": "Embeddings | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "backend",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "similarity",
+          "type": "str",
+          "default": "'cosine'",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "chunk_size",
+          "type": "int",
+          "default": "500",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "chunk_overlap",
+          "type": "int",
+          "default": "50",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "persist_path",
+          "type": "str | Path | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "auto_save",
+          "type": "bool",
+          "default": "True",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "lazy_init",
+          "type": "bool",
+          "default": "False",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "auto_configure",
+          "type": "bool",
+          "default": "True",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "backend_config",
+          "type": "Any",
+          "default": "{}",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "aadd",
+      "signature": "(content: str, metadata: dict[str, Any] | None = None, chunk: bool = True) -> list[str]",
+      "docstring": "Async version of add().\n\nArgs:\n    content: Text, file path, or directory path.\n    metadata: Optional metadata.\n    chunk: Whether to chunk long text.\n\nReturns:\n    List of IDs for the added chunks.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "content",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "metadata",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "chunk",
+          "type": "bool",
+          "default": "True",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "list[str]",
+      "is_async": false
+    },
+    {
+      "name": "aadd_text",
+      "signature": "(text: str, metadata: dict[str, Any] | None = None, chunk: bool = True) -> list[str]",
+      "docstring": "Async version of add_text().",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "text",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "metadata",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "chunk",
+          "type": "bool",
+          "default": "True",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "list[str]",
+      "is_async": false
+    },
+    {
+      "name": "add",
+      "signature": "(content: str, metadata: dict[str, Any] | None = None, chunk: bool = True) -> list[str]",
+      "docstring": "Add content to the retriever with smart type detection.\n\nAutomatically detects whether `content` is:\n- Raw text: Chunks and embeds directly\n- File path: Loads the file, chunks, and embeds\n- Directory path: Loads all files, chunks, and embeds\n\nArgs:\n    content: Text, file path, or directory path.\n    metadata: Optional metadata to attach to all chunks.\n    chunk: Whether to chunk long text (default True).\n\nReturns:\n    List of IDs for the added chunks.\n\nRaises:\n    FileNotFoundError: If content looks like a path but doesn't exist.\n\nExample:\n    >>> r = Retriever()\n    >>> r.add(\"Some text to search later\")\n    >>> r.add(\"./document.pdf\")\n    >>> r.add(\"./documents/\")  # All files in directory",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "content",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "metadata",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "chunk",
+          "type": "bool",
+          "default": "True",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "list[str]",
+      "is_async": false
+    },
+    {
+      "name": "add_directory",
+      "signature": "(path: str, pattern: str = '*', recursive: bool = True, metadata: dict[str, Any] | None = None, chunk: bool = True) -> list[str]",
+      "docstring": "Add all files from a directory.\n\nArgs:\n    path: Path to the directory.\n    pattern: Glob pattern for file matching (e.g., \"*.pdf\").\n    recursive: Whether to search subdirectories (default True).\n    metadata: Optional metadata for all chunks.\n    chunk: Whether to chunk long content (default True).\n\nReturns:\n    List of IDs for the added chunks.\n\nExample:\n    >>> r.add_directory(\"./docs/\")  # All files\n    >>> r.add_directory(\"./docs/\", pattern=\"*.md\")  # Only markdown",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "path",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "pattern",
+          "type": "str",
+          "default": "'*'",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "recursive",
+          "type": "bool",
+          "default": "True",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "metadata",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "chunk",
+          "type": "bool",
+          "default": "True",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "list[str]",
+      "is_async": false
+    },
+    {
+      "name": "add_file",
+      "signature": "(path: str, metadata: dict[str, Any] | None = None, chunk: bool = True) -> list[str]",
+      "docstring": "Add a file to the retriever.\n\nSupports: PDF, DOCX, TXT, MD, CSV, JSON, HTML\n\nArgs:\n    path: Path to the file.\n    metadata: Optional metadata for all chunks.\n    chunk: Whether to chunk long content (default True).\n\nReturns:\n    List of IDs for the added chunks.\n\nExample:\n    >>> r.add_file(\"./report.pdf\")\n    >>> r.add_file(\"./notes.md\", metadata={\"category\": \"notes\"})",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "path",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "metadata",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "chunk",
+          "type": "bool",
+          "default": "True",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "list[str]",
+      "is_async": false
+    },
+    {
+      "name": "add_from_github",
+      "signature": "(repo: str, path: str = '', branch: str = 'main', pattern: str = '*.md', token: str | None = None, metadata: dict[str, Any] | None = None, chunk: bool = True, loader_kwargs: Any = {}) -> list[str]",
+      "docstring": "Load and embed files from a GitHub repository.\n\nDelegates to svc_infra.loaders.GitHubLoader for fetching, then embeds.\n\nArgs:\n    repo: Repository in \"owner/repo\" format (e.g., \"nfraxlab/svc-infra\")\n    path: Path within repo (e.g., \"docs\", \"examples/src\")\n    branch: Branch name (default: \"main\")\n    pattern: Glob pattern for files (e.g., \"*.md\", \"*.py\", \"*\")\n    token: GitHub token for private repos or higher rate limits.\n           Falls back to GITHUB_TOKEN env var.\n    metadata: Additional metadata to attach to all chunks.\n    chunk: Whether to chunk long content (default True)\n    **loader_kwargs: Additional args passed to GitHubLoader\n        (e.g., skip_patterns, recursive)\n\nReturns:\n    List of chunk IDs added.\n\nRaises:\n    ImportError: If svc-infra is not installed.\n\nExample:\n    >>> retriever = Retriever()\n    >>>\n    >>> # Load documentation\n    >>> await retriever.add_from_github(\n    ...     \"nfraxlab/svc-infra\",\n    ...     path=\"docs\",\n    ...     pattern=\"*.md\",\n    ...     metadata={\"package\": \"svc-infra\", \"type\": \"docs\"}\n    ... )\n    >>>\n    >>> # Load Python examples\n    >>> await retriever.add_from_github(\n    ...     \"nfraxlab/ai-infra\",\n    ...     path=\"examples\",\n    ...     pattern=\"*.py\",\n    ...     metadata={\"type\": \"examples\"}\n    ... )",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "repo",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "path",
+          "type": "str",
+          "default": "''",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "branch",
+          "type": "str",
+          "default": "'main'",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "pattern",
+          "type": "str",
+          "default": "'*.md'",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "token",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "metadata",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "chunk",
+          "type": "bool",
+          "default": "True",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "loader_kwargs",
+          "type": "Any",
+          "default": "{}",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "list[str]",
+      "is_async": false
+    },
+    {
+      "name": "add_from_github_sync",
+      "signature": "(repo: str, path: str = '', branch: str = 'main', pattern: str = '*.md', token: str | None = None, metadata: dict[str, Any] | None = None, chunk: bool = True, loader_kwargs: Any = {}) -> list[str]",
+      "docstring": "Synchronous wrapper for add_from_github().\n\nSee add_from_github() for full documentation.\n\nNote:\n    This creates a new event loop. Do not call from within an async context.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "repo",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "path",
+          "type": "str",
+          "default": "''",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "branch",
+          "type": "str",
+          "default": "'main'",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "pattern",
+          "type": "str",
+          "default": "'*.md'",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "token",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "metadata",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "chunk",
+          "type": "bool",
+          "default": "True",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "loader_kwargs",
+          "type": "Any",
+          "default": "{}",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "list[str]",
+      "is_async": false
+    },
+    {
+      "name": "add_from_loader",
+      "signature": "(loader: Any, metadata: dict[str, Any] | None = None, chunk: bool = True) -> list[str]",
+      "docstring": "Load and embed content from any svc-infra loader.\n\nGeneric method for using any svc_infra.loaders.BaseLoader subclass.\n\nArgs:\n    loader: Any loader from svc_infra.loaders (GitHubLoader, URLLoader, etc.)\n    metadata: Additional metadata to merge with loader metadata\n    chunk: Whether to chunk long content (default True)\n\nReturns:\n    List of chunk IDs added.\n\nExample:\n    >>> from svc_infra.loaders import GitHubLoader\n    >>>\n    >>> # Custom loader configuration\n    >>> loader = GitHubLoader(\n    ...     \"nfraxlab/svc-infra\",\n    ...     path=\"docs\",\n    ...     skip_patterns=[\"__pycache__\", \"*.pyc\", \"drafts/*\"],\n    ... )\n    >>> await retriever.add_from_loader(loader, metadata={\"team\": \"backend\"})",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "loader",
+          "type": "Any",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "metadata",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "chunk",
+          "type": "bool",
+          "default": "True",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "list[str]",
+      "is_async": false
+    },
+    {
+      "name": "add_from_loader_sync",
+      "signature": "(loader: Any, metadata: dict[str, Any] | None = None, chunk: bool = True) -> list[str]",
+      "docstring": "Synchronous wrapper for add_from_loader().\n\nSee add_from_loader() for full documentation.\n\nNote:\n    This creates a new event loop. Do not call from within an async context.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "loader",
+          "type": "Any",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "metadata",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "chunk",
+          "type": "bool",
+          "default": "True",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "list[str]",
+      "is_async": false
+    },
+    {
+      "name": "add_from_url",
+      "signature": "(url: str | list[str], metadata: dict[str, Any] | None = None, chunk: bool = True, loader_kwargs: Any = {}) -> list[str]",
+      "docstring": "Load and embed content from URL(s).\n\nDelegates to svc_infra.loaders.URLLoader for fetching, then embeds.\nSupports: HTML pages (auto text extraction), raw text, JSON, markdown.\n\nArgs:\n    url: Single URL or list of URLs to fetch\n    metadata: Additional metadata to attach to all chunks\n    chunk: Whether to chunk long content (default True)\n    **loader_kwargs: Additional args passed to URLLoader\n        (e.g., headers, extract_text, timeout)\n\nReturns:\n    List of chunk IDs added.\n\nRaises:\n    ImportError: If svc-infra is not installed.\n\nExample:\n    >>> retriever = Retriever()\n    >>>\n    >>> # Load single URL\n    >>> await retriever.add_from_url(\n    ...     \"https://example.com/docs/guide.md\",\n    ...     metadata={\"category\": \"guides\"}\n    ... )\n    >>>\n    >>> # Load multiple URLs at once\n    >>> await retriever.add_from_url([\n    ...     \"https://example.com/page1\",\n    ...     \"https://example.com/page2\",\n    ... ])",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "url",
+          "type": "str | list[str]",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "metadata",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "chunk",
+          "type": "bool",
+          "default": "True",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "loader_kwargs",
+          "type": "Any",
+          "default": "{}",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "list[str]",
+      "is_async": false
+    },
+    {
+      "name": "add_from_url_sync",
+      "signature": "(url: str | list[str], metadata: dict[str, Any] | None = None, chunk: bool = True, loader_kwargs: Any = {}) -> list[str]",
+      "docstring": "Synchronous wrapper for add_from_url().\n\nSee add_from_url() for full documentation.\n\nNote:\n    This creates a new event loop. Do not call from within an async context.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "url",
+          "type": "str | list[str]",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "metadata",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "chunk",
+          "type": "bool",
+          "default": "True",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "loader_kwargs",
+          "type": "Any",
+          "default": "{}",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "list[str]",
+      "is_async": false
+    },
+    {
+      "name": "add_text",
+      "signature": "(text: str, metadata: dict[str, Any] | None = None, chunk: bool = True) -> list[str]",
+      "docstring": "Add raw text to the retriever.\n\nArgs:\n    text: The text to add.\n    metadata: Optional metadata for all chunks.\n    chunk: Whether to chunk long text (default True).\n\nReturns:\n    List of IDs for the added chunks.\n\nExample:\n    >>> r.add_text(\"Paris is the capital of France\")\n    >>> r.add_text(long_document, metadata={\"source\": \"wikipedia\"})",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "text",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "metadata",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "chunk",
+          "type": "bool",
+          "default": "True",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "list[str]",
+      "is_async": false
+    },
+    {
+      "name": "aget_context",
+      "signature": "(query: str, k: int = 5, filter: dict[str, Any] | None = None, separator: str = '\\n\\n---\\n\\n') -> str",
+      "docstring": "Async version of get_context().",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "query",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "k",
+          "type": "int",
+          "default": "5",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "filter",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "separator",
+          "type": "str",
+          "default": "'\\n\\n---\\n\\n'",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "str",
+      "is_async": false
+    },
+    {
+      "name": "asearch",
+      "signature": "(query: str, k: int = 5, filter: dict[str, Any] | None = None, detailed: bool = False, min_score: float | None = None) -> list[str] | list[SearchResult]",
+      "docstring": "Async version of search().\n\nArgs:\n    query: The search query.\n    k: Number of results.\n    filter: Optional metadata filter.\n    detailed: Return SearchResult objects if True.\n    min_score: Optional minimum similarity score threshold (0-1).\n              Results below this score are filtered out.\n\nReturns:\n    List of matching texts or SearchResult objects.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "query",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "k",
+          "type": "int",
+          "default": "5",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "filter",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "detailed",
+          "type": "bool",
+          "default": "False",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "min_score",
+          "type": "float | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "list[str] | list[SearchResult]",
+      "is_async": false
+    },
+    {
+      "name": "clear",
+      "signature": "() -> None",
+      "docstring": "Clear all content from the retriever.\n\nExample:\n    >>> r.clear()\n    >>> print(r.count)  # 0",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "delete",
+      "signature": "(ids: list[str]) -> int",
+      "docstring": "Delete chunks by ID.\n\nArgs:\n    ids: List of chunk IDs to delete.\n\nReturns:\n    Number of chunks deleted.\n\nExample:\n    >>> ids = r.add(\"Some temporary content\")\n    >>> r.delete(ids)",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "ids",
+          "type": "list[str]",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "int",
+      "is_async": false
+    },
+    {
+      "name": "get_context",
+      "signature": "(query: str, k: int = 5, filter: dict[str, Any] | None = None, separator: str = '\\n\\n---\\n\\n') -> str",
+      "docstring": "Get context string for LLM prompts.\n\nConvenience method that searches and formats results as a single\nstring suitable for including in an LLM prompt.\n\nArgs:\n    query: The search query.\n    k: Number of results to include (default 5).\n    filter: Optional metadata filter.\n    separator: String to join results (default newline with divider).\n\nReturns:\n    Formatted context string.\n\nExample:\n    >>> context = r.get_context(\"revenue growth\", k=3)\n    >>> prompt = f'''Based on this context:\n    ... {context}\n    ...\n    ... Answer the question: What was the revenue growth?'''",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "query",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "k",
+          "type": "int",
+          "default": "5",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "filter",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "separator",
+          "type": "str",
+          "default": "'\\n\\n---\\n\\n'",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "str",
+      "is_async": false
+    },
+    {
+      "name": "load",
+      "signature": "(path: str | Path) -> Retriever",
+      "docstring": "Load a retriever from a previously saved state.\n\nSupports both the new JSON + numpy format (v2) and legacy pickle format (v1).\nLegacy pickle files are automatically migrated to the new format on load.\n\nArgs:\n    path: Path to the saved retriever directory, or legacy .pkl file.\n\nReturns:\n    A fully initialized Retriever with the loaded data.\n\nRaises:\n    FileNotFoundError: If the save file doesn't exist.\n    ValueError: If the save file is corrupted or incompatible.\n\nExample:\n    >>> # Save a retriever\n    >>> r = Retriever()\n    >>> r.add(\"Hello world\")\n    >>> r.save(\"./cache/retriever\")\n\n    >>> # Load it later (even after restart)\n    >>> r2 = Retriever.load(\"./cache/retriever\")\n    >>> r2.search(\"hello\")\n    ['Hello world']",
+      "parameters": [
+        {
+          "name": "cls",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "path",
+          "type": "str | Path",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "Retriever",
+      "is_async": false
+    },
+    {
+      "name": "migrate",
+      "signature": "(path: str | Path, remove_pickle: bool = False) -> Path",
+      "docstring": "Migrate a legacy pickle retriever to the new JSON + numpy format.\n\nArgs:\n    path: Path to the legacy pickle file or directory containing it.\n    remove_pickle: If True, delete the old pickle file after migration.\n\nReturns:\n    Path to the new format directory.\n\nExample:\n    >>> Retriever.migrate(\"./cache/retriever.pkl\")\n    >>> # Now loads from ./cache/retriever/ with state.json + embeddings.npy",
+      "parameters": [
+        {
+          "name": "cls",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "path",
+          "type": "str | Path",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "remove_pickle",
+          "type": "bool",
+          "default": "False",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "Path",
+      "is_async": false
+    },
+    {
+      "name": "save",
+      "signature": "(path: str | Path) -> Path",
+      "docstring": "Save the retriever state to disk for later loading.\n\nUses a secure JSON + numpy format (no pickle). Creates a directory with:\n- state.json: Configuration and text data\n- embeddings.npy: Embedding vectors in numpy format\n\nOnly works with in-memory-like backends (memory, faiss). For database\nbackends (postgres, sqlite, chroma), data is already persisted.\n\nArgs:\n    path: Path to save the retriever state. Should be a directory path.\n          Creates the directory if it doesn't exist.\n\nReturns:\n    Path to the save directory.\n\nRaises:\n    ValueError: If the backend doesn't support serialization.\n\nExample:\n    >>> r = Retriever()\n    >>> r.add(\"Some text to search\")\n    >>> r.save(\"./cache/my_retriever\")\n\n    >>> # Later...\n    >>> r2 = Retriever.load(\"./cache/my_retriever\")\n    >>> r2.search(\"text\")",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "path",
+          "type": "str | Path",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "Path",
+      "is_async": false
+    },
+    {
+      "name": "search",
+      "signature": "(query: str, k: int = 5, filter: dict[str, Any] | None = None, detailed: bool = False, min_score: float | None = None) -> list[str] | list[SearchResult]",
+      "docstring": "Search for similar content.\n\nArgs:\n    query: The search query.\n    k: Number of results to return (default 5).\n    filter: Optional metadata filter (backend-dependent).\n    detailed: If True, return SearchResult objects with scores\n             and metadata. If False (default), return plain strings.\n    min_score: Optional minimum similarity score threshold (0-1).\n              Results below this score are filtered out.\n\nReturns:\n    List of matching texts (or SearchResult objects if detailed=True).\n\nExample:\n    >>> # Simple - just get the text\n    >>> results = r.search(\"capital of France\")\n    >>> print(results[0])  # \"Paris is the capital of France\"\n\n    >>> # Detailed - get scores and metadata\n    >>> results = r.search(\"capital of France\", detailed=True)\n    >>> for result in results:\n    ...     print(f\"{result.score:.2f}: {result.text}\")\n\n    >>> # With minimum score threshold\n    >>> results = r.search(\"query\", min_score=0.7, detailed=True)",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "query",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "k",
+          "type": "int",
+          "default": "5",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "filter",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "detailed",
+          "type": "bool",
+          "default": "False",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "min_score",
+          "type": "float | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "list[str] | list[SearchResult]",
+      "is_async": false
+    }
+  ],
+  "bases": []
+}

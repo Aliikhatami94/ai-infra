@@ -1,0 +1,107 @@
+{
+  "name": "SemanticSimilarity",
+  "module": "ai_infra.eval",
+  "docstring": "Evaluate semantic similarity between output and expected output.\n\nUses ai_infra.Embeddings to compute cosine similarity between the\noutput and expected_output embeddings.\n\nArgs:\n    provider: Embedding provider (openai, google, voyage, cohere, huggingface).\n        If None, auto-detects from environment.\n    model: Embedding model name. Uses provider default if not specified.\n    threshold: Minimum similarity score to pass (0.0-1.0). Default: 0.8.\n    embeddings: Pre-configured Embeddings instance. If provided,\n        `provider` and `model` are ignored.\n\nExample:\n    >>> from ai_infra.eval.evaluators import SemanticSimilarity\n    >>> from pydantic_evals import Case, Dataset\n    >>>\n    >>> dataset = Dataset(\n    ...     cases=[\n    ...         Case(\n    ...             inputs=\"What is the capital of France?\",\n    ...             expected_output=\"Paris is the capital\",\n    ...         ),\n    ...     ],\n    ...     evaluators=[SemanticSimilarity(threshold=0.7)],\n    ... )\n\nReturns:\n    EvaluationReason with:\n    - value: float (similarity score 0.0-1.0)\n    - reason: Explanation of the score and pass/fail",
+  "parameters": [
+    {
+      "name": "provider",
+      "type": "str | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "model",
+      "type": "str | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "threshold",
+      "type": "float",
+      "default": "0.8",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "embeddings",
+      "type": "Embeddings | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    }
+  ],
+  "methods": [
+    {
+      "name": "__init__",
+      "signature": "(provider: str | None = None, model: str | None = None, threshold: float = 0.8, embeddings: Embeddings | None = None) -> None",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "provider",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "model",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "threshold",
+          "type": "float",
+          "default": "0.8",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "embeddings",
+          "type": "Embeddings | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "evaluate",
+      "signature": "(ctx: EvaluatorContext[str, str]) -> EvaluatorOutput",
+      "docstring": "Evaluate semantic similarity between output and expected output.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "ctx",
+          "type": "EvaluatorContext[str, str]",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "EvaluatorOutput",
+      "is_async": false
+    }
+  ],
+  "bases": [
+    "Evaluator[str, str]"
+  ]
+}

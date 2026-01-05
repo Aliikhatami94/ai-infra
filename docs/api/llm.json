@@ -1,0 +1,378 @@
+{
+  "name": "LLM",
+  "module": "ai_infra.llm",
+  "docstring": "Direct model convenience interface (no agent graph).\n\nThe LLM class provides a simple API for chat-based interactions\nwith language models. Use this when you don't need tool calling.\n\nExample - Basic usage:\n    ```python\n    llm = LLM()\n    response = llm.chat(\"What is the capital of France?\")\n    print(response.content)  # \"Paris is the capital of France.\"\n    ```\n\nExample - With structured output:\n    ```python\n    from pydantic import BaseModel\n\n    class Answer(BaseModel):\n        city: str\n        country: str\n\n    llm = LLM()\n    result = llm.chat(\n        \"What is the capital of France?\",\n        output_schema=Answer,\n    )\n    print(result.city)  # \"Paris\"\n    ```\n\nExample - Streaming tokens:\n    ```python\n    llm = LLM()\n    async for token, meta in llm.stream_tokens(\"Tell me a story\"):\n        print(token, end=\"\", flush=True)\n    ```",
+  "parameters": [
+    {
+      "name": "callbacks",
+      "type": "Callbacks | (CallbackManager | None)",
+      "default": "None",
+      "description": null,
+      "required": false
+    }
+  ],
+  "methods": [
+    {
+      "name": "__init__",
+      "signature": "(callbacks: Callbacks | (CallbackManager | None) = None)",
+      "docstring": "Initialize LLM with optional callbacks.\n\nArgs:\n    callbacks: Callback handler(s) for observing LLM events.\n        Receives events for LLM calls (start, end, error, tokens).\n        Can be a single Callbacks instance or a CallbackManager.\n        Example: callbacks=MyCallbacks() or callbacks=CallbackManager([...])",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "callbacks",
+          "type": "Callbacks | (CallbackManager | None)",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": null,
+      "is_async": false
+    },
+    {
+      "name": "achat",
+      "signature": "(user_msg: str, provider: str | None = None, model_name: str | None = None, system: str | None = None, extra: dict[str, Any] | None = None, output_schema: type[BaseModel] | dict[str, Any] | None = None, output_method: Literal['json_schema', 'json_mode', 'function_calling', 'prompt'] | None = 'prompt', images: list[str | bytes | Path] | None = None, audio: Any | None = None, audio_output: Any | None = None, model_kwargs = {})",
+      "docstring": "Async version of chat().\n\nArgs:\n    user_msg: The user's message\n    provider: LLM provider (auto-detected if None)\n    model_name: Model name (uses provider default if None)\n    system: Optional system message\n    extra: Extra options (e.g., {\"retry\": {\"max_attempts\": 3}})\n    output_schema: Pydantic model for structured output\n    output_method: How to extract structured output\n    images: Optional list of images (URLs, bytes, or file paths) for vision\n    audio: Optional audio input (URL, bytes, or file path) for audio understanding\n    audio_output: Optional AudioOutput config to get audio response from model\n    **model_kwargs: Additional model kwargs\n\nReturns:\n    Response message or structured output if output_schema provided",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "user_msg",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "provider",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "model_name",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "system",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "extra",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "output_schema",
+          "type": "type[BaseModel] | dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "output_method",
+          "type": "Literal['json_schema', 'json_mode', 'function_calling', 'prompt'] | None",
+          "default": "'prompt'",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "images",
+          "type": "list[str | bytes | Path] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "audio",
+          "type": "Any | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "audio_output",
+          "type": "Any | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "model_kwargs",
+          "type": null,
+          "default": "{}",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": null,
+      "is_async": false
+    },
+    {
+      "name": "chat",
+      "signature": "(user_msg: str, provider: str | None = None, model_name: str | None = None, system: str | None = None, extra: dict[str, Any] | None = None, output_schema: type[BaseModel] | dict[str, Any] | None = None, output_method: Literal['json_schema', 'json_mode', 'function_calling', 'prompt'] | None = 'prompt', images: list[str | bytes | Path] | None = None, audio: Any | None = None, audio_output: Any | None = None, model_kwargs = {})",
+      "docstring": "Send a chat message and get a response.\n\nArgs:\n    user_msg: The user's message\n    provider: LLM provider (auto-detected if None)\n    model_name: Model name (uses provider default if None)\n    system: Optional system message\n    extra: Extra options (e.g., {\"retry\": {\"max_attempts\": 3}})\n    output_schema: Pydantic model for structured output\n    output_method: How to extract structured output\n    images: Optional list of images (URLs, bytes, or file paths) for vision\n    audio: Optional audio input (URL, bytes, or file path) for audio understanding\n    audio_output: Optional AudioOutput config to get audio response from model\n    **model_kwargs: Additional model kwargs\n\nReturns:\n    Response message or structured output if output_schema provided",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "user_msg",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "provider",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "model_name",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "system",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "extra",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "output_schema",
+          "type": "type[BaseModel] | dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "output_method",
+          "type": "Literal['json_schema', 'json_mode', 'function_calling', 'prompt'] | None",
+          "default": "'prompt'",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "images",
+          "type": "list[str | bytes | Path] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "audio",
+          "type": "Any | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "audio_output",
+          "type": "Any | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "model_kwargs",
+          "type": null,
+          "default": "{}",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": null,
+      "is_async": false
+    },
+    {
+      "name": "is_provider_configured",
+      "signature": "(provider: str) -> bool",
+      "docstring": "Check if a provider has its API key configured.\n\nArgs:\n    provider: Provider name (e.g., \"openai\", \"anthropic\")\n\nReturns:\n    True if the provider's API key environment variable is set.\n\nExample:\n    >>> LLM.is_provider_configured(\"openai\")\n    True",
+      "parameters": [
+        {
+          "name": "provider",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "bool",
+      "is_async": false
+    },
+    {
+      "name": "list_all_models",
+      "signature": "(refresh: bool = False) -> dict[str, list[str]]",
+      "docstring": "List models for all configured providers.\n\nArgs:\n    refresh: Force refresh from API, bypassing cache\n\nReturns:\n    Dict mapping provider name to list of model IDs.\n\nExample:\n    >>> LLM.list_all_models()\n    {\n        'openai': ['gpt-4o', 'gpt-4o-mini', ...],\n        'anthropic': ['claude-sonnet-4-20250514', ...],\n    }",
+      "parameters": [
+        {
+          "name": "refresh",
+          "type": "bool",
+          "default": "False",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "dict[str, list[str]]",
+      "is_async": false
+    },
+    {
+      "name": "list_configured_providers",
+      "signature": "() -> list[str]",
+      "docstring": "List providers that have API keys configured.\n\nReturns:\n    List of provider names with configured API keys.\n\nExample:\n    >>> LLM.list_configured_providers()\n    ['openai', 'anthropic']  # Only if these have API keys set",
+      "parameters": [],
+      "returns": "list[str]",
+      "is_async": false
+    },
+    {
+      "name": "list_models",
+      "signature": "(provider: str, refresh: bool = False) -> list[str]",
+      "docstring": "List available models for a specific provider.\n\nFetches models dynamically from the provider's API.\nResults are cached for 1 hour by default.\n\nArgs:\n    provider: Provider name (e.g., \"openai\", \"anthropic\")\n    refresh: Force refresh from API, bypassing cache\n\nReturns:\n    List of model IDs available from the provider.\n\nRaises:\n    ValueError: If provider is not supported.\n    RuntimeError: If provider is not configured (no API key).\n\nExample:\n    >>> LLM.list_models(\"openai\")\n    ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', ...]",
+      "parameters": [
+        {
+          "name": "provider",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "refresh",
+          "type": "bool",
+          "default": "False",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "list[str]",
+      "is_async": false
+    },
+    {
+      "name": "list_providers",
+      "signature": "() -> list[str]",
+      "docstring": "List all supported provider names.\n\nReturns:\n    List of provider names: [\"openai\", \"anthropic\", \"google_genai\", \"xai\"]\n\nExample:\n    >>> LLM.list_providers()\n    ['openai', 'anthropic', 'google_genai', 'xai']",
+      "parameters": [],
+      "returns": "list[str]",
+      "is_async": false
+    },
+    {
+      "name": "stream_tokens",
+      "signature": "(user_msg: str, provider: str | None = None, model_name: str | None = None, system: str | None = None, temperature: float | None = None, top_p: float | None = None, max_tokens: int | None = None, images: list[str | bytes | Path] | None = None, model_kwargs = {})",
+      "docstring": "Stream tokens from the model.\n\nArgs:\n    user_msg: The user's message\n    provider: LLM provider (auto-detected if None)\n    model_name: Model name (uses provider default if None)\n    system: Optional system message\n    temperature: Sampling temperature\n    top_p: Top-p sampling\n    max_tokens: Maximum tokens to generate\n    images: Optional list of images (URLs, bytes, or file paths) for vision\n    **model_kwargs: Additional model kwargs\n\nYields:\n    Tuple of (token, metadata) for each token",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "user_msg",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "provider",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "model_name",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "system",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "temperature",
+          "type": "float | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "top_p",
+          "type": "float | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "max_tokens",
+          "type": "int | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "images",
+          "type": "list[str | bytes | Path] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "model_kwargs",
+          "type": null,
+          "default": "{}",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": null,
+      "is_async": false
+    }
+  ],
+  "bases": [
+    "BaseLLM"
+  ]
+}

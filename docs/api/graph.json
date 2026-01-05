@@ -1,0 +1,524 @@
+{
+  "name": "Graph",
+  "module": "ai_infra.graph",
+  "docstring": "Production-ready workflow graph with zero-config building.\n\nSupports multiple initialization patterns:\n\n1. Simple dict-based (GOAL: minimal boilerplate):\n   ```python\n   graph = Graph(\n       nodes={\n           \"analyze\": analyze_func,\n           \"decide\": decide_func,\n           \"execute\": execute_func,\n       },\n       edges=[\n           (\"analyze\", \"decide\"),\n           (\"decide\", \"execute\", lambda state: state[\"should_execute\"]),\n       ],\n       entry=\"analyze\",\n   )\n   ```\n\n2. Any callable as node:\n   ```python\n   graph = Graph(nodes={\n       \"func\": my_function,\n       \"lambda\": lambda state: {\"output\": state[\"input\"] * 2},\n       \"method\": my_instance.method,\n       \"agent\": my_agent.run,\n   })\n   ```\n\n3. Full LangGraph power:\n   ```python\n   graph = Graph(\n       nodes={...},\n       edges=[...],\n       checkpointer=MemorySaver(),\n       interrupt_before=[\"dangerous_node\"],\n       interrupt_after=[\"checkpoint_node\"],\n   )\n   ```\n\n4. Type-safe state:\n   ```python\n   class WorkflowState(TypedDict):\n       input: str\n       output: str\n\n   graph = Graph[WorkflowState](\n       nodes={...},\n       state_schema=WorkflowState,\n       validate_state=True,\n   )\n   ```",
+  "parameters": [
+    {
+      "name": "nodes",
+      "type": "dict[str, Any] | Sequence | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "edges",
+      "type": "Sequence | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "entry",
+      "type": "str | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "state_schema",
+      "type": "type | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "validate_state",
+      "type": "bool",
+      "default": "False",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "checkpointer",
+      "type": null,
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "store",
+      "type": null,
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "interrupt_before",
+      "type": "list[str] | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "interrupt_after",
+      "type": "list[str] | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "state_type",
+      "type": "type | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "node_definitions",
+      "type": "Sequence | dict | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    }
+  ],
+  "methods": [
+    {
+      "name": "__init__",
+      "signature": "(nodes: dict[str, Any] | Sequence | None = None, edges: Sequence | None = None, entry: str | None = None, state_schema: type | None = None, validate_state: bool = False, checkpointer = None, store = None, interrupt_before: list[str] | None = None, interrupt_after: list[str] | None = None, state_type: type | None = None, node_definitions: Sequence | dict | None = None)",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "nodes",
+          "type": "dict[str, Any] | Sequence | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "edges",
+          "type": "Sequence | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "entry",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "state_schema",
+          "type": "type | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "validate_state",
+          "type": "bool",
+          "default": "False",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "checkpointer",
+          "type": null,
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "store",
+          "type": null,
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "interrupt_before",
+          "type": "list[str] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "interrupt_after",
+          "type": "list[str] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "state_type",
+          "type": "type | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "node_definitions",
+          "type": "Sequence | dict | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": null,
+      "is_async": false
+    },
+    {
+      "name": "analyze",
+      "signature": "() -> GraphStructure",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "GraphStructure",
+      "is_async": false
+    },
+    {
+      "name": "arun",
+      "signature": "(initial_state = None, config = None, on_enter = None, on_exit = None, trace = None, kwargs = {}) -> Any",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "initial_state",
+          "type": null,
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "config",
+          "type": null,
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "on_enter",
+          "type": null,
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "on_exit",
+          "type": null,
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "trace",
+          "type": null,
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "kwargs",
+          "type": null,
+          "default": "{}",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "Any",
+      "is_async": false
+    },
+    {
+      "name": "astream",
+      "signature": "(initial_state = None, config = None, stream_mode = ('updates', 'values')) -> AsyncIterator[tuple[str, Any]]",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "initial_state",
+          "type": null,
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "config",
+          "type": null,
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "stream_mode",
+          "type": null,
+          "default": "('updates', 'values')",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "AsyncIterator[tuple[str, Any]]",
+      "is_async": false
+    },
+    {
+      "name": "astream_values",
+      "signature": "(initial_state = None, config = None)",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "initial_state",
+          "type": null,
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "config",
+          "type": null,
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": null,
+      "is_async": false
+    },
+    {
+      "name": "describe",
+      "signature": "() -> dict",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "dict",
+      "is_async": false
+    },
+    {
+      "name": "get_arch_diagram",
+      "signature": "() -> str",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "str",
+      "is_async": false
+    },
+    {
+      "name": "get_state",
+      "signature": "(config)",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "config",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": null,
+      "is_async": false
+    },
+    {
+      "name": "get_state_history",
+      "signature": "(config)",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "config",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": null,
+      "is_async": false
+    },
+    {
+      "name": "run",
+      "signature": "(initial_state = None, config = None, on_enter = None, on_exit = None, trace = None, kwargs = {}) -> Any",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "initial_state",
+          "type": null,
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "config",
+          "type": null,
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "on_enter",
+          "type": null,
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "on_exit",
+          "type": null,
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "trace",
+          "type": null,
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "kwargs",
+          "type": null,
+          "default": "{}",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "Any",
+      "is_async": false
+    },
+    {
+      "name": "stream",
+      "signature": "(initial_state = None, config = None, stream_mode = ('updates', 'values')) -> Iterator[tuple[str, Any]]",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "initial_state",
+          "type": null,
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "config",
+          "type": null,
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "stream_mode",
+          "type": null,
+          "default": "('updates', 'values')",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "Iterator[tuple[str, Any]]",
+      "is_async": false
+    },
+    {
+      "name": "stream_values",
+      "signature": "(initial_state = None, config = None)",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "initial_state",
+          "type": null,
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "config",
+          "type": null,
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": null,
+      "is_async": false
+    }
+  ],
+  "bases": []
+}
