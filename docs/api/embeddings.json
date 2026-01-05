@@ -111,7 +111,7 @@
         }
       ],
       "returns": "list[float]",
-      "is_async": false,
+      "is_async": true,
       "is_classmethod": false,
       "is_staticmethod": false,
       "is_property": false,
@@ -152,7 +152,7 @@
         }
       ],
       "returns": "list[list[float]]",
-      "is_async": false,
+      "is_async": true,
       "is_classmethod": false,
       "is_staticmethod": false,
       "is_property": false,
@@ -186,7 +186,7 @@
         }
       ],
       "returns": "float",
-      "is_async": false,
+      "is_async": true,
       "is_classmethod": false,
       "is_staticmethod": false,
       "is_property": false,
