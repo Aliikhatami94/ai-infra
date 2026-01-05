@@ -853,7 +853,7 @@ class TestMCPServerEdgeCases:
             async with server.lifespan(None):
                 pass
 
-        asyncio.get_event_loop().run_until_complete(run_lifespan())
+        asyncio.run(run_lifespan())
 
     def test_add_app_auto_require_manager_detection(self, server, mock_session_manager):
         """Test add_app auto-detects require_manager from session_manager."""
