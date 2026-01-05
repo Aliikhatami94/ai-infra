@@ -1,0 +1,570 @@
+{
+  "name": "MemoryStore",
+  "module": "ai_infra.llm.memory",
+  "docstring": "Long-term memory store with semantic search.\n\nProvides a simple interface for storing and retrieving memories\nwith optional semantic search capabilities. Supports multiple\nstorage backends:\n\n- In-memory (dev/testing)\n- SQLite (single-instance)\n- PostgreSQL (production)\n\nMemories are organized by namespace (tuple of strings) and key.\nNamespaces enable multi-user and multi-tenant storage.\n\nExample:\n    ```python\n    from ai_infra.memory import MemoryStore\n\n    # Simple in-memory store\n    store = MemoryStore()\n\n    # With semantic search (requires embedding provider)\n    store = MemoryStore(\n        embedding_provider=\"openai\",\n        embedding_model=\"text-embedding-3-small\",\n    )\n\n    # Store user preferences\n    store.put(\n        namespace=(\"user_123\", \"preferences\"),\n        key=\"language\",\n        value={\"preference\": \"User prefers Python\"},\n    )\n\n    # Search memories\n    results = store.search(\n        (\"user_123\", \"preferences\"),\n        query=\"what programming language\",\n        limit=5,\n    )\n    ```",
+  "parameters": [
+    {
+      "name": "backend",
+      "type": "str",
+      "default": "'memory'",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "embedding_provider",
+      "type": "str | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "embedding_model",
+      "type": "str | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "connection_string",
+      "type": "str | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "path",
+      "type": "str | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    }
+  ],
+  "methods": [
+    {
+      "name": "__init__",
+      "signature": "(backend: str = 'memory', embedding_provider: str | None = None, embedding_model: str | None = None, connection_string: str | None = None, path: str | None = None)",
+      "docstring": "Initialize a MemoryStore.\n\nArgs:\n    backend: Storage backend (\"memory\", \"sqlite\", \"postgres\")\n    embedding_provider: Provider for semantic search (e.g., \"openai\", \"huggingface\")\n    embedding_model: Model for embeddings (e.g., \"text-embedding-3-small\")\n    connection_string: PostgreSQL connection string (for postgres backend)\n    path: File path (for sqlite backend)",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "backend",
+          "type": "str",
+          "default": "'memory'",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "embedding_provider",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "embedding_model",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "connection_string",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "path",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": null,
+      "is_async": false
+    },
+    {
+      "name": "delete",
+      "signature": "(namespace: Namespace, key: str) -> bool",
+      "docstring": "Delete a memory.\n\nArgs:\n    namespace: Hierarchical namespace\n    key: Memory key\n\nReturns:\n    True if deleted, False if not found\n\nExample:\n    ```python\n    deleted = store.delete((\"user_123\", \"preferences\"), \"language\")\n    ```",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "namespace",
+          "type": "Namespace",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "key",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "bool",
+      "is_async": false
+    },
+    {
+      "name": "get",
+      "signature": "(namespace: Namespace, key: str) -> MemoryItem | None",
+      "docstring": "Get a memory by key.\n\nArgs:\n    namespace: Hierarchical namespace\n    key: Memory key\n\nReturns:\n    MemoryItem if found, None otherwise\n\nExample:\n    ```python\n    item = store.get((\"user_123\", \"preferences\"), \"language\")\n    if item:\n        print(item.value[\"preference\"])\n    ```",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "namespace",
+          "type": "Namespace",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "key",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "MemoryItem | None",
+      "is_async": false
+    },
+    {
+      "name": "get_app_memory",
+      "signature": "(key: str) -> MemoryItem | None",
+      "docstring": "Get an app-level memory.\n\nArgs:\n    key: Memory key\n\nReturns:\n    MemoryItem if found, None otherwise",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "key",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "MemoryItem | None",
+      "is_async": false
+    },
+    {
+      "name": "get_user_memory",
+      "signature": "(user_id: str, key: str, category: str = 'memories') -> MemoryItem | None",
+      "docstring": "Get a user-scoped memory.\n\nArgs:\n    user_id: User identifier\n    key: Memory key\n    category: Memory category (default: \"memories\")\n\nReturns:\n    MemoryItem if found, None otherwise",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "user_id",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "key",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "category",
+          "type": "str",
+          "default": "'memories'",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "MemoryItem | None",
+      "is_async": false
+    },
+    {
+      "name": "list",
+      "signature": "(namespace: Namespace, limit: int | None = None) -> builtins.list[MemoryItem]",
+      "docstring": "List all memories in a namespace.\n\nArgs:\n    namespace: Hierarchical namespace\n    limit: Maximum number of items to return\n\nReturns:\n    List of MemoryItems\n\nExample:\n    ```python\n    items = store.list((\"user_123\", \"preferences\"))\n    for item in items:\n        print(f\"{item.key}: {item.value}\")\n    ```",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "namespace",
+          "type": "Namespace",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "builtins.list[MemoryItem]",
+      "is_async": false
+    },
+    {
+      "name": "postgres",
+      "signature": "(connection_string: str, embedding_provider: str | None = None, embedding_model: str | None = None) -> MemoryStore",
+      "docstring": "Create a PostgreSQL-backed memory store.\n\nArgs:\n    connection_string: PostgreSQL connection string\n    embedding_provider: Provider for semantic search\n    embedding_model: Model for embeddings\n\nReturns:\n    MemoryStore with PostgreSQL backend\n\nExample:\n    ```python\n    store = MemoryStore.postgres(\n        os.environ[\"DATABASE_URL\"],\n        embedding_provider=\"openai\",\n        embedding_model=\"text-embedding-3-small\",\n    )\n    ```",
+      "parameters": [
+        {
+          "name": "cls",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "connection_string",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "embedding_provider",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "embedding_model",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "MemoryStore",
+      "is_async": false
+    },
+    {
+      "name": "put",
+      "signature": "(namespace: Namespace, key: str, value: dict[str, Any], ttl: int | None = None) -> MemoryItem",
+      "docstring": "Store a memory.\n\nArgs:\n    namespace: Hierarchical namespace (e.g., (\"user_123\", \"preferences\"))\n    key: Unique key within the namespace\n    value: Memory content as a dict\n    ttl: Time-to-live in seconds (optional)\n\nReturns:\n    The stored MemoryItem\n\nExample:\n    ```python\n    store.put(\n        (\"user_123\", \"preferences\"),\n        \"language\",\n        {\"preference\": \"Python\", \"reason\": \"Type hints\"},\n        ttl=3600,  # Expires in 1 hour\n    )\n    ```",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "namespace",
+          "type": "Namespace",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "key",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "value",
+          "type": "dict[str, Any]",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "ttl",
+          "type": "int | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "MemoryItem",
+      "is_async": false
+    },
+    {
+      "name": "put_app_memory",
+      "signature": "(key: str, value: dict[str, Any], ttl: int | None = None) -> MemoryItem",
+      "docstring": "Store an app-level memory.\n\nUses (\"app\", \"global\") namespace.\n\nArgs:\n    key: Memory key\n    value: Memory content\n    ttl: Time-to-live in seconds\n\nReturns:\n    The stored MemoryItem",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "key",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "value",
+          "type": "dict[str, Any]",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "ttl",
+          "type": "int | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "MemoryItem",
+      "is_async": false
+    },
+    {
+      "name": "put_user_memory",
+      "signature": "(user_id: str, key: str, value: dict[str, Any], category: str = 'memories', ttl: int | None = None) -> MemoryItem",
+      "docstring": "Store a user-scoped memory.\n\nConvenience method that uses (user_id, category) as namespace.\n\nArgs:\n    user_id: User identifier\n    key: Memory key\n    value: Memory content\n    category: Memory category (default: \"memories\")\n    ttl: Time-to-live in seconds\n\nReturns:\n    The stored MemoryItem\n\nExample:\n    ```python\n    store.put_user_memory(\n        \"user_123\",\n        \"favorite_color\",\n        {\"color\": \"blue\"},\n    )\n    ```",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "user_id",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "key",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "value",
+          "type": "dict[str, Any]",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "category",
+          "type": "str",
+          "default": "'memories'",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "ttl",
+          "type": "int | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "MemoryItem",
+      "is_async": false
+    },
+    {
+      "name": "search",
+      "signature": "(namespace: Namespace, query: str, limit: int = 10, filter: dict[str, Any] | None = None) -> builtins.list[MemoryItem]",
+      "docstring": "Search memories by semantic similarity.\n\nRequires embedding_provider to be configured.\n\nArgs:\n    namespace: Hierarchical namespace to search\n    query: Search query\n    limit: Maximum results to return\n    filter: Filter on value fields (exact match)\n\nReturns:\n    List of MemoryItems sorted by relevance\n\nExample:\n    ```python\n    results = store.search(\n        (\"user_123\", \"preferences\"),\n        query=\"programming languages\",\n        limit=5,\n    )\n    for item in results:\n        print(f\"{item.key} (score: {item.score}): {item.value}\")\n    ```",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "namespace",
+          "type": "Namespace",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "query",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "default": "10",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "filter",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "builtins.list[MemoryItem]",
+      "is_async": false
+    },
+    {
+      "name": "search_app_memories",
+      "signature": "(query: str, limit: int = 10) -> builtins.list[MemoryItem]",
+      "docstring": "Search app-level memories.\n\nArgs:\n    query: Search query\n    limit: Maximum results\n\nReturns:\n    List of matching MemoryItems",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "query",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "default": "10",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "builtins.list[MemoryItem]",
+      "is_async": false
+    },
+    {
+      "name": "search_user_memories",
+      "signature": "(user_id: str, query: str, category: str = 'memories', limit: int = 10) -> builtins.list[MemoryItem]",
+      "docstring": "Search user's memories.\n\nArgs:\n    user_id: User identifier\n    query: Search query\n    category: Memory category (default: \"memories\")\n    limit: Maximum results\n\nReturns:\n    List of matching MemoryItems",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "user_id",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "query",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "category",
+          "type": "str",
+          "default": "'memories'",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "default": "10",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "builtins.list[MemoryItem]",
+      "is_async": false
+    },
+    {
+      "name": "sqlite",
+      "signature": "(path: str, embedding_provider: str | None = None, embedding_model: str | None = None) -> MemoryStore",
+      "docstring": "Create a SQLite-backed memory store.\n\nArgs:\n    path: Path to SQLite database file\n    embedding_provider: Provider for semantic search\n    embedding_model: Model for embeddings\n\nReturns:\n    MemoryStore with SQLite backend\n\nExample:\n    ```python\n    store = MemoryStore.sqlite(\n        \"./memories.db\",\n        embedding_provider=\"huggingface\",\n    )\n    ```",
+      "parameters": [
+        {
+          "name": "cls",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "path",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "embedding_provider",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "embedding_model",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "MemoryStore",
+      "is_async": false
+    }
+  ],
+  "bases": []
+}

@@ -1,0 +1,333 @@
+{
+  "name": "TTS",
+  "module": "ai_infra.llm",
+  "docstring": "Text-to-Speech with provider-agnostic API.\n\nSupports OpenAI, Google Cloud TTS, and ElevenLabs.\nAuto-detects provider based on available API keys if not specified.",
+  "parameters": [
+    {
+      "name": "provider",
+      "type": "str | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "voice",
+      "type": "str | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "model",
+      "type": "str | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "api_key",
+      "type": "str | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    }
+  ],
+  "methods": [
+    {
+      "name": "__init__",
+      "signature": "(provider: str | None = None, voice: str | None = None, model: str | None = None, api_key: str | None = None)",
+      "docstring": "Initialize TTS.\n\nArgs:\n    provider: TTS provider (\"openai\", \"google\", \"elevenlabs\").\n             Auto-detected if None.\n    voice: Voice name (provider-specific). Uses default if None.\n    model: Model name (provider-specific). Uses default if None.\n    api_key: API key (uses environment variable if None).",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "provider",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "voice",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "model",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "api_key",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": null,
+      "is_async": false
+    },
+    {
+      "name": "aspeak",
+      "signature": "(text: str, voice: str | None = None, model: str | None = None, output_format: AudioFormat = AudioFormat.MP3) -> bytes",
+      "docstring": "Async version of speak().\n\nArgs:\n    text: Text to convert to speech.\n    voice: Override default voice.\n    model: Override default model.\n    output_format: Audio format (mp3, wav, etc.).\n\nReturns:\n    Audio data as bytes.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "text",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "voice",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "model",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "output_format",
+          "type": "AudioFormat",
+          "default": "AudioFormat.MP3",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "bytes",
+      "is_async": false
+    },
+    {
+      "name": "astream",
+      "signature": "(text: str, voice: str | None = None, model: str | None = None, output_format: AudioFormat = AudioFormat.MP3) -> AsyncIterator[bytes]",
+      "docstring": "Async stream audio chunks for real-time playback.\n\nArgs:\n    text: Text to convert to speech.\n    voice: Override default voice.\n    model: Override default model.\n    output_format: Audio format.\n\nYields:\n    Audio chunks as bytes.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "text",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "voice",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "model",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "output_format",
+          "type": "AudioFormat",
+          "default": "AudioFormat.MP3",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "AsyncIterator[bytes]",
+      "is_async": false
+    },
+    {
+      "name": "list_providers",
+      "signature": "() -> list[str]",
+      "docstring": "List configured TTS providers.\n\nReturns:\n    List of provider names that have API keys configured.",
+      "parameters": [],
+      "returns": "list[str]",
+      "is_async": false
+    },
+    {
+      "name": "list_voices",
+      "signature": "(provider: str | None = None) -> list[Voice]",
+      "docstring": "List available voices for a provider.\n\nArgs:\n    provider: Provider name. If None, lists for all configured providers.\n\nReturns:\n    List of available Voice objects.",
+      "parameters": [
+        {
+          "name": "provider",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "list[Voice]",
+      "is_async": false
+    },
+    {
+      "name": "speak",
+      "signature": "(text: str, voice: str | None = None, model: str | None = None, output_format: AudioFormat = AudioFormat.MP3) -> bytes",
+      "docstring": "Convert text to audio bytes.\n\nArgs:\n    text: Text to convert to speech.\n    voice: Override default voice.\n    model: Override default model.\n    output_format: Audio format (mp3, wav, etc.).\n\nReturns:\n    Audio data as bytes.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "text",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "voice",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "model",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "output_format",
+          "type": "AudioFormat",
+          "default": "AudioFormat.MP3",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "bytes",
+      "is_async": false
+    },
+    {
+      "name": "speak_to_file",
+      "signature": "(text: str, path: str | Path, voice: str | None = None, model: str | None = None, output_format: AudioFormat | None = None) -> None",
+      "docstring": "Convert text to speech and save to file.\n\nArgs:\n    text: Text to convert to speech.\n    path: Output file path.\n    voice: Override default voice.\n    model: Override default model.\n    output_format: Audio format (inferred from path if None).",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "text",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "path",
+          "type": "str | Path",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "voice",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "model",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "output_format",
+          "type": "AudioFormat | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "stream",
+      "signature": "(text: str, voice: str | None = None, model: str | None = None, output_format: AudioFormat = AudioFormat.MP3) -> Iterator[bytes]",
+      "docstring": "Stream audio chunks for real-time playback.\n\nArgs:\n    text: Text to convert to speech.\n    voice: Override default voice.\n    model: Override default model.\n    output_format: Audio format.\n\nYields:\n    Audio chunks as bytes.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "text",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "voice",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "model",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "output_format",
+          "type": "AudioFormat",
+          "default": "AudioFormat.MP3",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "Iterator[bytes]",
+      "is_async": false
+    }
+  ],
+  "bases": []
+}

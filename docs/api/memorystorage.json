@@ -1,0 +1,142 @@
+{
+  "name": "MemoryStorage",
+  "module": "ai_infra.replay",
+  "docstring": "In-memory storage backend.\n\nSuitable for development and testing. Recordings are lost\nwhen the process exits.\n\nExample:\n    ```python\n    storage = MemoryStorage()\n    recorder = WorkflowRecorder(\"test\", storage)\n    ```",
+  "parameters": [],
+  "methods": [
+    {
+      "name": "__init__",
+      "signature": "()",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": null,
+      "is_async": false
+    },
+    {
+      "name": "delete",
+      "signature": "(record_id: str) -> bool",
+      "docstring": "Delete recording from memory.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "record_id",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "bool",
+      "is_async": false
+    },
+    {
+      "name": "exists",
+      "signature": "(record_id: str) -> bool",
+      "docstring": "Check if recording exists in memory.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "record_id",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "bool",
+      "is_async": false
+    },
+    {
+      "name": "list_recordings",
+      "signature": "() -> list[str]",
+      "docstring": "List all recording IDs.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "list[str]",
+      "is_async": false
+    },
+    {
+      "name": "load",
+      "signature": "(record_id: str) -> list[WorkflowStep] | None",
+      "docstring": "Load workflow from memory.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "record_id",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "list[WorkflowStep] | None",
+      "is_async": false
+    },
+    {
+      "name": "save",
+      "signature": "(record_id: str, steps: list[WorkflowStep]) -> None",
+      "docstring": "Save workflow to memory.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "record_id",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "steps",
+          "type": "list[WorkflowStep]",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    }
+  ],
+  "bases": [
+    "Storage"
+  ]
+}

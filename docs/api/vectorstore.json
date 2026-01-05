@@ -1,0 +1,269 @@
+{
+  "name": "VectorStore",
+  "module": "ai_infra.embeddings",
+  "docstring": "Simple vector store for semantic search.\n\nStore documents and search by meaning using embeddings.\nSupports multiple backends: in-memory, Chroma, FAISS.\n\nFeatures:\n    - Simple API: `add()`, `search()`, `delete()`\n    - Multiple backends: memory, chroma, faiss\n    - Auto-embedding: Just add text, embeddings handled automatically\n    - Metadata filtering: Filter search results by metadata\n\nExample:\n    ```python\n    from ai_infra import Embeddings, VectorStore\n\n    # Create with embeddings\n    embeddings = Embeddings()\n    store = VectorStore(embeddings=embeddings)\n\n    # Add documents\n    store.add_texts([\"Python is great\", \"JavaScript is popular\"])\n\n    # Search\n    results = store.search(\"programming languages\", k=2)\n    for result in results:\n        print(f\"{result.score:.2f}: {result.document.text}\")\n    ```\n\nExample - With metadata:\n    ```python\n    store.add_texts(\n        texts=[\"Doc 1\", \"Doc 2\"],\n        metadatas=[{\"source\": \"web\"}, {\"source\": \"book\"}]\n    )\n\n    # Filter by metadata\n    results = store.search(\"query\", filter={\"source\": \"web\"})\n    ```\n\nExample - Persistent storage with Chroma:\n    ```python\n    store = VectorStore(\n        embeddings=embeddings,\n        backend=\"chroma\",\n        persist_directory=\"./my_db\"\n    )\n    ```",
+  "parameters": [
+    {
+      "name": "embeddings",
+      "type": "Embeddings",
+      "default": null,
+      "description": null,
+      "required": true
+    },
+    {
+      "name": "backend",
+      "type": "Literal['memory', 'chroma', 'faiss']",
+      "default": "'memory'",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "collection_name",
+      "type": "str",
+      "default": "'default'",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "persist_directory",
+      "type": "str | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "kwargs",
+      "type": "Any",
+      "default": "{}",
+      "description": null,
+      "required": false
+    }
+  ],
+  "methods": [
+    {
+      "name": "__init__",
+      "signature": "(embeddings: Embeddings, backend: Literal['memory', 'chroma', 'faiss'] = 'memory', collection_name: str = 'default', persist_directory: str | None = None, kwargs: Any = {}) -> None",
+      "docstring": "Initialize vector store.\n\nArgs:\n    embeddings: Embeddings instance for generating vectors.\n    backend: Storage backend - \"memory\", \"chroma\", or \"faiss\".\n    collection_name: Name for the collection (chroma only).\n    persist_directory: Directory for persistent storage.\n    **kwargs: Additional backend-specific options.\n\nExample:\n    ```python\n    # In-memory (default, fast, no persistence)\n    store = VectorStore(embeddings=embeddings)\n\n    # Chroma (persistent, full-featured)\n    store = VectorStore(\n        embeddings=embeddings,\n        backend=\"chroma\",\n        persist_directory=\"./db\"\n    )\n\n    # FAISS (fast similarity search)\n    store = VectorStore(embeddings=embeddings, backend=\"faiss\")\n    ```",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "embeddings",
+          "type": "Embeddings",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "backend",
+          "type": "Literal['memory', 'chroma', 'faiss']",
+          "default": "'memory'",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "collection_name",
+          "type": "str",
+          "default": "'default'",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "persist_directory",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "kwargs",
+          "type": "Any",
+          "default": "{}",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "add_documents",
+      "signature": "(documents: list[Document]) -> list[str]",
+      "docstring": "Add Document objects to the store.\n\nArgs:\n    documents: List of Document objects.\n\nReturns:\n    List of document IDs.\n\nExample:\n    ```python\n    docs = [\n        Document(text=\"Hello\", metadata={\"lang\": \"en\"}),\n        Document(text=\"Bonjour\", metadata={\"lang\": \"fr\"}),\n    ]\n    ids = store.add_documents(docs)\n    ```",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "documents",
+          "type": "list[Document]",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "list[str]",
+      "is_async": false
+    },
+    {
+      "name": "add_texts",
+      "signature": "(texts: list[str], metadatas: list[dict[str, Any]] | None = None, ids: list[str] | None = None) -> list[str]",
+      "docstring": "Add texts to the store.\n\nArgs:\n    texts: List of text strings to add.\n    metadatas: Optional metadata for each text.\n    ids: Optional IDs (auto-generated if not provided).\n\nReturns:\n    List of document IDs.\n\nExample:\n    ```python\n    ids = store.add_texts(\n        texts=[\"Hello world\", \"Goodbye world\"],\n        metadatas=[{\"source\": \"greeting\"}, {\"source\": \"farewell\"}]\n    )\n    ```",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "texts",
+          "type": "list[str]",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "metadatas",
+          "type": "list[dict[str, Any]] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "ids",
+          "type": "list[str] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "list[str]",
+      "is_async": false
+    },
+    {
+      "name": "asearch",
+      "signature": "(query: str, k: int = 4, filter: dict[str, Any] | None = None) -> list[SearchResult]",
+      "docstring": "Async search for similar documents.\n\nArgs:\n    query: Search query text.\n    k: Number of results to return.\n    filter: Optional metadata filter.\n\nReturns:\n    List of SearchResult with document and score.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "query",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "k",
+          "type": "int",
+          "default": "4",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "filter",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "list[SearchResult]",
+      "is_async": false
+    },
+    {
+      "name": "clear",
+      "signature": "() -> bool",
+      "docstring": "Delete all documents from the store.\n\nReturns:\n    True if successful.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "bool",
+      "is_async": false
+    },
+    {
+      "name": "delete",
+      "signature": "(ids: list[str]) -> bool",
+      "docstring": "Delete documents by ID.\n\nArgs:\n    ids: List of document IDs to delete.\n\nReturns:\n    True if deletion was successful.\n\nExample:\n    ```python\n    store.delete([\"doc-id-1\", \"doc-id-2\"])\n    ```",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "ids",
+          "type": "list[str]",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "bool",
+      "is_async": false
+    },
+    {
+      "name": "search",
+      "signature": "(query: str, k: int = 4, filter: dict[str, Any] | None = None) -> list[SearchResult]",
+      "docstring": "Search for similar documents.\n\nArgs:\n    query: Search query text.\n    k: Number of results to return (default 4).\n    filter: Optional metadata filter.\n\nReturns:\n    List of SearchResult with document and score.\n\nExample:\n    ```python\n    results = store.search(\"programming\", k=3)\n    for r in results:\n        print(f\"{r.score:.2f}: {r.document.text}\")\n    ```",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "query",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "k",
+          "type": "int",
+          "default": "4",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "filter",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "list[SearchResult]",
+      "is_async": false
+    }
+  ],
+  "bases": []
+}

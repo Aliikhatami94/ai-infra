@@ -1,0 +1,264 @@
+{
+  "name": "WorkflowRecorder",
+  "module": "ai_infra.replay",
+  "docstring": "Records agent workflow steps for later replay.\n\nThe recorder captures:\n- LLM calls (messages sent to model)\n- Tool calls (tool name and arguments)\n- Tool results (return values from tools)\n- Final agent responses\n\nExample:\n    ```python\n    from ai_infra.replay import WorkflowRecorder, MemoryStorage\n\n    storage = MemoryStorage()\n    recorder = WorkflowRecorder(\"workflow_123\", storage)\n\n    # Record steps as agent runs\n    recorder.record_llm_call([{\"role\": \"user\", \"content\": \"Hello\"}])\n    recorder.record_tool_call(\"get_weather\", {\"city\": \"NYC\"})\n    recorder.record_tool_result(\"get_weather\", {\"temp\": 72})\n    recorder.record_agent_response(\"The weather in NYC is 72\u00b0F\")\n\n    # Save to storage\n    recorder.save()\n    ```",
+  "parameters": [
+    {
+      "name": "record_id",
+      "type": "str",
+      "default": null,
+      "description": null,
+      "required": true
+    },
+    {
+      "name": "storage",
+      "type": "Storage | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    }
+  ],
+  "methods": [
+    {
+      "name": "__init__",
+      "signature": "(record_id: str, storage: Storage | None = None)",
+      "docstring": "Initialize a workflow recorder.\n\nArgs:\n    record_id: Unique identifier for this recording\n    storage: Storage backend. If None, uses default storage.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "record_id",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "storage",
+          "type": "Storage | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": null,
+      "is_async": false
+    },
+    {
+      "name": "clear",
+      "signature": "() -> None",
+      "docstring": "Clear all recorded steps.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "record_agent_response",
+      "signature": "(content: str, metadata: Any = {}) -> WorkflowStep",
+      "docstring": "Record the final agent response.\n\nArgs:\n    content: The agent's final response text\n    **metadata: Additional metadata to record\n\nReturns:\n    The recorded step",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "content",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "metadata",
+          "type": "Any",
+          "default": "{}",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "WorkflowStep",
+      "is_async": false
+    },
+    {
+      "name": "record_llm_call",
+      "signature": "(messages: list[dict[str, Any]], response: str | None = None, model: str | None = None, metadata: Any = {}) -> WorkflowStep",
+      "docstring": "Record an LLM call.\n\nArgs:\n    messages: Messages sent to the model\n    response: Optional response from the model\n    model: Model name/identifier\n    **metadata: Additional metadata to record\n\nReturns:\n    The recorded step",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "messages",
+          "type": "list[dict[str, Any]]",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "response",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "model",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "metadata",
+          "type": "Any",
+          "default": "{}",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "WorkflowStep",
+      "is_async": false
+    },
+    {
+      "name": "record_tool_call",
+      "signature": "(tool_name: str, args: dict[str, Any], metadata: Any = {}) -> WorkflowStep",
+      "docstring": "Record a tool invocation.\n\nArgs:\n    tool_name: Name of the tool being called\n    args: Arguments passed to the tool\n    **metadata: Additional metadata to record\n\nReturns:\n    The recorded step",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "tool_name",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "args",
+          "type": "dict[str, Any]",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "metadata",
+          "type": "Any",
+          "default": "{}",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "WorkflowStep",
+      "is_async": false
+    },
+    {
+      "name": "record_tool_result",
+      "signature": "(tool_name: str, result: Any, duration_ms: float | None = None, error: str | None = None, metadata: Any = {}) -> WorkflowStep",
+      "docstring": "Record a tool result.\n\nArgs:\n    tool_name: Name of the tool\n    result: Return value from the tool\n    duration_ms: Execution time in milliseconds\n    error: Error message if tool failed\n    **metadata: Additional metadata to record\n\nReturns:\n    The recorded step",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "tool_name",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "result",
+          "type": "Any",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "duration_ms",
+          "type": "float | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "error",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "metadata",
+          "type": "Any",
+          "default": "{}",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "WorkflowStep",
+      "is_async": false
+    },
+    {
+      "name": "save",
+      "signature": "() -> None",
+      "docstring": "Persist recording to storage.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "timeline",
+      "signature": "() -> list[str]",
+      "docstring": "Get a human-readable timeline of the workflow.\n\nReturns:\n    List of step descriptions\n\nExample:\n    ```python\n    timeline = recorder.timeline()\n    # ['[Step 0: llm_call] ', '[Step 1: tool_call] get_weather', ...]\n    ```",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "list[str]",
+      "is_async": false
+    }
+  ],
+  "bases": []
+}

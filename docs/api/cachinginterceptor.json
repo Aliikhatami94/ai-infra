@@ -1,0 +1,93 @@
+{
+  "name": "CachingInterceptor",
+  "module": "ai_infra.mcp",
+  "docstring": "Cache tool call results for a configurable TTL.\n\nCaches based on tool name, arguments, and server name.\nUseful for expensive operations with deterministic results.\n\nAttributes:\n    ttl_seconds: Time-to-live for cache entries (default: 300).\n\nExample:\n    ```python\n    cache = CachingInterceptor(ttl_seconds=60)\n    mcp = MCPClient([config], interceptors=[cache])\n    ```",
+  "parameters": [
+    {
+      "name": "ttl_seconds",
+      "type": "int",
+      "default": "300",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "_cache",
+      "type": "dict[str, tuple[CallToolResult, float]]",
+      "default": "dict()",
+      "description": null,
+      "required": false
+    }
+  ],
+  "methods": [
+    {
+      "name": "__init__",
+      "signature": "(ttl_seconds: int = 300, _cache: dict[str, tuple[CallToolResult, float]] = dict()) -> None",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "ttl_seconds",
+          "type": "int",
+          "default": "300",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "_cache",
+          "type": "dict[str, tuple[CallToolResult, float]]",
+          "default": "dict()",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "clear",
+      "signature": "() -> None",
+      "docstring": "Clear all cached entries.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "invalidate",
+      "signature": "(request: MCPToolCallRequest) -> bool",
+      "docstring": "Invalidate a specific cache entry.\n\nArgs:\n    request: The request to invalidate.\n\nReturns:\n    True if entry was found and removed, False otherwise.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "request",
+          "type": "MCPToolCallRequest",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "bool",
+      "is_async": false
+    }
+  ],
+  "bases": []
+}
