@@ -25,7 +25,11 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "on_graph_node_error",
@@ -48,7 +52,11 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "on_graph_node_start",
@@ -71,7 +79,11 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "on_llm_end",
@@ -94,7 +106,11 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "on_llm_error",
@@ -117,7 +133,11 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "on_llm_start",
@@ -140,7 +160,11 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "on_llm_token",
@@ -163,7 +187,11 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "on_mcp_connect",
@@ -186,7 +214,11 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "on_mcp_disconnect",
@@ -209,7 +241,11 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "on_mcp_logging",
@@ -232,7 +268,11 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "on_mcp_logging_async",
@@ -255,7 +295,11 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "on_mcp_progress",
@@ -278,7 +322,11 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "on_mcp_progress_async",
@@ -301,7 +349,11 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "on_tool_end",
@@ -324,7 +376,11 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "on_tool_error",
@@ -347,7 +403,11 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "on_tool_start",
@@ -370,10 +430,16 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     }
   ],
   "bases": [
     "ABC"
-  ]
+  ],
+  "source_file": "src/ai_infra/callbacks.py",
+  "source_line": 294
 }

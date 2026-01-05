@@ -7,28 +7,28 @@
       "name": "domains",
       "type": "Sequence[str] | None",
       "default": "None",
-      "description": null,
+      "description": "Custom domains to allow (e.g., [\"api.example.com\"]). If not provided, auto-detects from environment.",
       "required": false
     },
     {
       "name": "enable_security",
       "type": "bool",
       "default": "True",
-      "description": null,
+      "description": "Whether to enable DNS rebinding protection. Set to False to allow all hosts (dev only).",
       "required": false
     },
     {
       "name": "allowed_hosts",
       "type": "Sequence[str] | None",
       "default": "None",
-      "description": null,
+      "description": "Advanced: Override auto-detected host patterns.",
       "required": false
     },
     {
       "name": "allowed_origins",
       "type": "Sequence[str] | None",
       "default": "None",
-      "description": null,
+      "description": "Advanced: Override auto-detected origin patterns.",
       "required": false
     }
   ],
@@ -49,33 +49,37 @@
           "name": "domains",
           "type": "Sequence[str] | None",
           "default": "None",
-          "description": null,
+          "description": "Custom domains to allow (e.g., [\"api.example.com\"]). If not provided, auto-detects from environment.",
           "required": false
         },
         {
           "name": "enable_security",
           "type": "bool",
           "default": "True",
-          "description": null,
+          "description": "Whether to enable DNS rebinding protection. Set to False to allow all hosts (dev only).",
           "required": false
         },
         {
           "name": "allowed_hosts",
           "type": "Sequence[str] | None",
           "default": "None",
-          "description": null,
+          "description": "Advanced: Override auto-detected host patterns.",
           "required": false
         },
         {
           "name": "allowed_origins",
           "type": "Sequence[str] | None",
           "default": "None",
-          "description": null,
+          "description": "Advanced: Override auto-detected origin patterns.",
           "required": false
         }
       ],
       "returns": null,
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "to_transport_settings",
@@ -91,8 +95,14 @@
         }
       ],
       "returns": "TransportSecuritySettings",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     }
   ],
-  "bases": []
+  "bases": [],
+  "source_file": "src/ai_infra/mcp/server/tools.py",
+  "source_line": 105
 }

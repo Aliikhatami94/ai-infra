@@ -173,7 +173,11 @@
         }
       ],
       "returns": null,
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "analyze",
@@ -189,7 +193,11 @@
         }
       ],
       "returns": "GraphStructure",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "arun",
@@ -247,7 +255,11 @@
         }
       ],
       "returns": "Any",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "astream",
@@ -284,7 +296,11 @@
         }
       ],
       "returns": "AsyncIterator[tuple[str, Any]]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "astream_values",
@@ -314,7 +330,11 @@
         }
       ],
       "returns": null,
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "describe",
@@ -330,7 +350,11 @@
         }
       ],
       "returns": "dict",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "get_arch_diagram",
@@ -346,7 +370,11 @@
         }
       ],
       "returns": "str",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "get_state",
@@ -369,7 +397,11 @@
         }
       ],
       "returns": null,
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "get_state_history",
@@ -392,7 +424,11 @@
         }
       ],
       "returns": null,
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "run",
@@ -450,7 +486,11 @@
         }
       ],
       "returns": "Any",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "stream",
@@ -487,7 +527,11 @@
         }
       ],
       "returns": "Iterator[tuple[str, Any]]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "stream_values",
@@ -517,8 +561,14 @@
         }
       ],
       "returns": null,
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     }
   ],
-  "bases": []
+  "bases": [],
+  "source_file": "src/ai_infra/graph/graph.py",
+  "source_line": 21
 }

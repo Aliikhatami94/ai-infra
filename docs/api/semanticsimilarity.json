@@ -75,7 +75,11 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "evaluate",
@@ -98,10 +102,16 @@
         }
       ],
       "returns": "EvaluatorOutput",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     }
   ],
   "bases": [
     "Evaluator[str, str]"
-  ]
+  ],
+  "source_file": "src/ai_infra/eval/evaluators.py",
+  "source_line": 54
 }

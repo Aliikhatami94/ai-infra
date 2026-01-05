@@ -7,7 +7,7 @@
       "name": "callbacks",
       "type": "Callbacks | (CallbackManager | None)",
       "default": "None",
-      "description": null,
+      "description": "Callback handler(s) for observing LLM events. Receives events for LLM calls (start, end, error, tokens). Can be a single Callbacks instance or a CallbackManager.",
       "required": false
     }
   ],
@@ -28,12 +28,16 @@
           "name": "callbacks",
           "type": "Callbacks | (CallbackManager | None)",
           "default": "None",
-          "description": null,
+          "description": "Callback handler(s) for observing LLM events. Receives events for LLM calls (start, end, error, tokens). Can be a single Callbacks instance or a CallbackManager.",
           "required": false
         }
       ],
       "returns": null,
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "achat",
@@ -51,70 +55,70 @@
           "name": "user_msg",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "The user's message",
           "required": true
         },
         {
           "name": "provider",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "LLM provider (auto-detected if None)",
           "required": false
         },
         {
           "name": "model_name",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Model name (uses provider default if None)",
           "required": false
         },
         {
           "name": "system",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Optional system message",
           "required": false
         },
         {
           "name": "extra",
           "type": "dict[str, Any] | None",
           "default": "None",
-          "description": null,
+          "description": "Extra options (e.g., {\"retry\": {\"max_attempts\": 3}})",
           "required": false
         },
         {
           "name": "output_schema",
           "type": "type[BaseModel] | dict[str, Any] | None",
           "default": "None",
-          "description": null,
+          "description": "Pydantic model for structured output",
           "required": false
         },
         {
           "name": "output_method",
           "type": "Literal['json_schema', 'json_mode', 'function_calling', 'prompt'] | None",
           "default": "'prompt'",
-          "description": null,
+          "description": "How to extract structured output",
           "required": false
         },
         {
           "name": "images",
           "type": "list[str | bytes | Path] | None",
           "default": "None",
-          "description": null,
+          "description": "Optional list of images (URLs, bytes, or file paths) for vision",
           "required": false
         },
         {
           "name": "audio",
           "type": "Any | None",
           "default": "None",
-          "description": null,
+          "description": "Optional audio input (URL, bytes, or file path) for audio understanding",
           "required": false
         },
         {
           "name": "audio_output",
           "type": "Any | None",
           "default": "None",
-          "description": null,
+          "description": "Optional AudioOutput config to get audio response from model",
           "required": false
         },
         {
@@ -126,7 +130,11 @@
         }
       ],
       "returns": null,
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "chat",
@@ -144,70 +152,70 @@
           "name": "user_msg",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "The user's message",
           "required": true
         },
         {
           "name": "provider",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "LLM provider (auto-detected if None)",
           "required": false
         },
         {
           "name": "model_name",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Model name (uses provider default if None)",
           "required": false
         },
         {
           "name": "system",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Optional system message",
           "required": false
         },
         {
           "name": "extra",
           "type": "dict[str, Any] | None",
           "default": "None",
-          "description": null,
+          "description": "Extra options (e.g., {\"retry\": {\"max_attempts\": 3}})",
           "required": false
         },
         {
           "name": "output_schema",
           "type": "type[BaseModel] | dict[str, Any] | None",
           "default": "None",
-          "description": null,
+          "description": "Pydantic model for structured output",
           "required": false
         },
         {
           "name": "output_method",
           "type": "Literal['json_schema', 'json_mode', 'function_calling', 'prompt'] | None",
           "default": "'prompt'",
-          "description": null,
+          "description": "How to extract structured output",
           "required": false
         },
         {
           "name": "images",
           "type": "list[str | bytes | Path] | None",
           "default": "None",
-          "description": null,
+          "description": "Optional list of images (URLs, bytes, or file paths) for vision",
           "required": false
         },
         {
           "name": "audio",
           "type": "Any | None",
           "default": "None",
-          "description": null,
+          "description": "Optional audio input (URL, bytes, or file path) for audio understanding",
           "required": false
         },
         {
           "name": "audio_output",
           "type": "Any | None",
           "default": "None",
-          "description": null,
+          "description": "Optional AudioOutput config to get audio response from model",
           "required": false
         },
         {
@@ -219,7 +227,11 @@
         }
       ],
       "returns": null,
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "is_provider_configured",
@@ -230,12 +242,16 @@
           "name": "provider",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "Provider name (e.g., \"openai\", \"anthropic\")",
           "required": true
         }
       ],
       "returns": "bool",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": true,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "list_all_models",
@@ -246,12 +262,16 @@
           "name": "refresh",
           "type": "bool",
           "default": "False",
-          "description": null,
+          "description": "Force refresh from API, bypassing cache",
           "required": false
         }
       ],
       "returns": "dict[str, list[str]]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": true,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "list_configured_providers",
@@ -259,7 +279,11 @@
       "docstring": "List providers that have API keys configured.\n\nReturns:\n    List of provider names with configured API keys.\n\nExample:\n    >>> LLM.list_configured_providers()\n    ['openai', 'anthropic']  # Only if these have API keys set",
       "parameters": [],
       "returns": "list[str]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": true,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "list_models",
@@ -270,19 +294,36 @@
           "name": "provider",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "Provider name (e.g., \"openai\", \"anthropic\")",
           "required": true
         },
         {
           "name": "refresh",
           "type": "bool",
           "default": "False",
-          "description": null,
+          "description": "Force refresh from API, bypassing cache",
           "required": false
         }
       ],
       "returns": "list[str]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": true,
+      "is_property": false,
+      "raises": [
+        {
+          "type": "ValueError",
+          "description": "If provider is not supported."
+        },
+        {
+          "type": "RuntimeError",
+          "description": "If provider is not configured (no API key)."
+        },
+        {
+          "type": "RuntimeError",
+          "description": "If provider is not configured (no API key)."
+        }
+      ]
     },
     {
       "name": "list_providers",
@@ -290,7 +331,11 @@
       "docstring": "List all supported provider names.\n\nReturns:\n    List of provider names: [\"openai\", \"anthropic\", \"google_genai\", \"xai\"]\n\nExample:\n    >>> LLM.list_providers()\n    ['openai', 'anthropic', 'google_genai', 'xai']",
       "parameters": [],
       "returns": "list[str]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": true,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "stream_tokens",
@@ -308,56 +353,56 @@
           "name": "user_msg",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "The user's message",
           "required": true
         },
         {
           "name": "provider",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "LLM provider (auto-detected if None)",
           "required": false
         },
         {
           "name": "model_name",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Model name (uses provider default if None)",
           "required": false
         },
         {
           "name": "system",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Optional system message",
           "required": false
         },
         {
           "name": "temperature",
           "type": "float | None",
           "default": "None",
-          "description": null,
+          "description": "Sampling temperature",
           "required": false
         },
         {
           "name": "top_p",
           "type": "float | None",
           "default": "None",
-          "description": null,
+          "description": "Top-p sampling",
           "required": false
         },
         {
           "name": "max_tokens",
           "type": "int | None",
           "default": "None",
-          "description": null,
+          "description": "Maximum tokens to generate",
           "required": false
         },
         {
           "name": "images",
           "type": "list[str | bytes | Path] | None",
           "default": "None",
-          "description": null,
+          "description": "Optional list of images (URLs, bytes, or file paths) for vision",
           "required": false
         },
         {
@@ -369,10 +414,16 @@
         }
       ],
       "returns": null,
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     }
   ],
   "bases": [
     "BaseLLM"
-  ]
+  ],
+  "source_file": "src/ai_infra/llm/llm.py",
+  "source_line": 34
 }

@@ -18,7 +18,11 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "get_summary",
@@ -34,7 +38,11 @@
         }
       ],
       "returns": "dict[str, Any]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "on_llm_end",
@@ -57,7 +65,11 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "on_llm_error",
@@ -80,7 +92,11 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "on_tool_end",
@@ -103,7 +119,11 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "on_tool_error",
@@ -126,7 +146,11 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "reset",
@@ -142,10 +166,16 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     }
   ],
   "bases": [
     "Callbacks"
-  ]
+  ],
+  "source_file": "src/ai_infra/callbacks.py",
+  "source_line": 818
 }

@@ -47,7 +47,11 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "add",
@@ -70,7 +74,11 @@
         }
       ],
       "returns": "MCPServer",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "add_app",
@@ -128,7 +136,11 @@
         }
       ],
       "returns": "MCPServer",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "add_fastapi",
@@ -235,7 +247,11 @@
         }
       ],
       "returns": "MCPServer",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "add_fastmcp",
@@ -293,7 +309,11 @@
         }
       ],
       "returns": "MCPServer",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "add_from_module",
@@ -351,7 +371,11 @@
         }
       ],
       "returns": "MCPServer",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "add_openapi",
@@ -369,159 +393,163 @@
           "name": "path",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "Mount path for the MCP server",
           "required": true
         },
         {
           "name": "spec",
           "type": "dict | str | Path",
           "default": null,
-          "description": null,
+          "description": "OpenAPI spec (URL, file path, or dict)",
           "required": true
         },
         {
           "name": "transport",
           "type": "str",
           "default": "'streamable_http'",
-          "description": null,
+          "description": "Transport type (streamable_http, sse, websocket)",
           "required": false
         },
         {
           "name": "client",
           "type": "httpx.AsyncClient | None",
           "default": "None",
-          "description": null,
+          "description": "Existing httpx client",
           "required": false
         },
         {
           "name": "client_factory",
           "type": "Callable[[], httpx.AsyncClient] | None",
           "default": "None",
-          "description": null,
+          "description": "Factory for httpx client",
           "required": false
         },
         {
           "name": "base_url",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Override base URL for all requests",
           "required": false
         },
         {
           "name": "name",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Name for the MCP server",
           "required": false
         },
         {
           "name": "report_log",
           "type": "bool | None",
           "default": "None",
-          "description": null,
+          "description": "Log build report",
           "required": false
         },
         {
           "name": "strict_names",
           "type": "bool",
           "default": "False",
-          "description": null,
+          "description": "Raise on duplicate tool names # Filtering",
           "required": false
         },
         {
           "name": "tool_prefix",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Prefix all tool names",
           "required": false
         },
         {
           "name": "include_paths",
           "type": "list[str] | None",
           "default": "None",
-          "description": null,
+          "description": "Only include paths matching these globs",
           "required": false
         },
         {
           "name": "exclude_paths",
           "type": "list[str] | None",
           "default": "None",
-          "description": null,
+          "description": "Exclude paths matching these globs",
           "required": false
         },
         {
           "name": "include_methods",
           "type": "list[str] | None",
           "default": "None",
-          "description": null,
+          "description": "Only include these HTTP methods",
           "required": false
         },
         {
           "name": "exclude_methods",
           "type": "list[str] | None",
           "default": "None",
-          "description": null,
+          "description": "Exclude these HTTP methods",
           "required": false
         },
         {
           "name": "include_tags",
           "type": "list[str] | None",
           "default": "None",
-          "description": null,
+          "description": "Only include operations with these tags",
           "required": false
         },
         {
           "name": "exclude_tags",
           "type": "list[str] | None",
           "default": "None",
-          "description": null,
+          "description": "Exclude operations with these tags",
           "required": false
         },
         {
           "name": "include_operations",
           "type": "list[str] | None",
           "default": "None",
-          "description": null,
+          "description": "Only include these operationIds",
           "required": false
         },
         {
           "name": "exclude_operations",
           "type": "list[str] | None",
           "default": "None",
-          "description": null,
+          "description": "Exclude these operationIds",
           "required": false
         },
         {
           "name": "tool_name_fn",
           "type": "Callable[[str, str, dict], str] | None",
           "default": "None",
-          "description": null,
+          "description": "Custom function(method, path, op) -> name",
           "required": false
         },
         {
           "name": "tool_description_fn",
           "type": "Callable[[dict], str] | None",
           "default": "None",
-          "description": null,
+          "description": "Custom function(op) -> description # Authentication",
           "required": false
         },
         {
           "name": "auth",
           "type": "Any",
           "default": "None",
-          "description": null,
+          "description": "Auth config (dict for headers, tuple for basic, str for bearer)",
           "required": false
         },
         {
           "name": "endpoint_auth",
           "type": "dict[str, Any] | None",
           "default": "None",
-          "description": null,
+          "description": "Per-endpoint auth overrides (pattern -> auth)",
           "required": false
         }
       ],
       "returns": "MCPServer",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "add_tools",
@@ -572,7 +600,11 @@
         }
       ],
       "returns": "MCPServer",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "attach_to_fastapi",
@@ -595,7 +627,11 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "build_asgi_root",
@@ -611,7 +647,11 @@
         }
       ],
       "returns": "Any",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "get_openmcp",
@@ -627,7 +667,11 @@
         }
       ],
       "returns": "dict",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "lifespan",
@@ -650,7 +694,11 @@
         }
       ],
       "returns": null,
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "mount_all",
@@ -673,7 +721,11 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "run_uvicorn",
@@ -710,8 +762,14 @@
         }
       ],
       "returns": null,
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     }
   ],
-  "bases": []
+  "bases": [],
+  "source_file": "src/ai_infra/mcp/server/server.py",
+  "source_line": 28
 }

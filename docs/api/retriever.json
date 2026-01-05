@@ -7,77 +7,77 @@
       "name": "provider",
       "type": "str | None",
       "default": "None",
-      "description": null,
+      "description": "Embedding provider (openai, google, voyage, cohere, huggingface). If not specified and auto_configure=True, auto-detects from environment (falls back to free huggingface if no API keys).",
       "required": false
     },
     {
       "name": "model",
       "type": "str | None",
       "default": "None",
-      "description": null,
+      "description": "Embedding model name. Uses provider default if not specified.",
       "required": false
     },
     {
       "name": "embeddings",
       "type": "Embeddings | None",
       "default": "None",
-      "description": null,
+      "description": "Pre-configured Embeddings instance. If provided, `provider` and `model` are ignored.",
       "required": false
     },
     {
       "name": "backend",
       "type": "str | None",
       "default": "None",
-      "description": null,
+      "description": "Storage backend name. Options:",
       "required": false
     },
     {
       "name": "similarity",
       "type": "str",
       "default": "'cosine'",
-      "description": null,
+      "description": "Similarity metric for search. Options:",
       "required": false
     },
     {
       "name": "chunk_size",
       "type": "int",
       "default": "500",
-      "description": null,
+      "description": "Maximum characters per chunk (default 500).",
       "required": false
     },
     {
       "name": "chunk_overlap",
       "type": "int",
       "default": "50",
-      "description": null,
+      "description": "Overlapping characters between chunks (default 50).",
       "required": false
     },
     {
       "name": "persist_path",
       "type": "str | Path | None",
       "default": "None",
-      "description": null,
+      "description": "Path to save/load retriever state. If provided and the file exists, the retriever loads from it. Works with memory backend to add persistence.",
       "required": false
     },
     {
       "name": "auto_save",
       "type": "bool",
       "default": "True",
-      "description": null,
+      "description": "If True (default) and persist_path is set, automatically saves after each add operation.",
       "required": false
     },
     {
       "name": "lazy_init",
       "type": "bool",
       "default": "False",
-      "description": null,
+      "description": "If True, defer loading the embedding model until first use (add or search). Makes server startup faster.",
       "required": false
     },
     {
       "name": "auto_configure",
       "type": "bool",
       "default": "True",
-      "description": null,
+      "description": "If True (default), auto-detect configuration from environment variables: - DATABASE_URL -> backend=\"postgres\" with auto dimension - OPENAI_API_KEY -> provider=\"openai\" - VOYAGE_API_KEY -> provider=\"voyage\" - COHERE_API_KEY -> provider=\"cohere\" - GOOGLE_API_KEY -> provider=\"google_genai\" - No API keys -> provider=\"huggingface\" (free local)",
       "required": false
     },
     {
@@ -105,77 +105,77 @@
           "name": "provider",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Embedding provider (openai, google, voyage, cohere, huggingface). If not specified and auto_configure=True, auto-detects from environment (falls back to free huggingface if no API keys).",
           "required": false
         },
         {
           "name": "model",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Embedding model name. Uses provider default if not specified.",
           "required": false
         },
         {
           "name": "embeddings",
           "type": "Embeddings | None",
           "default": "None",
-          "description": null,
+          "description": "Pre-configured Embeddings instance. If provided, `provider` and `model` are ignored.",
           "required": false
         },
         {
           "name": "backend",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Storage backend name. Options:",
           "required": false
         },
         {
           "name": "similarity",
           "type": "str",
           "default": "'cosine'",
-          "description": null,
+          "description": "Similarity metric for search. Options:",
           "required": false
         },
         {
           "name": "chunk_size",
           "type": "int",
           "default": "500",
-          "description": null,
+          "description": "Maximum characters per chunk (default 500).",
           "required": false
         },
         {
           "name": "chunk_overlap",
           "type": "int",
           "default": "50",
-          "description": null,
+          "description": "Overlapping characters between chunks (default 50).",
           "required": false
         },
         {
           "name": "persist_path",
           "type": "str | Path | None",
           "default": "None",
-          "description": null,
+          "description": "Path to save/load retriever state. If provided and the file exists, the retriever loads from it. Works with memory backend to add persistence.",
           "required": false
         },
         {
           "name": "auto_save",
           "type": "bool",
           "default": "True",
-          "description": null,
+          "description": "If True (default) and persist_path is set, automatically saves after each add operation.",
           "required": false
         },
         {
           "name": "lazy_init",
           "type": "bool",
           "default": "False",
-          "description": null,
+          "description": "If True, defer loading the embedding model until first use (add or search). Makes server startup faster.",
           "required": false
         },
         {
           "name": "auto_configure",
           "type": "bool",
           "default": "True",
-          "description": null,
+          "description": "If True (default), auto-detect configuration from environment variables: - DATABASE_URL -> backend=\"postgres\" with auto dimension - OPENAI_API_KEY -> provider=\"openai\" - VOYAGE_API_KEY -> provider=\"voyage\" - COHERE_API_KEY -> provider=\"cohere\" - GOOGLE_API_KEY -> provider=\"google_genai\" - No API keys -> provider=\"huggingface\" (free local)",
           "required": false
         },
         {
@@ -187,7 +187,11 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "aadd",
@@ -205,26 +209,30 @@
           "name": "content",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "Text, file path, or directory path.",
           "required": true
         },
         {
           "name": "metadata",
           "type": "dict[str, Any] | None",
           "default": "None",
-          "description": null,
+          "description": "Optional metadata.",
           "required": false
         },
         {
           "name": "chunk",
           "type": "bool",
           "default": "True",
-          "description": null,
+          "description": "Whether to chunk long text.",
           "required": false
         }
       ],
       "returns": "list[str]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "aadd_text",
@@ -261,7 +269,11 @@
         }
       ],
       "returns": "list[str]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "add",
@@ -279,26 +291,39 @@
           "name": "content",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "Text, file path, or directory path.",
           "required": true
         },
         {
           "name": "metadata",
           "type": "dict[str, Any] | None",
           "default": "None",
-          "description": null,
+          "description": "Optional metadata to attach to all chunks.",
           "required": false
         },
         {
           "name": "chunk",
           "type": "bool",
           "default": "True",
-          "description": null,
+          "description": "Whether to chunk long text (default True).",
           "required": false
         }
       ],
       "returns": "list[str]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": [
+        {
+          "type": "FileNotFoundError",
+          "description": "If content looks like a path but doesn't exist."
+        },
+        {
+          "type": "FileNotFoundError",
+          "description": "If content looks like a path but doesn't exist."
+        }
+      ]
     },
     {
       "name": "add_directory",
@@ -316,40 +341,44 @@
           "name": "path",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "Path to the directory.",
           "required": true
         },
         {
           "name": "pattern",
           "type": "str",
           "default": "'*'",
-          "description": null,
+          "description": "Glob pattern for file matching (e.g., \"*.pdf\").",
           "required": false
         },
         {
           "name": "recursive",
           "type": "bool",
           "default": "True",
-          "description": null,
+          "description": "Whether to search subdirectories (default True).",
           "required": false
         },
         {
           "name": "metadata",
           "type": "dict[str, Any] | None",
           "default": "None",
-          "description": null,
+          "description": "Optional metadata for all chunks.",
           "required": false
         },
         {
           "name": "chunk",
           "type": "bool",
           "default": "True",
-          "description": null,
+          "description": "Whether to chunk long content (default True).",
           "required": false
         }
       ],
       "returns": "list[str]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "add_file",
@@ -367,26 +396,30 @@
           "name": "path",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "Path to the file.",
           "required": true
         },
         {
           "name": "metadata",
           "type": "dict[str, Any] | None",
           "default": "None",
-          "description": null,
+          "description": "Optional metadata for all chunks.",
           "required": false
         },
         {
           "name": "chunk",
           "type": "bool",
           "default": "True",
-          "description": null,
+          "description": "Whether to chunk long content (default True).",
           "required": false
         }
       ],
       "returns": "list[str]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "add_from_github",
@@ -404,49 +437,49 @@
           "name": "repo",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "Repository in \"owner/repo\" format (e.g., \"nfraxlab/svc-infra\")",
           "required": true
         },
         {
           "name": "path",
           "type": "str",
           "default": "''",
-          "description": null,
+          "description": "Path within repo (e.g., \"docs\", \"examples/src\")",
           "required": false
         },
         {
           "name": "branch",
           "type": "str",
           "default": "'main'",
-          "description": null,
+          "description": "Branch name (default: \"main\")",
           "required": false
         },
         {
           "name": "pattern",
           "type": "str",
           "default": "'*.md'",
-          "description": null,
+          "description": "Glob pattern for files (e.g., \"*.md\", \"*.py\", \"*\")",
           "required": false
         },
         {
           "name": "token",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "GitHub token for private repos or higher rate limits. Falls back to GITHUB_TOKEN env var.",
           "required": false
         },
         {
           "name": "metadata",
           "type": "dict[str, Any] | None",
           "default": "None",
-          "description": null,
+          "description": "Additional metadata to attach to all chunks.",
           "required": false
         },
         {
           "name": "chunk",
           "type": "bool",
           "default": "True",
-          "description": null,
+          "description": "Whether to chunk long content (default True)",
           "required": false
         },
         {
@@ -458,7 +491,20 @@
         }
       ],
       "returns": "list[str]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": [
+        {
+          "type": "ImportError",
+          "description": "If svc-infra is not installed."
+        },
+        {
+          "type": "ImportError",
+          "description": "If svc-infra is not installed."
+        }
+      ]
     },
     {
       "name": "add_from_github_sync",
@@ -530,7 +576,11 @@
         }
       ],
       "returns": "list[str]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "add_from_loader",
@@ -548,26 +598,30 @@
           "name": "loader",
           "type": "Any",
           "default": null,
-          "description": null,
+          "description": "Any loader from svc_infra.loaders (GitHubLoader, URLLoader, etc.)",
           "required": true
         },
         {
           "name": "metadata",
           "type": "dict[str, Any] | None",
           "default": "None",
-          "description": null,
+          "description": "Additional metadata to merge with loader metadata",
           "required": false
         },
         {
           "name": "chunk",
           "type": "bool",
           "default": "True",
-          "description": null,
+          "description": "Whether to chunk long content (default True)",
           "required": false
         }
       ],
       "returns": "list[str]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "add_from_loader_sync",
@@ -604,7 +658,11 @@
         }
       ],
       "returns": "list[str]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "add_from_url",
@@ -622,21 +680,21 @@
           "name": "url",
           "type": "str | list[str]",
           "default": null,
-          "description": null,
+          "description": "Single URL or list of URLs to fetch",
           "required": true
         },
         {
           "name": "metadata",
           "type": "dict[str, Any] | None",
           "default": "None",
-          "description": null,
+          "description": "Additional metadata to attach to all chunks",
           "required": false
         },
         {
           "name": "chunk",
           "type": "bool",
           "default": "True",
-          "description": null,
+          "description": "Whether to chunk long content (default True)",
           "required": false
         },
         {
@@ -648,7 +706,20 @@
         }
       ],
       "returns": "list[str]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": [
+        {
+          "type": "ImportError",
+          "description": "If svc-infra is not installed."
+        },
+        {
+          "type": "ImportError",
+          "description": "If svc-infra is not installed."
+        }
+      ]
     },
     {
       "name": "add_from_url_sync",
@@ -692,7 +763,11 @@
         }
       ],
       "returns": "list[str]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "add_text",
@@ -710,26 +785,30 @@
           "name": "text",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "The text to add.",
           "required": true
         },
         {
           "name": "metadata",
           "type": "dict[str, Any] | None",
           "default": "None",
-          "description": null,
+          "description": "Optional metadata for all chunks.",
           "required": false
         },
         {
           "name": "chunk",
           "type": "bool",
           "default": "True",
-          "description": null,
+          "description": "Whether to chunk long text (default True).",
           "required": false
         }
       ],
       "returns": "list[str]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "aget_context",
@@ -773,7 +852,11 @@
         }
       ],
       "returns": "str",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "asearch",
@@ -791,40 +874,44 @@
           "name": "query",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "The search query.",
           "required": true
         },
         {
           "name": "k",
           "type": "int",
           "default": "5",
-          "description": null,
+          "description": "Number of results.",
           "required": false
         },
         {
           "name": "filter",
           "type": "dict[str, Any] | None",
           "default": "None",
-          "description": null,
+          "description": "Optional metadata filter.",
           "required": false
         },
         {
           "name": "detailed",
           "type": "bool",
           "default": "False",
-          "description": null,
+          "description": "Return SearchResult objects if True.",
           "required": false
         },
         {
           "name": "min_score",
           "type": "float | None",
           "default": "None",
-          "description": null,
+          "description": "Optional minimum similarity score threshold (0-1). Results below this score are filtered out.",
           "required": false
         }
       ],
       "returns": "list[str] | list[SearchResult]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "clear",
@@ -840,7 +927,11 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "delete",
@@ -858,12 +949,16 @@
           "name": "ids",
           "type": "list[str]",
           "default": null,
-          "description": null,
+          "description": "List of chunk IDs to delete.",
           "required": true
         }
       ],
       "returns": "int",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "get_context",
@@ -881,33 +976,37 @@
           "name": "query",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "The search query.",
           "required": true
         },
         {
           "name": "k",
           "type": "int",
           "default": "5",
-          "description": null,
+          "description": "Number of results to include (default 5).",
           "required": false
         },
         {
           "name": "filter",
           "type": "dict[str, Any] | None",
           "default": "None",
-          "description": null,
+          "description": "Optional metadata filter.",
           "required": false
         },
         {
           "name": "separator",
           "type": "str",
           "default": "'\\n\\n---\\n\\n'",
-          "description": null,
+          "description": "String to join results (default newline with divider).",
           "required": false
         }
       ],
       "returns": "str",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "load",
@@ -925,12 +1024,29 @@
           "name": "path",
           "type": "str | Path",
           "default": null,
-          "description": null,
+          "description": "Path to the saved retriever directory, or legacy .pkl file.",
           "required": true
         }
       ],
       "returns": "Retriever",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": true,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": [
+        {
+          "type": "FileNotFoundError",
+          "description": "If the save file doesn't exist."
+        },
+        {
+          "type": "ValueError",
+          "description": "If the save file is corrupted or incompatible."
+        },
+        {
+          "type": "ValueError",
+          "description": "If the save file is corrupted or incompatible."
+        }
+      ]
     },
     {
       "name": "migrate",
@@ -948,19 +1064,23 @@
           "name": "path",
           "type": "str | Path",
           "default": null,
-          "description": null,
+          "description": "Path to the legacy pickle file or directory containing it.",
           "required": true
         },
         {
           "name": "remove_pickle",
           "type": "bool",
           "default": "False",
-          "description": null,
+          "description": "If True, delete the old pickle file after migration.",
           "required": false
         }
       ],
       "returns": "Path",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": true,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "save",
@@ -978,12 +1098,25 @@
           "name": "path",
           "type": "str | Path",
           "default": null,
-          "description": null,
+          "description": "Path to save the retriever state. Should be a directory path. Creates the directory if it doesn't exist.",
           "required": true
         }
       ],
       "returns": "Path",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": [
+        {
+          "type": "ValueError",
+          "description": "If the backend doesn't support serialization."
+        },
+        {
+          "type": "ValueError",
+          "description": "If the backend doesn't support serialization."
+        }
+      ]
     },
     {
       "name": "search",
@@ -1001,41 +1134,47 @@
           "name": "query",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "The search query.",
           "required": true
         },
         {
           "name": "k",
           "type": "int",
           "default": "5",
-          "description": null,
+          "description": "Number of results to return (default 5).",
           "required": false
         },
         {
           "name": "filter",
           "type": "dict[str, Any] | None",
           "default": "None",
-          "description": null,
+          "description": "Optional metadata filter (backend-dependent).",
           "required": false
         },
         {
           "name": "detailed",
           "type": "bool",
           "default": "False",
-          "description": null,
+          "description": "If True, return SearchResult objects with scores and metadata. If False (default), return plain strings.",
           "required": false
         },
         {
           "name": "min_score",
           "type": "float | None",
           "default": "None",
-          "description": null,
+          "description": "Optional minimum similarity score threshold (0-1). Results below this score are filtered out.",
           "required": false
         }
       ],
       "returns": "list[str] | list[SearchResult]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     }
   ],
-  "bases": []
+  "bases": [],
+  "source_file": "src/ai_infra/retriever/retriever.py",
+  "source_line": 176
 }

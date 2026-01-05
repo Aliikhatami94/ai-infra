@@ -159,7 +159,11 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "from_dict",
@@ -177,12 +181,16 @@
           "name": "data",
           "type": "dict[str, Any]",
           "default": null,
-          "description": null,
+          "description": "Dictionary with persona configuration",
           "required": true
         }
       ],
       "returns": "Persona",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": true,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "from_yaml",
@@ -200,12 +208,29 @@
           "name": "path",
           "type": "str | Path",
           "default": null,
-          "description": null,
+          "description": "Path to YAML file",
           "required": true
         }
       ],
       "returns": "Persona",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": true,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": [
+        {
+          "type": "FileNotFoundError",
+          "description": "If file doesn't exist"
+        },
+        {
+          "type": "yaml.YAMLError",
+          "description": "If YAML is invalid"
+        },
+        {
+          "type": "ValueError",
+          "description": "If required fields are missing"
+        }
+      ]
     },
     {
       "name": "save_yaml",
@@ -223,12 +248,16 @@
           "name": "path",
           "type": "str | Path",
           "default": null,
-          "description": null,
+          "description": "Path to save to",
           "required": true
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "to_dict",
@@ -244,8 +273,14 @@
         }
       ],
       "returns": "dict[str, Any]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     }
   ],
-  "bases": []
+  "bases": [],
+  "source_file": "src/ai_infra/llm/personas.py",
+  "source_line": 36
 }

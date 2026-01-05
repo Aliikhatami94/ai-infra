@@ -7,63 +7,63 @@
       "name": "config",
       "type": "list[dict] | list[McpServerConfig]",
       "default": null,
-      "description": null,
+      "description": "List of MCP server configurations.",
       "required": true
     },
     {
       "name": "callbacks",
       "type": "Callbacks | CallbackManager | None",
       "default": "None",
-      "description": null,
+      "description": "Callback handler(s) for MCP events (progress, logging). Receives MCPProgressEvent and MCPLoggingEvent during tool execution. Can be a single Callbacks instance or a CallbackManager.",
       "required": false
     },
     {
       "name": "interceptors",
       "type": "list[ToolCallInterceptor] | None",
       "default": "None",
-      "description": null,
+      "description": "List of tool call interceptors for request/response modification.",
       "required": false
     },
     {
       "name": "auto_reconnect",
       "type": "bool",
       "default": "False",
-      "description": null,
+      "description": "Whether to auto-reconnect on connection failure.",
       "required": false
     },
     {
       "name": "reconnect_delay",
       "type": "float",
       "default": "1.0",
-      "description": null,
+      "description": "Delay between reconnect attempts in seconds.",
       "required": false
     },
     {
       "name": "max_reconnect_attempts",
       "type": "int",
       "default": "5",
-      "description": null,
+      "description": "Maximum number of reconnect attempts.",
       "required": false
     },
     {
       "name": "tool_timeout",
       "type": "float | None",
       "default": "60.0",
-      "description": null,
+      "description": "Timeout for tool calls in seconds (default: 60.0). Set to None to disable timeout (not recommended).",
       "required": false
     },
     {
       "name": "discover_timeout",
       "type": "float | None",
       "default": "30.0",
-      "description": null,
+      "description": "Timeout for server discovery in seconds (default: 30.0). Set to None to disable timeout (not recommended).",
       "required": false
     },
     {
       "name": "pool_size",
       "type": "int",
       "default": "10",
-      "description": null,
+      "description": "HTTP connection pool size (for future use).",
       "required": false
     }
   ],
@@ -84,68 +84,72 @@
           "name": "config",
           "type": "list[dict] | list[McpServerConfig]",
           "default": null,
-          "description": null,
+          "description": "List of MCP server configurations.",
           "required": true
         },
         {
           "name": "callbacks",
           "type": "Callbacks | CallbackManager | None",
           "default": "None",
-          "description": null,
+          "description": "Callback handler(s) for MCP events (progress, logging). Receives MCPProgressEvent and MCPLoggingEvent during tool execution. Can be a single Callbacks instance or a CallbackManager.",
           "required": false
         },
         {
           "name": "interceptors",
           "type": "list[ToolCallInterceptor] | None",
           "default": "None",
-          "description": null,
+          "description": "List of tool call interceptors for request/response modification.",
           "required": false
         },
         {
           "name": "auto_reconnect",
           "type": "bool",
           "default": "False",
-          "description": null,
+          "description": "Whether to auto-reconnect on connection failure.",
           "required": false
         },
         {
           "name": "reconnect_delay",
           "type": "float",
           "default": "1.0",
-          "description": null,
+          "description": "Delay between reconnect attempts in seconds.",
           "required": false
         },
         {
           "name": "max_reconnect_attempts",
           "type": "int",
           "default": "5",
-          "description": null,
+          "description": "Maximum number of reconnect attempts.",
           "required": false
         },
         {
           "name": "tool_timeout",
           "type": "float | None",
           "default": "60.0",
-          "description": null,
+          "description": "Timeout for tool calls in seconds (default: 60.0). Set to None to disable timeout (not recommended).",
           "required": false
         },
         {
           "name": "discover_timeout",
           "type": "float | None",
           "default": "30.0",
-          "description": null,
+          "description": "Timeout for server discovery in seconds (default: 30.0). Set to None to disable timeout (not recommended).",
           "required": false
         },
         {
           "name": "pool_size",
           "type": "int",
           "default": "10",
-          "description": null,
+          "description": "HTTP connection pool size (for future use).",
           "required": false
         }
       ],
       "returns": null,
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "call_tool",
@@ -163,26 +167,43 @@
           "name": "server_name",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "Name of the server (from discovery).",
           "required": true
         },
         {
           "name": "tool_name",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "Name of the tool to call.",
           "required": true
         },
         {
           "name": "arguments",
           "type": "dict[str, Any]",
           "default": null,
-          "description": null,
+          "description": "Arguments to pass to the tool.",
           "required": true
         }
       ],
       "returns": "dict[str, Any]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": [
+        {
+          "type": "MCPToolError",
+          "description": "If the tool call fails."
+        },
+        {
+          "type": "MCPTimeoutError",
+          "description": "If tool_timeout is set and exceeded."
+        },
+        {
+          "type": "MCPServerError",
+          "description": "If the server is not found."
+        }
+      ]
     },
     {
       "name": "close",
@@ -198,7 +219,11 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "discover",
@@ -216,12 +241,25 @@
           "name": "strict",
           "type": "bool",
           "default": "False",
-          "description": null,
+          "description": "If True, raise ExceptionGroup on any failures. If False (default), collect errors and continue.",
           "required": false
         }
       ],
       "returns": "dict[str, McpServerConfig]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": [
+        {
+          "type": "MCPTimeoutError",
+          "description": "If discover_timeout is set and exceeded."
+        },
+        {
+          "type": "ExceptionGroup",
+          "description": "If strict=True and any servers fail."
+        }
+      ]
     },
     {
       "name": "get_client",
@@ -244,7 +282,11 @@
         }
       ],
       "returns": "AbstractAsyncContextManager[ClientSession]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "get_openmcp",
@@ -274,7 +316,11 @@
         }
       ],
       "returns": "dict[str, Any]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "get_prompt",
@@ -292,26 +338,43 @@
           "name": "server_name",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "Name of the server to get the prompt from.",
           "required": true
         },
         {
           "name": "prompt_name",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "Name of the prompt to fetch.",
           "required": true
         },
         {
           "name": "arguments",
           "type": "dict[str, Any] | None",
           "default": "None",
-          "description": null,
+          "description": "Optional arguments to substitute into the prompt template.",
           "required": false
         }
       ],
       "returns": "list[BaseMessage]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": [
+        {
+          "type": "MCPServerError",
+          "description": "If the server is not found."
+        },
+        {
+          "type": "MCPToolError",
+          "description": "If the prompt fetch fails."
+        },
+        {
+          "type": "MCPToolError",
+          "description": "If the prompt fetch fails."
+        }
+      ]
     },
     {
       "name": "get_resources",
@@ -329,19 +392,36 @@
           "name": "server_name",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "Name of the server to get resources from.",
           "required": true
         },
         {
           "name": "uris",
           "type": "str | list[str] | None",
           "default": "None",
-          "description": null,
+          "description": "Optional URI(s) to fetch. Can be a single URI string, a list of URIs, or None to fetch all resources.",
           "required": false
         }
       ],
       "returns": "list[MCPResource]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": [
+        {
+          "type": "MCPServerError",
+          "description": "If the server is not found."
+        },
+        {
+          "type": "MCPToolError",
+          "description": "If resource fetch fails."
+        },
+        {
+          "type": "MCPToolError",
+          "description": "If resource fetch fails."
+        }
+      ]
     },
     {
       "name": "health_check",
@@ -357,7 +437,11 @@
         }
       ],
       "returns": "dict[str, str]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "last_errors",
@@ -373,7 +457,11 @@
         }
       ],
       "returns": "list[dict[str, Any]]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "list_clients",
@@ -389,7 +477,11 @@
         }
       ],
       "returns": "MultiServerMCPClient",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "list_openmcp",
@@ -412,7 +504,11 @@
         }
       ],
       "returns": "dict[str, dict[str, Any]]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "list_prompts",
@@ -430,12 +526,25 @@
           "name": "server_name",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "If provided, only list prompts from this server. If None, list prompts from all servers.",
           "required": false
         }
       ],
       "returns": "dict[str, list[PromptInfo]]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": [
+        {
+          "type": "MCPServerError",
+          "description": "If specified server is not found."
+        },
+        {
+          "type": "MCPServerError",
+          "description": "If specified server is not found."
+        }
+      ]
     },
     {
       "name": "list_resources",
@@ -453,12 +562,25 @@
           "name": "server_name",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "If provided, only list resources from this server. If None, list resources from all servers.",
           "required": false
         }
       ],
       "returns": "dict[str, list[ResourceInfo]]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": [
+        {
+          "type": "MCPServerError",
+          "description": "If specified server is not found."
+        },
+        {
+          "type": "MCPServerError",
+          "description": "If specified server is not found."
+        }
+      ]
     },
     {
       "name": "list_tools",
@@ -476,12 +598,21 @@
           "name": "server",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "If provided, only list tools from this server. If None, list tools from all servers (prefixed with server name).",
           "required": false
         }
       ],
       "returns": "list[Any]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": [
+        {
+          "type": "MCPServerError",
+          "description": "If specified server is not found."
+        }
+      ]
     },
     {
       "name": "server_names",
@@ -497,8 +628,14 @@
         }
       ],
       "returns": "list[str]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     }
   ],
-  "bases": []
+  "bases": [],
+  "source_file": "src/ai_infra/mcp/client/client.py",
+  "source_line": 47
 }

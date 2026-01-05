@@ -47,7 +47,11 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "clear",
@@ -63,7 +67,11 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "invalidate",
@@ -81,13 +89,19 @@
           "name": "request",
           "type": "MCPToolCallRequest",
           "default": null,
-          "description": null,
+          "description": "The request to invalidate.",
           "required": true
         }
       ],
       "returns": "bool",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     }
   ],
-  "bases": []
+  "bases": [],
+  "source_file": "src/ai_infra/mcp/client/interceptors.py",
+  "source_line": 188
 }

@@ -7,21 +7,21 @@
       "name": "provider",
       "type": "str | None",
       "default": "None",
-      "description": null,
+      "description": "Provider name (openai, google, voyage, cohere, anthropic, huggingface/local). Auto-detects from environment if not specified, falling back to huggingface (free, local).",
       "required": false
     },
     {
       "name": "model",
       "type": "str | None",
       "default": "None",
-      "description": null,
+      "description": "Model name. Uses provider default if not specified.",
       "required": false
     },
     {
       "name": "dimensions",
       "type": "int | None",
       "default": "None",
-      "description": null,
+      "description": "Embedding dimensions (OpenAI text-embedding-3 only).",
       "required": false
     },
     {
@@ -49,21 +49,21 @@
           "name": "provider",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Provider name (openai, google, voyage, cohere, anthropic, huggingface/local). Auto-detects from environment if not specified, falling back to huggingface (free, local).",
           "required": false
         },
         {
           "name": "model",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Model name. Uses provider default if not specified.",
           "required": false
         },
         {
           "name": "dimensions",
           "type": "int | None",
           "default": "None",
-          "description": null,
+          "description": "Embedding dimensions (OpenAI text-embedding-3 only).",
           "required": false
         },
         {
@@ -75,7 +75,20 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": [
+        {
+          "type": "ValueError",
+          "description": "If invalid provider specified."
+        },
+        {
+          "type": "ValueError",
+          "description": "If invalid provider specified."
+        }
+      ]
     },
     {
       "name": "aembed",
@@ -93,12 +106,16 @@
           "name": "text",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "Text to embed.",
           "required": true
         }
       ],
       "returns": "list[float]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "aembed_batch",
@@ -116,26 +133,30 @@
           "name": "texts",
           "type": "list[str]",
           "default": null,
-          "description": null,
+          "description": "List of texts to embed.",
           "required": true
         },
         {
           "name": "batch_size",
           "type": "int",
           "default": "100",
-          "description": null,
+          "description": "Texts per API call (default 100).",
           "required": false
         },
         {
           "name": "max_concurrency",
           "type": "int",
           "default": "5",
-          "description": null,
+          "description": "Max concurrent API calls (default 5).",
           "required": false
         }
       ],
       "returns": "list[list[float]]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "asimilarity",
@@ -165,7 +186,11 @@
         }
       ],
       "returns": "float",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "embed",
@@ -183,12 +208,16 @@
           "name": "text",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "Text to embed.",
           "required": true
         }
       ],
       "returns": "list[float]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "embed_batch",
@@ -206,19 +235,23 @@
           "name": "texts",
           "type": "list[str]",
           "default": null,
-          "description": null,
+          "description": "List of texts to embed.",
           "required": true
         },
         {
           "name": "batch_size",
           "type": "int",
           "default": "100",
-          "description": null,
+          "description": "Texts per API call (default 100).",
           "required": false
         }
       ],
       "returns": "list[list[float]]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "list_configured_providers",
@@ -234,7 +267,11 @@
         }
       ],
       "returns": "list[str]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": true,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "list_providers",
@@ -250,7 +287,11 @@
         }
       ],
       "returns": "list[str]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": true,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "similarity",
@@ -268,20 +309,26 @@
           "name": "text1",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "First text.",
           "required": true
         },
         {
           "name": "text2",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "Second text.",
           "required": true
         }
       ],
       "returns": "float",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     }
   ],
-  "bases": []
+  "bases": [],
+  "source_file": "src/ai_infra/embeddings/embeddings.py",
+  "source_line": 79
 }

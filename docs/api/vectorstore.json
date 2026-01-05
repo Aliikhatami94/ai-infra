@@ -7,28 +7,28 @@
       "name": "embeddings",
       "type": "Embeddings",
       "default": null,
-      "description": null,
+      "description": "Embeddings instance for generating vectors.",
       "required": true
     },
     {
       "name": "backend",
       "type": "Literal['memory', 'chroma', 'faiss']",
       "default": "'memory'",
-      "description": null,
+      "description": "Storage backend - \"memory\", \"chroma\", or \"faiss\".",
       "required": false
     },
     {
       "name": "collection_name",
       "type": "str",
       "default": "'default'",
-      "description": null,
+      "description": "Name for the collection (chroma only).",
       "required": false
     },
     {
       "name": "persist_directory",
       "type": "str | None",
       "default": "None",
-      "description": null,
+      "description": "Directory for persistent storage.",
       "required": false
     },
     {
@@ -56,28 +56,28 @@
           "name": "embeddings",
           "type": "Embeddings",
           "default": null,
-          "description": null,
+          "description": "Embeddings instance for generating vectors.",
           "required": true
         },
         {
           "name": "backend",
           "type": "Literal['memory', 'chroma', 'faiss']",
           "default": "'memory'",
-          "description": null,
+          "description": "Storage backend - \"memory\", \"chroma\", or \"faiss\".",
           "required": false
         },
         {
           "name": "collection_name",
           "type": "str",
           "default": "'default'",
-          "description": null,
+          "description": "Name for the collection (chroma only).",
           "required": false
         },
         {
           "name": "persist_directory",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Directory for persistent storage.",
           "required": false
         },
         {
@@ -89,7 +89,11 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "add_documents",
@@ -107,12 +111,16 @@
           "name": "documents",
           "type": "list[Document]",
           "default": null,
-          "description": null,
+          "description": "List of Document objects.",
           "required": true
         }
       ],
       "returns": "list[str]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "add_texts",
@@ -130,26 +138,30 @@
           "name": "texts",
           "type": "list[str]",
           "default": null,
-          "description": null,
+          "description": "List of text strings to add.",
           "required": true
         },
         {
           "name": "metadatas",
           "type": "list[dict[str, Any]] | None",
           "default": "None",
-          "description": null,
+          "description": "Optional metadata for each text.",
           "required": false
         },
         {
           "name": "ids",
           "type": "list[str] | None",
           "default": "None",
-          "description": null,
+          "description": "Optional IDs (auto-generated if not provided).",
           "required": false
         }
       ],
       "returns": "list[str]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "asearch",
@@ -167,26 +179,30 @@
           "name": "query",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "Search query text.",
           "required": true
         },
         {
           "name": "k",
           "type": "int",
           "default": "4",
-          "description": null,
+          "description": "Number of results to return.",
           "required": false
         },
         {
           "name": "filter",
           "type": "dict[str, Any] | None",
           "default": "None",
-          "description": null,
+          "description": "Optional metadata filter.",
           "required": false
         }
       ],
       "returns": "list[SearchResult]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "clear",
@@ -202,7 +218,11 @@
         }
       ],
       "returns": "bool",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "delete",
@@ -220,12 +240,16 @@
           "name": "ids",
           "type": "list[str]",
           "default": null,
-          "description": null,
+          "description": "List of document IDs to delete.",
           "required": true
         }
       ],
       "returns": "bool",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "search",
@@ -243,27 +267,33 @@
           "name": "query",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "Search query text.",
           "required": true
         },
         {
           "name": "k",
           "type": "int",
           "default": "4",
-          "description": null,
+          "description": "Number of results to return (default 4).",
           "required": false
         },
         {
           "name": "filter",
           "type": "dict[str, Any] | None",
           "default": "None",
-          "description": null,
+          "description": "Optional metadata filter.",
           "required": false
         }
       ],
       "returns": "list[SearchResult]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     }
   ],
-  "bases": []
+  "bases": [],
+  "source_file": "src/ai_infra/embeddings/vectorstore.py",
+  "source_line": 51
 }
