@@ -1,6 +1,15 @@
 # CHANGELOG
 
 
+## v1.4.0 (2026-01-05)
+
+### Features
+
+- Add cache, eval, and guardrails modules with API docs updates
+  ([#16](https://github.com/nfraxlab/ai-infra/pull/16),
+  [`f490a24`](https://github.com/nfraxlab/ai-infra/commit/f490a245f2bda2a314ced416e1a27647b50aa487))
+
+
 ## v1.3.0 (2026-01-05)
 
 ### Features
