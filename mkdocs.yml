@@ -91,7 +91,6 @@ nav:
   - Migration:
       - Upgrade Guide: migration/index.md
   - Reference:
-      - API Reference: reference/api.md
       - Infrastructure: infrastructure/index.md
 
 extra:
