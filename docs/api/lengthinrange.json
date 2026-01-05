@@ -1,0 +1,93 @@
+{
+  "name": "LengthInRange",
+  "module": "ai_infra.eval",
+  "docstring": "Check if output length is within a specified range.\n\nUseful for ensuring responses are not too short or too long.\n\nArgs:\n    min_length: Minimum allowed length. Default: 0.\n    max_length: Maximum allowed length. Default: None (no limit).\n    count_words: If True, count words instead of characters. Default: False.\n\nExample:\n    >>> from ai_infra.eval.evaluators import LengthInRange\n    >>> from pydantic_evals import Case, Dataset\n    >>>\n    >>> dataset = Dataset(\n    ...     cases=[Case(inputs=\"Summarize this\", expected_output=None)],\n    ...     evaluators=[LengthInRange(min_length=10, max_length=500)],\n    ... )\n\nReturns:\n    EvaluationReason with pass/fail and length info",
+  "parameters": [
+    {
+      "name": "min_length",
+      "type": "int",
+      "default": "0",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "max_length",
+      "type": "int | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "count_words",
+      "type": "bool",
+      "default": "False",
+      "description": null,
+      "required": false
+    }
+  ],
+  "methods": [
+    {
+      "name": "__init__",
+      "signature": "(min_length: int = 0, max_length: int | None = None, count_words: bool = False) -> None",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "min_length",
+          "type": "int",
+          "default": "0",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "max_length",
+          "type": "int | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "count_words",
+          "type": "bool",
+          "default": "False",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "evaluate",
+      "signature": "(ctx: EvaluatorContext[str, str]) -> EvaluationReason",
+      "docstring": "Check if output length is in range.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "ctx",
+          "type": "EvaluatorContext[str, str]",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "EvaluationReason",
+      "is_async": false
+    }
+  ],
+  "bases": [
+    "Evaluator[str, str]"
+  ]
+}

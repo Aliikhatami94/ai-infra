@@ -1,0 +1,70 @@
+{
+  "name": "AudioOutput",
+  "module": "ai_infra.llm",
+  "docstring": "Configuration for audio output from LLMs.\n\nUse this to request audio responses from audio-capable models.\n\nArgs:\n    voice: The voice to use (e.g., \"alloy\", \"nova\", \"shimmer\").\n    format: Audio format for output (default: \"mp3\").\n\nExample:\n    ```python\n    from ai_infra.llm import LLM\n    from ai_infra.llm.multimodal import AudioOutput\n\n    llm = LLM()\n    result = llm.chat(\n        \"Tell me a joke\",\n        model_name=\"gpt-4o-audio-preview\",\n        audio_output=AudioOutput(voice=\"nova\")\n    )\n    ```",
+  "parameters": [
+    {
+      "name": "voice",
+      "type": "str",
+      "default": "'alloy'",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "format",
+      "type": "str",
+      "default": "'mp3'",
+      "description": null,
+      "required": false
+    }
+  ],
+  "methods": [
+    {
+      "name": "__init__",
+      "signature": "(voice: str = 'alloy', format: str = 'mp3') -> None",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "voice",
+          "type": "str",
+          "default": "'alloy'",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "format",
+          "type": "str",
+          "default": "'mp3'",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "to_openai_modalities",
+      "signature": "() -> dict[str, Any]",
+      "docstring": "Convert to OpenAI modalities format.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "dict[str, Any]",
+      "is_async": false
+    }
+  ],
+  "bases": []
+}

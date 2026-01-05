@@ -1,0 +1,98 @@
+{
+  "name": "MCPSecuritySettings",
+  "module": "ai_infra.mcp",
+  "docstring": "Security settings for MCP servers with automatic environment detection.\n\nBy default, auto-detects the deployment environment and configures\nappropriate security settings. Works with Railway, Render, Fly.io,\nHeroku, Vercel, and other platforms.\n\nExamples:\n    # Auto-detect (recommended - works everywhere)\n    mcp = mcp_from_functions(name=\"my-mcp\", functions=[my_tool])\n\n    # Disable security for development\n    security = MCPSecuritySettings(enable_security=False)\n\n    # Custom domains (overrides auto-detection)\n    security = MCPSecuritySettings(domains=[\"api.example.com\"])",
+  "parameters": [
+    {
+      "name": "domains",
+      "type": "Sequence[str] | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "enable_security",
+      "type": "bool",
+      "default": "True",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "allowed_hosts",
+      "type": "Sequence[str] | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "allowed_origins",
+      "type": "Sequence[str] | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    }
+  ],
+  "methods": [
+    {
+      "name": "__init__",
+      "signature": "(domains: Sequence[str] | None = None, enable_security: bool = True, allowed_hosts: Sequence[str] | None = None, allowed_origins: Sequence[str] | None = None)",
+      "docstring": "Create security settings.\n\nArgs:\n    domains: Custom domains to allow (e.g., [\"api.example.com\"]).\n            If not provided, auto-detects from environment.\n    enable_security: Whether to enable DNS rebinding protection.\n                   Set to False to allow all hosts (dev only).\n    allowed_hosts: Advanced: Override auto-detected host patterns.\n    allowed_origins: Advanced: Override auto-detected origin patterns.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "domains",
+          "type": "Sequence[str] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "enable_security",
+          "type": "bool",
+          "default": "True",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "allowed_hosts",
+          "type": "Sequence[str] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "allowed_origins",
+          "type": "Sequence[str] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": null,
+      "is_async": false
+    },
+    {
+      "name": "to_transport_settings",
+      "signature": "() -> TransportSecuritySettings",
+      "docstring": "Convert to the underlying TransportSecuritySettings.\n\nAlways returns a TransportSecuritySettings object to ensure\nproper security configuration is applied.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "TransportSecuritySettings",
+      "is_async": false
+    }
+  ],
+  "bases": []
+}

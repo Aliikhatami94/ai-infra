@@ -1,6 +1,6 @@
 {
   "name": "MCPServer",
-  "module": "ai_infra.mcp.server",
+  "module": "ai_infra.mcp",
   "docstring": "MCP Server for hosting one or more MCP endpoints.",
   "parameters": [
     {

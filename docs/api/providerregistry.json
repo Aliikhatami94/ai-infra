@@ -1,0 +1,398 @@
+{
+  "name": "ProviderRegistry",
+  "module": "ai_infra.providers",
+  "docstring": "Central registry for all AI provider configurations.\n\nThis class maintains a registry of all available providers and their\ncapabilities. Provider modules register themselves when imported.\n\nThe registry is lazily initialized - provider configs are only loaded\nwhen first accessed.\n\nClass Attributes:\n    _providers: Dict mapping provider name to ProviderConfig.\n    _initialized: Whether provider modules have been imported.",
+  "parameters": [],
+  "methods": [
+    {
+      "name": "get",
+      "signature": "(name: str) -> ProviderConfig | None",
+      "docstring": "Get provider configuration by name.\n\nArgs:\n    name: The provider name (e.g., \"openai\", \"anthropic\").\n\nReturns:\n    ProviderConfig if found, None otherwise.\n\nExample:\n    >>> config = ProviderRegistry.get(\"openai\")\n    >>> config.display_name\n    'OpenAI'",
+      "parameters": [
+        {
+          "name": "cls",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "name",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "ProviderConfig | None",
+      "is_async": false
+    },
+    {
+      "name": "get_api_key",
+      "signature": "(name: str) -> str | None",
+      "docstring": "Get the API key for a provider.\n\nChecks the primary env var first, then any alternative env vars.\n\nArgs:\n    name: The provider name.\n\nReturns:\n    The API key string, or None if not configured.\n\nExample:\n    >>> os.environ[\"OPENAI_API_KEY\"] = \"sk-test\"\n    >>> ProviderRegistry.get_api_key(\"openai\")\n    'sk-test'",
+      "parameters": [
+        {
+          "name": "cls",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "name",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "str | None",
+      "is_async": false
+    },
+    {
+      "name": "get_capability_config",
+      "signature": "(name: str, cap: ProviderCapability) -> CapabilityConfig | None",
+      "docstring": "Get capability configuration for a specific provider.\n\nConvenience method to get capability config in one call.\n\nArgs:\n    name: The provider name.\n    cap: The capability to get config for.\n\nReturns:\n    CapabilityConfig if found, None otherwise.\n\nExample:\n    >>> config = ProviderRegistry.get_capability_config(\"openai\", ProviderCapability.CHAT)\n    >>> config.default_model\n    'gpt-4o-mini'",
+      "parameters": [
+        {
+          "name": "cls",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "name",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "cap",
+          "type": "ProviderCapability",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "CapabilityConfig | None",
+      "is_async": false
+    },
+    {
+      "name": "get_default_for_capability",
+      "signature": "(cap: ProviderCapability, priority: list[str] | None = None) -> str | None",
+      "docstring": "Get the first configured provider for a capability.\n\nThis is useful for auto-selecting a provider when the user hasn't\nspecified one explicitly.\n\nArgs:\n    cap: The capability required.\n    priority: Optional list of providers to check first, in order.\n             Providers not in this list are checked after, alphabetically.\n\nReturns:\n    Provider name if one is configured, None otherwise.\n\nExample:\n    >>> # With OPENAI_API_KEY set\n    >>> ProviderRegistry.get_default_for_capability(ProviderCapability.CHAT)\n    'openai'\n    >>> # With custom priority\n    >>> ProviderRegistry.get_default_for_capability(\n    ...     ProviderCapability.CHAT,\n    ...     priority=[\"anthropic\", \"openai\"]\n    ... )\n    'anthropic'  # If ANTHROPIC_API_KEY is set",
+      "parameters": [
+        {
+          "name": "cls",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "cap",
+          "type": "ProviderCapability",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "priority",
+          "type": "list[str] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "str | None",
+      "is_async": false
+    },
+    {
+      "name": "get_default_model",
+      "signature": "(name: str, cap: ProviderCapability) -> str | None",
+      "docstring": "Get the default model for a provider's capability.\n\nArgs:\n    name: The provider name.\n    cap: The capability to get the default model for.\n\nReturns:\n    Default model name, None if provider or capability not found.",
+      "parameters": [
+        {
+          "name": "cls",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "name",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "cap",
+          "type": "ProviderCapability",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "str | None",
+      "is_async": false
+    },
+    {
+      "name": "get_default_voice",
+      "signature": "(name: str, cap: ProviderCapability) -> str | None",
+      "docstring": "Get the default voice for a provider's capability.\n\nArgs:\n    name: The provider name.\n    cap: The capability to get the default voice for.\n\nReturns:\n    Default voice name, None if not applicable.",
+      "parameters": [
+        {
+          "name": "cls",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "name",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "cap",
+          "type": "ProviderCapability",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "str | None",
+      "is_async": false
+    },
+    {
+      "name": "get_env_var",
+      "signature": "(name: str) -> str | None",
+      "docstring": "Get the primary environment variable name for a provider.\n\nArgs:\n    name: The provider name.\n\nReturns:\n    The env var name (e.g., \"OPENAI_API_KEY\"), or None if unknown provider.",
+      "parameters": [
+        {
+          "name": "cls",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "name",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "str | None",
+      "is_async": false
+    },
+    {
+      "name": "get_models",
+      "signature": "(name: str, cap: ProviderCapability) -> list[str]",
+      "docstring": "Get list of models for a provider's capability.\n\nArgs:\n    name: The provider name.\n    cap: The capability to get models for.\n\nReturns:\n    List of model names, empty if provider or capability not found.",
+      "parameters": [
+        {
+          "name": "cls",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "name",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "cap",
+          "type": "ProviderCapability",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "list[str]",
+      "is_async": false
+    },
+    {
+      "name": "get_voices",
+      "signature": "(name: str, cap: ProviderCapability) -> list[str]",
+      "docstring": "Get list of voices for a provider's capability.\n\nArgs:\n    name: The provider name.\n    cap: The capability to get voices for (usually TTS or REALTIME).\n\nReturns:\n    List of voice names, empty if not applicable.",
+      "parameters": [
+        {
+          "name": "cls",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "name",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "cap",
+          "type": "ProviderCapability",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "list[str]",
+      "is_async": false
+    },
+    {
+      "name": "is_configured",
+      "signature": "(name: str) -> bool",
+      "docstring": "Check if a provider has its API key configured.\n\nChecks the primary env var first, then any alternative env vars.\n\nArgs:\n    name: The provider name.\n\nReturns:\n    True if the provider has an API key set.\n\nExample:\n    >>> os.environ[\"OPENAI_API_KEY\"] = \"sk-test\"\n    >>> ProviderRegistry.is_configured(\"openai\")\n    True",
+      "parameters": [
+        {
+          "name": "cls",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "name",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "bool",
+      "is_async": false
+    },
+    {
+      "name": "list_all",
+      "signature": "() -> list[str]",
+      "docstring": "List all registered provider names.\n\nReturns:\n    List of provider names sorted alphabetically.\n\nExample:\n    >>> ProviderRegistry.list_all()\n    ['anthropic', 'cohere', 'deepgram', 'elevenlabs', 'google_genai', ...]",
+      "parameters": [
+        {
+          "name": "cls",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "list[str]",
+      "is_async": false
+    },
+    {
+      "name": "list_configured",
+      "signature": "() -> list[str]",
+      "docstring": "List providers that have API keys configured.\n\nReturns:\n    List of provider names that have their API key set.\n\nExample:\n    >>> ProviderRegistry.list_configured()\n    ['openai', 'anthropic']  # Only if these have API keys set",
+      "parameters": [
+        {
+          "name": "cls",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "list[str]",
+      "is_async": false
+    },
+    {
+      "name": "list_configured_for_capability",
+      "signature": "(cap: ProviderCapability) -> list[str]",
+      "docstring": "List configured providers that support a specific capability.\n\nArgs:\n    cap: The capability to filter by.\n\nReturns:\n    List of provider names that support the capability AND have API keys.\n\nExample:\n    >>> ProviderRegistry.list_configured_for_capability(ProviderCapability.CHAT)\n    ['openai']  # Only if OPENAI_API_KEY is set",
+      "parameters": [
+        {
+          "name": "cls",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "cap",
+          "type": "ProviderCapability",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "list[str]",
+      "is_async": false
+    },
+    {
+      "name": "list_for_capability",
+      "signature": "(cap: ProviderCapability) -> list[str]",
+      "docstring": "List providers that support a specific capability.\n\nArgs:\n    cap: The capability to filter by.\n\nReturns:\n    List of provider names that support the capability.\n\nExample:\n    >>> ProviderRegistry.list_for_capability(ProviderCapability.TTS)\n    ['elevenlabs', 'google_genai', 'openai']",
+      "parameters": [
+        {
+          "name": "cls",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "cap",
+          "type": "ProviderCapability",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "list[str]",
+      "is_async": false
+    },
+    {
+      "name": "register",
+      "signature": "(config: ProviderConfig) -> None",
+      "docstring": "Register a provider configuration.\n\nThis is called by individual provider modules to add their config\nto the registry.\n\nArgs:\n    config: The provider configuration to register.\n\nExample:\n    >>> from ai_infra.providers.registry import ProviderRegistry\n    >>> from ai_infra.providers.base import ProviderConfig\n    >>> config = ProviderConfig(name=\"my_provider\", ...)\n    >>> ProviderRegistry.register(config)",
+      "parameters": [
+        {
+          "name": "cls",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "config",
+          "type": "ProviderConfig",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "reset",
+      "signature": "() -> None",
+      "docstring": "Reset the registry (for testing only).\n\nClears all registered providers and resets initialization state.",
+      "parameters": [
+        {
+          "name": "cls",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    }
+  ],
+  "bases": []
+}

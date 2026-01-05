@@ -1,0 +1,270 @@
+{
+  "name": "RealtimeVoice",
+  "module": "ai_infra.llm",
+  "docstring": "High-level facade for real-time voice conversations.\n\nAutomatically selects the best available provider based on environment\nconfiguration, or allows explicit provider selection.\n\nProvider Selection Order:\n    1. Explicit provider passed to constructor\n    2. REALTIME_VOICE_PROVIDER environment variable\n    3. First configured provider (OpenAI -> Gemini)\n\nAttributes:\n    config: The realtime configuration for voice sessions.\n    provider: The underlying realtime provider instance.\n\nExample:\n    >>> # Auto-select provider\n    >>> voice = RealtimeVoice()\n    >>>\n    >>> # Explicit provider\n    >>> voice = RealtimeVoice(provider=\"openai\")\n    >>>\n    >>> # Custom config\n    >>> config = RealtimeConfig(model=\"gpt-4o-realtime-preview\")\n    >>> voice = RealtimeVoice(config=config)",
+  "parameters": [
+    {
+      "name": "provider",
+      "type": "str | BaseRealtimeProvider | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "config",
+      "type": "RealtimeConfig | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    }
+  ],
+  "methods": [
+    {
+      "name": "__init__",
+      "signature": "(provider: str | BaseRealtimeProvider | None = None, config: RealtimeConfig | None = None) -> None",
+      "docstring": "Initialize RealtimeVoice with optional provider and config.\n\nArgs:\n    provider: Provider name (\"openai\", \"gemini\") or provider instance.\n             If None, auto-selects based on environment.\n    config: Configuration for the realtime session.\n           If None, uses default configuration.\n\nRaises:\n    RealtimeError: If no provider is configured or available.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "provider",
+          "type": "str | BaseRealtimeProvider | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "config",
+          "type": "RealtimeConfig | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "available_providers",
+      "signature": "() -> list[str]",
+      "docstring": "List all registered provider names.\n\nReturns:\n    List of provider names that have been registered.",
+      "parameters": [
+        {
+          "name": "cls",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "list[str]",
+      "is_async": false
+    },
+    {
+      "name": "configured_providers",
+      "signature": "() -> list[str]",
+      "docstring": "List providers that are configured (have API keys).\n\nReturns:\n    List of provider names that have valid configuration.",
+      "parameters": [
+        {
+          "name": "cls",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "list[str]",
+      "is_async": false
+    },
+    {
+      "name": "connect",
+      "signature": "()",
+      "docstring": "Connect to the realtime voice service.\n\nReturns an async context manager that yields a VoiceSession.\n\nExample:\n    >>> async with voice.connect() as session:\n    ...     await session.send_audio(audio_data)",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": null,
+      "is_async": false
+    },
+    {
+      "name": "on_audio",
+      "signature": "(callback: AudioCallback) -> AudioCallback",
+      "docstring": "Register a callback for audio output.\n\nArgs:\n    callback: Async function receiving audio bytes.\n\nReturns:\n    The callback (for use as decorator).\n\nExample:\n    >>> @voice.on_audio\n    >>> async def handle_audio(audio: bytes):\n    ...     play_audio(audio)",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "callback",
+          "type": "AudioCallback",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "AudioCallback",
+      "is_async": false
+    },
+    {
+      "name": "on_error",
+      "signature": "(callback: ErrorCallback) -> ErrorCallback",
+      "docstring": "Register a callback for errors.\n\nArgs:\n    callback: Async function receiving RealtimeError.\n\nReturns:\n    The callback (for use as decorator).",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "callback",
+          "type": "ErrorCallback",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "ErrorCallback",
+      "is_async": false
+    },
+    {
+      "name": "on_interrupted",
+      "signature": "(callback: InterruptedCallback) -> InterruptedCallback",
+      "docstring": "Register a callback for interruption events.\n\nArgs:\n    callback: Async function called when user interrupts.\n\nReturns:\n    The callback (for use as decorator).",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "callback",
+          "type": "InterruptedCallback",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "InterruptedCallback",
+      "is_async": false
+    },
+    {
+      "name": "on_tool_call",
+      "signature": "(callback: ToolCallCallback) -> ToolCallCallback",
+      "docstring": "Register a callback for tool/function calls.\n\nArgs:\n    callback: Async function receiving ToolCallRequest, returning result.\n\nReturns:\n    The callback (for use as decorator).\n\nExample:\n    >>> @voice.on_tool_call\n    >>> async def handle_tool(request: ToolCallRequest) -> Any:\n    ...     return execute_tool(request.name, request.arguments)",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "callback",
+          "type": "ToolCallCallback",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "ToolCallCallback",
+      "is_async": false
+    },
+    {
+      "name": "on_transcript",
+      "signature": "(callback: TranscriptCallback) -> TranscriptCallback",
+      "docstring": "Register a callback for transcript updates.\n\nArgs:\n    callback: Async function receiving (text, is_final).\n\nReturns:\n    The callback (for use as decorator).\n\nExample:\n    >>> @voice.on_transcript\n    >>> async def handle_transcript(text: str, is_final: bool):\n    ...     print(text)",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "callback",
+          "type": "TranscriptCallback",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "TranscriptCallback",
+      "is_async": false
+    },
+    {
+      "name": "register_provider",
+      "signature": "(name: str, provider_class: type[BaseRealtimeProvider]) -> None",
+      "docstring": "Register a provider class for auto-selection.\n\nThis is called by provider modules when they are imported.\n\nArgs:\n    name: Provider name (e.g., \"openai\", \"gemini\").\n    provider_class: The provider class to register.",
+      "parameters": [
+        {
+          "name": "cls",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "name",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "provider_class",
+          "type": "type[BaseRealtimeProvider]",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "run",
+      "signature": "(audio_stream: AsyncIterator[bytes]) -> AsyncIterator[AudioChunk | TranscriptDelta]",
+      "docstring": "Run a voice conversation with streaming input/output.\n\nThis is a convenience method that handles the connection\nlifecycle and streams results.\n\nArgs:\n    audio_stream: Async iterator of audio bytes from microphone.\n\nYields:\n    AudioChunk or TranscriptDelta events from the conversation.\n\nExample:\n    >>> async for event in voice.run(microphone_stream()):\n    ...     if isinstance(event, AudioChunk):\n    ...         play_audio(event.data)\n    ...     elif isinstance(event, TranscriptDelta):\n    ...         print(event.text)",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "audio_stream",
+          "type": "AsyncIterator[bytes]",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "AsyncIterator[AudioChunk | TranscriptDelta]",
+      "is_async": false
+    }
+  ],
+  "bases": []
+}

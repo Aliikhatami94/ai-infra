@@ -1,0 +1,86 @@
+{
+  "name": "Workspace",
+  "module": "ai_infra.llm",
+  "docstring": "Unified workspace configuration for all agent file operations.\n\nThe Workspace class provides a single way to configure how agents\ninteract with the filesystem. It bridges:\n- deepagents backends (for deep=True agents)\n- proj_mgmt tools (for regular agents with file tools)\n\nArgs:\n    root: The workspace root directory. Defaults to current directory.\n    mode: How the agent can access files:\n        - \"virtual\": In-memory only. Files don't persist. Safe for untrusted code.\n        - \"sandboxed\": Real filesystem, but confined to root. Recommended for most use.\n        - \"full\": Full filesystem access. Use only for trusted automation.\n\nExample - Local development (sandboxed to project):\n    ```python\n    agent = Agent(\n        deep=True,\n        workspace=Workspace(\".\", mode=\"sandboxed\"),\n    )\n    # Agent can read/write files in current directory only\n    ```\n\nExample - Cloud/untrusted (virtual filesystem):\n    ```python\n    agent = Agent(\n        deep=True,\n        workspace=Workspace(mode=\"virtual\"),\n    )\n    # Files exist only in memory, safe for untrusted prompts\n    ```\n\nExample - Trusted automation (full access):\n    ```python\n    agent = Agent(\n        deep=True,\n        workspace=Workspace(\"/\", mode=\"full\"),\n    )\n    # Agent has full filesystem access - use with caution!\n    ```",
+  "parameters": [
+    {
+      "name": "root",
+      "type": "str | Path",
+      "default": "'.'",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "mode",
+      "type": "WorkspaceMode",
+      "default": "'sandboxed'",
+      "description": null,
+      "required": false
+    }
+  ],
+  "methods": [
+    {
+      "name": "__init__",
+      "signature": "(root: str | Path = '.', mode: WorkspaceMode = 'sandboxed')",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "root",
+          "type": "str | Path",
+          "default": "'.'",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "mode",
+          "type": "WorkspaceMode",
+          "default": "'sandboxed'",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": null,
+      "is_async": false
+    },
+    {
+      "name": "configure_proj_mgmt",
+      "signature": "() -> None",
+      "docstring": "Configure proj_mgmt tools to use this workspace.\n\nSets the workspace root for file_read, file_write, files_list, etc.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "get_deepagent_backend",
+      "signature": "() -> BaseBackend",
+      "docstring": "Get the deepagents backend for this workspace.\n\nReturns:\n    Configured backend for use with create_deep_agent().\n\nSecurity Note:\n    The sandboxing is enforced by deepagents' FilesystemBackend.\n    For \"sandboxed\" mode, paths are validated to stay within root_dir.\n    For \"full\" mode, the agent has full filesystem access from root.\n\n    [!] If using \"full\" mode, the agent can access ANY file the process\n    can access. Only use with trusted inputs in controlled environments.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "BaseBackend",
+      "is_async": false
+    }
+  ],
+  "bases": []
+}

@@ -1,0 +1,91 @@
+{
+  "name": "ProgressStream",
+  "module": "ai_infra.tools",
+  "docstring": "Stream for sending progress updates from tools.\n\nThis class is injected into progress-enabled tools as the `stream` parameter.\nTools can call `await stream.update()` to send progress updates.\n\nExample:\n    ```python\n    @progress\n    async def my_tool(input: str, stream) -> str:\n        await stream.update(\"Starting...\", percent=0)\n        # ... do work ...\n        await stream.update(\"Halfway there!\", percent=50)\n        # ... more work ...\n        await stream.update(\"Done!\", percent=100)\n        return \"result\"\n    ```",
+  "parameters": [
+    {
+      "name": "tool_name",
+      "type": "str",
+      "default": null,
+      "description": null,
+      "required": true
+    },
+    {
+      "name": "callback",
+      "type": "Callable[[ProgressEvent], Any] | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    }
+  ],
+  "methods": [
+    {
+      "name": "__init__",
+      "signature": "(tool_name: str, callback: Callable[[ProgressEvent], Any] | None = None)",
+      "docstring": "Initialize a progress stream.\n\nArgs:\n    tool_name: Name of the tool this stream belongs to\n    callback: Function to call with progress events.\n        Can be sync or async.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "tool_name",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "callback",
+          "type": "Callable[[ProgressEvent], Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": null,
+      "is_async": false
+    },
+    {
+      "name": "update",
+      "signature": "(message: str, percent: int | None = None, data: Any | None = None) -> None",
+      "docstring": "Send a progress update.\n\nArgs:\n    message: Human-readable status message\n    percent: Optional progress percentage (0-100)\n    data: Optional structured data with additional info",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "message",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "percent",
+          "type": "int | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "data",
+          "type": "Any | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    }
+  ],
+  "bases": []
+}

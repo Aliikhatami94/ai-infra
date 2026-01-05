@@ -1,0 +1,65 @@
+{
+  "name": "ContainsExpected",
+  "module": "ai_infra.eval",
+  "docstring": "Check if output contains the expected output text.\n\nA simple evaluator that checks if the expected_output is contained\nwithin the output string (case-insensitive by default).\n\nArgs:\n    case_sensitive: If True, comparison is case-sensitive. Default: False.\n\nExample:\n    >>> from ai_infra.eval.evaluators import ContainsExpected\n    >>> from pydantic_evals import Case, Dataset\n    >>>\n    >>> dataset = Dataset(\n    ...     cases=[\n    ...         Case(inputs=\"capital of France\", expected_output=\"Paris\"),\n    ...     ],\n    ...     evaluators=[ContainsExpected()],\n    ... )\n\nReturns:\n    bool: True if expected_output is found in output",
+  "parameters": [
+    {
+      "name": "case_sensitive",
+      "type": "bool",
+      "default": "False",
+      "description": null,
+      "required": false
+    }
+  ],
+  "methods": [
+    {
+      "name": "__init__",
+      "signature": "(case_sensitive: bool = False) -> None",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "case_sensitive",
+          "type": "bool",
+          "default": "False",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "evaluate",
+      "signature": "(ctx: EvaluatorContext[str, str]) -> bool",
+      "docstring": "Check if output contains expected output.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "ctx",
+          "type": "EvaluatorContext[str, str]",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "bool",
+      "is_async": false
+    }
+  ],
+  "bases": [
+    "Evaluator[str, str]"
+  ]
+}

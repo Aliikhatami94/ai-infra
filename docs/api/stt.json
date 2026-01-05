@@ -1,0 +1,289 @@
+{
+  "name": "STT",
+  "module": "ai_infra.llm",
+  "docstring": "Speech-to-Text with provider-agnostic API.\n\nSupports OpenAI Whisper, Google Cloud Speech-to-Text, and Deepgram.\nAuto-detects provider based on available API keys if not specified.",
+  "parameters": [
+    {
+      "name": "provider",
+      "type": "str | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "model",
+      "type": "str | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "language",
+      "type": "str | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "api_key",
+      "type": "str | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    }
+  ],
+  "methods": [
+    {
+      "name": "__init__",
+      "signature": "(provider: str | None = None, model: str | None = None, language: str | None = None, api_key: str | None = None)",
+      "docstring": "Initialize STT.\n\nArgs:\n    provider: STT provider (\"openai\", \"google\", \"deepgram\").\n             Auto-detected if None.\n    model: Model name (provider-specific). Uses default if None.\n    language: Language code (e.g., \"en\", \"es\"). Auto-detect if None.\n    api_key: API key (uses environment variable if None).",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "provider",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "model",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "language",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "api_key",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": null,
+      "is_async": false
+    },
+    {
+      "name": "atranscribe",
+      "signature": "(audio: bytes | str | Path, language: str | None = None, timestamps: bool = False, word_timestamps: bool = False, prompt: str | None = None) -> TranscriptionResult",
+      "docstring": "Async version of transcribe().\n\nArgs:\n    audio: Audio data as bytes, file path, or URL.\n    language: Override language setting.\n    timestamps: Include segment timestamps.\n    word_timestamps: Include word-level timestamps (if supported).\n    prompt: Optional prompt to guide transcription.\n\nReturns:\n    TranscriptionResult with text and optional segments.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "audio",
+          "type": "bytes | str | Path",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "language",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "timestamps",
+          "type": "bool",
+          "default": "False",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "word_timestamps",
+          "type": "bool",
+          "default": "False",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "prompt",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "TranscriptionResult",
+      "is_async": false
+    },
+    {
+      "name": "list_models",
+      "signature": "(provider: str | None = None) -> list[dict[str, Any]]",
+      "docstring": "List available models for a provider.\n\nArgs:\n    provider: Provider name. If None, lists for all configured providers.\n\nReturns:\n    List of model info dicts.",
+      "parameters": [
+        {
+          "name": "provider",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "list[dict[str, Any]]",
+      "is_async": false
+    },
+    {
+      "name": "list_providers",
+      "signature": "() -> list[str]",
+      "docstring": "List configured STT providers.\n\nReturns:\n    List of provider names that have API keys configured.",
+      "parameters": [],
+      "returns": "list[str]",
+      "is_async": false
+    },
+    {
+      "name": "stream_transcribe",
+      "signature": "(audio_stream: Iterator[bytes], language: str | None = None) -> Iterator[str]",
+      "docstring": "Real-time transcription from audio stream.\n\nNote: Not all providers support streaming. Falls back to batched\ntranscription if streaming is not available.\n\nArgs:\n    audio_stream: Iterator yielding audio chunks.\n    language: Override language setting.\n\nYields:\n    Transcribed text segments as they become available.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "audio_stream",
+          "type": "Iterator[bytes]",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "language",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "Iterator[str]",
+      "is_async": false
+    },
+    {
+      "name": "transcribe",
+      "signature": "(audio: bytes | str | Path, language: str | None = None, timestamps: bool = False, word_timestamps: bool = False, prompt: str | None = None) -> TranscriptionResult",
+      "docstring": "Transcribe audio to text.\n\nArgs:\n    audio: Audio data as bytes, file path, or URL.\n    language: Override language setting.\n    timestamps: Include segment timestamps.\n    word_timestamps: Include word-level timestamps (if supported).\n    prompt: Optional prompt to guide transcription.\n\nReturns:\n    TranscriptionResult with text and optional segments.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "audio",
+          "type": "bytes | str | Path",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "language",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "timestamps",
+          "type": "bool",
+          "default": "False",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "word_timestamps",
+          "type": "bool",
+          "default": "False",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "prompt",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "TranscriptionResult",
+      "is_async": false
+    },
+    {
+      "name": "transcribe_file",
+      "signature": "(path: str | Path, language: str | None = None, timestamps: bool = False, word_timestamps: bool = False, prompt: str | None = None) -> TranscriptionResult",
+      "docstring": "Transcribe an audio file.\n\nArgs:\n    path: Path to audio file.\n    language: Override language setting.\n    timestamps: Include segment timestamps.\n    word_timestamps: Include word-level timestamps.\n    prompt: Optional prompt to guide transcription.\n\nReturns:\n    TranscriptionResult with text and optional segments.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "path",
+          "type": "str | Path",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "language",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "timestamps",
+          "type": "bool",
+          "default": "False",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "word_timestamps",
+          "type": "bool",
+          "default": "False",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "prompt",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "TranscriptionResult",
+      "is_async": false
+    }
+  ],
+  "bases": []
+}

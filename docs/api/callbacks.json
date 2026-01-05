@@ -1,0 +1,379 @@
+{
+  "name": "Callbacks",
+  "module": "ai_infra.callbacks",
+  "docstring": "Base class for callback handlers.\n\nOverride methods to receive events. All methods have default no-op\nimplementations, so you only need to override the ones you care about.\n\nExample:\n    class MetricsCallbacks(Callbacks):\n        def __init__(self):\n            self.total_tokens = 0\n            self.call_count = 0\n\n        def on_llm_end(self, event: LLMEndEvent):\n            self.call_count += 1\n            if event.total_tokens:\n                self.total_tokens += event.total_tokens",
+  "parameters": [],
+  "methods": [
+    {
+      "name": "on_graph_node_end",
+      "signature": "(event: GraphNodeEndEvent) -> None",
+      "docstring": "Called when graph node execution completes.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "event",
+          "type": "GraphNodeEndEvent",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "on_graph_node_error",
+      "signature": "(event: GraphNodeErrorEvent) -> None",
+      "docstring": "Called when graph node execution fails.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "event",
+          "type": "GraphNodeErrorEvent",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "on_graph_node_start",
+      "signature": "(event: GraphNodeStartEvent) -> None",
+      "docstring": "Called when graph node execution starts.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "event",
+          "type": "GraphNodeStartEvent",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "on_llm_end",
+      "signature": "(event: LLMEndEvent) -> None",
+      "docstring": "Called when LLM call completes.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "event",
+          "type": "LLMEndEvent",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "on_llm_error",
+      "signature": "(event: LLMErrorEvent) -> None",
+      "docstring": "Called when LLM call fails.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "event",
+          "type": "LLMErrorEvent",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "on_llm_start",
+      "signature": "(event: LLMStartEvent) -> None",
+      "docstring": "Called when LLM call starts.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "event",
+          "type": "LLMStartEvent",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "on_llm_token",
+      "signature": "(event: LLMTokenEvent) -> None",
+      "docstring": "Called for each streaming token.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "event",
+          "type": "LLMTokenEvent",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "on_mcp_connect",
+      "signature": "(event: MCPConnectEvent) -> None",
+      "docstring": "Called when MCP server connects.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "event",
+          "type": "MCPConnectEvent",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "on_mcp_disconnect",
+      "signature": "(event: MCPDisconnectEvent) -> None",
+      "docstring": "Called when MCP server disconnects.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "event",
+          "type": "MCPDisconnectEvent",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "on_mcp_logging",
+      "signature": "(event: MCPLoggingEvent) -> None",
+      "docstring": "Called when MCP server sends log message.\n\nOverride this for sync callbacks. For async callbacks,\noverride on_mcp_logging_async instead.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "event",
+          "type": "MCPLoggingEvent",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "on_mcp_logging_async",
+      "signature": "(event: MCPLoggingEvent) -> None",
+      "docstring": "Async version of on_mcp_logging.\n\nCalled during async MCP operations. Default implementation\ncalls the sync version.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "event",
+          "type": "MCPLoggingEvent",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "on_mcp_progress",
+      "signature": "(event: MCPProgressEvent) -> None",
+      "docstring": "Called when MCP tool reports progress.\n\nOverride this for sync callbacks. For async callbacks,\noverride on_mcp_progress_async instead.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "event",
+          "type": "MCPProgressEvent",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "on_mcp_progress_async",
+      "signature": "(event: MCPProgressEvent) -> None",
+      "docstring": "Async version of on_mcp_progress.\n\nCalled during async MCP operations. Default implementation\ncalls the sync version.\n\nExample:\n    class MyCallbacks(Callbacks):\n        async def on_mcp_progress_async(self, event):\n            await notify_user(f\"Progress: {event.progress:.0%}\")",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "event",
+          "type": "MCPProgressEvent",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "on_tool_end",
+      "signature": "(event: ToolEndEvent) -> None",
+      "docstring": "Called when tool execution completes.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "event",
+          "type": "ToolEndEvent",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "on_tool_error",
+      "signature": "(event: ToolErrorEvent) -> None",
+      "docstring": "Called when tool execution fails.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "event",
+          "type": "ToolErrorEvent",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "on_tool_start",
+      "signature": "(event: ToolStartEvent) -> None",
+      "docstring": "Called when tool execution starts.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "event",
+          "type": "ToolStartEvent",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    }
+  ],
+  "bases": [
+    "ABC"
+  ]
+}

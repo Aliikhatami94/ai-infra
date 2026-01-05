@@ -1,0 +1,251 @@
+{
+  "name": "Persona",
+  "module": "ai_infra.llm.personas",
+  "docstring": "Agent persona configuration.\n\nDefines agent behavior, allowed tools, and safety constraints\nin a declarative format.\n\nAttributes:\n    name: Persona identifier for logging/debugging\n    prompt: System prompt defining agent behavior\n    tools: List of allowed tool names (whitelist)\n    deny: List of blocked tool names (blacklist)\n    approve: List of tools requiring HITL approval\n    provider: Override default LLM provider\n    model_name: Override default model\n    temperature: Override temperature setting\n    max_tokens: Override max tokens setting\n    metadata: Additional arbitrary metadata\n\nExample YAML:\n    ```yaml\n    name: analyst\n    prompt: |\n      You are a senior data analyst.\n      Always verify data accuracy before making claims.\n\n    tools:\n      - query_database\n      - create_chart\n\n    deny:\n      - delete_record\n      - drop_table\n\n    approve:\n      - send_email\n      - publish_report\n\n    temperature: 0.3\n    max_tokens: 4000\n    ```",
+  "parameters": [
+    {
+      "name": "name",
+      "type": "str",
+      "default": null,
+      "description": null,
+      "required": true
+    },
+    {
+      "name": "prompt",
+      "type": "str",
+      "default": "''",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "tools",
+      "type": "list[str] | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "deny",
+      "type": "list[str] | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "approve",
+      "type": "list[str] | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "provider",
+      "type": "str | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "model_name",
+      "type": "str | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "temperature",
+      "type": "float | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "max_tokens",
+      "type": "int | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "metadata",
+      "type": "dict[str, Any]",
+      "default": "dict()",
+      "description": null,
+      "required": false
+    }
+  ],
+  "methods": [
+    {
+      "name": "__init__",
+      "signature": "(name: str, prompt: str = '', tools: list[str] | None = None, deny: list[str] | None = None, approve: list[str] | None = None, provider: str | None = None, model_name: str | None = None, temperature: float | None = None, max_tokens: int | None = None, metadata: dict[str, Any] = dict()) -> None",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "name",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "prompt",
+          "type": "str",
+          "default": "''",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "tools",
+          "type": "list[str] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "deny",
+          "type": "list[str] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "approve",
+          "type": "list[str] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "provider",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "model_name",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "temperature",
+          "type": "float | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "max_tokens",
+          "type": "int | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "metadata",
+          "type": "dict[str, Any]",
+          "default": "dict()",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "from_dict",
+      "signature": "(data: dict[str, Any]) -> Persona",
+      "docstring": "Create persona from dictionary.\n\nArgs:\n    data: Dictionary with persona configuration\n\nReturns:\n    Persona instance",
+      "parameters": [
+        {
+          "name": "cls",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "data",
+          "type": "dict[str, Any]",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "Persona",
+      "is_async": false
+    },
+    {
+      "name": "from_yaml",
+      "signature": "(path: str | Path) -> Persona",
+      "docstring": "Load persona from a YAML file.\n\nArgs:\n    path: Path to YAML file\n\nReturns:\n    Persona instance\n\nRaises:\n    FileNotFoundError: If file doesn't exist\n    yaml.YAMLError: If YAML is invalid\n    ValueError: If required fields are missing",
+      "parameters": [
+        {
+          "name": "cls",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "path",
+          "type": "str | Path",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "Persona",
+      "is_async": false
+    },
+    {
+      "name": "save_yaml",
+      "signature": "(path: str | Path) -> None",
+      "docstring": "Save persona to YAML file.\n\nArgs:\n    path: Path to save to",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "path",
+          "type": "str | Path",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "to_dict",
+      "signature": "() -> dict[str, Any]",
+      "docstring": "Convert persona to dictionary (for serialization).\n\nReturns:\n    Dictionary representation",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "dict[str, Any]",
+      "is_async": false
+    }
+  ],
+  "bases": []
+}

@@ -1,0 +1,151 @@
+{
+  "name": "MetricsCallbacks",
+  "module": "ai_infra.callbacks",
+  "docstring": "Callback that collects metrics about operations.",
+  "parameters": [],
+  "methods": [
+    {
+      "name": "__init__",
+      "signature": "() -> None",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "get_summary",
+      "signature": "() -> dict[str, Any]",
+      "docstring": "Get summary of collected metrics.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "dict[str, Any]",
+      "is_async": false
+    },
+    {
+      "name": "on_llm_end",
+      "signature": "(event: LLMEndEvent) -> None",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "event",
+          "type": "LLMEndEvent",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "on_llm_error",
+      "signature": "(event: LLMErrorEvent) -> None",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "event",
+          "type": "LLMErrorEvent",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "on_tool_end",
+      "signature": "(event: ToolEndEvent) -> None",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "event",
+          "type": "ToolEndEvent",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "on_tool_error",
+      "signature": "(event: ToolErrorEvent) -> None",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "event",
+          "type": "ToolErrorEvent",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "reset",
+      "signature": "() -> None",
+      "docstring": "Reset all metrics.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    }
+  ],
+  "bases": [
+    "Callbacks"
+  ]
+}

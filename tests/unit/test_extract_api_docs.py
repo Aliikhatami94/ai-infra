@@ -7,6 +7,8 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import griffe
+
 # Add scripts directory to path for importing
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "scripts"))
 
@@ -14,9 +16,38 @@ from extract_api_docs import (
     extract_class,
     extract_function,
     extract_parameter,
-    load_class,
+    resolve_alias_recursively,
     resolve_member,
 )
+
+
+def load_class_via_griffe(class_path: str, search_paths: list[Path]) -> griffe.Class | None:
+    """Helper to load a class using griffe (replaces old load_class)."""
+    parts = class_path.rsplit(".", 1)
+    if len(parts) != 2:
+        return None
+
+    module_path, class_name = parts
+
+    try:
+        loader = griffe.GriffeLoader(search_paths=search_paths)
+        module = loader.load(module_path)
+
+        if class_name in module.classes:
+            cls = module.classes[class_name]
+            if isinstance(cls, griffe.Alias):
+                return resolve_alias_recursively(cls, loader)
+            return cls
+        elif class_name in module.members:
+            member = module.members[class_name]
+            if isinstance(member, griffe.Alias):
+                return resolve_alias_recursively(member, loader)
+            if isinstance(member, griffe.Class):
+                return member
+    except Exception:
+        pass
+
+    return None
 
 
 class TestExtractParameter:
@@ -359,12 +390,12 @@ class TestResolveMember:
 
 
 class TestLoadClass:
-    """Tests for load_class function."""
+    """Tests for loading classes via griffe."""
 
     def test_load_valid_class(self) -> None:
         """Test loading a valid class from ai_infra."""
         search_paths = [Path(__file__).parent.parent.parent / "src"]
-        cls = load_class("ai_infra.llm.LLM", search_paths)
+        cls = load_class_via_griffe("ai_infra.llm.llm.LLM", search_paths)
 
         assert cls is not None
         assert cls.name == "LLM"
@@ -372,14 +403,14 @@ class TestLoadClass:
     def test_load_invalid_class_path(self) -> None:
         """Test loading with invalid class path format."""
         search_paths = [Path(__file__).parent.parent.parent / "src"]
-        cls = load_class("invalid_path", search_paths)
+        cls = load_class_via_griffe("invalid_path", search_paths)
 
         assert cls is None
 
     def test_load_nonexistent_class(self) -> None:
         """Test loading a class that doesn't exist."""
         search_paths = [Path(__file__).parent.parent.parent / "src"]
-        cls = load_class("ai_infra.llm.NonExistent", search_paths)
+        cls = load_class_via_griffe("ai_infra.llm.NonExistent", search_paths)
 
         assert cls is None
 
@@ -390,7 +421,7 @@ class TestIntegration:
     def test_full_extraction_llm_class(self) -> None:
         """Test full extraction of LLM class."""
         search_paths = [Path(__file__).parent.parent.parent / "src"]
-        cls = load_class("ai_infra.llm.LLM", search_paths)
+        cls = load_class_via_griffe("ai_infra.llm.llm.LLM", search_paths)
 
         assert cls is not None
 
@@ -410,7 +441,7 @@ class TestIntegration:
     def test_json_serializable(self) -> None:
         """Test that extracted data is JSON serializable."""
         search_paths = [Path(__file__).parent.parent.parent / "src"]
-        cls = load_class("ai_infra.llm.LLM", search_paths)
+        cls = load_class_via_griffe("ai_infra.llm.llm.LLM", search_paths)
 
         assert cls is not None
 
@@ -427,7 +458,7 @@ class TestIntegration:
     def test_extraction_to_file(self, tmp_path: Path) -> None:
         """Test extraction writes valid JSON file."""
         search_paths = [Path(__file__).parent.parent.parent / "src"]
-        cls = load_class("ai_infra.llm.LLM", search_paths)
+        cls = load_class_via_griffe("ai_infra.llm.llm.LLM", search_paths)
 
         assert cls is not None
 

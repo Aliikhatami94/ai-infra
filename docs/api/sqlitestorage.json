@@ -1,0 +1,173 @@
+{
+  "name": "SQLiteStorage",
+  "module": "ai_infra.replay",
+  "docstring": "SQLite-based storage backend.\n\nPersists recordings to a local SQLite database file.\n\nExample:\n    ```python\n    storage = SQLiteStorage(\"workflows.db\")\n    recorder = WorkflowRecorder(\"test\", storage)\n    ```",
+  "parameters": [
+    {
+      "name": "db_path",
+      "type": "str | Path",
+      "default": "'workflows.db'",
+      "description": null,
+      "required": false
+    }
+  ],
+  "methods": [
+    {
+      "name": "__init__",
+      "signature": "(db_path: str | Path = 'workflows.db')",
+      "docstring": "Initialize SQLite storage.\n\nArgs:\n    db_path: Path to SQLite database file",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "db_path",
+          "type": "str | Path",
+          "default": "'workflows.db'",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": null,
+      "is_async": false
+    },
+    {
+      "name": "close",
+      "signature": "() -> None",
+      "docstring": "Close database connection.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "delete",
+      "signature": "(record_id: str) -> bool",
+      "docstring": "Delete recording from SQLite.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "record_id",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "bool",
+      "is_async": false
+    },
+    {
+      "name": "exists",
+      "signature": "(record_id: str) -> bool",
+      "docstring": "Check if recording exists in SQLite.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "record_id",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "bool",
+      "is_async": false
+    },
+    {
+      "name": "list_recordings",
+      "signature": "() -> list[str]",
+      "docstring": "List all recording IDs.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "list[str]",
+      "is_async": false
+    },
+    {
+      "name": "load",
+      "signature": "(record_id: str) -> list[WorkflowStep] | None",
+      "docstring": "Load workflow from SQLite.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "record_id",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "list[WorkflowStep] | None",
+      "is_async": false
+    },
+    {
+      "name": "save",
+      "signature": "(record_id: str, steps: list[WorkflowStep]) -> None",
+      "docstring": "Save workflow to SQLite.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "record_id",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "steps",
+          "type": "list[WorkflowStep]",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    }
+  ],
+  "bases": [
+    "Storage"
+  ]
+}

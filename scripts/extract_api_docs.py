@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 """Extract API documentation from Python source code using griffe.
 
-This script parses Python modules and extracts docstrings, signatures,
-parameters, and methods into JSON format for rendering in nfrax-web.
+This script automatically discovers all public classes exported from
+ai_infra/__init__.py and extracts docstrings, signatures, parameters,
+and methods into JSON format for rendering in nfrax-web.
 
 Usage:
-    python scripts/extract_api_docs.py [--output-dir docs/api] [--classes LLM,Agent]
+    python scripts/extract_api_docs.py [--output-dir docs/api]
 
 Output:
     docs/api/<classname>.json for each extracted class
@@ -20,7 +21,52 @@ from pathlib import Path
 from typing import Any
 
 import griffe
-from griffe import Alias, Class, Function, Parameter
+from griffe import Alias, Class, Function, Module, Parameter
+
+
+def resolve_alias_recursively(
+    alias: Alias, loader: griffe.GriffeLoader, max_depth: int = 10
+) -> Class | None:
+    """Recursively resolve an alias to find the actual Class definition.
+
+    Follows the alias chain through multiple modules until a Class is found.
+    """
+    if max_depth <= 0:
+        return None
+
+    if not hasattr(alias, "target_path"):
+        return None
+
+    target_path = str(alias.target_path)
+    parts = target_path.rsplit(".", 1)
+    if len(parts) != 2:
+        return None
+
+    module_path, class_name = parts
+
+    try:
+        target_module = loader.load(module_path)
+    except Exception:
+        return None
+
+    # First check in classes dict
+    if class_name in target_module.classes:
+        cls = target_module.classes[class_name]
+        # It might still be an alias, need to keep resolving
+        if isinstance(cls, Alias):
+            return resolve_alias_recursively(cls, loader, max_depth - 1)
+        if isinstance(cls, Class):
+            return cls
+
+    # Then check in members
+    if class_name in target_module.members:
+        member = target_module.members[class_name]
+        if isinstance(member, Class):
+            return member
+        if isinstance(member, Alias):
+            return resolve_alias_recursively(member, loader, max_depth - 1)
+
+    return None
 
 
 def resolve_member(member: Any) -> Function | Class | None:
@@ -33,21 +79,174 @@ def resolve_member(member: Any) -> Function | Class | None:
     return member
 
 
-# Core classes to extract (public API)
-DEFAULT_CLASSES = [
-    "ai_infra.llm.LLM",
-    "ai_infra.llm.Agent",
-    "ai_infra.embeddings.Embeddings",
-    "ai_infra.retriever.Retriever",
-    "ai_infra.graph.Graph",
-    "ai_infra.mcp.MCPClient",
-    "ai_infra.mcp.server.MCPServer",
-    "ai_infra.imagegen.ImageGen",
-    # Evaluators (ai-infra native)
-    "ai_infra.eval.SemanticSimilarity",
-    "ai_infra.eval.ToolUsageEvaluator",
-    "ai_infra.eval.RAGFaithfulness",
-]
+def discover_classes_from_submodule(
+    module: Module, loader: griffe.GriffeLoader, module_path: str
+) -> list[tuple[str, Class, str]]:
+    """Discover public classes from a submodule's __all__ or public members."""
+    classes = []
+
+    # Try to get __all__ list
+    all_exports = []
+    if "__all__" in module.members:
+        try:
+            all_member = module.members["__all__"]
+            if hasattr(all_member, "value"):
+                import ast
+
+                try:
+                    all_exports = ast.literal_eval(str(all_member.value))
+                except (ValueError, SyntaxError):
+                    all_exports = []
+        except Exception:
+            pass
+
+    # If no __all__, use public members
+    if not all_exports:
+        all_exports = [n for n in module.members.keys() if not n.startswith("_")]
+
+    for name in all_exports:
+        if name.startswith("_"):
+            continue
+
+        member = module.members.get(name)
+        if member is None:
+            continue
+
+        resolved = None
+        full_path = f"{module_path}.{name}"
+
+        if isinstance(member, Alias):
+            resolved = resolve_alias_recursively(member, loader)
+            if resolved and hasattr(member, "target_path"):
+                full_path = str(member.target_path)
+        elif isinstance(member, Class):
+            resolved = member
+
+        if isinstance(resolved, Class):
+            classes.append((full_path, resolved, name))
+
+    return classes
+
+
+def discover_exported_classes(
+    module: Module, loader: griffe.GriffeLoader, package_name: str
+) -> list[tuple[str, Class, str]]:
+    """Discover all public classes exported from a module.
+
+    Uses __all__ from the module and resolves each class through griffe.
+    Returns list of (fully_qualified_path, Class, export_name) tuples.
+    """
+    classes = []
+
+    # First, try to get the __all__ list
+    all_exports = []
+    if "__all__" in module.members:
+        try:
+            all_member = module.members["__all__"]
+            # __all__ is stored as an Attribute with value
+            if hasattr(all_member, "value"):
+                # Parse the value expression to get list items
+                import ast
+
+                try:
+                    all_exports = ast.literal_eval(str(all_member.value))
+                except (ValueError, SyntaxError):
+                    all_exports = []
+        except Exception:
+            pass
+
+    # If no __all__, fall back to module.members
+    if not all_exports:
+        all_exports = [n for n in module.members.keys() if not n.startswith("_")]
+
+    for name in all_exports:
+        if name.startswith("_"):
+            continue
+
+        resolved = None
+        full_path = f"{package_name}.{name}"
+
+        # Try to get from module.members first
+        if name in module.members:
+            member = module.members[name]
+
+            if isinstance(member, Alias):
+                # Use recursive resolver for aliases
+                resolved = resolve_alias_recursively(member, loader)
+                if resolved and hasattr(member, "target_path"):
+                    full_path = str(member.target_path)
+            elif isinstance(member, Class):
+                resolved = member
+
+        if isinstance(resolved, Class):
+            classes.append((full_path, resolved, name))
+
+    return classes
+
+
+# Classes to skip (base classes, internal types, dataclasses without methods)
+SKIP_CLASSES = {
+    # Event dataclasses (too many, not user-facing)
+    "LLMStartEvent",
+    "LLMEndEvent",
+    "LLMErrorEvent",
+    "LLMTokenEvent",
+    "ToolStartEvent",
+    "ToolEndEvent",
+    "ToolErrorEvent",
+    "MCPConnectEvent",
+    "MCPDisconnectEvent",
+    "MCPProgressEvent",
+    "MCPLoggingEvent",
+    "GraphNodeStartEvent",
+    "GraphNodeEndEvent",
+    "GraphNodeErrorEvent",
+    # Error classes (standard exception pattern)
+    "AIInfraError",
+    "ProviderError",
+    "MCPError",
+    "OpenAPIError",
+    "ValidationError",
+    "ConfigurationError",
+    # Simple dataclasses/types
+    "Document",
+    "SearchResult",
+    "RetrieverSearchResult",
+    "RetrieverChunk",
+    "AudioFormat",
+    "AudioResponse",
+    "TranscriptionResult",
+    "Voice",
+    "VADMode",
+    "GeneratedImage",
+    "ImageGenProvider",
+    "StreamConfig",
+    "StreamEvent",
+    "ProgressEvent",
+    "MCPResource",
+    "MCPToolCallRequest",
+    "PromptInfo",
+    "ResourceInfo",
+    "ProviderCapability",
+    "ProviderConfig",
+    "CapabilityConfig",
+    "ContextResult",
+    "MemoryItem",
+    "Case",
+    "Dataset",
+    "EvaluationReport",
+    "EvaluatorContext",
+    "IsInstance",
+    # Re-exported from pydantic-evals (not our classes)
+    "Evaluator",
+}
+
+# Additional submodules to scan (not needed for ai-infra, exports classes directly)
+ADDITIONAL_SUBMODULES: list[str] = []
+
+
+# Minimum methods to be considered worth documenting
+MIN_METHODS = 1
 
 
 def extract_parameter(param: Parameter) -> dict[str, Any]:
@@ -131,35 +330,6 @@ def extract_class(cls: Class, module_path: str) -> dict[str, Any]:
     }
 
 
-def load_class(class_path: str, search_paths: list[Path]) -> Class | None:
-    """Load a class from a module path like 'ai_infra.llm.LLM'."""
-    parts = class_path.rsplit(".", 1)
-    if len(parts) != 2:
-        print(f"Invalid class path: {class_path}", file=sys.stderr)
-        return None
-
-    module_path, class_name = parts
-
-    try:
-        loader = griffe.GriffeLoader(search_paths=search_paths)
-        module = loader.load(module_path)
-
-        if class_name in module.classes:
-            return module.classes[class_name]
-
-        # Check if it's in a submodule
-        for submodule in module.modules.values():
-            if class_name in submodule.classes:
-                return submodule.classes[class_name]
-
-        print(f"Class {class_name} not found in {module_path}", file=sys.stderr)
-        return None
-
-    except Exception as e:
-        print(f"Error loading {class_path}: {e}", file=sys.stderr)
-        return None
-
-
 def main() -> int:
     """Main entry point."""
     parser = argparse.ArgumentParser(description="Extract API documentation from Python source")
@@ -170,25 +340,19 @@ def main() -> int:
         help="Output directory for JSON files",
     )
     parser.add_argument(
-        "--classes",
-        type=str,
-        default=None,
-        help="Comma-separated list of classes to extract (e.g., ai_infra.llm.LLM)",
-    )
-    parser.add_argument(
         "--src-dir",
         type=Path,
         default=Path("src"),
         help="Source directory to search for modules",
     )
+    parser.add_argument(
+        "--package",
+        type=str,
+        default="ai_infra",
+        help="Package to discover classes from (default: ai_infra)",
+    )
 
     args = parser.parse_args()
-
-    # Determine which classes to extract
-    if args.classes:
-        class_paths = [c.strip() for c in args.classes.split(",")]
-    else:
-        class_paths = DEFAULT_CLASSES
 
     # Ensure output directory exists
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -196,14 +360,55 @@ def main() -> int:
     # Search paths for griffe
     search_paths = [args.src_dir]
 
+    # Load the main package module to discover exports
+    try:
+        loader = griffe.GriffeLoader(search_paths=search_paths)
+        package = loader.load(args.package)
+    except Exception as e:
+        print(f"Error loading package {args.package}: {e}", file=sys.stderr)
+        return 1
+
+    # Discover all exported classes from main package
+    discovered = discover_exported_classes(package, loader, args.package)
+
+    # Also scan additional submodules for packages with nested structure
+    for submodule_path in ADDITIONAL_SUBMODULES:
+        try:
+            submodule = loader.load(submodule_path)
+            subclasses = discover_classes_from_submodule(submodule, loader, submodule_path)
+            discovered.extend(subclasses)
+        except Exception:
+            pass  # Submodule may not exist
+
+    # Deduplicate by class name (same class may be exported from multiple places)
+    seen_names = set()
+    unique_discovered = []
+    for item in discovered:
+        if item[2] not in seen_names:  # item[2] is export_name
+            seen_names.add(item[2])
+            unique_discovered.append(item)
+    discovered = unique_discovered
+
+    print(f"Discovered {len(discovered)} exported classes from {args.package}")
+
     extracted_count = 0
-    for class_path in class_paths:
-        cls = load_class(class_path, search_paths)
-        if cls is None:
+    skipped_count = 0
+
+    for full_path, cls, export_name in discovered:
+        # Skip classes in the skip list
+        if export_name in SKIP_CLASSES:
+            skipped_count += 1
             continue
 
-        module_path = class_path.rsplit(".", 1)[0]
+        # Extract class info
+        module_path = full_path.rsplit(".", 1)[0] if "." in full_path else args.package
         data = extract_class(cls, module_path)
+
+        # Skip classes with too few methods (likely just dataclasses)
+        public_methods = [m for m in data["methods"] if m["name"] != "__init__"]
+        if len(public_methods) < MIN_METHODS:
+            skipped_count += 1
+            continue
 
         # Write to JSON file (with trailing newline for pre-commit compatibility)
         output_file = args.output_dir / f"{cls.name.lower()}.json"
@@ -211,10 +416,10 @@ def main() -> int:
             json.dump(data, f, indent=2)
             f.write("\n")
 
-        print(f"Extracted {class_path} -> {output_file}")
+        print(f"  Extracted {export_name} ({len(public_methods)} methods) -> {output_file}")
         extracted_count += 1
 
-    print(f"\nExtracted {extracted_count}/{len(class_paths)} classes")
+    print(f"\nExtracted {extracted_count} classes, skipped {skipped_count}")
     return 0 if extracted_count > 0 else 1
 
 
