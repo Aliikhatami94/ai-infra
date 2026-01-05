@@ -1,0 +1,107 @@
+{
+  "name": "ToolUsageEvaluator",
+  "module": "ai_infra.eval",
+  "docstring": "Evaluate that an agent called expected tools.\n\nUses span-based evaluation with OpenTelemetry to check which tools\nwere called during agent execution.\n\nArgs:\n    expected_tools: List of tool names that should have been called.\n    forbidden_tools: List of tool names that should NOT have been called.\n    require_all: If True, all expected_tools must be called. If False,\n        at least one must be called. Default: True.\n    check_order: If True, expected_tools must be called in order.\n        Default: False.\n\nExample:\n    >>> from ai_infra.eval.evaluators import ToolUsageEvaluator\n    >>> from pydantic_evals import Case, Dataset\n    >>>\n    >>> dataset = Dataset(\n    ...     cases=[Case(inputs=\"What's the weather?\")],\n    ...     evaluators=[\n    ...         ToolUsageEvaluator(\n    ...             expected_tools=[\"get_weather\"],\n    ...             forbidden_tools=[\"delete_data\"],\n    ...         ),\n    ...     ],\n    ... )\n\nReturns:\n    dict with:\n    - called_expected: bool (True if expected tools were called)\n    - avoided_forbidden: bool (True if forbidden tools were avoided)\n    - tools_called: list of tool names that were called",
+  "parameters": [
+    {
+      "name": "expected_tools",
+      "type": "list[str]",
+      "default": "list()",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "forbidden_tools",
+      "type": "list[str]",
+      "default": "list()",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "require_all",
+      "type": "bool",
+      "default": "True",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "check_order",
+      "type": "bool",
+      "default": "False",
+      "description": null,
+      "required": false
+    }
+  ],
+  "methods": [
+    {
+      "name": "__init__",
+      "signature": "(expected_tools: list[str] = list(), forbidden_tools: list[str] = list(), require_all: bool = True, check_order: bool = False) -> None",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "expected_tools",
+          "type": "list[str]",
+          "default": "list()",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "forbidden_tools",
+          "type": "list[str]",
+          "default": "list()",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "require_all",
+          "type": "bool",
+          "default": "True",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "check_order",
+          "type": "bool",
+          "default": "False",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "evaluate",
+      "signature": "(ctx: EvaluatorContext[Any, Any]) -> EvaluatorOutput",
+      "docstring": "Evaluate tool usage from span tree.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "ctx",
+          "type": "EvaluatorContext[Any, Any]",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "EvaluatorOutput",
+      "is_async": false
+    }
+  ],
+  "bases": [
+    "Evaluator[Any, Any]"
+  ]
+}

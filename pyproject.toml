@@ -53,6 +53,9 @@ langchain-google-genai = { version = ">=3.0.0", optional = true }
 # MCP integration
 mcp = {extras = ["cli"], version = ">=1.0.0"}
 
+# Evaluation framework (Phase 11)
+pydantic-evals = ">=0.1.0"
+
 # Raw provider SDKs for models.list() discovery
 google-genai = { version = ">=1.0.0", optional = true }
 
@@ -109,7 +112,7 @@ python-semantic-release = ">=9.0.0"
 # Documentation
 mkdocs = ">=1.6.0"
 mkdocs-material = ">=9.5.0"
-mkdocstrings = {extras = ["python"], version = ">=0.25.0"}
+griffe = ">=1.0.0"  # For API docs extraction script
 
 [tool.poetry.scripts]
 ai-infra = "ai_infra.cli:main"

@@ -1,0 +1,717 @@
+{
+  "name": "MCPServer",
+  "module": "ai_infra.mcp.server",
+  "docstring": "MCP Server for hosting one or more MCP endpoints.",
+  "parameters": [
+    {
+      "name": "strict",
+      "type": "bool",
+      "default": "True",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "health_path",
+      "type": "str",
+      "default": "'/health'",
+      "description": null,
+      "required": false
+    }
+  ],
+  "methods": [
+    {
+      "name": "__init__",
+      "signature": "(strict: bool = True, health_path: str = '/health') -> None",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "strict",
+          "type": "bool",
+          "default": "True",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "health_path",
+          "type": "str",
+          "default": "'/health'",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "add",
+      "signature": "(mounts: MCPMount = ()) -> MCPServer",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "mounts",
+          "type": "MCPMount",
+          "default": "()",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "MCPServer",
+      "is_async": false
+    },
+    {
+      "name": "add_app",
+      "signature": "(path: str, app: Any, name: str | None = None, session_manager: Any | None = None, require_manager: bool | None = None, async_cleanup: Callable[[], Awaitable[None]] | None = None) -> MCPServer",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "path",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "app",
+          "type": "Any",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "session_manager",
+          "type": "Any | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "require_manager",
+          "type": "bool | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "async_cleanup",
+          "type": "Callable[[], Awaitable[None]] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "MCPServer",
+      "is_async": false
+    },
+    {
+      "name": "add_fastapi",
+      "signature": "(path: str, app: Any | None = None, base_url: str | None = None, name: str | None = None, transport: str = 'streamable_http', spec: dict | str | Path | None = None, openapi_url: str = '/openapi.json', client: httpx.AsyncClient | None = None, client_factory: Callable[[], httpx.AsyncClient] | None = None, headers: dict[str, str] | None = None, timeout: float | httpx.Timeout | None = 30.0, verify: bool | str | None = True, auth: httpx.Auth | tuple[str, str] | None = None) -> MCPServer",
+      "docstring": "Convert a FastAPI app (local) or a remote FastAPI service into an MCP server.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "path",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "app",
+          "type": "Any | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "base_url",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "name",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "transport",
+          "type": "str",
+          "default": "'streamable_http'",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "spec",
+          "type": "dict | str | Path | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "openapi_url",
+          "type": "str",
+          "default": "'/openapi.json'",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "client",
+          "type": "httpx.AsyncClient | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "client_factory",
+          "type": "Callable[[], httpx.AsyncClient] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "headers",
+          "type": "dict[str, str] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "timeout",
+          "type": "float | httpx.Timeout | None",
+          "default": "30.0",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "verify",
+          "type": "bool | str | None",
+          "default": "True",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "auth",
+          "type": "httpx.Auth | tuple[str, str] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "MCPServer",
+      "is_async": false
+    },
+    {
+      "name": "add_fastmcp",
+      "signature": "(mcp: Any, path: str, transport: str = 'streamable_http', name: str | None = None, require_manager: bool | None = None, async_cleanup: Callable[[], Awaitable[None]] | None = None) -> MCPServer",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "mcp",
+          "type": "Any",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "path",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "transport",
+          "type": "str",
+          "default": "'streamable_http'",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "name",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "require_manager",
+          "type": "bool | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "async_cleanup",
+          "type": "Callable[[], Awaitable[None]] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "MCPServer",
+      "is_async": false
+    },
+    {
+      "name": "add_from_module",
+      "signature": "(module_path: str, path: str, attr: str | None = None, transport: str | None = None, name: str | None = None, require_manager: bool | None = None) -> MCPServer",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "module_path",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "path",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "attr",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "transport",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "name",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "require_manager",
+          "type": "bool | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "MCPServer",
+      "is_async": false
+    },
+    {
+      "name": "add_openapi",
+      "signature": "(path: str, spec: dict | str | Path, transport: str = 'streamable_http', client: httpx.AsyncClient | None = None, client_factory: Callable[[], httpx.AsyncClient] | None = None, base_url: str | None = None, name: str | None = None, report_log: bool | None = None, strict_names: bool = False, tool_prefix: str | None = None, include_paths: list[str] | None = None, exclude_paths: list[str] | None = None, include_methods: list[str] | None = None, exclude_methods: list[str] | None = None, include_tags: list[str] | None = None, exclude_tags: list[str] | None = None, include_operations: list[str] | None = None, exclude_operations: list[str] | None = None, tool_name_fn: Callable[[str, str, dict], str] | None = None, tool_description_fn: Callable[[dict], str] | None = None, auth: Any = None, endpoint_auth: dict[str, Any] | None = None) -> MCPServer",
+      "docstring": "Add OpenAPI spec as MCP tools.\n\nArgs:\n    path: Mount path for the MCP server\n    spec: OpenAPI spec (URL, file path, or dict)\n    transport: Transport type (streamable_http, sse, websocket)\n    client: Existing httpx client\n    client_factory: Factory for httpx client\n    base_url: Override base URL for all requests\n    name: Name for the MCP server\n    report_log: Log build report\n    strict_names: Raise on duplicate tool names\n\n    # Filtering\n    tool_prefix: Prefix all tool names\n    include_paths: Only include paths matching these globs\n    exclude_paths: Exclude paths matching these globs\n    include_methods: Only include these HTTP methods\n    exclude_methods: Exclude these HTTP methods\n    include_tags: Only include operations with these tags\n    exclude_tags: Exclude operations with these tags\n    include_operations: Only include these operationIds\n    exclude_operations: Exclude these operationIds\n    tool_name_fn: Custom function(method, path, op) -> name\n    tool_description_fn: Custom function(op) -> description\n\n    # Authentication\n    auth: Auth config (dict for headers, tuple for basic, str for bearer)\n    endpoint_auth: Per-endpoint auth overrides (pattern -> auth)\n\nExample:\n    # Zero-config\n    server.add_openapi(\"/github\", \"https://api.github.com/openapi.json\")\n\n    # With filtering and auth\n    server.add_openapi(\n        \"/github\",\n        \"https://api.github.com/openapi.json\",\n        tool_prefix=\"github\",\n        include_paths=[\"/repos/*\", \"/users/*\"],\n        exclude_methods=[\"DELETE\"],\n        auth={\"Authorization\": \"Bearer ghp_xxx\"},\n    )",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "path",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "spec",
+          "type": "dict | str | Path",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "transport",
+          "type": "str",
+          "default": "'streamable_http'",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "client",
+          "type": "httpx.AsyncClient | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "client_factory",
+          "type": "Callable[[], httpx.AsyncClient] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "base_url",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "name",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "report_log",
+          "type": "bool | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "strict_names",
+          "type": "bool",
+          "default": "False",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "tool_prefix",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "include_paths",
+          "type": "list[str] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "exclude_paths",
+          "type": "list[str] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "include_methods",
+          "type": "list[str] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "exclude_methods",
+          "type": "list[str] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "include_tags",
+          "type": "list[str] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "exclude_tags",
+          "type": "list[str] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "include_operations",
+          "type": "list[str] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "exclude_operations",
+          "type": "list[str] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "tool_name_fn",
+          "type": "Callable[[str, str, dict], str] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "tool_description_fn",
+          "type": "Callable[[dict], str] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "auth",
+          "type": "Any",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "endpoint_auth",
+          "type": "dict[str, Any] | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "MCPServer",
+      "is_async": false
+    },
+    {
+      "name": "add_tools",
+      "signature": "(path: str, tools: Iterable[ToolFn | ToolDef] | None, name: str | None = None, transport: str = 'streamable_http', require_manager: bool | None = None) -> MCPServer",
+      "docstring": "Build a FastMCP server from in-code tools and mount it.\n\nExample:\n    server.add_tools(\n        \"/my-tools\",\n        tools=[say_hello, ToolDef(fn=foo, name=\"foo\", description=\"...\")],\n        name=\"my-tools\",\n        transport=\"streamable_http\",\n    )",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "path",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "tools",
+          "type": "Iterable[ToolFn | ToolDef] | None",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "name",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "transport",
+          "type": "str",
+          "default": "'streamable_http'",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "require_manager",
+          "type": "bool | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "MCPServer",
+      "is_async": false
+    },
+    {
+      "name": "attach_to_fastapi",
+      "signature": "(app: Any) -> None",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "app",
+          "type": "Any",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "build_asgi_root",
+      "signature": "() -> Any",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "Any",
+      "is_async": false
+    },
+    {
+      "name": "get_openmcp",
+      "signature": "() -> dict",
+      "docstring": "Generate OpenMCP specification for this server.\n\nReturns an OpenAPI-like spec describing all MCP tools available\non this server, which clients can use for discovery.\n\nReturns:\n    Dict with OpenMCP specification\n\nExample:\n    mcp = MCPServer(name=\"my-tools\")\n    mcp.add_openapi(\"/api\", \"https://api.example.com/openapi.json\")\n\n    spec = mcp.get_openmcp()\n    # {\n    #     \"openmcp\": \"1.0.0\",\n    #     \"info\": {\"title\": \"my-tools\", ...},\n    #     \"servers\": [...],\n    #     \"tools\": [...]\n    # }",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "dict",
+      "is_async": false
+    },
+    {
+      "name": "lifespan",
+      "signature": "(_app: Any)",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "_app",
+          "type": "Any",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": null,
+      "is_async": false
+    },
+    {
+      "name": "mount_all",
+      "signature": "(root_app: Any) -> None",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "root_app",
+          "type": "Any",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "run_uvicorn",
+      "signature": "(host: str = '0.0.0.0', port: int = 8000, log_level: str = 'info')",
+      "docstring": null,
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "host",
+          "type": "str",
+          "default": "'0.0.0.0'",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "port",
+          "type": "int",
+          "default": "8000",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "log_level",
+          "type": "str",
+          "default": "'info'",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": null,
+      "is_async": false
+    }
+  ],
+  "bases": []
+}

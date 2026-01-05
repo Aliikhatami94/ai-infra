@@ -1,0 +1,287 @@
+{
+  "name": "Embeddings",
+  "module": "ai_infra.embeddings",
+  "docstring": "Simple, provider-agnostic text embeddings.\n\nGenerate embeddings from text using any supported provider (OpenAI, Google,\nVoyage, Cohere, Anthropic) or use free local embeddings with HuggingFace.\n\nFeatures:\n    - Zero-config: Auto-detects provider, falls back to free local embeddings\n    - Free option: Use HuggingFace/sentence-transformers (no API key needed)\n    - Simple API: `embed()` for one, `embed_batch()` for many\n    - Async support: `aembed()` and `aembed_batch()`\n    - Similarity helper: `similarity()` for cosine similarity\n    - Flexible: Override provider, model, dimensions\n\nExample:\n    ```python\n    from ai_infra import Embeddings\n\n    # Auto-detect provider (falls back to free local if no API keys)\n    embeddings = Embeddings()\n    vector = embeddings.embed(\"Hello, world!\")\n\n    # Free local embeddings (no API key needed)\n    embeddings = Embeddings(provider=\"huggingface\")\n    embeddings = Embeddings(provider=\"local\")  # alias\n\n    # Specific provider and model\n    embeddings = Embeddings(provider=\"openai\", model=\"text-embedding-3-large\")\n\n    # Batch embedding\n    vectors = embeddings.embed_batch([\"Hello\", \"World\"])\n\n    # Similarity\n    score = embeddings.similarity(\"Hello\", \"Hi\")\n    ```\n\nProviders:\n    - openai: OpenAI embeddings (requires OPENAI_API_KEY)\n    - google/google_genai: Google embeddings (requires GOOGLE_API_KEY)\n    - voyage: Voyage AI embeddings (requires VOYAGE_API_KEY)\n    - cohere: Cohere embeddings (requires COHERE_API_KEY)\n    - huggingface/local: Free local embeddings (no API key, runs on CPU)",
+  "parameters": [
+    {
+      "name": "provider",
+      "type": "str | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "model",
+      "type": "str | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "dimensions",
+      "type": "int | None",
+      "default": "None",
+      "description": null,
+      "required": false
+    },
+    {
+      "name": "kwargs",
+      "type": "Any",
+      "default": "{}",
+      "description": null,
+      "required": false
+    }
+  ],
+  "methods": [
+    {
+      "name": "__init__",
+      "signature": "(provider: str | None = None, model: str | None = None, dimensions: int | None = None, kwargs: Any = {}) -> None",
+      "docstring": "Initialize embeddings.\n\nArgs:\n    provider: Provider name (openai, google, voyage, cohere, anthropic,\n             huggingface/local). Auto-detects from environment if not\n             specified, falling back to huggingface (free, local).\n    model: Model name. Uses provider default if not specified.\n    dimensions: Embedding dimensions (OpenAI text-embedding-3 only).\n    **kwargs: Additional provider-specific options.\n\nRaises:\n    ValueError: If invalid provider specified.\n\nExample:\n    ```python\n    # Auto-detect (falls back to free local embeddings)\n    embeddings = Embeddings()\n\n    # Specific provider\n    embeddings = Embeddings(provider=\"openai\")\n\n    # Free local embeddings (no API key needed)\n    embeddings = Embeddings(provider=\"huggingface\")\n    embeddings = Embeddings(provider=\"local\")  # alias\n\n    # Custom model\n    embeddings = Embeddings(\n        provider=\"openai\",\n        model=\"text-embedding-3-large\",\n        dimensions=256  # Reduce dimensions for cost savings\n    )\n    ```",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "provider",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "model",
+          "type": "str | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "dimensions",
+          "type": "int | None",
+          "default": "None",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "kwargs",
+          "type": "Any",
+          "default": "{}",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "None",
+      "is_async": false
+    },
+    {
+      "name": "aembed",
+      "signature": "(text: str) -> list[float]",
+      "docstring": "Async embed a single text.\n\nArgs:\n    text: Text to embed.\n\nReturns:\n    Embedding vector as list of floats.\n\nExample:\n    ```python\n    vector = await embeddings.aembed(\"Hello, world!\")\n    ```",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "text",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "list[float]",
+      "is_async": false
+    },
+    {
+      "name": "aembed_batch",
+      "signature": "(texts: list[str], batch_size: int = 100, max_concurrency: int = 5) -> list[list[float]]",
+      "docstring": "Async embed multiple texts with concurrency control.\n\nArgs:\n    texts: List of texts to embed.\n    batch_size: Texts per API call (default 100).\n    max_concurrency: Max concurrent API calls (default 5).\n\nReturns:\n    List of embedding vectors.\n\nExample:\n    ```python\n    vectors = await embeddings.aembed_batch(texts)\n    ```",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "texts",
+          "type": "list[str]",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "batch_size",
+          "type": "int",
+          "default": "100",
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "max_concurrency",
+          "type": "int",
+          "default": "5",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "list[list[float]]",
+      "is_async": false
+    },
+    {
+      "name": "asimilarity",
+      "signature": "(text1: str, text2: str) -> float",
+      "docstring": "Async calculate cosine similarity between two texts.",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "text1",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "text2",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "float",
+      "is_async": false
+    },
+    {
+      "name": "embed",
+      "signature": "(text: str) -> list[float]",
+      "docstring": "Embed a single text.\n\nArgs:\n    text: Text to embed.\n\nReturns:\n    Embedding vector as list of floats.\n\nExample:\n    ```python\n    vector = embeddings.embed(\"Hello, world!\")\n    print(f\"Dimensions: {len(vector)}\")\n    ```",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "text",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "list[float]",
+      "is_async": false
+    },
+    {
+      "name": "embed_batch",
+      "signature": "(texts: list[str], batch_size: int = 100) -> list[list[float]]",
+      "docstring": "Embed multiple texts.\n\nProcesses in batches for efficiency with large lists.\n\nArgs:\n    texts: List of texts to embed.\n    batch_size: Texts per API call (default 100).\n\nReturns:\n    List of embedding vectors.\n\nExample:\n    ```python\n    texts = [\"Hello\", \"World\", \"!\"]\n    vectors = embeddings.embed_batch(texts)\n    assert len(vectors) == len(texts)\n    ```",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "texts",
+          "type": "list[str]",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "batch_size",
+          "type": "int",
+          "default": "100",
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "list[list[float]]",
+      "is_async": false
+    },
+    {
+      "name": "list_configured_providers",
+      "signature": "() -> list[str]",
+      "docstring": "List providers with API keys configured.\n\nReturns:\n    List of available provider names.\n\nExample:\n    ```python\n    print(Embeddings.list_configured_providers())\n    # ['openai']  # Only if OPENAI_API_KEY is set\n    ```",
+      "parameters": [
+        {
+          "name": "cls",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "list[str]",
+      "is_async": false
+    },
+    {
+      "name": "list_providers",
+      "signature": "() -> list[str]",
+      "docstring": "List all supported providers.\n\nReturns:\n    List of provider names.\n\nExample:\n    ```python\n    print(Embeddings.list_providers())\n    # ['openai', 'google', 'voyage', 'cohere', 'anthropic']\n    ```",
+      "parameters": [
+        {
+          "name": "cls",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        }
+      ],
+      "returns": "list[str]",
+      "is_async": false
+    },
+    {
+      "name": "similarity",
+      "signature": "(text1: str, text2: str) -> float",
+      "docstring": "Calculate cosine similarity between two texts.\n\nArgs:\n    text1: First text.\n    text2: Second text.\n\nReturns:\n    Similarity score between -1 and 1.\n    1 = identical meaning, 0 = unrelated, -1 = opposite.\n\nExample:\n    ```python\n    score = embeddings.similarity(\"Hello\", \"Hi there\")\n    print(f\"Similarity: {score:.2f}\")  # e.g., 0.85\n    ```",
+      "parameters": [
+        {
+          "name": "self",
+          "type": null,
+          "default": null,
+          "description": null,
+          "required": false
+        },
+        {
+          "name": "text1",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        },
+        {
+          "name": "text2",
+          "type": "str",
+          "default": null,
+          "description": null,
+          "required": true
+        }
+      ],
+      "returns": "float",
+      "is_async": false
+    }
+  ],
+  "bases": []
+}
