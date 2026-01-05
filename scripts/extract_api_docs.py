@@ -205,10 +205,11 @@ def main() -> int:
         module_path = class_path.rsplit(".", 1)[0]
         data = extract_class(cls, module_path)
 
-        # Write to JSON file
+        # Write to JSON file (with trailing newline for pre-commit compatibility)
         output_file = args.output_dir / f"{cls.name.lower()}.json"
         with open(output_file, "w") as f:
             json.dump(data, f, indent=2)
+            f.write("\n")
 
         print(f"Extracted {class_path} -> {output_file}")
         extracted_count += 1

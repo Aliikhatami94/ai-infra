@@ -30,6 +30,7 @@ repos:
         args: ["--fix=lf"]
       - id: debug-statements
       - id: detect-private-key
+        exclude: tests/unit/guardrails/test_output.py
       - id: fix-byte-order-marker
       - id: check-added-large-files
         args: ["--maxkb=500"]
