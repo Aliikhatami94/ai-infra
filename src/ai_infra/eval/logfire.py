@@ -114,7 +114,7 @@ def configure_logfire_evals(
     global _logfire_configured
 
     try:
-        import logfire
+        import logfire  # type: ignore[import-not-found]
     except ImportError:
         if send_to_logfire == "always":
             msg = (

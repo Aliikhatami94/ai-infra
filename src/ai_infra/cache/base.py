@@ -300,7 +300,7 @@ class CacheBackend(ABC):
         if norm_a == 0 or norm_b == 0:
             return 0.0
 
-        return dot_product / (norm_a * norm_b)
+        return float(dot_product / (norm_a * norm_b))
 
     @staticmethod
     def hash_key(key: str) -> str:

@@ -381,7 +381,7 @@ class RAGFaithfulness(Evaluator[str, str]):
             # Lazy import to avoid circular dependencies
             from ai_infra import LLM
 
-            llm = LLM(provider=self.provider, model_name=self.llm_judge)
+            llm = LLM()
 
             # Construct the faithfulness prompt
             strictness = "exactly" if self.strict else "reasonably"
@@ -408,7 +408,7 @@ Where:
 - 0.0 = Unfaithful, contains hallucinations or contradicts context
 """
 
-            response = await llm.ainvoke(prompt)
+            response = await llm.achat(prompt, provider=self.provider, model_name=self.llm_judge)
 
             # Parse the response
             import json

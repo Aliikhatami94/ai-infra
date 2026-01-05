@@ -330,7 +330,7 @@ class TopicFilter(Guardrail):
             max_topic = max(similarities, key=lambda t: similarities[t])
             max_similarity = similarities[max_topic]
 
-            severity = (
+            severity: Literal["low", "medium", "high", "critical"] = (
                 "critical" if max_similarity > 0.9 else "high" if max_similarity > 0.8 else "medium"
             )
 
@@ -352,9 +352,9 @@ class TopicFilter(Guardrail):
     def _initialize_embedder(self) -> None:
         """Initialize the embedding model and compute topic embeddings."""
         try:
-            from ai_infra import Embedder
+            from ai_infra import Embeddings
 
-            self._embedder = Embedder(model=self.model) if self.model else Embedder()
+            self._embedder = Embeddings(model=self.model) if self.model else Embeddings()
 
             # Compute embeddings for topic phrases
             self._topic_embeddings = {}
@@ -395,7 +395,7 @@ class TopicFilter(Guardrail):
             if norm1 == 0 or norm2 == 0:
                 return 0.0
 
-            return dot_product / (norm1 * norm2)
+            return float(dot_product / (norm1 * norm2))
 
     def _get_severity(
         self, topic_count: int, match_count: int

@@ -330,9 +330,9 @@ async def evaluate_rag_pipeline_async(
         if callable(generator) and not hasattr(generator, "run"):
             # Plain callable
             if asyncio.iscoroutinefunction(generator):
-                answer = await generator(query, docs)
+                answer = str(await generator(query, docs))
             else:
-                answer = await asyncio.to_thread(generator, query, docs)
+                answer = str(await asyncio.to_thread(generator, query, docs))
         else:
             # ai-infra Agent
             context = "\n\n".join(docs)

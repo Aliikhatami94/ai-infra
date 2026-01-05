@@ -383,7 +383,8 @@ class Hallucination(Guardrail):
             return self._check_heuristic(text, sources)
 
         try:
-            llm = LLM(model=self.model or "gpt-4o-mini")
+            llm = LLM()
+            model_name = self.model or "gpt-4o-mini"
 
             # Prepare verification prompt
             sources_text = "\n\n---\n\n".join(sources[:5])  # Limit to 5 sources
@@ -409,7 +410,7 @@ Respond in JSON format:
     ]
 }}"""
 
-            response = llm.chat(prompt)
+            response = llm.chat(prompt, model_name=model_name)
 
             # Parse response
             import json
@@ -488,4 +489,4 @@ Respond in JSON format:
         if norm1 == 0 or norm2 == 0:
             return 0.0
 
-        return dot_product / (norm1 * norm2)
+        return float(dot_product / (norm1 * norm2))

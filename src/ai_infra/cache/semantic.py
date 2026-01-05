@@ -290,6 +290,7 @@ class SemanticCache:
             key = self._key_generator.generate(query)
 
             # Get embedding for the query
+            assert self._embeddings is not None, "Embeddings not initialized"
             embedding = self._embeddings.embed(key)
 
             # Look up in backend
@@ -339,6 +340,7 @@ class SemanticCache:
             key = self._key_generator.generate(query)
 
             # Get embedding for the query
+            assert self._embeddings is not None, "Embeddings not initialized"
             embedding = await self._embeddings.aembed(key)
 
             # Look up in backend
@@ -398,6 +400,7 @@ class SemanticCache:
             key = self._key_generator.generate(query)
 
             # Get embedding
+            assert self._embeddings is not None, "Embeddings not initialized"
             embedding = self._embeddings.embed(key)
 
             # Calculate expiry
@@ -431,6 +434,7 @@ class SemanticCache:
         """Async version of set()."""
         try:
             key = self._key_generator.generate(query)
+            assert self._embeddings is not None, "Embeddings not initialized"
             embedding = await self._embeddings.aembed(key)
 
             expires_at = None
