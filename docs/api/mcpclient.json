@@ -186,7 +186,7 @@
         }
       ],
       "returns": "dict[str, Any]",
-      "is_async": false,
+      "is_async": true,
       "is_classmethod": false,
       "is_staticmethod": false,
       "is_property": false,
@@ -219,7 +219,7 @@
         }
       ],
       "returns": "None",
-      "is_async": false,
+      "is_async": true,
       "is_classmethod": false,
       "is_staticmethod": false,
       "is_property": false,
@@ -246,7 +246,7 @@
         }
       ],
       "returns": "dict[str, McpServerConfig]",
-      "is_async": false,
+      "is_async": true,
       "is_classmethod": false,
       "is_staticmethod": false,
       "is_property": false,
@@ -316,7 +316,7 @@
         }
       ],
       "returns": "dict[str, Any]",
-      "is_async": false,
+      "is_async": true,
       "is_classmethod": false,
       "is_staticmethod": false,
       "is_property": false,
@@ -357,7 +357,7 @@
         }
       ],
       "returns": "list[BaseMessage]",
-      "is_async": false,
+      "is_async": true,
       "is_classmethod": false,
       "is_staticmethod": false,
       "is_property": false,
@@ -404,7 +404,7 @@
         }
       ],
       "returns": "list[MCPResource]",
-      "is_async": false,
+      "is_async": true,
       "is_classmethod": false,
       "is_staticmethod": false,
       "is_property": false,
@@ -437,7 +437,7 @@
         }
       ],
       "returns": "dict[str, str]",
-      "is_async": false,
+      "is_async": true,
       "is_classmethod": false,
       "is_staticmethod": false,
       "is_property": false,
@@ -477,7 +477,7 @@
         }
       ],
       "returns": "MultiServerMCPClient",
-      "is_async": false,
+      "is_async": true,
       "is_classmethod": false,
       "is_staticmethod": false,
       "is_property": false,
@@ -504,7 +504,7 @@
         }
       ],
       "returns": "dict[str, dict[str, Any]]",
-      "is_async": false,
+      "is_async": true,
       "is_classmethod": false,
       "is_staticmethod": false,
       "is_property": false,
@@ -531,7 +531,7 @@
         }
       ],
       "returns": "dict[str, list[PromptInfo]]",
-      "is_async": false,
+      "is_async": true,
       "is_classmethod": false,
       "is_staticmethod": false,
       "is_property": false,
@@ -567,7 +567,7 @@
         }
       ],
       "returns": "dict[str, list[ResourceInfo]]",
-      "is_async": false,
+      "is_async": true,
       "is_classmethod": false,
       "is_staticmethod": false,
       "is_property": false,
@@ -603,7 +603,7 @@
         }
       ],
       "returns": "list[Any]",
-      "is_async": false,
+      "is_async": true,
       "is_classmethod": false,
       "is_staticmethod": false,
       "is_property": false,

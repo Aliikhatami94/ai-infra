@@ -486,7 +486,7 @@
         }
       ],
       "returns": "str | SessionResult",
-      "is_async": false,
+      "is_async": true,
       "is_classmethod": false,
       "is_staticmethod": false,
       "is_property": false,
@@ -555,7 +555,7 @@
         }
       ],
       "returns": "str | SessionResult",
-      "is_async": false,
+      "is_async": true,
       "is_classmethod": false,
       "is_staticmethod": false,
       "is_property": false,
@@ -631,7 +631,7 @@
         }
       ],
       "returns": "Any",
-      "is_async": false,
+      "is_async": true,
       "is_classmethod": false,
       "is_staticmethod": false,
       "is_property": false,
@@ -714,7 +714,7 @@
         }
       ],
       "returns": null,
-      "is_async": false,
+      "is_async": true,
       "is_classmethod": false,
       "is_staticmethod": false,
       "is_property": false,
@@ -783,7 +783,7 @@
         }
       ],
       "returns": null,
-      "is_async": false,
+      "is_async": true,
       "is_classmethod": false,
       "is_staticmethod": false,
       "is_property": false,
@@ -873,7 +873,7 @@
         }
       ],
       "returns": null,
-      "is_async": false,
+      "is_async": true,
       "is_classmethod": false,
       "is_staticmethod": false,
       "is_property": false,
@@ -949,7 +949,7 @@
         }
       ],
       "returns": null,
-      "is_async": false,
+      "is_async": true,
       "is_classmethod": false,
       "is_staticmethod": false,
       "is_property": false,

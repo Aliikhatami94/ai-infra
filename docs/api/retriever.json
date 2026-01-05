@@ -228,7 +228,7 @@
         }
       ],
       "returns": "list[str]",
-      "is_async": false,
+      "is_async": true,
       "is_classmethod": false,
       "is_staticmethod": false,
       "is_property": false,
@@ -269,7 +269,7 @@
         }
       ],
       "returns": "list[str]",
-      "is_async": false,
+      "is_async": true,
       "is_classmethod": false,
       "is_staticmethod": false,
       "is_property": false,
@@ -491,7 +491,7 @@
         }
       ],
       "returns": "list[str]",
-      "is_async": false,
+      "is_async": true,
       "is_classmethod": false,
       "is_staticmethod": false,
       "is_property": false,
@@ -617,7 +617,7 @@
         }
       ],
       "returns": "list[str]",
-      "is_async": false,
+      "is_async": true,
       "is_classmethod": false,
       "is_staticmethod": false,
       "is_property": false,
@@ -706,7 +706,7 @@
         }
       ],
       "returns": "list[str]",
-      "is_async": false,
+      "is_async": true,
       "is_classmethod": false,
       "is_staticmethod": false,
       "is_property": false,
@@ -852,7 +852,7 @@
         }
       ],
       "returns": "str",
-      "is_async": false,
+      "is_async": true,
       "is_classmethod": false,
       "is_staticmethod": false,
       "is_property": false,
@@ -907,7 +907,7 @@
         }
       ],
       "returns": "list[str] | list[SearchResult]",
-      "is_async": false,
+      "is_async": true,
       "is_classmethod": false,
       "is_staticmethod": false,
       "is_property": false,

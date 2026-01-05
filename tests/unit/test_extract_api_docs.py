@@ -129,7 +129,7 @@ class TestExtractFunction:
         func.docstring = MagicMock()
         func.docstring.value = "Run the agent."
         func.returns = "str"
-        func.is_async = False
+        func.labels = set()  # Not async
 
         param = MagicMock()
         param.name = "prompt"
@@ -151,7 +151,7 @@ class TestExtractFunction:
         func.name = "arun"
         func.docstring = None
         func.returns = "str"
-        func.is_async = True
+        func.labels = {"async"}  # Async method
         func.parameters = []
 
         result = extract_function(func)
@@ -165,7 +165,7 @@ class TestExtractFunction:
         func.name = "helper"
         func.docstring = None
         func.returns = None
-        func.is_async = False
+        func.labels = set()  # Not async
         func.parameters = []
 
         result = extract_function(func)
@@ -181,7 +181,7 @@ class TestExtractFunction:
         func.docstring = MagicMock()
         func.docstring.value = "Configure the model."
         func.returns = "None"
-        func.is_async = False
+        func.labels = set()  # Not async
 
         # Create parameters
         self_param = MagicMock()
@@ -214,7 +214,7 @@ class TestExtractFunction:
         func.name = "stream"
         func.docstring = None
         func.returns = "Iterator[str]"
-        func.is_async = False
+        func.labels = set()  # Not async
         func.parameters = []
 
         result = extract_function(func)
@@ -274,7 +274,7 @@ class TestExtractClass:
         init_func.name = "__init__"
         init_func.docstring = None
         init_func.returns = None
-        init_func.is_async = False
+        init_func.labels = set()  # Not async
 
         self_param = MagicMock()
         self_param.name = "self"
@@ -310,7 +310,7 @@ class TestExtractClass:
         public_func.name = "run"
         public_func.docstring = None
         public_func.returns = None
-        public_func.is_async = False
+        public_func.labels = set()  # Not async
         public_func.parameters = []
 
         # Private method
@@ -318,7 +318,7 @@ class TestExtractClass:
         private_func.name = "_internal"
         private_func.docstring = None
         private_func.returns = None
-        private_func.is_async = False
+        private_func.labels = set()  # Not async
         private_func.parameters = []
 
         cls.members = {"run": public_func, "_internal": private_func}
@@ -343,7 +343,7 @@ class TestExtractClass:
         init_func.docstring = MagicMock()
         init_func.docstring.value = "Initialize the LLM."
         init_func.returns = None
-        init_func.is_async = False
+        init_func.labels = set()  # Not async
         init_func.parameters = []
 
         cls.members = {"__init__": init_func}
