@@ -39,6 +39,25 @@ from ai_infra.errors import (
     ProviderError,
     ValidationError,
 )
+
+# Evaluation framework (Phase 11)
+from ai_infra.eval import (
+    Case,
+    ContainsExpected,
+    Dataset,
+    EvaluationReport,
+    Evaluator,
+    EvaluatorContext,
+    IsInstance,
+    LengthInRange,
+    RAGFaithfulness,
+    SemanticSimilarity,
+    ToolUsageEvaluator,
+    evaluate_agent,
+    evaluate_agent_async,
+    evaluate_retriever,
+    evaluate_retriever_async,
+)
 from ai_infra.graph import Graph
 from ai_infra.imagegen import GeneratedImage, ImageGen, ImageGenProvider
 from ai_infra.llm import (  # Realtime Voice API
@@ -269,4 +288,20 @@ __all__ = [
     # Phase 6.8 - MCP tool loading
     "load_mcp_tools_cached",
     "clear_mcp_cache",
+    # Evaluation Framework (Phase 11)
+    "Case",
+    "Dataset",
+    "Evaluator",
+    "EvaluatorContext",
+    "EvaluationReport",
+    "IsInstance",
+    "SemanticSimilarity",
+    "ToolUsageEvaluator",
+    "RAGFaithfulness",
+    "ContainsExpected",
+    "LengthInRange",
+    "evaluate_agent",
+    "evaluate_agent_async",
+    "evaluate_retriever",
+    "evaluate_retriever_async",
 ]
