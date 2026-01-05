@@ -1,6 +1,17 @@
 # CHANGELOG
 
 
+## v1.3.0 (2026-01-05)
+
+### Features
+
+- Add API reference system with auto-generated JSON docs
+  ([#15](https://github.com/nfraxlab/ai-infra/pull/15),
+  [`3cbc93b`](https://github.com/nfraxlab/ai-infra/commit/3cbc93bcb92f220d479c088591d2402b4c8e65f9))
+
+Co-authored-by: nfrax <alixkhatami@gmail.com>
+
+
 ## v1.2.0 (2026-01-04)
 
 ### Features
