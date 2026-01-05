@@ -7,14 +7,14 @@
       "name": "provider",
       "type": "str | BaseRealtimeProvider | None",
       "default": "None",
-      "description": null,
+      "description": "Provider name (\"openai\", \"gemini\") or provider instance. If None, auto-selects based on environment.",
       "required": false
     },
     {
       "name": "config",
       "type": "RealtimeConfig | None",
       "default": "None",
-      "description": null,
+      "description": "Configuration for the realtime session. If None, uses default configuration.",
       "required": false
     }
   ],
@@ -35,19 +35,28 @@
           "name": "provider",
           "type": "str | BaseRealtimeProvider | None",
           "default": "None",
-          "description": null,
+          "description": "Provider name (\"openai\", \"gemini\") or provider instance. If None, auto-selects based on environment.",
           "required": false
         },
         {
           "name": "config",
           "type": "RealtimeConfig | None",
           "default": "None",
-          "description": null,
+          "description": "Configuration for the realtime session. If None, uses default configuration.",
           "required": false
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": [
+        {
+          "type": "RealtimeError",
+          "description": "If no provider is configured or available."
+        }
+      ]
     },
     {
       "name": "available_providers",
@@ -63,7 +72,11 @@
         }
       ],
       "returns": "list[str]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": true,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "configured_providers",
@@ -79,7 +92,11 @@
         }
       ],
       "returns": "list[str]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": true,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "connect",
@@ -95,7 +112,11 @@
         }
       ],
       "returns": null,
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "on_audio",
@@ -113,12 +134,16 @@
           "name": "callback",
           "type": "AudioCallback",
           "default": null,
-          "description": null,
+          "description": "Async function receiving audio bytes.",
           "required": true
         }
       ],
       "returns": "AudioCallback",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "on_error",
@@ -136,12 +161,16 @@
           "name": "callback",
           "type": "ErrorCallback",
           "default": null,
-          "description": null,
+          "description": "Async function receiving RealtimeError.",
           "required": true
         }
       ],
       "returns": "ErrorCallback",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "on_interrupted",
@@ -159,12 +188,16 @@
           "name": "callback",
           "type": "InterruptedCallback",
           "default": null,
-          "description": null,
+          "description": "Async function called when user interrupts.",
           "required": true
         }
       ],
       "returns": "InterruptedCallback",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "on_tool_call",
@@ -182,12 +215,16 @@
           "name": "callback",
           "type": "ToolCallCallback",
           "default": null,
-          "description": null,
+          "description": "Async function receiving ToolCallRequest, returning result.",
           "required": true
         }
       ],
       "returns": "ToolCallCallback",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "on_transcript",
@@ -205,12 +242,16 @@
           "name": "callback",
           "type": "TranscriptCallback",
           "default": null,
-          "description": null,
+          "description": "Async function receiving (text, is_final).",
           "required": true
         }
       ],
       "returns": "TranscriptCallback",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "register_provider",
@@ -228,19 +269,23 @@
           "name": "name",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "Provider name (e.g., \"openai\", \"gemini\").",
           "required": true
         },
         {
           "name": "provider_class",
           "type": "type[BaseRealtimeProvider]",
           "default": null,
-          "description": null,
+          "description": "The provider class to register.",
           "required": true
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": true,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "run",
@@ -258,13 +303,19 @@
           "name": "audio_stream",
           "type": "AsyncIterator[bytes]",
           "default": null,
-          "description": null,
+          "description": "Async iterator of audio bytes from microphone.",
           "required": true
         }
       ],
       "returns": "AsyncIterator[AudioChunk | TranscriptDelta]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     }
   ],
-  "bases": []
+  "bases": [],
+  "source_file": "src/ai_infra/llm/realtime/voice.py",
+  "source_line": 132
 }

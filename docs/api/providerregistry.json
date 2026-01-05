@@ -20,12 +20,16 @@
           "name": "name",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "The provider name (e.g., \"openai\", \"anthropic\").",
           "required": true
         }
       ],
       "returns": "ProviderConfig | None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": true,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "get_api_key",
@@ -43,12 +47,16 @@
           "name": "name",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "The provider name.",
           "required": true
         }
       ],
       "returns": "str | None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": true,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "get_capability_config",
@@ -66,19 +74,23 @@
           "name": "name",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "The provider name.",
           "required": true
         },
         {
           "name": "cap",
           "type": "ProviderCapability",
           "default": null,
-          "description": null,
+          "description": "The capability to get config for.",
           "required": true
         }
       ],
       "returns": "CapabilityConfig | None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": true,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "get_default_for_capability",
@@ -96,19 +108,23 @@
           "name": "cap",
           "type": "ProviderCapability",
           "default": null,
-          "description": null,
+          "description": "The capability required.",
           "required": true
         },
         {
           "name": "priority",
           "type": "list[str] | None",
           "default": "None",
-          "description": null,
+          "description": "Optional list of providers to check first, in order. Providers not in this list are checked after, alphabetically.",
           "required": false
         }
       ],
       "returns": "str | None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": true,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "get_default_model",
@@ -126,19 +142,23 @@
           "name": "name",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "The provider name.",
           "required": true
         },
         {
           "name": "cap",
           "type": "ProviderCapability",
           "default": null,
-          "description": null,
+          "description": "The capability to get the default model for.",
           "required": true
         }
       ],
       "returns": "str | None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": true,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "get_default_voice",
@@ -156,19 +176,23 @@
           "name": "name",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "The provider name.",
           "required": true
         },
         {
           "name": "cap",
           "type": "ProviderCapability",
           "default": null,
-          "description": null,
+          "description": "The capability to get the default voice for.",
           "required": true
         }
       ],
       "returns": "str | None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": true,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "get_env_var",
@@ -186,12 +210,16 @@
           "name": "name",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "The provider name.",
           "required": true
         }
       ],
       "returns": "str | None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": true,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "get_models",
@@ -209,19 +237,23 @@
           "name": "name",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "The provider name.",
           "required": true
         },
         {
           "name": "cap",
           "type": "ProviderCapability",
           "default": null,
-          "description": null,
+          "description": "The capability to get models for.",
           "required": true
         }
       ],
       "returns": "list[str]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": true,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "get_voices",
@@ -239,19 +271,23 @@
           "name": "name",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "The provider name.",
           "required": true
         },
         {
           "name": "cap",
           "type": "ProviderCapability",
           "default": null,
-          "description": null,
+          "description": "The capability to get voices for (usually TTS or REALTIME).",
           "required": true
         }
       ],
       "returns": "list[str]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": true,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "is_configured",
@@ -269,12 +305,16 @@
           "name": "name",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "The provider name.",
           "required": true
         }
       ],
       "returns": "bool",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": true,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "list_all",
@@ -290,7 +330,11 @@
         }
       ],
       "returns": "list[str]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": true,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "list_configured",
@@ -306,7 +350,11 @@
         }
       ],
       "returns": "list[str]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": true,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "list_configured_for_capability",
@@ -324,12 +372,16 @@
           "name": "cap",
           "type": "ProviderCapability",
           "default": null,
-          "description": null,
+          "description": "The capability to filter by.",
           "required": true
         }
       ],
       "returns": "list[str]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": true,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "list_for_capability",
@@ -347,12 +399,16 @@
           "name": "cap",
           "type": "ProviderCapability",
           "default": null,
-          "description": null,
+          "description": "The capability to filter by.",
           "required": true
         }
       ],
       "returns": "list[str]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": true,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "register",
@@ -370,12 +426,16 @@
           "name": "config",
           "type": "ProviderConfig",
           "default": null,
-          "description": null,
+          "description": "The provider configuration to register.",
           "required": true
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": true,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "reset",
@@ -391,8 +451,14 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": true,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     }
   ],
-  "bases": []
+  "bases": [],
+  "source_file": "src/ai_infra/providers/registry.py",
+  "source_line": 37
 }

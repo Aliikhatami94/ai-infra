@@ -7,21 +7,21 @@
       "name": "provider",
       "type": "str | None",
       "default": "None",
-      "description": null,
+      "description": "Provider name (\"openai\", \"google\", \"stability\", \"replicate\"). Auto-detected from env vars if not specified.",
       "required": false
     },
     {
       "name": "model",
       "type": "str | None",
       "default": "None",
-      "description": null,
+      "description": "Model name. Uses provider default if not specified.",
       "required": false
     },
     {
       "name": "api_key",
       "type": "str | None",
       "default": "None",
-      "description": null,
+      "description": "API key. Uses env var if not specified.",
       "required": false
     },
     {
@@ -49,21 +49,21 @@
           "name": "provider",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Provider name (\"openai\", \"google\", \"stability\", \"replicate\"). Auto-detected from env vars if not specified.",
           "required": false
         },
         {
           "name": "model",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Model name. Uses provider default if not specified.",
           "required": false
         },
         {
           "name": "api_key",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "API key. Uses env var if not specified.",
           "required": false
         },
         {
@@ -75,7 +75,11 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "agenerate",
@@ -93,35 +97,35 @@
           "name": "prompt",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "Text description of the image to generate.",
           "required": true
         },
         {
           "name": "size",
           "type": "str",
           "default": "'1024x1024'",
-          "description": null,
+          "description": "Image size (e.g., \"1024x1024\", \"1792x1024\").",
           "required": false
         },
         {
           "name": "n",
           "type": "int",
           "default": "1",
-          "description": null,
+          "description": "Number of images to generate.",
           "required": false
         },
         {
           "name": "quality",
           "type": "Literal['standard', 'hd']",
           "default": "'standard'",
-          "description": null,
+          "description": "Image quality (\"standard\" or \"hd\"). OpenAI only.",
           "required": false
         },
         {
           "name": "style",
           "type": "Literal['vivid', 'natural'] | None",
           "default": "None",
-          "description": null,
+          "description": "Image style (\"vivid\" or \"natural\"). OpenAI DALL-E 3 only.",
           "required": false
         },
         {
@@ -133,7 +137,11 @@
         }
       ],
       "returns": "list[GeneratedImage]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "edit",
@@ -151,35 +159,35 @@
           "name": "image",
           "type": "str | bytes",
           "default": null,
-          "description": null,
+          "description": "Path to image file or image bytes.",
           "required": true
         },
         {
           "name": "prompt",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "Description of the edit to make.",
           "required": true
         },
         {
           "name": "mask",
           "type": "str | bytes | None",
           "default": "None",
-          "description": null,
+          "description": "Optional mask image (transparent areas will be edited).",
           "required": false
         },
         {
           "name": "size",
           "type": "str",
           "default": "'1024x1024'",
-          "description": null,
+          "description": "Output image size.",
           "required": false
         },
         {
           "name": "n",
           "type": "int",
           "default": "1",
-          "description": null,
+          "description": "Number of variations to generate.",
           "required": false
         },
         {
@@ -191,7 +199,11 @@
         }
       ],
       "returns": "list[GeneratedImage]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "generate",
@@ -209,35 +221,35 @@
           "name": "prompt",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "Text description of the image to generate.",
           "required": true
         },
         {
           "name": "size",
           "type": "str",
           "default": "'1024x1024'",
-          "description": null,
+          "description": "Image size (e.g., \"1024x1024\", \"1792x1024\").",
           "required": false
         },
         {
           "name": "n",
           "type": "int",
           "default": "1",
-          "description": null,
+          "description": "Number of images to generate.",
           "required": false
         },
         {
           "name": "quality",
           "type": "Literal['standard', 'hd']",
           "default": "'standard'",
-          "description": null,
+          "description": "Image quality (\"standard\" or \"hd\"). OpenAI only.",
           "required": false
         },
         {
           "name": "style",
           "type": "Literal['vivid', 'natural'] | None",
           "default": "None",
-          "description": null,
+          "description": "Image style (\"vivid\" or \"natural\"). OpenAI DALL-E 3 only.",
           "required": false
         },
         {
@@ -249,7 +261,11 @@
         }
       ],
       "returns": "list[GeneratedImage]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "list_models",
@@ -260,12 +276,16 @@
           "name": "provider",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "Provider name.",
           "required": true
         }
       ],
       "returns": "list[str]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": true,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "list_providers",
@@ -273,7 +293,11 @@
       "docstring": "List all available providers.",
       "parameters": [],
       "returns": "list[str]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": true,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "variations",
@@ -291,21 +315,21 @@
           "name": "image",
           "type": "str | bytes",
           "default": null,
-          "description": null,
+          "description": "Path to image file or image bytes.",
           "required": true
         },
         {
           "name": "size",
           "type": "str",
           "default": "'1024x1024'",
-          "description": null,
+          "description": "Output image size.",
           "required": false
         },
         {
           "name": "n",
           "type": "int",
           "default": "1",
-          "description": null,
+          "description": "Number of variations to generate.",
           "required": false
         },
         {
@@ -317,8 +341,14 @@
         }
       ],
       "returns": "list[GeneratedImage]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     }
   ],
-  "bases": []
+  "bases": [],
+  "source_file": "src/ai_infra/imagegen/imagegen.py",
+  "source_line": 22
 }

@@ -7,7 +7,7 @@
       "name": "db_path",
       "type": "str | Path",
       "default": "'workflows.db'",
-      "description": null,
+      "description": "Path to SQLite database file",
       "required": false
     }
   ],
@@ -28,12 +28,16 @@
           "name": "db_path",
           "type": "str | Path",
           "default": "'workflows.db'",
-          "description": null,
+          "description": "Path to SQLite database file",
           "required": false
         }
       ],
       "returns": null,
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "close",
@@ -49,7 +53,11 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "delete",
@@ -72,7 +80,11 @@
         }
       ],
       "returns": "bool",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "exists",
@@ -95,7 +107,11 @@
         }
       ],
       "returns": "bool",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "list_recordings",
@@ -111,7 +127,11 @@
         }
       ],
       "returns": "list[str]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "load",
@@ -134,7 +154,11 @@
         }
       ],
       "returns": "list[WorkflowStep] | None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "save",
@@ -164,10 +188,16 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     }
   ],
   "bases": [
     "Storage"
-  ]
+  ],
+  "source_file": "src/ai_infra/replay/storage.py",
+  "source_line": 125
 }

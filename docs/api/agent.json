@@ -7,168 +7,168 @@
       "name": "tools",
       "type": "list[Any] | None",
       "default": "None",
-      "description": null,
+      "description": "List of tools (functions, LangChain tools, or MCP tools)",
       "required": false
     },
     {
       "name": "provider",
       "type": "str | None",
       "default": "None",
-      "description": null,
+      "description": "LLM provider (auto-detected if None)",
       "required": false
     },
     {
       "name": "model_name",
       "type": "str | None",
       "default": "None",
-      "description": null,
+      "description": "Model name (uses provider default if None) Agent Identity (for use as subagent):",
       "required": false
     },
     {
       "name": "name",
       "type": "str | None",
       "default": "None",
-      "description": null,
+      "description": "Agent name (required when used as a subagent)",
       "required": false
     },
     {
       "name": "description",
       "type": "str | None",
       "default": "None",
-      "description": null,
+      "description": "What this agent does (used by parent to decide delegation)",
       "required": false
     },
     {
       "name": "system",
       "type": "str | None",
       "default": "None",
-      "description": null,
+      "description": "System prompt / instructions for this agent Callbacks (observability):",
       "required": false
     },
     {
       "name": "callbacks",
       "type": "Callbacks | CallbackManager | None",
       "default": "None",
-      "description": null,
+      "description": "Callback handler(s) for observing agent events. Receives events for LLM calls (start, end, error, tokens) and tool executions (start, end, error). Can be a single Callbacks instance or a CallbackManager.",
       "required": false
     },
     {
       "name": "on_tool_error",
       "type": "Literal['return_error', 'retry', 'abort']",
       "default": "'return_error'",
-      "description": null,
+      "description": "How to handle tool execution errors:",
       "required": false
     },
     {
       "name": "tool_timeout",
       "type": "float | None",
       "default": "None",
-      "description": null,
+      "description": "Timeout in seconds per tool call (None = no timeout)",
       "required": false
     },
     {
       "name": "validate_tool_results",
       "type": "bool",
       "default": "False",
-      "description": null,
+      "description": "Validate tool results match return type annotations",
       "required": false
     },
     {
       "name": "max_tool_retries",
       "type": "int",
       "default": "1",
-      "description": null,
+      "description": "Max retry attempts when on_tool_error=\"retry\" (default 1) Human Approval:",
       "required": false
     },
     {
       "name": "require_approval",
       "type": "bool | list[str] | Callable[[str, dict[str, Any]], bool]",
       "default": "False",
-      "description": null,
+      "description": "Tools that require human approval:",
       "required": false
     },
     {
       "name": "approval_handler",
       "type": "ApprovalHandler | AsyncApprovalHandler | None",
       "default": "None",
-      "description": null,
+      "description": "Custom approval handler function: - If None and require_approval is True, uses console prompts - Can be sync or async function taking ApprovalRequest Session & Persistence:",
       "required": false
     },
     {
       "name": "session",
       "type": "SessionStorage | None",
       "default": "None",
-      "description": null,
+      "description": "Session storage backend for conversation memory and pause/resume. Use memory() for development, postgres() for production.",
       "required": false
     },
     {
       "name": "pause_before",
       "type": "list[str] | None",
       "default": "None",
-      "description": null,
+      "description": "Tool names to pause before executing (requires session). The agent will return a SessionResult with paused=True.",
       "required": false
     },
     {
       "name": "pause_after",
       "type": "list[str] | None",
       "default": "None",
-      "description": null,
+      "description": "Tool names to pause after executing (requires session). DeepAgents Mode (autonomous multi-step tasks):",
       "required": false
     },
     {
       "name": "deep",
       "type": "bool",
       "default": "False",
-      "description": null,
+      "description": "Enable DeepAgents mode for autonomous task execution. When True, the agent has built-in tools for file operations (ls, read_file, write_file, edit_file, glob, grep, execute), todo management, and subagent orchestration.",
       "required": false
     },
     {
       "name": "subagents",
       "type": "list[Agent | SubAgent] | None",
       "default": "None",
-      "description": null,
+      "description": "List of agents for delegation. Can be Agent instances (automatically converted) or SubAgent dicts. Agent instances must have name and description set.",
       "required": false
     },
     {
       "name": "middleware",
       "type": "Sequence[AgentMiddleware] | None",
       "default": "None",
-      "description": null,
+      "description": "Additional middleware to apply to the deep agent.",
       "required": false
     },
     {
       "name": "response_format",
       "type": "Any | None",
       "default": "None",
-      "description": null,
+      "description": "Structured output format for agent responses.",
       "required": false
     },
     {
       "name": "context_schema",
       "type": "type[Any] | None",
       "default": "None",
-      "description": null,
+      "description": "Schema for the deep agent context.",
       "required": false
     },
     {
       "name": "use_longterm_memory",
       "type": "bool",
       "default": "False",
-      "description": null,
+      "description": "Enable long-term memory (requires session with store). Workspace Configuration:",
       "required": false
     },
     {
       "name": "workspace",
       "type": "str | Path | Workspace | None",
       "default": "None",
-      "description": null,
+      "description": "Workspace configuration for file operations. Can be:",
       "required": false
     },
     {
       "name": "recursion_limit",
       "type": "int",
       "default": "50",
-      "description": null,
+      "description": "Maximum number of agent iterations (default: 50). Prevents infinite loops when agent keeps calling tools without making progress. This is a critical safety measure to prevent runaway token costs. Raise only if you have monitoring in place.",
       "required": false
     },
     {
@@ -196,168 +196,168 @@
           "name": "tools",
           "type": "list[Any] | None",
           "default": "None",
-          "description": null,
+          "description": "List of tools (functions, LangChain tools, or MCP tools)",
           "required": false
         },
         {
           "name": "provider",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "LLM provider (auto-detected if None)",
           "required": false
         },
         {
           "name": "model_name",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Model name (uses provider default if None) Agent Identity (for use as subagent):",
           "required": false
         },
         {
           "name": "name",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Agent name (required when used as a subagent)",
           "required": false
         },
         {
           "name": "description",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "What this agent does (used by parent to decide delegation)",
           "required": false
         },
         {
           "name": "system",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "System prompt / instructions for this agent Callbacks (observability):",
           "required": false
         },
         {
           "name": "callbacks",
           "type": "Callbacks | CallbackManager | None",
           "default": "None",
-          "description": null,
+          "description": "Callback handler(s) for observing agent events. Receives events for LLM calls (start, end, error, tokens) and tool executions (start, end, error). Can be a single Callbacks instance or a CallbackManager.",
           "required": false
         },
         {
           "name": "on_tool_error",
           "type": "Literal['return_error', 'retry', 'abort']",
           "default": "'return_error'",
-          "description": null,
+          "description": "How to handle tool execution errors:",
           "required": false
         },
         {
           "name": "tool_timeout",
           "type": "float | None",
           "default": "None",
-          "description": null,
+          "description": "Timeout in seconds per tool call (None = no timeout)",
           "required": false
         },
         {
           "name": "validate_tool_results",
           "type": "bool",
           "default": "False",
-          "description": null,
+          "description": "Validate tool results match return type annotations",
           "required": false
         },
         {
           "name": "max_tool_retries",
           "type": "int",
           "default": "1",
-          "description": null,
+          "description": "Max retry attempts when on_tool_error=\"retry\" (default 1) Human Approval:",
           "required": false
         },
         {
           "name": "require_approval",
           "type": "bool | list[str] | Callable[[str, dict[str, Any]], bool]",
           "default": "False",
-          "description": null,
+          "description": "Tools that require human approval:",
           "required": false
         },
         {
           "name": "approval_handler",
           "type": "ApprovalHandler | AsyncApprovalHandler | None",
           "default": "None",
-          "description": null,
+          "description": "Custom approval handler function: - If None and require_approval is True, uses console prompts - Can be sync or async function taking ApprovalRequest Session & Persistence:",
           "required": false
         },
         {
           "name": "session",
           "type": "SessionStorage | None",
           "default": "None",
-          "description": null,
+          "description": "Session storage backend for conversation memory and pause/resume. Use memory() for development, postgres() for production.",
           "required": false
         },
         {
           "name": "pause_before",
           "type": "list[str] | None",
           "default": "None",
-          "description": null,
+          "description": "Tool names to pause before executing (requires session). The agent will return a SessionResult with paused=True.",
           "required": false
         },
         {
           "name": "pause_after",
           "type": "list[str] | None",
           "default": "None",
-          "description": null,
+          "description": "Tool names to pause after executing (requires session). DeepAgents Mode (autonomous multi-step tasks):",
           "required": false
         },
         {
           "name": "deep",
           "type": "bool",
           "default": "False",
-          "description": null,
+          "description": "Enable DeepAgents mode for autonomous task execution. When True, the agent has built-in tools for file operations (ls, read_file, write_file, edit_file, glob, grep, execute), todo management, and subagent orchestration.",
           "required": false
         },
         {
           "name": "subagents",
           "type": "list[Agent | SubAgent] | None",
           "default": "None",
-          "description": null,
+          "description": "List of agents for delegation. Can be Agent instances (automatically converted) or SubAgent dicts. Agent instances must have name and description set.",
           "required": false
         },
         {
           "name": "middleware",
           "type": "Sequence[AgentMiddleware] | None",
           "default": "None",
-          "description": null,
+          "description": "Additional middleware to apply to the deep agent.",
           "required": false
         },
         {
           "name": "response_format",
           "type": "Any | None",
           "default": "None",
-          "description": null,
+          "description": "Structured output format for agent responses.",
           "required": false
         },
         {
           "name": "context_schema",
           "type": "type[Any] | None",
           "default": "None",
-          "description": null,
+          "description": "Schema for the deep agent context.",
           "required": false
         },
         {
           "name": "use_longterm_memory",
           "type": "bool",
           "default": "False",
-          "description": null,
+          "description": "Enable long-term memory (requires session with store). Workspace Configuration:",
           "required": false
         },
         {
           "name": "workspace",
           "type": "str | Path | Workspace | None",
           "default": "None",
-          "description": null,
+          "description": "Workspace configuration for file operations. Can be:",
           "required": false
         },
         {
           "name": "recursion_limit",
           "type": "int",
           "default": "50",
-          "description": null,
+          "description": "Maximum number of agent iterations (default: 50). Prevents infinite loops when agent keeps calling tools without making progress. This is a critical safety measure to prevent runaway token costs. Raise only if you have monitoring in place.",
           "required": false
         },
         {
@@ -369,7 +369,11 @@
         }
       ],
       "returns": null,
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "agent",
@@ -420,7 +424,11 @@
         }
       ],
       "returns": null,
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "aresume",
@@ -438,47 +446,51 @@
           "name": "session_id",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "The session ID of the paused agent",
           "required": true
         },
         {
           "name": "approved",
           "type": "bool",
           "default": "True",
-          "description": null,
+          "description": "Whether to approve the pending action",
           "required": false
         },
         {
           "name": "modified_args",
           "type": "dict[str, Any] | None",
           "default": "None",
-          "description": null,
+          "description": "Modified arguments (optional, if approved)",
           "required": false
         },
         {
           "name": "reason",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Reason for the decision",
           "required": false
         },
         {
           "name": "provider",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Override provider",
           "required": false
         },
         {
           "name": "model_name",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Override model",
           "required": false
         }
       ],
       "returns": "str | SessionResult",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "arun",
@@ -496,42 +508,42 @@
           "name": "prompt",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "User prompt/message",
           "required": true
         },
         {
           "name": "provider",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Override provider (uses default if None)",
           "required": false
         },
         {
           "name": "model_name",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Override model (uses default if None)",
           "required": false
         },
         {
           "name": "tools",
           "type": "list[Any] | None",
           "default": "None",
-          "description": null,
+          "description": "Override tools (uses global tools if None)",
           "required": false
         },
         {
           "name": "system",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Optional system message",
           "required": false
         },
         {
           "name": "session_id",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Session ID for conversation persistence (requires session=...)",
           "required": false
         },
         {
@@ -543,7 +555,11 @@
         }
       ],
       "returns": "str | SessionResult",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "arun_agent",
@@ -615,7 +631,11 @@
         }
       ],
       "returns": "Any",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "arun_agent_stream",
@@ -694,7 +714,11 @@
         }
       ],
       "returns": null,
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "arun_with_fallbacks",
@@ -759,7 +783,11 @@
         }
       ],
       "returns": null,
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "astream",
@@ -777,63 +805,63 @@
           "name": "prompt",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "User message/prompt",
           "required": true
         },
         {
           "name": "provider",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "LLM provider (uses default if None)",
           "required": false
         },
         {
           "name": "model_name",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Model name (uses default if None)",
           "required": false
         },
         {
           "name": "tools",
           "type": "list[Any] | None",
           "default": "None",
-          "description": null,
+          "description": "Override tools (uses global tools if None)",
           "required": false
         },
         {
           "name": "system",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "System prompt",
           "required": false
         },
         {
           "name": "visibility",
           "type": "Literal['minimal', 'standard', 'detailed', 'debug']",
           "default": "'standard'",
-          "description": null,
+          "description": "Event detail level",
           "required": false
         },
         {
           "name": "stream_mode",
           "type": "str | list[str]",
           "default": "'messages'",
-          "description": null,
+          "description": "LangGraph stream mode(s) - passed through to underlying graph",
           "required": false
         },
         {
           "name": "config",
           "type": "dict[str, Any] | None",
           "default": "None",
-          "description": null,
+          "description": "Full LangGraph RunnableConfig for advanced use cases - config[\"configurable\"][\"thread_id\"] for persistence - config[\"tags\"] for tracing - Any other LangGraph config options",
           "required": false
         },
         {
           "name": "stream_config",
           "type": "StreamConfig | None",
           "default": "None",
-          "description": null,
+          "description": "Advanced streaming configuration (StreamConfig)",
           "required": false
         },
         {
@@ -845,7 +873,11 @@
         }
       ],
       "returns": null,
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "astream_agent_tokens",
@@ -917,7 +949,11 @@
         }
       ],
       "returns": null,
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "from_persona",
@@ -935,49 +971,49 @@
           "name": "path",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Path to YAML persona file. If provided, loads configuration from file. File fields can be overridden by other arguments.",
           "required": false
         },
         {
           "name": "persona",
           "type": "Any | None",
           "default": "None",
-          "description": null,
+          "description": "Pre-built Persona object. Alternative to path.",
           "required": false
         },
         {
           "name": "name",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Persona name (for logging/debugging)",
           "required": false
         },
         {
           "name": "prompt",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "System prompt defining agent behavior",
           "required": false
         },
         {
           "name": "allowed_tools",
           "type": "list[str] | None",
           "default": "None",
-          "description": null,
+          "description": "List of allowed tool names (whitelist). If provided, only these tools are available to the agent.",
           "required": false
         },
         {
           "name": "deny",
           "type": "list[str] | None",
           "default": "None",
-          "description": null,
+          "description": "List of denied tool names (blacklist). These tools are blocked even if passed to the agent.",
           "required": false
         },
         {
           "name": "approve",
           "type": "list[str] | None",
           "default": "None",
-          "description": null,
+          "description": "List of tools requiring human approval before execution. Maps to Agent's require_approval parameter.",
           "required": false
         },
         {
@@ -989,7 +1025,11 @@
         }
       ],
       "returns": "Agent",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": true,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "resume",
@@ -1007,47 +1047,51 @@
           "name": "session_id",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "The session ID of the paused agent",
           "required": true
         },
         {
           "name": "approved",
           "type": "bool",
           "default": "True",
-          "description": null,
+          "description": "Whether to approve the pending action",
           "required": false
         },
         {
           "name": "modified_args",
           "type": "dict[str, Any] | None",
           "default": "None",
-          "description": null,
+          "description": "Modified arguments (optional, if approved)",
           "required": false
         },
         {
           "name": "reason",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Reason for the decision",
           "required": false
         },
         {
           "name": "provider",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Override provider",
           "required": false
         },
         {
           "name": "model_name",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Override model",
           "required": false
         }
       ],
       "returns": "str | SessionResult",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "run",
@@ -1065,42 +1109,42 @@
           "name": "prompt",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "User prompt/message",
           "required": true
         },
         {
           "name": "provider",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Override provider (uses default if None)",
           "required": false
         },
         {
           "name": "model_name",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Override model (uses default if None)",
           "required": false
         },
         {
           "name": "tools",
           "type": "list[Any] | None",
           "default": "None",
-          "description": null,
+          "description": "Override tools (uses global tools if None)",
           "required": false
         },
         {
           "name": "system",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Optional system message",
           "required": false
         },
         {
           "name": "session_id",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Session ID for conversation persistence (requires session=...)",
           "required": false
         },
         {
@@ -1112,7 +1156,11 @@
         }
       ],
       "returns": "str | SessionResult",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "run_agent",
@@ -1184,7 +1232,11 @@
         }
       ],
       "returns": "Any",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "run_with_fallbacks",
@@ -1249,10 +1301,16 @@
         }
       ],
       "returns": null,
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     }
   ],
   "bases": [
     "BaseLLM"
-  ]
+  ],
+  "source_file": "src/ai_infra/llm/agent.py",
+  "source_line": 86
 }

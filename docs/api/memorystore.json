@@ -7,35 +7,35 @@
       "name": "backend",
       "type": "str",
       "default": "'memory'",
-      "description": null,
+      "description": "Storage backend (\"memory\", \"sqlite\", \"postgres\")",
       "required": false
     },
     {
       "name": "embedding_provider",
       "type": "str | None",
       "default": "None",
-      "description": null,
+      "description": "Provider for semantic search (e.g., \"openai\", \"huggingface\")",
       "required": false
     },
     {
       "name": "embedding_model",
       "type": "str | None",
       "default": "None",
-      "description": null,
+      "description": "Model for embeddings (e.g., \"text-embedding-3-small\")",
       "required": false
     },
     {
       "name": "connection_string",
       "type": "str | None",
       "default": "None",
-      "description": null,
+      "description": "PostgreSQL connection string (for postgres backend)",
       "required": false
     },
     {
       "name": "path",
       "type": "str | None",
       "default": "None",
-      "description": null,
+      "description": "File path (for sqlite backend)",
       "required": false
     }
   ],
@@ -56,40 +56,44 @@
           "name": "backend",
           "type": "str",
           "default": "'memory'",
-          "description": null,
+          "description": "Storage backend (\"memory\", \"sqlite\", \"postgres\")",
           "required": false
         },
         {
           "name": "embedding_provider",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Provider for semantic search (e.g., \"openai\", \"huggingface\")",
           "required": false
         },
         {
           "name": "embedding_model",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Model for embeddings (e.g., \"text-embedding-3-small\")",
           "required": false
         },
         {
           "name": "connection_string",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "PostgreSQL connection string (for postgres backend)",
           "required": false
         },
         {
           "name": "path",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "File path (for sqlite backend)",
           "required": false
         }
       ],
       "returns": null,
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "delete",
@@ -107,19 +111,23 @@
           "name": "namespace",
           "type": "Namespace",
           "default": null,
-          "description": null,
+          "description": "Hierarchical namespace",
           "required": true
         },
         {
           "name": "key",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "Memory key",
           "required": true
         }
       ],
       "returns": "bool",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "get",
@@ -137,19 +145,23 @@
           "name": "namespace",
           "type": "Namespace",
           "default": null,
-          "description": null,
+          "description": "Hierarchical namespace",
           "required": true
         },
         {
           "name": "key",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "Memory key",
           "required": true
         }
       ],
       "returns": "MemoryItem | None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "get_app_memory",
@@ -167,12 +179,16 @@
           "name": "key",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "Memory key",
           "required": true
         }
       ],
       "returns": "MemoryItem | None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "get_user_memory",
@@ -190,26 +206,30 @@
           "name": "user_id",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "User identifier",
           "required": true
         },
         {
           "name": "key",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "Memory key",
           "required": true
         },
         {
           "name": "category",
           "type": "str",
           "default": "'memories'",
-          "description": null,
+          "description": "Memory category (default: \"memories\")",
           "required": false
         }
       ],
       "returns": "MemoryItem | None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "list",
@@ -227,19 +247,23 @@
           "name": "namespace",
           "type": "Namespace",
           "default": null,
-          "description": null,
+          "description": "Hierarchical namespace",
           "required": true
         },
         {
           "name": "limit",
           "type": "int | None",
           "default": "None",
-          "description": null,
+          "description": "Maximum number of items to return",
           "required": false
         }
       ],
       "returns": "builtins.list[MemoryItem]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "postgres",
@@ -257,26 +281,30 @@
           "name": "connection_string",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "PostgreSQL connection string",
           "required": true
         },
         {
           "name": "embedding_provider",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Provider for semantic search",
           "required": false
         },
         {
           "name": "embedding_model",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Model for embeddings",
           "required": false
         }
       ],
       "returns": "MemoryStore",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": true,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "put",
@@ -294,33 +322,37 @@
           "name": "namespace",
           "type": "Namespace",
           "default": null,
-          "description": null,
+          "description": "Hierarchical namespace (e.g., (\"user_123\", \"preferences\"))",
           "required": true
         },
         {
           "name": "key",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "Unique key within the namespace",
           "required": true
         },
         {
           "name": "value",
           "type": "dict[str, Any]",
           "default": null,
-          "description": null,
+          "description": "Memory content as a dict",
           "required": true
         },
         {
           "name": "ttl",
           "type": "int | None",
           "default": "None",
-          "description": null,
+          "description": "Time-to-live in seconds (optional)",
           "required": false
         }
       ],
       "returns": "MemoryItem",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "put_app_memory",
@@ -338,26 +370,30 @@
           "name": "key",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "Memory key",
           "required": true
         },
         {
           "name": "value",
           "type": "dict[str, Any]",
           "default": null,
-          "description": null,
+          "description": "Memory content",
           "required": true
         },
         {
           "name": "ttl",
           "type": "int | None",
           "default": "None",
-          "description": null,
+          "description": "Time-to-live in seconds",
           "required": false
         }
       ],
       "returns": "MemoryItem",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "put_user_memory",
@@ -375,40 +411,44 @@
           "name": "user_id",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "User identifier",
           "required": true
         },
         {
           "name": "key",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "Memory key",
           "required": true
         },
         {
           "name": "value",
           "type": "dict[str, Any]",
           "default": null,
-          "description": null,
+          "description": "Memory content",
           "required": true
         },
         {
           "name": "category",
           "type": "str",
           "default": "'memories'",
-          "description": null,
+          "description": "Memory category (default: \"memories\")",
           "required": false
         },
         {
           "name": "ttl",
           "type": "int | None",
           "default": "None",
-          "description": null,
+          "description": "Time-to-live in seconds",
           "required": false
         }
       ],
       "returns": "MemoryItem",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "search",
@@ -426,33 +466,37 @@
           "name": "namespace",
           "type": "Namespace",
           "default": null,
-          "description": null,
+          "description": "Hierarchical namespace to search",
           "required": true
         },
         {
           "name": "query",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "Search query",
           "required": true
         },
         {
           "name": "limit",
           "type": "int",
           "default": "10",
-          "description": null,
+          "description": "Maximum results to return",
           "required": false
         },
         {
           "name": "filter",
           "type": "dict[str, Any] | None",
           "default": "None",
-          "description": null,
+          "description": "Filter on value fields (exact match)",
           "required": false
         }
       ],
       "returns": "builtins.list[MemoryItem]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "search_app_memories",
@@ -470,19 +514,23 @@
           "name": "query",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "Search query",
           "required": true
         },
         {
           "name": "limit",
           "type": "int",
           "default": "10",
-          "description": null,
+          "description": "Maximum results",
           "required": false
         }
       ],
       "returns": "builtins.list[MemoryItem]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "search_user_memories",
@@ -500,33 +548,37 @@
           "name": "user_id",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "User identifier",
           "required": true
         },
         {
           "name": "query",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "Search query",
           "required": true
         },
         {
           "name": "category",
           "type": "str",
           "default": "'memories'",
-          "description": null,
+          "description": "Memory category (default: \"memories\")",
           "required": false
         },
         {
           "name": "limit",
           "type": "int",
           "default": "10",
-          "description": null,
+          "description": "Maximum results",
           "required": false
         }
       ],
       "returns": "builtins.list[MemoryItem]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "sqlite",
@@ -544,27 +596,33 @@
           "name": "path",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "Path to SQLite database file",
           "required": true
         },
         {
           "name": "embedding_provider",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Provider for semantic search",
           "required": false
         },
         {
           "name": "embedding_model",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Model for embeddings",
           "required": false
         }
       ],
       "returns": "MemoryStore",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": true,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     }
   ],
-  "bases": []
+  "bases": [],
+  "source_file": "src/ai_infra/llm/memory/store.py",
+  "source_line": 82
 }

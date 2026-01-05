@@ -7,14 +7,14 @@
       "name": "record_id",
       "type": "str",
       "default": null,
-      "description": null,
+      "description": "Unique identifier for this recording",
       "required": true
     },
     {
       "name": "storage",
       "type": "Storage | None",
       "default": "None",
-      "description": null,
+      "description": "Storage backend. If None, uses default storage.",
       "required": false
     }
   ],
@@ -35,19 +35,23 @@
           "name": "record_id",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "Unique identifier for this recording",
           "required": true
         },
         {
           "name": "storage",
           "type": "Storage | None",
           "default": "None",
-          "description": null,
+          "description": "Storage backend. If None, uses default storage.",
           "required": false
         }
       ],
       "returns": null,
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "clear",
@@ -63,7 +67,11 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "record_agent_response",
@@ -81,7 +89,7 @@
           "name": "content",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "The agent's final response text",
           "required": true
         },
         {
@@ -93,7 +101,11 @@
         }
       ],
       "returns": "WorkflowStep",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "record_llm_call",
@@ -111,21 +123,21 @@
           "name": "messages",
           "type": "list[dict[str, Any]]",
           "default": null,
-          "description": null,
+          "description": "Messages sent to the model",
           "required": true
         },
         {
           "name": "response",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Optional response from the model",
           "required": false
         },
         {
           "name": "model",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Model name/identifier",
           "required": false
         },
         {
@@ -137,7 +149,11 @@
         }
       ],
       "returns": "WorkflowStep",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "record_tool_call",
@@ -155,14 +171,14 @@
           "name": "tool_name",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "Name of the tool being called",
           "required": true
         },
         {
           "name": "args",
           "type": "dict[str, Any]",
           "default": null,
-          "description": null,
+          "description": "Arguments passed to the tool",
           "required": true
         },
         {
@@ -174,7 +190,11 @@
         }
       ],
       "returns": "WorkflowStep",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "record_tool_result",
@@ -192,28 +212,28 @@
           "name": "tool_name",
           "type": "str",
           "default": null,
-          "description": null,
+          "description": "Name of the tool",
           "required": true
         },
         {
           "name": "result",
           "type": "Any",
           "default": null,
-          "description": null,
+          "description": "Return value from the tool",
           "required": true
         },
         {
           "name": "duration_ms",
           "type": "float | None",
           "default": "None",
-          "description": null,
+          "description": "Execution time in milliseconds",
           "required": false
         },
         {
           "name": "error",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Error message if tool failed",
           "required": false
         },
         {
@@ -225,7 +245,11 @@
         }
       ],
       "returns": "WorkflowStep",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "save",
@@ -241,7 +265,11 @@
         }
       ],
       "returns": "None",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "timeline",
@@ -257,8 +285,14 @@
         }
       ],
       "returns": "list[str]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     }
   ],
-  "bases": []
+  "bases": [],
+  "source_file": "src/ai_infra/replay/recorder.py",
+  "source_line": 61
 }

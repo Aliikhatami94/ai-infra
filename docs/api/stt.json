@@ -7,28 +7,28 @@
       "name": "provider",
       "type": "str | None",
       "default": "None",
-      "description": null,
+      "description": "STT provider (\"openai\", \"google\", \"deepgram\"). Auto-detected if None.",
       "required": false
     },
     {
       "name": "model",
       "type": "str | None",
       "default": "None",
-      "description": null,
+      "description": "Model name (provider-specific). Uses default if None.",
       "required": false
     },
     {
       "name": "language",
       "type": "str | None",
       "default": "None",
-      "description": null,
+      "description": "Language code (e.g., \"en\", \"es\"). Auto-detect if None.",
       "required": false
     },
     {
       "name": "api_key",
       "type": "str | None",
       "default": "None",
-      "description": null,
+      "description": "API key (uses environment variable if None).",
       "required": false
     }
   ],
@@ -49,33 +49,37 @@
           "name": "provider",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "STT provider (\"openai\", \"google\", \"deepgram\"). Auto-detected if None.",
           "required": false
         },
         {
           "name": "model",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Model name (provider-specific). Uses default if None.",
           "required": false
         },
         {
           "name": "language",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Language code (e.g., \"en\", \"es\"). Auto-detect if None.",
           "required": false
         },
         {
           "name": "api_key",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "API key (uses environment variable if None).",
           "required": false
         }
       ],
       "returns": null,
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "atranscribe",
@@ -93,40 +97,44 @@
           "name": "audio",
           "type": "bytes | str | Path",
           "default": null,
-          "description": null,
+          "description": "Audio data as bytes, file path, or URL.",
           "required": true
         },
         {
           "name": "language",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Override language setting.",
           "required": false
         },
         {
           "name": "timestamps",
           "type": "bool",
           "default": "False",
-          "description": null,
+          "description": "Include segment timestamps.",
           "required": false
         },
         {
           "name": "word_timestamps",
           "type": "bool",
           "default": "False",
-          "description": null,
+          "description": "Include word-level timestamps (if supported).",
           "required": false
         },
         {
           "name": "prompt",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Optional prompt to guide transcription.",
           "required": false
         }
       ],
       "returns": "TranscriptionResult",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "list_models",
@@ -137,12 +145,16 @@
           "name": "provider",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Provider name. If None, lists for all configured providers.",
           "required": false
         }
       ],
       "returns": "list[dict[str, Any]]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": true,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "list_providers",
@@ -150,7 +162,11 @@
       "docstring": "List configured STT providers.\n\nReturns:\n    List of provider names that have API keys configured.",
       "parameters": [],
       "returns": "list[str]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": true,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "stream_transcribe",
@@ -168,19 +184,23 @@
           "name": "audio_stream",
           "type": "Iterator[bytes]",
           "default": null,
-          "description": null,
+          "description": "Iterator yielding audio chunks.",
           "required": true
         },
         {
           "name": "language",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Override language setting.",
           "required": false
         }
       ],
       "returns": "Iterator[str]",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "transcribe",
@@ -198,40 +218,44 @@
           "name": "audio",
           "type": "bytes | str | Path",
           "default": null,
-          "description": null,
+          "description": "Audio data as bytes, file path, or URL.",
           "required": true
         },
         {
           "name": "language",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Override language setting.",
           "required": false
         },
         {
           "name": "timestamps",
           "type": "bool",
           "default": "False",
-          "description": null,
+          "description": "Include segment timestamps.",
           "required": false
         },
         {
           "name": "word_timestamps",
           "type": "bool",
           "default": "False",
-          "description": null,
+          "description": "Include word-level timestamps (if supported).",
           "required": false
         },
         {
           "name": "prompt",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Optional prompt to guide transcription.",
           "required": false
         }
       ],
       "returns": "TranscriptionResult",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     },
     {
       "name": "transcribe_file",
@@ -249,41 +273,47 @@
           "name": "path",
           "type": "str | Path",
           "default": null,
-          "description": null,
+          "description": "Path to audio file.",
           "required": true
         },
         {
           "name": "language",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Override language setting.",
           "required": false
         },
         {
           "name": "timestamps",
           "type": "bool",
           "default": "False",
-          "description": null,
+          "description": "Include segment timestamps.",
           "required": false
         },
         {
           "name": "word_timestamps",
           "type": "bool",
           "default": "False",
-          "description": null,
+          "description": "Include word-level timestamps.",
           "required": false
         },
         {
           "name": "prompt",
           "type": "str | None",
           "default": "None",
-          "description": null,
+          "description": "Optional prompt to guide transcription.",
           "required": false
         }
       ],
       "returns": "TranscriptionResult",
-      "is_async": false
+      "is_async": false,
+      "is_classmethod": false,
+      "is_staticmethod": false,
+      "is_property": false,
+      "raises": null
     }
   ],
-  "bases": []
+  "bases": [],
+  "source_file": "src/ai_infra/llm/multimodal/stt.py",
+  "source_line": 82
 }
