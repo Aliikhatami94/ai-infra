@@ -1,6 +1,24 @@
 # CHANGELOG
 
 
+## v1.5.1 (2026-01-05)
+
+### Bug Fixes
+
+- Use griffe labels for async method detection ([#20](https://github.com/nfraxlab/ai-infra/pull/20),
+  [`6349193`](https://github.com/nfraxlab/ai-infra/commit/6349193b99981c7eb7a70fbcfa8690a0129d0703))
+
+### Documentation
+
+- Enhance API extraction with auto-discovery and docstrings
+  ([#18](https://github.com/nfraxlab/ai-infra/pull/18),
+  [`70501fb`](https://github.com/nfraxlab/ai-infra/commit/70501fb6b517caa57f1160ef6a427732103e0747))
+
+- Remove API reference section (now on nfrax.dev)
+  ([#19](https://github.com/nfraxlab/ai-infra/pull/19),
+  [`39587f3`](https://github.com/nfraxlab/ai-infra/commit/39587f38f04c5a07257b05cea4a2f6ac35a9f939))
+
+
 ## v1.5.0 (2026-01-05)
 
 ### Features
