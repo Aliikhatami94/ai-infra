@@ -1,6 +1,26 @@
 # CHANGELOG
 
 
+## v1.5.2 (2026-01-12)
+
+### Bug Fixes
+
+- Connect token tracking to Agent callbacks for per-node cost breakdown
+  ([#21](https://github.com/nfraxlab/ai-infra/pull/21),
+  [`7c65874`](https://github.com/nfraxlab/ai-infra/commit/7c65874e8d7593d49ae7d0a098ce2ff3c28c3c2e))
+
+- **tests**: Update executor tests for CI compatibility
+  ([#22](https://github.com/nfraxlab/ai-infra/pull/22),
+  [`0b5954b`](https://github.com/nfraxlab/ai-infra/commit/0b5954b3cf53d6b5db674d897c74717415e885bb))
+
+Co-authored-by: nfrax <alixkhatami@gmail.com>
+
+### Chores
+
+- Remove .executor/ test artifacts from repo ([#23](https://github.com/nfraxlab/ai-infra/pull/23),
+  [`318604b`](https://github.com/nfraxlab/ai-infra/commit/318604b72e0dc86254898ca871bb9c7babf98b62))
+
+
 ## v1.5.1 (2026-01-05)
 
 ### Bug Fixes
