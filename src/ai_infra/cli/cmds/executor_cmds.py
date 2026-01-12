@@ -653,7 +653,11 @@ def run_cmd(
         try:
             # Use workspace in sandboxed mode to confine agent to project directory
             # "sandboxed" prevents filesystem access outside roadmap.parent
-            workspace_mode = "read-only" if dry_run else "sandboxed"
+            from typing import Literal, cast
+
+            workspace_mode = cast(
+                Literal["virtual", "sandboxed", "full"], "sandboxed" if not dry_run else "virtual"
+            )
             workspace = Workspace(roadmap.parent, mode=workspace_mode)
             agent = Agent(
                 deep=True,
@@ -667,7 +671,11 @@ def run_cmd(
 
     # Create executor
     try:
-        executor = Executor(roadmap=roadmap, config=config, agent=agent, callbacks=callbacks)
+        from typing import Any, cast
+
+        executor = Executor(
+            roadmap=roadmap, config=config, agent=cast(Any, agent), callbacks=callbacks
+        )
     except Exception as e:
         console.print(f"[red]Error creating executor: {e}[/red]")
         raise typer.Exit(1)
@@ -733,11 +741,11 @@ def run_cmd(
                     tasks_failed=failed,
                     tasks_remaining=total - completed - failed,
                     tasks_skipped=0,
-                    duration_ms=result.get("duration_ms", 0),  # Phase 2.2.1
-                    total_tokens=result.get("tokens_used", 0),  # Phase 2.2.1
+                    duration_ms=float(result.get("duration_ms") or 0),  # type: ignore[arg-type]
+                    total_tokens=int(result.get("tokens_used") or 0),  # type: ignore[call-overload]
                     results=[],
                     paused=result.get("interrupt_requested", False),
-                    pause_reason="HITL interrupt" if result.get("interrupt_requested") else None,
+                    pause_reason="HITL interrupt" if result.get("interrupt_requested") else "",
                 )
                 # Return tuple with summary and node_metrics for graph mode
                 return (summary, node_metrics_data)
