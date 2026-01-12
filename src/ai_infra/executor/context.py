@@ -233,7 +233,7 @@ class ContextCache:
             Hash-based cache key.
         """
         key_string = f"{query}|{k}|{min_score}"
-        return hashlib.md5(key_string.encode()).hexdigest()
+        return hashlib.md5(key_string.encode(), usedforsecurity=False).hexdigest()
 
 
 # File extensions to index for semantic search

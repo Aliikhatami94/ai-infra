@@ -413,7 +413,7 @@ class LearningStore:
         normalized = re.sub(r"['\"][^'\"]+['\"]", "'X'", normalized)
 
         # Hash the normalized message
-        return hashlib.md5(normalized.encode()).hexdigest()[:12]
+        return hashlib.md5(normalized.encode(), usedforsecurity=False).hexdigest()[:12]
 
     @staticmethod
     def generate_task_signature(
@@ -446,7 +446,7 @@ class LearningStore:
         signature_parts = sorted(key_words[:5]) + sorted(extensions)
         signature_str = ":".join(signature_parts)
 
-        return hashlib.md5(signature_str.encode()).hexdigest()[:12]
+        return hashlib.md5(signature_str.encode(), usedforsecurity=False).hexdigest()[:12]
 
     @staticmethod
     def infer_task_type(task_title: str, task_description: str = "") -> TaskType:
