@@ -85,13 +85,16 @@ class Workspace:
 
         if self.mode == "virtual":
             # In-memory filesystem (no persistence, safe for untrusted code)
+            # Note: virtual_mode=True WITHOUT root_dir creates in-memory only
             return FilesystemBackend(virtual_mode=True)
         elif self.mode == "sandboxed":
-            # Real filesystem, sandboxed to root_dir
-            # FilesystemBackend validates paths stay within root_dir
-            return FilesystemBackend(root_dir=str(self.root), virtual_mode=False)
+            # Real filesystem, sandboxed to root_dir with virtual path mode
+            # virtual_mode=True ensures paths like "/src/file.py" are treated as
+            # relative to root_dir, not as absolute system paths
+            return FilesystemBackend(root_dir=str(self.root), virtual_mode=True)
         else:  # full
             # Full filesystem access from root
+            # virtual_mode=False allows absolute paths outside root_dir
             # [!] SECURITY: No sandboxing - agent can access any file
             return FilesystemBackend(root_dir=str(self.root), virtual_mode=False)
 
