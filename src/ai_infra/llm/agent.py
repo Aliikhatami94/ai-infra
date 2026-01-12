@@ -590,6 +590,10 @@ class Agent(BaseLLM):
         if self._session_config:
             config = self._session_config.get_config(eff_session_id)
 
+        import time as _time
+
+        start_time = _time.time()
+
         # Use DeepAgent if deep=True
         if self._deep:
             deep_agent = self._build_deep_agent(
@@ -602,6 +606,22 @@ class Agent(BaseLLM):
                 {"messages": [{"role": "user", "content": prompt}]},
                 config=config,
             )
+            # Fire callback for deep agent path
+            if self._callbacks:
+                from ai_infra.callbacks import LLMEndEvent
+
+                input_tokens, output_tokens, total_tokens = self._extract_token_usage(result)
+                self._callbacks.on_llm_end(
+                    LLMEndEvent(
+                        provider=eff_provider,
+                        model=eff_model or "",
+                        response=self._extract_text_content(result),
+                        input_tokens=input_tokens,
+                        output_tokens=output_tokens,
+                        total_tokens=total_tokens,
+                        latency_ms=(_time.time() - start_time) * 1000,
+                    )
+                )
         else:
             # Build messages
             messages: list[dict[str, Any]] = []
@@ -637,6 +657,48 @@ class Agent(BaseLLM):
         if hasattr(result, "content"):
             return str(result.content)
         return str(result)
+
+    def _extract_token_usage(self, result: Any) -> tuple[int | None, int | None, int | None]:
+        """Extract token usage from agent result.
+
+        LangGraph agents return messages with usage_metadata on AIMessage.
+        We sum up usage from all AI messages in the response.
+
+        Args:
+            result: Agent result containing messages
+
+        Returns:
+            Tuple of (input_tokens, output_tokens, total_tokens), None if not available
+        """
+        if not hasattr(result, "get") or "messages" not in result:
+            return None, None, None
+
+        msgs = result.get("messages", [])
+        if not msgs:
+            return None, None, None
+
+        total_input = 0
+        total_output = 0
+        total_tokens = 0
+        has_usage = False
+
+        for msg in msgs:
+            usage = getattr(msg, "usage_metadata", None)
+            if usage:
+                has_usage = True
+                # usage_metadata can be dict or object
+                if isinstance(usage, dict):
+                    total_input += usage.get("input_tokens", 0) or 0
+                    total_output += usage.get("output_tokens", 0) or 0
+                    total_tokens += usage.get("total_tokens", 0) or 0
+                else:
+                    total_input += getattr(usage, "input_tokens", 0) or 0
+                    total_output += getattr(usage, "output_tokens", 0) or 0
+                    total_tokens += getattr(usage, "total_tokens", 0) or 0
+
+        if has_usage:
+            return total_input, total_output, total_tokens
+        return None, None, None
 
     def _convert_subagents(self, subagents: list[Agent | Any]) -> list[Any]:
         """Convert Agent instances to SubAgent format.
@@ -750,6 +812,10 @@ class Agent(BaseLLM):
             config = self._session_config.get_config(eff_session_id)
 
         # Use DeepAgent if deep=True
+        import time as _time
+
+        start_time = _time.time()
+
         if self._deep:
             deep_agent = self._build_deep_agent(
                 provider=eff_provider,
@@ -761,6 +827,22 @@ class Agent(BaseLLM):
                 {"messages": [{"role": "user", "content": prompt}]},
                 config=config,
             )
+            # Fire callback for deep agent path
+            if self._callbacks:
+                from ai_infra.callbacks import LLMEndEvent
+
+                input_tokens, output_tokens, total_tokens = self._extract_token_usage(result)
+                self._callbacks.on_llm_end(
+                    LLMEndEvent(
+                        provider=eff_provider,
+                        model=eff_model or "",
+                        response=self._extract_text_content(result),
+                        input_tokens=input_tokens,
+                        output_tokens=output_tokens,
+                        total_tokens=total_tokens,
+                        latency_ms=(_time.time() - start_time) * 1000,
+                    )
+                )
         else:
             # Build messages
             messages: list[dict[str, Any]] = []
@@ -1445,15 +1527,19 @@ class Agent(BaseLLM):
             else:
                 res = await _call()
 
-            # Fire LLM end callback
+            # Fire LLM end callback with token usage
             if self._callbacks:
                 from ai_infra.callbacks import LLMEndEvent
 
+                input_tokens, output_tokens, total_tokens = self._extract_token_usage(res)
                 self._callbacks.on_llm_end(
                     LLMEndEvent(
                         provider=provider,
                         model=model_name or "",
                         response=self._extract_text_content(res),
+                        input_tokens=input_tokens,
+                        output_tokens=output_tokens,
+                        total_tokens=total_tokens,
                         latency_ms=(time.time() - start_time) * 1000,
                     )
                 )
@@ -1512,15 +1598,19 @@ class Agent(BaseLLM):
         try:
             res = agent.invoke({"messages": messages}, context=context, config=merged_config)
 
-            # Fire LLM end callback
+            # Fire LLM end callback with token usage
             if self._callbacks:
                 from ai_infra.callbacks import LLMEndEvent
 
+                input_tokens, output_tokens, total_tokens = self._extract_token_usage(res)
                 self._callbacks.on_llm_end(
                     LLMEndEvent(
                         provider=provider,
                         model=model_name or "",
                         response=self._extract_text_content(res),
+                        input_tokens=input_tokens,
+                        output_tokens=output_tokens,
+                        total_tokens=total_tokens,
                         latency_ms=(time.time() - start_time) * 1000,
                     )
                 )

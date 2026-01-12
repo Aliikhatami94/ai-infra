@@ -2020,6 +2020,17 @@
 
 | Phase | Feature | Priority | Effort | Target Version |
 |-------|---------|----------|--------|----------------|
+| **1-10** | **Autopilot (Autonomous Agent)** | **HIGH** | **3 weeks** | **v1.0.1** |
+| 1 | Autopilot Core Architecture | HIGH | 1 week | v1.0.1 |
+| 2 | ROADMAP Parser | HIGH | 3 hours | v1.0.1 |
+| 3 | Task Queue & State Management | HIGH | 3 hours | v1.0.1 |
+| 4 | Code Editing Tools | HIGH | 4 hours | v1.0.1 |
+| 5 | Task Executor | HIGH | 5 hours | v1.0.1 |
+| 6 | Autonomous Loop | HIGH | 3 hours | v1.0.1 |
+| 7 | CLI Interface | HIGH | 2 hours | v1.0.1 |
+| 8 | Error Handling & Recovery | MEDIUM | 3 hours | v1.0.1 |
+| 9 | Observability & Logging | MEDIUM | 3 hours | v1.0.1 |
+| 10 | Testing & Documentation | HIGH | 4 hours | v1.0.1 |
 | 11 | Evaluation Framework | HIGH | 2 weeks | v1.1.0 |
 | 12 | Guardrails & Safety | HIGH | 2 weeks | v1.1.0 |
 | 13 | Semantic Cache | HIGH | 1 week | v1.2.0 |
@@ -2033,7 +2044,7 @@
 | 21 | Agent-to-Agent (A2A) Protocol | MEDIUM | 1 week | v1.6.0 |
 | 22 | Web/UI SDK Integration | MEDIUM | 1 week | v1.7.0 |
 
-**Total Estimated Effort**: 14 weeks
+**Total Estimated Effort**: 17 weeks (including Autopilot)
 
 ---
 
@@ -2041,25 +2052,36 @@
 
 After completing all phases, ai-infra will surpass competitors:
 
-| Feature | ai-infra | LiteLLM | Pydantic-AI | LangChain |
-|---------|:--------:|:-------:|:-----------:|:---------:|
-| LLM Providers | 100+ (via LiteLLM) | 100+ | ~15 | Via integrations |
-| Embeddings | Built-in + LiteLLM | Built-in | Built-in | Via integrations |
-| Agents | Built-in + HITL | None | Built-in | Via LangGraph |
-| MCP Client/Server | Built-in | None | Built-in | None |
-| TTS/STT | Built-in | Basic | None | None |
+| Feature | ai-infra | Devin | Cursor | LangChain |
+|---------|:--------:|:-----:|:------:|:---------:|
+| **Autonomous Agent (Autopilot)** | **Built-in, Open** | Closed SaaS | IDE-only | None |
+| Platform-Agnostic | CLI + Library | Web-only | Cursor-only | N/A |
+| ROADMAP-Driven | Built-in | None | None | None |
+| Self-Driving Loop | Built-in | Built-in | Partial | None |
+| LLM Providers | 100+ (via LiteLLM) | Unknown | OpenAI/Anthropic | Via integrations |
+| Embeddings | Built-in + LiteLLM | Unknown | Built-in | Via integrations |
+| Agents | Built-in + HITL | Built-in | Built-in | Via LangGraph |
+| MCP Client/Server | Built-in | Unknown | Built-in | None |
+| TTS/STT | Built-in | None | None | None |
 | Realtime Voice | Built-in | None | None | None |
-| Image Generation | Built-in | Basic | None | None |
-| RAG/Retriever | Built-in | None | Example | Via integrations |
-| Document Loaders | 160+ (via LangChain) | None | None | 160+ native |
-| Evals | Built-in | None | Built-in | Via LangSmith |
-| Guardrails | Built-in | None | None | Via integrations |
-| Semantic Cache | Built-in | None | None | Via integrations |
-| Durable Execution | Via Temporal/DBOS | None | Via integrations | Via LangGraph |
-| A2A Protocol | Built-in | None | Built-in | None |
-| Web/UI SDK | Vercel AI compatible | None | AG-UI, Vercel | None |
-| Model Router | Built-in | Built-in | None | None |
-| Prompt Registry | Built-in | None | None | Via LangSmith |
-| Local Models | Ollama, vLLM | Via proxy | Via model | Via integrations |
+| Image Generation | Built-in | None | None | None |
+| RAG/Retriever | Built-in | Unknown | Built-in | Via integrations |
+| Document Loaders | 160+ (via LangChain) | Unknown | None | 160+ native |
+| Evals | Built-in | Unknown | None | Via LangSmith |
+| Guardrails | Built-in | Unknown | None | Via integrations |
+| Semantic Cache | Built-in | Unknown | None | Via integrations |
+| Durable Execution | Via Temporal/DBOS | Unknown | None | Via LangGraph |
+| A2A Protocol | Built-in | Unknown | None | None |
+| Web/UI SDK | Vercel AI compatible | Web-native | None | None |
+| Model Router | Built-in | Unknown | Partial | None |
+| Prompt Registry | Built-in | Unknown | None | Via LangSmith |
+| Local Models | Ollama, vLLM | Unknown | Ollama | Via integrations |
+| Open Source | Yes | No | No | Yes |
+| Pricing | Free/Self-host | $500/mo | $20/mo | Free |
 
-**ai-infra Philosophy**: One unified SDK that does it all, leveraging the best of the ecosystem
+**ai-infra Autopilot Differentiators**:
+- Open source and self-hostable
+- Works in any IDE/terminal (not locked to one platform)
+- ROADMAP.md as source of truth (version-controlled, human-readable)
+- Built on production-ready ai-infra Agent infrastructure
+- Composable with CI/CD, MCP servers, and external tools
