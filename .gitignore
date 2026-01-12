@@ -33,3 +33,4 @@ dist/
 .github/PLAN.md
 .github/RESEARCH.md
 EXECUTOR-COMPLETED.md
+.executor/
