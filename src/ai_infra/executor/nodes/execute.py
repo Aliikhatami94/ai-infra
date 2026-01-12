@@ -381,7 +381,7 @@ def _is_valid_execution_workspace(workspace_root: str) -> bool:
 
         # Check if path is in /tmp or temp directories (often used for tests)
         root_str = str(root_path)
-        if root_str.startswith("/tmp") or root_str.startswith("/var/tmp"):
+        if root_str.startswith("/tmp") or root_str.startswith("/var/tmp"):  # nosec B108
             return True
 
         # Check for .executor directory (created by executor)

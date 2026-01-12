@@ -3662,7 +3662,7 @@ class Executor:
         """
         import hashlib
 
-        hasher = hashlib.md5()
+        hasher = hashlib.md5(usedforsecurity=False)
         size = 0
         with open(file_path, "rb") as f:
             while chunk := f.read(8192):
