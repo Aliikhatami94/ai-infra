@@ -289,25 +289,49 @@ class TestNormalizedTodoFile:
 
 
 class TestFromRoadmapLLM:
-    """Tests for LLM-based ROADMAP normalization (Phase 5.13.3)."""
+    """Tests for LLM-based ROADMAP normalization (Phase 5.13.3).
+
+    Note: These tests mock the LLM.achat method to avoid real API calls.
+    """
+
+    @pytest.fixture
+    def mock_llm_response(self, monkeypatch):
+        """Create a mock LLM response fixture."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        def _create_mock(response: str):
+            mock_response = MagicMock()
+            mock_response.content = response
+            mock_achat = AsyncMock(return_value=mock_response)
+
+            # Create a mock LLM class that returns our mocked instance
+            class MockLLM:
+                async def achat(self, **kwargs):
+                    return await mock_achat(**kwargs)
+
+            monkeypatch.setattr("ai_infra.llm.LLM", MockLLM)
+            return mock_achat
+
+        return _create_mock
 
     @pytest.fixture
     def mock_agent(self):
-        """Create a mock agent for testing."""
+        """Create a mock agent for testing (passed but not used by from_roadmap_llm)."""
 
         class MockAgent:
             def __init__(self, response: str):
                 self._response = response
-                self.calls: list[str] = []
+                self._default_model_name = "gpt-5-mini"
 
             async def arun(self, prompt: str) -> str:
-                self.calls.append(prompt)
                 return self._response
 
         return MockAgent
 
     @pytest.mark.asyncio
-    async def test_from_roadmap_llm_basic(self, tmp_path: Path, mock_agent) -> None:
+    async def test_from_roadmap_llm_basic(
+        self, tmp_path: Path, mock_agent, mock_llm_response
+    ) -> None:
         """Test basic LLM normalization."""
         roadmap_path = tmp_path / "ROADMAP.md"
         roadmap_path.write_text("# Test\n- [ ] Task 1\n- [x] Task 2")
@@ -319,74 +343,82 @@ class TestFromRoadmapLLM:
                 {"id": 2, "title": "Task 2", "status": "completed"}
             ]
         }"""
+        mock_achat = mock_llm_response(llm_response)
         agent = mock_agent(llm_response)
 
         manager = await TodoListManager.from_roadmap_llm(roadmap_path, agent)
 
         assert manager.total_count == 2
         assert manager.pending_count == 1
-        assert len(agent.calls) == 1
+        mock_achat.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_from_roadmap_llm_caches_result(self, tmp_path: Path, mock_agent) -> None:
+    async def test_from_roadmap_llm_caches_result(
+        self, tmp_path: Path, mock_agent, mock_llm_response
+    ) -> None:
         """Test that normalization result is cached."""
         roadmap_path = tmp_path / "ROADMAP.md"
         roadmap_path.write_text("# Test\n- [ ] Task 1")
 
         llm_response = '{"todos": [{"id": 1, "title": "Task 1", "status": "pending"}]}'
+        mock_achat = mock_llm_response(llm_response)
         agent = mock_agent(llm_response)
 
         # First call - should use LLM
         await TodoListManager.from_roadmap_llm(roadmap_path, agent)
-        assert len(agent.calls) == 1
+        assert mock_achat.call_count == 1
 
-        # Second call - should use cache
-        agent2 = mock_agent(llm_response)
-        manager2 = await TodoListManager.from_roadmap_llm(roadmap_path, agent2)
-        assert len(agent2.calls) == 0
+        # Second call - should use cache (no additional LLM call)
+        manager2 = await TodoListManager.from_roadmap_llm(roadmap_path, agent)
+        assert mock_achat.call_count == 1  # Still just 1 call
         assert manager2.total_count == 1
 
     @pytest.mark.asyncio
-    async def test_from_roadmap_llm_force_renormalize(self, tmp_path: Path, mock_agent) -> None:
+    async def test_from_roadmap_llm_force_renormalize(
+        self, tmp_path: Path, mock_agent, mock_llm_response
+    ) -> None:
         """Test that force_renormalize bypasses cache."""
         roadmap_path = tmp_path / "ROADMAP.md"
         roadmap_path.write_text("# Test\n- [ ] Task 1")
 
         llm_response = '{"todos": [{"id": 1, "title": "Task 1", "status": "pending"}]}'
+        mock_achat = mock_llm_response(llm_response)
         agent = mock_agent(llm_response)
 
         # First call
         await TodoListManager.from_roadmap_llm(roadmap_path, agent)
+        assert mock_achat.call_count == 1
 
         # Force renormalize - should call LLM again
-        agent2 = mock_agent(llm_response)
-        await TodoListManager.from_roadmap_llm(roadmap_path, agent2, force_renormalize=True)
-        assert len(agent2.calls) == 1
+        await TodoListManager.from_roadmap_llm(roadmap_path, agent, force_renormalize=True)
+        assert mock_achat.call_count == 2
 
     @pytest.mark.asyncio
-    async def test_from_roadmap_llm_stale_cache(self, tmp_path: Path, mock_agent) -> None:
+    async def test_from_roadmap_llm_stale_cache(
+        self, tmp_path: Path, mock_agent, mock_llm_response
+    ) -> None:
         """Test that stale cache triggers re-normalization."""
         roadmap_path = tmp_path / "ROADMAP.md"
         roadmap_path.write_text("# Original content")
 
         llm_response = '{"todos": [{"id": 1, "title": "Task 1", "status": "pending"}]}'
+        mock_achat = mock_llm_response(llm_response)
         agent = mock_agent(llm_response)
 
         # First call - creates cache
         await TodoListManager.from_roadmap_llm(roadmap_path, agent)
-        assert len(agent.calls) == 1
+        assert mock_achat.call_count == 1
 
         # Modify ROADMAP
         roadmap_path.write_text("# Modified content")
 
         # Second call - should re-normalize because content changed
-        agent2 = mock_agent(llm_response)
-        await TodoListManager.from_roadmap_llm(roadmap_path, agent2)
-        assert len(agent2.calls) == 1
+        await TodoListManager.from_roadmap_llm(roadmap_path, agent)
+        assert mock_achat.call_count == 2
 
     @pytest.mark.asyncio
     async def test_from_roadmap_llm_handles_markdown_blocks(
-        self, tmp_path: Path, mock_agent
+        self, tmp_path: Path, mock_agent, mock_llm_response
     ) -> None:
         """Test that LLM response with markdown code blocks is handled."""
         roadmap_path = tmp_path / "ROADMAP.md"
@@ -396,17 +428,21 @@ class TestFromRoadmapLLM:
         llm_response = """```json
 {"todos": [{"id": 1, "title": "Task 1", "status": "pending"}]}
 ```"""
+        mock_llm_response(llm_response)
         agent = mock_agent(llm_response)
 
         manager = await TodoListManager.from_roadmap_llm(roadmap_path, agent)
         assert manager.total_count == 1
 
     @pytest.mark.asyncio
-    async def test_from_roadmap_llm_invalid_json_raises(self, tmp_path: Path, mock_agent) -> None:
+    async def test_from_roadmap_llm_invalid_json_raises(
+        self, tmp_path: Path, mock_agent, mock_llm_response
+    ) -> None:
         """Test that invalid JSON raises ValueError."""
         roadmap_path = tmp_path / "ROADMAP.md"
         roadmap_path.write_text("# Test\n- [ ] Task 1")
 
+        mock_llm_response("Not valid JSON at all")
         agent = mock_agent("Not valid JSON at all")
 
         with pytest.raises(ValueError, match="Could not find JSON"):
@@ -414,25 +450,29 @@ class TestFromRoadmapLLM:
 
     @pytest.mark.asyncio
     async def test_from_roadmap_llm_missing_todos_key_raises(
-        self, tmp_path: Path, mock_agent
+        self, tmp_path: Path, mock_agent, mock_llm_response
     ) -> None:
         """Test that missing 'todos' key raises ValueError."""
         roadmap_path = tmp_path / "ROADMAP.md"
         roadmap_path.write_text("# Test\n- [ ] Task 1")
 
+        mock_llm_response('{"tasks": []}')  # Wrong key
         agent = mock_agent('{"tasks": []}')  # Wrong key
 
         with pytest.raises(ValueError, match="missing 'todos' key"):
             await TodoListManager.from_roadmap_llm(roadmap_path, agent)
 
     @pytest.mark.asyncio
-    async def test_from_roadmap_llm_creates_executor_dir(self, tmp_path: Path, mock_agent) -> None:
+    async def test_from_roadmap_llm_creates_executor_dir(
+        self, tmp_path: Path, mock_agent, mock_llm_response
+    ) -> None:
         """Test that .executor directory is created."""
         roadmap_path = tmp_path / "project" / "ROADMAP.md"
         roadmap_path.parent.mkdir(parents=True)
         roadmap_path.write_text("# Test\n- [ ] Task 1")
 
         llm_response = '{"todos": [{"id": 1, "title": "Task 1", "status": "pending"}]}'
+        mock_llm_response(llm_response)
         agent = mock_agent(llm_response)
 
         await TodoListManager.from_roadmap_llm(roadmap_path, agent)
@@ -458,13 +498,36 @@ class TestJsonOnlyMode:
 
         return MockAgent
 
+    @pytest.fixture
+    def mock_llm_response(self, monkeypatch):
+        """Create a mock for LLM.achat that returns the given response."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        def _create_mock(response: str):
+            mock_response = MagicMock()
+            mock_response.content = response
+            mock_achat = AsyncMock(return_value=mock_response)
+
+            # Create a mock LLM class that returns our mocked instance
+            class MockLLM:
+                async def achat(self, **kwargs):
+                    return await mock_achat(**kwargs)
+
+            monkeypatch.setattr("ai_infra.llm.LLM", MockLLM)
+            return mock_achat
+
+        return _create_mock
+
     @pytest.mark.asyncio
-    async def test_llm_manager_uses_json_only_mode(self, tmp_path: Path, mock_agent) -> None:
+    async def test_llm_manager_uses_json_only_mode(
+        self, tmp_path: Path, mock_agent, mock_llm_response
+    ) -> None:
         """Test that from_roadmap_llm creates manager in JSON-only mode."""
         roadmap_path = tmp_path / "ROADMAP.md"
         roadmap_path.write_text("# Test\n- [ ] Task 1")
 
         llm_response = '{"todos": [{"id": 1, "title": "Task 1", "status": "pending"}]}'
+        mock_llm_response(llm_response)
         agent = mock_agent(llm_response)
 
         manager = await TodoListManager.from_roadmap_llm(roadmap_path, agent)
@@ -472,7 +535,9 @@ class TestJsonOnlyMode:
         assert manager.uses_json_only is True
 
     @pytest.mark.asyncio
-    async def test_mark_completed_saves_to_json(self, tmp_path: Path, mock_agent) -> None:
+    async def test_mark_completed_saves_to_json(
+        self, tmp_path: Path, mock_agent, mock_llm_response
+    ) -> None:
         """Test that mark_completed updates todos.json."""
         roadmap_path = tmp_path / "ROADMAP.md"
         roadmap_path.write_text("# Test\n- [ ] Task 1\n- [ ] Task 2")
@@ -483,6 +548,7 @@ class TestJsonOnlyMode:
                 {"id": 2, "title": "Task 2", "status": "pending"}
             ]
         }"""
+        mock_llm_response(llm_response)
         agent = mock_agent(llm_response)
 
         manager = await TodoListManager.from_roadmap_llm(roadmap_path, agent)
@@ -498,13 +564,16 @@ class TestJsonOnlyMode:
         assert data["todos"][1]["status"] == "pending"
 
     @pytest.mark.asyncio
-    async def test_mark_completed_does_not_modify_roadmap(self, tmp_path: Path, mock_agent) -> None:
+    async def test_mark_completed_does_not_modify_roadmap(
+        self, tmp_path: Path, mock_agent, mock_llm_response
+    ) -> None:
         """Test that mark_completed does NOT modify ROADMAP in JSON-only mode."""
         roadmap_path = tmp_path / "ROADMAP.md"
         original_content = "# Test\n- [ ] Task 1"
         roadmap_path.write_text(original_content)
 
         llm_response = '{"todos": [{"id": 1, "title": "Task 1", "status": "pending"}]}'
+        mock_llm_response(llm_response)
         agent = mock_agent(llm_response)
 
         manager = await TodoListManager.from_roadmap_llm(roadmap_path, agent)
@@ -515,12 +584,15 @@ class TestJsonOnlyMode:
         assert "[ ]" in roadmap_path.read_text()
 
     @pytest.mark.asyncio
-    async def test_mark_failed_saves_to_json(self, tmp_path: Path, mock_agent) -> None:
+    async def test_mark_failed_saves_to_json(
+        self, tmp_path: Path, mock_agent, mock_llm_response
+    ) -> None:
         """Test that mark_failed updates todos.json."""
         roadmap_path = tmp_path / "ROADMAP.md"
         roadmap_path.write_text("# Test\n- [ ] Task 1")
 
         llm_response = '{"todos": [{"id": 1, "title": "Task 1", "status": "pending"}]}'
+        mock_llm_response(llm_response)
         agent = mock_agent(llm_response)
 
         manager = await TodoListManager.from_roadmap_llm(roadmap_path, agent)
@@ -534,12 +606,15 @@ class TestJsonOnlyMode:
         assert data["todos"][0]["status"] == "skipped"
 
     @pytest.mark.asyncio
-    async def test_mark_in_progress_saves_to_json(self, tmp_path: Path, mock_agent) -> None:
+    async def test_mark_in_progress_saves_to_json(
+        self, tmp_path: Path, mock_agent, mock_llm_response
+    ) -> None:
         """Test that mark_in_progress updates todos.json."""
         roadmap_path = tmp_path / "ROADMAP.md"
         roadmap_path.write_text("# Test\n- [ ] Task 1")
 
         llm_response = '{"todos": [{"id": 1, "title": "Task 1", "status": "pending"}]}'
+        mock_llm_response(llm_response)
         agent = mock_agent(llm_response)
 
         manager = await TodoListManager.from_roadmap_llm(roadmap_path, agent)
@@ -566,12 +641,15 @@ class TestJsonOnlyMode:
         assert manager.uses_json_only is False
 
     @pytest.mark.asyncio
-    async def test_sync_roadmap_true_overrides_json_only(self, tmp_path: Path, mock_agent) -> None:
+    async def test_sync_roadmap_true_overrides_json_only(
+        self, tmp_path: Path, mock_agent, mock_llm_response
+    ) -> None:
         """Test that sync_roadmap=True can override JSON-only mode."""
         roadmap_path = tmp_path / "ROADMAP.md"
         roadmap_path.write_text("# Test\n- [ ] Task 1")
 
         llm_response = '{"todos": [{"id": 1, "title": "Task 1", "status": "pending"}]}'
+        mock_llm_response(llm_response)
         agent = mock_agent(llm_response)
 
         manager = await TodoListManager.from_roadmap_llm(roadmap_path, agent)

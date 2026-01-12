@@ -544,26 +544,28 @@ class TestShouldReplan:
 class TestAdaptiveRouting:
     """Tests for adaptive replanning routing functions."""
 
-    def test_verify_routes_to_analyze_failure_in_adaptive_mode(
-        self, base_state: ExecutorGraphState
-    ):
-        """Test verify_task routes to analyze_failure when adaptive mode enabled."""
+    def test_verify_routes_to_repair_test_in_adaptive_mode(self, base_state: ExecutorGraphState):
+        """Test verify_task routes to repair_test for targeted repair (Phase 2.6)."""
         state = {
             **base_state,
             "verified": False,
             "adaptive_mode": "auto_fix",
+            "test_repair_count": 0,
         }
 
         result = route_after_verify(state)
 
-        assert result == "analyze_failure"
+        assert result == "repair_test"
 
-    def test_verify_routes_to_handle_failure_in_no_adapt(self, base_state: ExecutorGraphState):
-        """Test verify_task routes to handle_failure when adaptive mode disabled."""
+    def test_verify_routes_to_handle_failure_after_max_repairs(
+        self, base_state: ExecutorGraphState
+    ):
+        """Test verify_task routes to handle_failure after max test repairs."""
         state = {
             **base_state,
             "verified": False,
             "adaptive_mode": "no_adapt",
+            "test_repair_count": 2,  # At max repairs
         }
 
         result = route_after_verify(state)

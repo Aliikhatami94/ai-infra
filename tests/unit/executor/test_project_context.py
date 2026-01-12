@@ -101,9 +101,24 @@ class TestProjectContextStructure:
         assert "new_file.py" in result2
 
 
+# Check if langchain_huggingface is available
+try:
+    import langchain_huggingface  # noqa: F401
+
+    HAS_HUGGINGFACE = True
+except ImportError:
+    HAS_HUGGINGFACE = False
+
+requires_huggingface = pytest.mark.skipif(
+    not HAS_HUGGINGFACE,
+    reason="langchain_huggingface not installed",
+)
+
+
 class TestProjectContextSemanticIndex:
     """Test semantic indexing functionality."""
 
+    @requires_huggingface
     @pytest.mark.asyncio
     async def test_build_semantic_index_indexes_files(self, tmp_path: Path):
         """build_semantic_index indexes Python files."""
@@ -133,6 +148,7 @@ def format_output(text: str) -> str:
         assert context.is_indexed()
         assert context.count() > 0
 
+    @requires_huggingface
     @pytest.mark.asyncio
     async def test_excludes_cache_directories(self, tmp_path: Path):
         """Does not index files in excluded directories."""
@@ -150,6 +166,7 @@ def format_output(text: str) -> str:
         # Should only index src/main.py, not __pycache__/cached.py
         assert count == 1
 
+    @requires_huggingface
     @pytest.mark.asyncio
     async def test_respects_custom_extensions(self, tmp_path: Path):
         """Only indexes files with specified extensions."""
@@ -164,6 +181,7 @@ def format_output(text: str) -> str:
         assert count == 1
 
 
+@requires_huggingface
 class TestProjectContextSearch:
     """Test semantic search functionality."""
 
@@ -242,6 +260,7 @@ class TestProjectContextTaskContext:
         assert "## Project Structure" in result
         assert "tree" in result
 
+    @requires_huggingface
     @pytest.mark.asyncio
     async def test_get_task_context_includes_semantic(self, tmp_path: Path):
         """get_task_context includes semantic search results."""
@@ -345,6 +364,7 @@ class TestProjectContextUtilities:
         context.clear_cache()
         assert context._structure_cache is None
 
+    @requires_huggingface
     @pytest.mark.asyncio
     async def test_refresh(self, tmp_path: Path):
         """refresh rebuilds both caches."""
@@ -368,6 +388,7 @@ class TestProjectContextUtilities:
         context = ProjectContext(tmp_path)
         assert context.count() == 0
 
+    @requires_huggingface
     @pytest.mark.asyncio
     async def test_count_after_index(self, tmp_path: Path):
         """count returns chunk count after indexing."""
@@ -674,6 +695,7 @@ class TestProjectContextCaching:
         assert "misses" in stats
         assert "size" in stats
 
+    @requires_huggingface
     @pytest.mark.asyncio
     async def test_search_caches_results(self, tmp_path: Path):
         """search_detailed caches results."""
@@ -692,6 +714,7 @@ class TestProjectContextCaching:
         stats2 = context.cache_stats()
         assert stats2["hits"] == 1
 
+    @requires_huggingface
     @pytest.mark.asyncio
     async def test_search_use_cache_false(self, tmp_path: Path):
         """Can bypass cache with use_cache=False."""
@@ -737,6 +760,7 @@ class TestProjectContextCaching:
         assert context._search_cache.get("key") is None
         assert context._structure_cache is None
 
+    @requires_huggingface
     @pytest.mark.asyncio
     async def test_get_task_context_with_budget_tracks_cache_hits(self, tmp_path: Path):
         """get_task_context_with_budget reports cache hits."""
