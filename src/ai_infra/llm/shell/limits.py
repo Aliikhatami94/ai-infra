@@ -411,7 +411,7 @@ class LimitedExecutionPolicy:
                 memory_bytes = limits.memory_mb * 1024 * 1024
                 try:
                     resource.setrlimit(resource.RLIMIT_AS, (memory_bytes, memory_bytes))
-                except (ValueError, resource.error):
+                except (OSError, ValueError):
                     pass  # Limit may exceed system maximum
 
             # CPU time limit
@@ -421,7 +421,7 @@ class LimitedExecutionPolicy:
                         resource.RLIMIT_CPU,
                         (limits.cpu_seconds, limits.cpu_seconds),
                     )
-                except (ValueError, resource.error):
+                except (OSError, ValueError):
                     pass
 
             # File size limit
@@ -429,7 +429,7 @@ class LimitedExecutionPolicy:
                 file_bytes = limits.max_file_size_mb * 1024 * 1024
                 try:
                     resource.setrlimit(resource.RLIMIT_FSIZE, (file_bytes, file_bytes))
-                except (ValueError, resource.error):
+                except (OSError, ValueError):
                     pass
 
             # Open files limit
@@ -439,7 +439,7 @@ class LimitedExecutionPolicy:
                         resource.RLIMIT_NOFILE,
                         (limits.max_open_files, limits.max_open_files),
                     )
-                except (ValueError, resource.error):
+                except (OSError, ValueError):
                     pass
 
             # Process limit (RLIMIT_NPROC)
@@ -449,14 +449,14 @@ class LimitedExecutionPolicy:
                         resource.RLIMIT_NPROC,
                         (limits.max_processes, limits.max_processes),
                     )
-                except (ValueError, resource.error):
+                except (OSError, ValueError):
                     pass
 
             # Core dump limit
             if not limits.enable_core_dumps:
                 try:
                     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
-                except (ValueError, resource.error):
+                except (OSError, ValueError):
                     pass
 
         return set_limits
