@@ -2,7 +2,7 @@
 
 Tests cover:
 - CLI MCP server creation
-- CLI tool registration (run_cli)
+- CLI tool registration (run_shell)
 - MCP server instantiation
 - Transport configuration (stdio)
 - Main entry point
@@ -86,12 +86,12 @@ class TestMCPCLIServerCreation:
 class TestMCPCLIToolRegistration:
     """Tests for CLI tool registration."""
 
-    def test_run_cli_imported(self):
-        """Test run_cli is imported."""
-        from ai_infra.llm.tools.custom.cli import run_cli
+    def test_run_shell_imported(self):
+        """Test run_shell is imported."""
+        from ai_infra.llm.shell.tool import run_shell
 
-        assert run_cli is not None
-        assert callable(run_cli)
+        assert run_shell is not None
+        assert hasattr(run_shell, "ainvoke")
 
     def test_mcp_from_functions_creates_server(self):
         """Test mcp_from_functions creates server with tools."""

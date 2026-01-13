@@ -772,6 +772,7 @@ class ExecutorErrorType:
     ROLLBACK = "rollback"
     PARSE = "parse"
     CONTEXT = "context"
+    SHELL = "shell"  # Phase 2.2: Shell command errors
 
 
 class ExecutorError(TypedDict, total=False):
@@ -779,9 +780,10 @@ class ExecutorError(TypedDict, total=False):
 
     Phase 1.1.2b: Structured error tracking for graph-based execution.
     Phase 1.2: Added validation error type.
+    Phase 2.2: Added shell error type.
 
     Attributes:
-        error_type: Category of error (execution, verification, validation, timeout, rollback).
+        error_type: Category of error (execution, verification, validation, timeout, rollback, shell).
         message: Human-readable error description.
         node: Which graph node produced the error.
         task_id: ID of the task that failed (if applicable).
@@ -790,13 +792,53 @@ class ExecutorError(TypedDict, total=False):
     """
 
     error_type: Literal[
-        "execution", "verification", "validation", "timeout", "rollback", "parse", "context"
+        "execution",
+        "verification",
+        "validation",
+        "timeout",
+        "rollback",
+        "parse",
+        "context",
+        "shell",
     ]
     message: str
     node: str
     task_id: str | None
     recoverable: bool
     stack_trace: str | None
+
+
+class ShellError(TypedDict, total=False):
+    """Shell-specific error details for executor graph state.
+
+    Phase 2.2.2: Detailed shell command error tracking.
+    Used when a shell command fails during task execution.
+
+    Attributes:
+        command: The shell command that failed.
+        exit_code: The command's exit code (non-zero indicates failure).
+        stderr: Standard error output from the command.
+        stdout: Standard output from the command (may contain error details).
+        cwd: Working directory where the command was executed.
+        timed_out: Whether the command timed out.
+
+    Example:
+        >>> error: ShellError = {
+        ...     "command": "npm install",
+        ...     "exit_code": 1,
+        ...     "stderr": "npm ERR! code ERESOLVE",
+        ...     "stdout": "",
+        ...     "cwd": "/project",
+        ...     "timed_out": False,
+        ... }
+    """
+
+    command: str
+    exit_code: int
+    stderr: str
+    stdout: str
+    cwd: str | None
+    timed_out: bool
 
 
 class ExecutorGraphState(TypedDict, total=False):
@@ -1048,6 +1090,46 @@ class ExecutorGraphState(TypedDict, total=False):
     Each value contains: status ('repaired' or 'failed'), test_name, line_number, error_type, traceback.
     Example: {"src/app.py": {"status": "repaired", "test_name": "test_main", "line_number": 42, "error_type": "AssertionError", "traceback": "..."}}
     """
+
+    # -------------------------------------------------------------------------
+    # Phase 2.1 & 2.2: Shell Tool Integration
+    # -------------------------------------------------------------------------
+    enable_shell: bool
+    """Whether shell tool is enabled for this run (Phase 2.1, default: True)."""
+
+    shell_session_active: bool
+    """Whether a shell session is currently active (Phase 2.2).
+    True when arun/astream has started a session that hasn't been closed yet.
+    The actual ShellSession object is managed by ExecutorGraph, not stored in state."""
+
+    shell_results: list[dict[str, Any]]
+    """History of shell commands executed during this run (Phase 2.1).
+    Each entry contains: command, exit_code, stdout, stderr, duration_ms, timed_out.
+    Useful for debugging and audit trails.
+    Example: [{"command": "npm install", "exit_code": 0, "stdout": "...", "stderr": "", "duration_ms": 1234}]
+    """
+
+    shell_error: ShellError | None
+    """Details of the most recent shell command failure (Phase 2.2).
+    Set when a shell command fails with non-zero exit code or times out.
+    Cleared when the next task starts or when the error is handled."""
+
+    # -------------------------------------------------------------------------
+    # Phase 3.2: Autonomous Verification
+    # -------------------------------------------------------------------------
+    enable_autonomous_verify: bool
+    """Whether autonomous verification is enabled (Phase 3.2, default: False).
+    When True, the VerificationAgent will run tests autonomously after each task.
+    When False, only fast syntax checks are performed."""
+
+    verify_timeout: float
+    """Timeout for autonomous verification in seconds (Phase 3.2, default: 300.0).
+    Maximum time allowed for the VerificationAgent to complete verification."""
+
+    autonomous_verify_result: dict[str, Any] | None
+    """Result from the last autonomous verification (Phase 3.2).
+    Contains: passed, checks_run, failures, suggestions, duration_ms.
+    Set by verify_task_node when enable_autonomous_verify is True."""
 
 
 # =============================================================================

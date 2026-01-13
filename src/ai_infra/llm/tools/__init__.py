@@ -1,3 +1,5 @@
+from ai_infra.llm.shell.middleware import ShellMiddleware, ShellMiddlewareConfig
+from ai_infra.llm.shell.tool import create_shell_tool, run_shell
 from ai_infra.llm.tools.approval import (
     ApprovalHandler,
     ApprovalRequest,
@@ -83,4 +85,10 @@ __all__ = [
     "transcribe_audio",
     "analyze_image",
     "generate_image",
+    # Shell tools
+    "run_shell",
+    "create_shell_tool",
+    # Shell middleware
+    "ShellMiddleware",
+    "ShellMiddlewareConfig",
 ]

@@ -3,6 +3,7 @@
 Phase 1.2.2: Executes the current task using the Agent.
 Phase 2.3.2: Dry run mode support.
 Phase 2.3.3: Pause before destructive operations.
+Phase 2.3: Shell tool integration - track results and handle failures.
 """
 
 from __future__ import annotations
@@ -11,12 +12,18 @@ import asyncio
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from ai_infra.executor.state import ExecutorGraphState, NodeTimeouts, NonRetryableErrors
+from ai_infra.executor.state import (
+    ExecutorGraphState,
+    NodeTimeouts,
+    NonRetryableErrors,
+    ShellError,
+)
 from ai_infra.executor.utils.safety import (
     check_agent_result_for_destructive_ops,
     check_files_for_destructive_ops,
     format_destructive_warning,
 )
+from ai_infra.llm.shell.tool import get_current_session
 from ai_infra.logging import get_logger
 
 if TYPE_CHECKING:
@@ -180,9 +187,28 @@ async def execute_task_node(
                     "error": None,
                 }
 
+        # Phase 2.3.2: Extract shell results from session history
+        shell_results, shell_error = _extract_shell_results()
+
+        # Phase 2.3.3: Log shell errors but don't fail the task
+        # The agent can interpret shell output and decide how to proceed
+        if shell_error:
+            logger.warning(
+                f"Task [{task_id}] had shell command failure: {shell_error.get('command', 'unknown')} "
+                f"(exit_code={shell_error.get('exit_code', -1)})"
+            )
+
         logger.info(
-            f"Task [{task_id}] executed successfully. Files modified: {len(files_modified)}"
+            f"Task [{task_id}] executed successfully. Files modified: {len(files_modified)}, "
+            f"Shell commands: {len(shell_results)}"
         )
+
+        # Phase 2.3.1: Check if shell session is active
+        session = get_current_session()
+        shell_session_active = session is not None and getattr(session, "is_running", False)
+
+        # Merge new shell results with existing ones
+        existing_shell_results = state.get("shell_results", [])
 
         return {
             **state,
@@ -193,6 +219,10 @@ async def execute_task_node(
             "pause_reason": None,
             "detected_destructive_ops": None,
             "pending_result": None,
+            # Phase 2.3: Shell tool integration
+            "shell_session_active": shell_session_active,
+            "shell_results": existing_shell_results + shell_results,
+            "shell_error": shell_error,
         }
 
     except TimeoutError:
@@ -250,6 +280,55 @@ async def execute_task_node(
                 "stack_trace": traceback.format_exc(),
             },
         }
+
+
+def _extract_shell_results() -> tuple[list[dict[str, Any]], ShellError | None]:
+    """Extract shell results from the current session.
+
+    Phase 2.3.2: Retrieves command history from the active shell session
+    and formats it for state storage.
+
+    Phase 2.3.3: Also extracts the last shell error (if any) for graceful
+    failure handling. Non-zero exit codes are captured but don't fail the task.
+
+    Returns:
+        Tuple of (shell_results list, shell_error or None).
+        - shell_results: List of dicts with command, exit_code, stdout, stderr, duration_ms, timed_out
+        - shell_error: ShellError if the last command failed, None otherwise
+    """
+    session = get_current_session()
+    if session is None:
+        return [], None
+
+    results: list[dict[str, Any]] = []
+    last_error: ShellError | None = None
+
+    # Get command history from session
+    history = getattr(session, "command_history", [])
+    for shell_result in history:
+        result_dict: dict[str, Any] = {
+            "command": shell_result.command,
+            "exit_code": shell_result.exit_code,
+            "stdout": shell_result.stdout,
+            "stderr": shell_result.stderr,
+            "duration_ms": shell_result.duration_ms,
+            "timed_out": shell_result.timed_out,
+        }
+        results.append(result_dict)
+
+        # Phase 2.3.3: Track failures but don't fail the task
+        # Non-zero exit code or timeout is captured as shell_error
+        if not shell_result.success:
+            last_error = ShellError(
+                command=shell_result.command,
+                exit_code=shell_result.exit_code,
+                stderr=shell_result.stderr,
+                stdout=shell_result.stdout,
+                cwd=None,  # Session doesn't expose cwd per-command
+                timed_out=shell_result.timed_out,
+            )
+
+    return results, last_error
 
 
 def _extract_files_modified(result: Any, agent: Any) -> list[str]:

@@ -74,6 +74,8 @@ Tool utilities for agents.
 | **Object Tools** | Convert object methods to AI tools | [object-tools.md](tools/object-tools.md) |
 | **Schema Tools** | Auto-generate CRUD tools from models | [schema-tools.md](tools/schema-tools.md) |
 | **Progress** | Stream progress from long-running tools | [progress.md](tools/progress.md) |
+| **Shell Tool** | Execute shell commands from agents | [shell-tool.md](tools/shell-tool.md) |
+| **Shell Middleware** | Persistent shell sessions | [shell-middleware.md](tools/shell-middleware.md) |
 
 ---
 
@@ -99,6 +101,29 @@ Power-user capabilities.
 | **Replay** | Debug workflows with "what-if" | [replay.md](features/replay.md) |
 | **Workspace** | Unified file operations | [workspace.md](features/workspace.md) |
 | **Deep Agent** | Autonomous multi-step agents | [deep-agent.md](features/deep-agent.md) |
+
+---
+
+## Guides
+
+Step-by-step guides for common tasks.
+
+| Guide | Description | Doc |
+|-------|-------------|-----|
+| **Using Shell in Agents** | Integrate shell commands with agents | [shell-tool-guide.md](guides/shell-tool-guide.md) |
+| **Shell Security** | Security best practices for shell tools | [shell-security.md](guides/shell-security.md) |
+
+---
+
+## Executor
+
+Autonomous roadmap execution and task verification.
+
+| Module | Description | Doc |
+|--------|-------------|-----|
+| **Graph Architecture** | Executor state machine design | [graph-architecture.md](executor/graph-architecture.md) |
+| **Autonomous Verification** | Task verification with shell testing | [autonomous-verification.md](executor/autonomous-verification.md) |
+| **Migration Guide** | Upgrade to latest executor | [migration-guide.md](executor/migration-guide.md) |
 
 ---
 

@@ -314,6 +314,140 @@ server.add_tools(mcp_from_functions([risky_tool]))
 
 ---
 
+## Shell Tool via MCP
+
+Expose the `run_shell` tool through MCP for remote command execution:
+
+### Basic Shell Server
+
+```python
+from ai_infra import MCPServer
+from ai_infra.llm.shell import run_shell, create_shell_tool
+
+server = MCPServer(
+    name="shell-server",
+    version="1.0.0",
+    description="Execute shell commands remotely"
+)
+
+# Add the shell tool
+server.add_tool(run_shell)
+
+if __name__ == "__main__":
+    server.run(port=8080)
+```
+
+### Restricted Shell Server
+
+For security, limit which commands can be executed:
+
+```python
+from ai_infra import MCPServer
+from ai_infra.llm.shell import create_shell_tool
+
+# Create restricted shell tool
+safe_shell = create_shell_tool(
+    allowed_commands=("ls", "cat", "grep", "find", "wc"),
+    default_cwd="/safe/workspace",
+    default_timeout=30.0,
+)
+
+server = MCPServer(name="safe-shell-server")
+server.add_tool(safe_shell)
+server.run()
+```
+
+### Shell with Session Persistence
+
+For stateful shell sessions:
+
+```python
+from ai_infra import MCPServer
+from ai_infra.llm.shell import ShellSession, create_shell_tool
+
+# Create shared session
+session = ShellSession(workspace_root="/project")
+
+# Create tool bound to session
+shell_tool = create_shell_tool(session=session)
+
+server = MCPServer(name="stateful-shell-server")
+server.add_tool(shell_tool)
+
+# Session persists across client requests
+server.run()
+```
+
+### Security Considerations
+
+When exposing shell tools via MCP:
+
+1. **Always restrict commands** — Use `allowed_commands` to whitelist safe commands
+2. **Set workspace boundaries** — Use `default_cwd` to constrain operations
+3. **Enable authentication** — Use MCP security settings for production
+4. **Set timeouts** — Prevent long-running commands with `default_timeout`
+5. **Monitor usage** — Enable logging to track command execution
+
+```python
+from ai_infra import MCPServer, MCPSecuritySettings
+from ai_infra.llm.shell import create_shell_tool
+import logging
+
+# Enable shell logging
+logging.getLogger("ai_infra.llm.shell").setLevel(logging.INFO)
+
+# Create highly restricted shell
+shell = create_shell_tool(
+    allowed_commands=("pytest", "make test"),
+    default_cwd="/project",
+    default_timeout=120.0,
+    dangerous_pattern_check=True,
+)
+
+server = MCPServer(
+    name="ci-shell-server",
+    security=MCPSecuritySettings(
+        enable_security=True,
+        require_auth=True,
+    )
+)
+server.add_tool(shell)
+server.run()
+```
+
+### Claude Desktop with Shell
+
+To use shell tools with Claude Desktop:
+
+```json
+{
+  "mcpServers": {
+    "shell-tools": {
+      "command": "python",
+      "args": ["/path/to/shell_mcp_server.py"]
+    }
+  }
+}
+```
+
+```python
+# shell_mcp_server.py
+from ai_infra import MCPServer
+from ai_infra.llm.shell import create_shell_tool
+
+# Safe shell for local use
+shell = create_shell_tool(
+    allowed_commands=("ls", "cat", "grep", "find", "tree"),
+    default_cwd="~",
+)
+
+server = MCPServer(name="local-shell")
+server.add_tool(shell)
+server.run(transport="stdio")
+```
+
+---
+
 ## See Also
 
 - [MCP Client](client.md) - Connect to MCP servers

@@ -534,6 +534,43 @@ def run_cmd(
             help="Maximum graph transitions before abort (default: 100, LangGraph default is 25)",
         ),
     ] = 100,
+    # Phase 2.4: Shell tool CLI options
+    enable_shell: Annotated[
+        bool,
+        typer.Option(
+            "--enable-shell/--no-shell",
+            help="Enable shell tool for command execution (npm, make, pytest, etc.)",
+        ),
+    ] = True,
+    shell_timeout: Annotated[
+        float,
+        typer.Option(
+            "--shell-timeout",
+            help="Default timeout in seconds for shell commands",
+        ),
+    ] = 120.0,
+    shell_allowed_commands: Annotated[
+        str | None,
+        typer.Option(
+            "--shell-allowed-commands",
+            help="Comma-separated allowlist of shell commands (e.g., 'pytest,npm,make'). Empty = all allowed.",
+        ),
+    ] = None,
+    # Phase 3.3: Autonomous verification CLI options
+    enable_autonomous_verify: Annotated[
+        bool,
+        typer.Option(
+            "--enable-autonomous-verify/--no-autonomous-verify",
+            help="Enable autonomous verification agent to discover and run tests (Phase 3.3)",
+        ),
+    ] = False,
+    verify_timeout: Annotated[
+        float,
+        typer.Option(
+            "--verify-timeout",
+            help="Timeout in seconds for autonomous verification (default: 300, max 5 minutes)",
+        ),
+    ] = 300.0,
 ):
     """Run the executor on a ROADMAP.md file."""
     # Validate roadmap exists
@@ -717,6 +754,17 @@ def run_cmd(
                     recursion_limit=max_iterations,  # Phase 1.6: Max graph transitions
                     interrupt_before=interrupt_before,
                     interrupt_after=interrupt_after,
+                    # Phase 2.4: Shell tool options
+                    enable_shell=enable_shell,
+                    shell_timeout=shell_timeout,
+                    shell_allowed_commands=(
+                        tuple(cmd.strip() for cmd in shell_allowed_commands.split(","))
+                        if shell_allowed_commands
+                        else None
+                    ),
+                    # Phase 3.3: Autonomous verification options
+                    enable_autonomous_verify=enable_autonomous_verify,
+                    verify_timeout=verify_timeout,
                 )
                 result = await graph_executor.arun()
 

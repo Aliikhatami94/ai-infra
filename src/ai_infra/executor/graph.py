@@ -4,6 +4,7 @@ Phase 1.2.1: ExecutorGraph class using ai_infra.graph.Graph.
 Phase 1.6: Increased recursion limit to 100 (from LangGraph default of 25).
 Phase 1.6.1: Tracing integration via ai_infra.tracing.
 Phase 1.6.2: Streaming output via astream_events.
+Phase 2.1: Shell tool integration for autonomous command execution.
 
 This module implements the graph-based executor that replaces the imperative
 loop with a structured, observable state machine.
@@ -15,6 +16,7 @@ import time
 import uuid
 from collections.abc import AsyncIterator
 from functools import partial
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from langgraph.constants import END, START
@@ -49,6 +51,9 @@ from ai_infra.executor.nodes import (
 )
 from ai_infra.executor.state import ExecutorGraphState
 from ai_infra.graph import Graph
+
+# Phase 2.1: Shell tool imports
+from ai_infra.llm.shell.tool import create_shell_tool, set_current_session
 from ai_infra.logging import get_logger
 
 if TYPE_CHECKING:
@@ -65,6 +70,7 @@ if TYPE_CHECKING:
     from ai_infra.executor.streaming import ExecutorStreamEvent, StreamingConfig
     from ai_infra.executor.todolist import TodoListManager
     from ai_infra.executor.verifier import CheckLevel, TaskVerifier
+    from ai_infra.llm.shell.session import ShellSession
 
 logger = get_logger("executor.graph")
 
@@ -120,6 +126,7 @@ class ExecutorGraph:
         checkpointer: Git checkpointer for code changes.
         verifier: Task verification component.
         project_context: Project context builder.
+        shell_session: Shell session for command execution (Phase 2.1).
     """
 
     def __init__(
@@ -147,11 +154,20 @@ class ExecutorGraph:
         graph_checkpointer: Any = None,
         interrupt_before: list[str] | None = None,
         interrupt_after: list[str] | None = None,
+        # Phase 2.1: Shell tool configuration
+        enable_shell: bool = True,
+        shell_timeout: float = 120.0,
+        shell_workspace: Path | str | None = None,
+        shell_allowed_commands: tuple[str, ...] | None = None,
+        # Phase 3.3: Autonomous verification configuration
+        enable_autonomous_verify: bool = False,
+        verify_timeout: float = 300.0,
     ):
         """Initialize the ExecutorGraph.
 
         Phase 1.4: Integration with Existing Components.
         Phase 1.6: Configurable recursion limit (default: 100).
+        Phase 2.1: Shell tool integration for autonomous command execution.
         Phase 2.1.2: ProjectMemory integration for cross-run insights.
         Phase 2.2.1: Token and duration tracking via callbacks.
         Phase 2.2.2: Configurable retry count.
@@ -184,6 +200,12 @@ class ExecutorGraph:
             graph_checkpointer: LangGraph checkpointer for state persistence.
             interrupt_before: Nodes to pause before.
             interrupt_after: Nodes to pause after.
+            enable_shell: Enable shell tool for command execution (Phase 2.1, default: True).
+            shell_timeout: Default timeout for shell commands (Phase 2.1, default: 120s).
+            shell_workspace: Working directory for shell commands (Phase 2.1, default: roadmap directory).
+            shell_allowed_commands: Optional allowlist of permitted commands (Phase 2.4, default: None = all).
+            enable_autonomous_verify: Enable autonomous verification agent (Phase 3.3, default: False).
+            verify_timeout: Timeout for autonomous verification (Phase 3.3, default: 300s).
         """
         self.agent = agent
         self.roadmap_path = roadmap_path
@@ -202,6 +224,19 @@ class ExecutorGraph:
         self.pause_destructive = pause_destructive  # Phase 2.3.3
         self.enable_planning = enable_planning  # Phase 2.4.2
         self.recursion_limit = recursion_limit  # Phase 1.6
+
+        # Phase 2.1: Shell tool configuration
+        self.enable_shell = enable_shell
+        self.shell_timeout = shell_timeout
+        self.shell_workspace = (
+            Path(shell_workspace) if shell_workspace else Path(roadmap_path).parent
+        )
+        self.shell_allowed_commands = shell_allowed_commands  # Phase 2.4: Optional allowlist
+        self._shell_session: ShellSession | None = None  # Initialized in arun/astream
+
+        # Phase 3.3: Autonomous verification configuration
+        self.enable_autonomous_verify = enable_autonomous_verify
+        self.verify_timeout = verify_timeout
 
         # Phase 2.3.1: Normalize adaptive_mode to AdaptiveMode enum
         # Phase 2.4: Deprecated in favor of targeted repair nodes
@@ -224,8 +259,6 @@ class ExecutorGraph:
             )
 
         # Ensure .executor directory exists for todos.json
-        from pathlib import Path
-
         executor_dir = Path(roadmap_path).parent / ".executor"
         executor_dir.mkdir(parents=True, exist_ok=True)
 
@@ -506,6 +539,7 @@ class ExecutorGraph:
     def get_initial_state(self) -> ExecutorGraphState:
         """Get the initial state for graph execution.
 
+        Phase 2.1: Adds shell tool state fields.
         Phase 2.3.1: Adds adaptive replanning state fields.
         Phase 2.3.2: Adds dry_run state field.
         Phase 2.3.3: Adds pause_destructive state fields.
@@ -539,6 +573,11 @@ class ExecutorGraph:
             should_continue=True,
             interrupt_requested=False,
             run_memory={},
+            # Phase 2.1 & 2.2: Shell tool fields
+            enable_shell=self.enable_shell,
+            shell_session_active=False,
+            shell_results=[],
+            shell_error=None,
             # Phase 2.3.1: Adaptive replanning fields
             adaptive_mode=self.adaptive_mode.value if self.adaptive_mode else None,
             failure_classification=None,
@@ -552,6 +591,10 @@ class ExecutorGraph:
             # Phase 2.4.3: Per-node cost tracking
             node_metrics={},
             enable_node_metrics=True,
+            # Phase 3.3: Autonomous verification fields
+            enable_autonomous_verify=self.enable_autonomous_verify,
+            verify_timeout=self.verify_timeout,
+            autonomous_verify_result=None,
         )
 
     async def arun(
@@ -562,6 +605,7 @@ class ExecutorGraph:
         """Run the executor graph to completion.
 
         Phase 1.6: Uses configurable recursion_limit (default: 100).
+        Phase 2.1: Manages shell session lifecycle.
         Phase 2.2.1: Tracks duration and tokens in result.
 
         Args:
@@ -583,27 +627,43 @@ class ExecutorGraph:
             f"recursion_limit: {config['recursion_limit']})"
         )
 
-        # Phase 2.2.1: Track execution duration
-        start_time = time.time()
+        # Phase 2.1: Initialize shell session if enabled
+        session_token = None
+        if self.enable_shell:
+            await self._start_shell_session()
+            session_token = set_current_session(self._shell_session)
+            logger.debug(f"Shell session started (workspace: {self.shell_workspace})")
 
-        result = await self.graph.arun(state, config=config)
+        try:
+            # Phase 2.2.1: Track execution duration
+            start_time = time.time()
 
-        # Phase 2.2.1: Calculate duration and get tokens from callbacks
-        duration_ms = int((time.time() - start_time) * 1000)
-        result["duration_ms"] = duration_ms
+            result = await self.graph.arun(state, config=config)
 
-        # Get tokens from callbacks if available
-        tokens_used = 0
-        if self.callbacks is not None:
-            metrics = self.callbacks.get_metrics()
-            tokens_used = metrics.total_tokens
-        result["tokens_used"] = tokens_used
+            # Phase 2.2.1: Calculate duration and get tokens from callbacks
+            duration_ms = int((time.time() - start_time) * 1000)
+            result["duration_ms"] = duration_ms
 
-        logger.info(
-            f"Executor graph completed. Tasks: {result.get('tasks_completed_count', 0)}, "
-            f"Duration: {duration_ms}ms, Tokens: {tokens_used}"
-        )
-        return result
+            # Get tokens from callbacks if available
+            tokens_used = 0
+            if self.callbacks is not None:
+                metrics = self.callbacks.get_metrics()
+                tokens_used = metrics.total_tokens
+            result["tokens_used"] = tokens_used
+
+            logger.info(
+                f"Executor graph completed. Tasks: {result.get('tasks_completed_count', 0)}, "
+                f"Duration: {duration_ms}ms, Tokens: {tokens_used}"
+            )
+            return result
+
+        finally:
+            # Phase 2.1: Clean up shell session
+            if self.enable_shell and self._shell_session is not None:
+                await self._close_shell_session()
+                if session_token is not None:
+                    set_current_session(None)
+                logger.debug("Shell session closed")
 
     def run(
         self,
@@ -646,6 +706,7 @@ class ExecutorGraph:
         """Stream node execution from the graph.
 
         Phase 1.6: Uses configurable recursion_limit (default: 100).
+        Phase 2.1: Manages shell session lifecycle.
 
         Yields:
             Tuples of (node_name, state) after each node execution.
@@ -666,9 +727,67 @@ class ExecutorGraph:
             f"recursion_limit: {config['recursion_limit']})"
         )
 
-        async for event in self.graph.astream(state, config=config):
-            for node_name, node_state in event.items():
-                yield node_name, node_state
+        # Phase 2.1: Initialize shell session if enabled
+        session_token = None
+        if self.enable_shell:
+            await self._start_shell_session()
+            session_token = set_current_session(self._shell_session)
+            logger.debug(f"Shell session started (workspace: {self.shell_workspace})")
+
+        try:
+            async for event in self.graph.astream(state, config=config):
+                for node_name, node_state in event.items():
+                    yield node_name, node_state
+        finally:
+            # Phase 2.1: Clean up shell session
+            if self.enable_shell and self._shell_session is not None:
+                await self._close_shell_session()
+                if session_token is not None:
+                    set_current_session(None)
+                logger.debug("Shell session closed")
+
+    # =========================================================================
+    # Phase 2.1: Shell Session Lifecycle
+    # =========================================================================
+
+    async def _start_shell_session(self) -> None:
+        """Start the shell session for command execution.
+
+        Phase 2.1: Initializes a ShellSession with executor configuration.
+        The session persists across all task executions in this run.
+        """
+        from ai_infra.llm.shell.session import SessionConfig, ShellSession
+        from ai_infra.llm.shell.types import ShellConfig
+
+        shell_config = ShellConfig(timeout=self.shell_timeout)
+        session_config = SessionConfig(
+            workspace_root=self.shell_workspace,
+            shell_config=shell_config,
+        )
+        self._shell_session = ShellSession(session_config)
+        await self._shell_session.start()
+
+        # Phase 2.1.1: Add shell tool to agent if agent exists
+        if self.agent is not None and self.enable_shell:
+            shell_tool = create_shell_tool(
+                default_timeout=self.shell_timeout,
+                allowed_commands=self.shell_allowed_commands,  # Phase 2.4
+            )
+            # Add shell tool to agent's tools if not already present
+            # Check for both "run_shell" (default) and "configured_run_shell" (factory)
+            tool_names = [getattr(t, "name", None) for t in self.agent.tools]
+            if "run_shell" not in tool_names and "configured_run_shell" not in tool_names:
+                self.agent.tools.append(shell_tool)
+                logger.debug("Added shell tool to executor agent")
+
+    async def _close_shell_session(self) -> None:
+        """Close the shell session and clean up resources.
+
+        Phase 2.1: Gracefully closes the shell session after execution.
+        """
+        if self._shell_session is not None:
+            await self._shell_session.close()
+            self._shell_session = None
 
     # =========================================================================
     # Phase 1.6.2: Streaming Output
