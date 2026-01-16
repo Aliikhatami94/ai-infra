@@ -5,6 +5,7 @@ from svc_infra.cli.foundation.typer_bootstrap import pre_cli
 
 from ai_infra.cli.cmds import (
     _HELP,
+    benchmark_app,
     register_chat,
     register_discovery,
     register_executor,
@@ -23,6 +24,7 @@ register_discovery(app)
 register_imagegen(app)
 register_multimodal(app)
 register_mcp(app)
+app.add_typer(benchmark_app, name="benchmark")
 
 
 def main():

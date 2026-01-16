@@ -39,6 +39,13 @@ from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from langchain_core.tools import BaseTool, tool
 
+from ai_infra.llm.shell.audit import (
+    get_shell_audit_logger,
+)
+from ai_infra.llm.shell.limits import (
+    LimitedExecutionPolicy,
+    ResourceLimits,
+)
 from ai_infra.llm.shell.session import SessionConfig, ShellSession
 from ai_infra.llm.shell.tool import (
     DANGEROUS_PATTERNS,
@@ -88,6 +95,9 @@ class ShellMiddlewareConfig:
         dangerous_pattern_check: Whether to reject dangerous commands.
         custom_dangerous_patterns: Additional patterns to check.
         env: Additional environment variables for the session.
+        resource_limits: Resource limits for shell execution (Phase 11.1).
+        enable_audit: Enable audit logging for commands (Phase 11.3).
+        check_suspicious: Check for suspicious patterns (Phase 11.3.4).
     """
 
     workspace_root: Path | str | None = None
@@ -99,6 +109,9 @@ class ShellMiddlewareConfig:
     dangerous_pattern_check: bool = True
     custom_dangerous_patterns: tuple[re.Pattern[str], ...] | None = None
     env: dict[str, str] | None = None
+    resource_limits: ResourceLimits | None = None  # Phase 11.1: Resource limits
+    enable_audit: bool = True  # Phase 11.3: Enable audit logging
+    check_suspicious: bool = True  # Phase 11.3.4: Check for suspicious patterns
 
 
 # =============================================================================
@@ -164,6 +177,9 @@ class ShellMiddleware(Generic[StateT, ContextT]):
         dangerous_pattern_check: bool = True,
         custom_dangerous_patterns: tuple[re.Pattern[str], ...] | None = None,
         env: dict[str, str] | None = None,
+        resource_limits: ResourceLimits | None = None,
+        enable_audit: bool = True,
+        check_suspicious: bool = True,
         *,
         config: ShellMiddlewareConfig | None = None,
     ) -> None:
@@ -178,6 +194,9 @@ class ShellMiddleware(Generic[StateT, ContextT]):
             dangerous_pattern_check: Whether to reject dangerous commands.
             custom_dangerous_patterns: Additional patterns to check.
             env: Additional environment variables for the session.
+            resource_limits: Resource limits for shell execution (Phase 11.1).
+            enable_audit: Enable audit logging for commands (Phase 11.3).
+            check_suspicious: Check for suspicious patterns (Phase 11.3.4).
             config: Full configuration object (overrides other args).
         """
         if config is not None:
@@ -192,6 +211,9 @@ class ShellMiddleware(Generic[StateT, ContextT]):
                 dangerous_pattern_check=dangerous_pattern_check,
                 custom_dangerous_patterns=custom_dangerous_patterns,
                 env=env,
+                resource_limits=resource_limits,
+                enable_audit=enable_audit,
+                check_suspicious=check_suspicious,
             )
 
         # Session will be created in before_agent
@@ -244,6 +266,8 @@ class ShellMiddleware(Generic[StateT, ContextT]):
                 env=self._config.env,
             ),
             redaction_rules=self._config.redaction_rules,
+            enable_audit=self._config.enable_audit,  # Phase 11.3
+            check_suspicious=self._config.check_suspicious,  # Phase 11.3.4
         )
 
         # Create and start session
@@ -366,11 +390,38 @@ class ShellMiddleware(Generic[StateT, ContextT]):
                     command = f"cd {cwd} && {command}"
                 result = await session.execute(command)
             else:
-                # Fallback to stateless execution
-                from ai_infra.llm.shell.tool import _execute_stateless
-
+                # Phase 11.1: Fallback to stateless execution with resource limits
                 resolved_cwd = Path(cwd).expanduser().resolve() if cwd else None
-                result = await _execute_stateless(command, resolved_cwd, effective_timeout)
+
+                # Phase 11.3.4: Check for suspicious patterns in fallback path
+                if config.check_suspicious and config.enable_audit:
+                    audit = get_shell_audit_logger()
+                    audit.check_and_log_suspicious(command)
+
+                # Use LimitedExecutionPolicy if resource limits are configured
+                limits = config.resource_limits
+                if limits is not None:
+                    policy = LimitedExecutionPolicy(
+                        limits=limits,
+                        redaction_rules=config.redaction_rules,
+                    )
+                    shell_config = ShellConfig(
+                        timeout=effective_timeout,
+                        cwd=resolved_cwd,
+                        max_output_bytes=config.max_output_bytes,
+                        env=config.env,
+                    )
+                    result = await policy.execute(command, shell_config)
+                else:
+                    # No limits configured, use standard stateless execution
+                    from ai_infra.llm.shell.tool import _execute_stateless
+
+                    result = await _execute_stateless(command, resolved_cwd, effective_timeout)
+
+                # Phase 11.3: Log command result in fallback path
+                if config.enable_audit:
+                    audit = get_shell_audit_logger()
+                    audit.log_result(result)
 
             return result.to_dict()
 

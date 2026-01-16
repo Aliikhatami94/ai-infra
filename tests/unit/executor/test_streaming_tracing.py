@@ -12,13 +12,6 @@ from typing import Any
 
 import pytest
 
-from ai_infra.executor.graph_tracing import (
-    ExecutorTracingCallbacks,
-    TracingConfig,
-    create_traced_nodes,
-    create_tracing_callbacks,
-    traced_node,
-)
 from ai_infra.executor.streaming import (
     ExecutorStreamEvent,
     JsonFormatter,
@@ -39,6 +32,13 @@ from ai_infra.executor.streaming import (
     create_task_start_event,
     get_formatter,
     stream_to_console,
+)
+from ai_infra.executor.tracing import (
+    ExecutorTracingCallbacks,
+    TracingConfig,
+    create_traced_nodes,
+    create_tracing_callbacks,
+    traced_node,
 )
 
 # =============================================================================
@@ -425,8 +425,6 @@ class TestTracingConfig:
         config = TracingConfig()
         assert config.enabled is True
         assert config.include_state_details is True
-        assert config.trace_llm_calls is True
-        assert config.trace_tool_calls is True
         assert config.console_output is False
 
     def test_development_preset(self) -> None:
@@ -454,7 +452,7 @@ class TestTracingConfig:
 
 
 class TestExecutorTracingCallbacks:
-    """Tests for ExecutorTracingCallbacks."""
+    """Tests for ExecutorTracingCallbacks (now ExecutorCallbacks)."""
 
     def test_init(self) -> None:
         """Test callbacks initialization."""
@@ -462,21 +460,20 @@ class TestExecutorTracingCallbacks:
         assert callbacks._run_span is None
         assert callbacks._node_spans == {}
 
-    def test_start_run(self) -> None:
-        """Test starting a run trace."""
+    def test_set_run_context(self) -> None:
+        """Test setting run context (replaces start_run)."""
         callbacks = ExecutorTracingCallbacks()
-        span = callbacks.start_run("test-run-123", roadmap_path="ROADMAP.md")
+        callbacks.set_run_context("test-run-123", roadmap_path="ROADMAP.md")
 
-        assert span is not None
-        assert callbacks._run_span is span
-        assert span.name == "executor.run"
+        assert callbacks._run_span is not None
+        assert callbacks._metrics.run_id == "test-run-123"
 
-    def test_end_run(self) -> None:
+    def test_on_run_end(self) -> None:
         """Test ending a run trace."""
         callbacks = ExecutorTracingCallbacks()
-        callbacks.start_run("test-run-123")
+        callbacks.set_run_context("test-run-123")
 
-        callbacks.end_run(completed=5, failed=1)
+        callbacks.on_run_end()
 
         assert callbacks._run_span is None
 
@@ -485,7 +482,7 @@ class TestExecutorTracingCallbacks:
         from ai_infra.callbacks import GraphNodeStartEvent
 
         callbacks = ExecutorTracingCallbacks()
-        callbacks.start_run("test-run")
+        callbacks.set_run_context("test-run")
 
         event = GraphNodeStartEvent(
             node_id="parse_roadmap",
@@ -497,14 +494,13 @@ class TestExecutorTracingCallbacks:
         callbacks.on_graph_node_start(event)
 
         assert "parse_roadmap" in callbacks._node_spans
-        assert "parse_roadmap" in callbacks._node_start_times
 
     def test_on_graph_node_end(self) -> None:
         """Test handling node end event."""
         from ai_infra.callbacks import GraphNodeEndEvent, GraphNodeStartEvent
 
         callbacks = ExecutorTracingCallbacks()
-        callbacks.start_run("test-run")
+        callbacks.set_run_context("test-run")
 
         # Start the node first
         start_event = GraphNodeStartEvent(
@@ -532,7 +528,7 @@ class TestExecutorTracingCallbacks:
         from ai_infra.callbacks import GraphNodeErrorEvent, GraphNodeStartEvent
 
         callbacks = ExecutorTracingCallbacks()
-        callbacks.start_run("test-run")
+        callbacks.set_run_context("test-run")
 
         # Start the node first
         start_event = GraphNodeStartEvent(

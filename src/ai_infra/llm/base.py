@@ -2,6 +2,8 @@
 
 This module provides the BaseLLM class that serves as the foundation
 for both LLM (direct model interface) and Agent (tool-using agent).
+
+Phase 16.5.8: Added provider auto-detection from model name patterns.
 """
 
 from __future__ import annotations
@@ -27,6 +29,48 @@ from ai_infra.llm.utils.structured import (
 )
 
 from .utils import with_retry as _with_retry_util
+
+
+def _infer_provider_from_model(model_name: str) -> str | None:
+    """Infer provider from model name patterns.
+
+    Enables auto-detection of the appropriate provider based on well-known
+    model naming conventions. This allows users to specify just the model
+    name without explicitly providing the provider.
+
+    Args:
+        model_name: Model name string (e.g., "claude-sonnet-4-20250514").
+
+    Returns:
+        Provider name if pattern matches, None otherwise.
+
+    Examples:
+        >>> _infer_provider_from_model("claude-sonnet-4-20250514")
+        'anthropic'
+        >>> _infer_provider_from_model("gpt-4o")
+        'openai'
+        >>> _infer_provider_from_model("my-custom-model")
+        None
+    """
+    model_lower = model_name.lower()
+
+    # Anthropic models (Claude family)
+    if model_lower.startswith(("claude-", "claude_")):
+        return "anthropic"
+
+    # OpenAI models (GPT, o-series, DALL-E, Whisper, TTS)
+    if model_lower.startswith(("gpt-", "o1-", "o3-", "o4-", "dall-e", "whisper", "tts-")):
+        return "openai"
+
+    # Google models (Gemini, PaLM)
+    if model_lower.startswith(("gemini-", "palm-")):
+        return "google_genai"
+
+    # xAI models (Grok)
+    if model_lower.startswith("grok-"):
+        return "xai"
+
+    return None
 
 
 class BaseLLM:
@@ -194,8 +238,12 @@ class BaseLLM:
         provider: str | None,
         model_name: str | None,
     ) -> tuple[str, str]:
-        """
-        Resolve provider and model, auto-detecting from environment if not specified.
+        """Resolve provider and model, auto-detecting from model name or environment.
+
+        Resolution order (Phase 16.5.8):
+        1. Parse "provider/model" format if present (e.g., "anthropic/claude-sonnet-4")
+        2. Infer provider from model name patterns (e.g., "claude-*" -> anthropic)
+        3. Fall back to default provider from environment variables
 
         Args:
             provider: Provider name or None to auto-detect
@@ -206,8 +254,37 @@ class BaseLLM:
 
         Raises:
             ValueError: If no provider is specified and none can be auto-detected
+
+        Examples:
+            >>> llm._resolve_provider_and_model(None, "claude-sonnet-4-20250514")
+            ('anthropic', 'claude-sonnet-4-20250514')
+            >>> llm._resolve_provider_and_model(None, "anthropic/claude-sonnet-4")
+            ('anthropic', 'claude-sonnet-4')
         """
-        # Auto-detect provider if not specified
+        # Step 1: Parse "provider/model" format if present
+        if provider is None and model_name is not None and "/" in model_name:
+            parts = model_name.split("/", 1)
+            if len(parts) == 2 and parts[0] and parts[1]:
+                provider = parts[0]
+                model_name = parts[1]
+                self._logger.debug(
+                    "Parsed provider/model format: provider=%s model=%s",
+                    provider,
+                    model_name,
+                )
+
+        # Step 2: Infer provider from model name patterns
+        if provider is None and model_name is not None:
+            inferred = _infer_provider_from_model(model_name)
+            if inferred:
+                provider = inferred
+                self._logger.info(
+                    "Auto-detected provider '%s' for model '%s'",
+                    provider,
+                    model_name,
+                )
+
+        # Step 3: Fall back to default provider from environment
         if provider is None:
             provider = get_default_provider()
             if provider is None:

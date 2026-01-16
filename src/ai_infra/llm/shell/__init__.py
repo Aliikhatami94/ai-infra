@@ -41,9 +41,11 @@ Phase 1 of EXECUTOR_CLI.md - Shell Tool Integration.
 from ai_infra.llm.shell.audit import (
     AuditEvent,
     AuditEventType,
+    AuditReport,
     RedactionEvent,
     SecurityViolationEvent,
     ShellAuditLogger,
+    generate_audit_report,
     get_shell_audit_logger,
     set_shell_audit_logger,
 )
@@ -54,9 +56,17 @@ from ai_infra.llm.shell.docker import (
     VolumeMount,
     create_docker_policy,
     create_docker_session,
+    get_execution_policy,
     is_docker_available,
 )
-from ai_infra.llm.shell.helpers import cli_help, run_command, run_command_sync
+from ai_infra.llm.shell.helpers import (
+    check_command_exists,
+    cli_cmd_help,
+    cli_help,
+    cli_subcmd_help,
+    run_command,
+    run_command_sync,
+)
 from ai_infra.llm.shell.limits import (
     DEFAULT_RESOURCE_LIMITS,
     LimitedExecutionPolicy,
@@ -138,7 +148,10 @@ __all__ = [
     "ShellMiddleware",
     "ShellMiddlewareConfig",
     # Helpers
+    "check_command_exists",
+    "cli_cmd_help",
     "cli_help",
+    "cli_subcmd_help",
     "run_command",
     "run_command_sync",
     # Docker execution (Phase 4.3)
@@ -148,13 +161,16 @@ __all__ = [
     "VolumeMount",
     "create_docker_policy",
     "create_docker_session",
+    "get_execution_policy",
     "is_docker_available",
     # Audit logging (Phase 4.4)
     "ShellAuditLogger",
     "AuditEvent",
     "AuditEventType",
+    "AuditReport",
     "RedactionEvent",
     "SecurityViolationEvent",
+    "generate_audit_report",
     "get_shell_audit_logger",
     "set_shell_audit_logger",
 ]

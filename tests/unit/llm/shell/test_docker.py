@@ -643,6 +643,104 @@ class TestCreateDockerSession:
 
 
 # =============================================================================
+# Tests for get_execution_policy (Phase 2.3)
+# =============================================================================
+
+
+class TestGetExecutionPolicy:
+    """Tests for get_execution_policy factory function."""
+
+    def test_returns_none_when_not_requested(self) -> None:
+        """Should return None when docker_isolation is False."""
+        from ai_infra.llm.shell.docker import get_execution_policy
+
+        result = get_execution_policy(docker_isolation=False)
+        assert result is None
+
+    def test_returns_none_when_docker_not_available(self) -> None:
+        """Should return None when Docker is not available."""
+        from ai_infra.llm.shell.docker import get_execution_policy
+
+        with patch("ai_infra.llm.shell.docker.is_docker_available", return_value=False):
+            result = get_execution_policy(docker_isolation=True)
+            assert result is None
+
+    def test_returns_policy_when_docker_available(self) -> None:
+        """Should return DockerExecutionPolicy when Docker is available."""
+        from ai_infra.llm.shell.docker import get_execution_policy
+
+        with patch("ai_infra.llm.shell.docker.is_docker_available", return_value=True):
+            result = get_execution_policy(
+                docker_isolation=True,
+                docker_image="python:3.11-slim",
+            )
+            assert result is not None
+            assert isinstance(result, DockerExecutionPolicy)
+            assert result.config.image == "python:3.11-slim"
+
+    def test_network_none_when_not_allowed(self) -> None:
+        """Network should be 'none' when docker_allow_network is False."""
+        from ai_infra.llm.shell.docker import get_execution_policy
+
+        with patch("ai_infra.llm.shell.docker.is_docker_available", return_value=True):
+            result = get_execution_policy(
+                docker_isolation=True,
+                docker_allow_network=False,
+            )
+            assert result is not None
+            assert result.config.network == "none"
+
+    def test_network_bridge_when_allowed(self) -> None:
+        """Network should be 'bridge' when docker_allow_network is True."""
+        from ai_infra.llm.shell.docker import get_execution_policy
+
+        with patch("ai_infra.llm.shell.docker.is_docker_available", return_value=True):
+            result = get_execution_policy(
+                docker_isolation=True,
+                docker_allow_network=True,
+            )
+            assert result is not None
+            assert result.config.network == "bridge"
+
+    def test_workspace_mount(self) -> None:
+        """Should add workspace mount when provided."""
+        from ai_infra.llm.shell.docker import get_execution_policy
+
+        with patch("ai_infra.llm.shell.docker.is_docker_available", return_value=True):
+            result = get_execution_policy(
+                docker_isolation=True,
+                workspace="/tmp/project",
+            )
+            assert result is not None
+            assert len(result.config.mounts) == 1
+            assert result.config.mounts[0].container_path == "/workspace"
+
+    def test_memory_limit_formatting(self) -> None:
+        """Memory limit should be formatted correctly."""
+        from ai_infra.llm.shell.docker import get_execution_policy
+
+        with patch("ai_infra.llm.shell.docker.is_docker_available", return_value=True):
+            result = get_execution_policy(
+                docker_isolation=True,
+                memory_limit_mb=1024,
+            )
+            assert result is not None
+            assert result.config.memory_limit == "1024m"
+
+    def test_custom_image(self) -> None:
+        """Should use custom Docker image."""
+        from ai_infra.llm.shell.docker import get_execution_policy
+
+        with patch("ai_infra.llm.shell.docker.is_docker_available", return_value=True):
+            result = get_execution_policy(
+                docker_isolation=True,
+                docker_image="node:18-slim",
+            )
+            assert result is not None
+            assert result.config.image == "node:18-slim"
+
+
+# =============================================================================
 # Integration Tests (require Docker)
 # =============================================================================
 

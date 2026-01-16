@@ -10,6 +10,7 @@ Key features:
 - Startup/shutdown command support
 - Output truncation and redaction
 - Async context manager support
+- Audit logging for all commands (Phase 11.3)
 
 Phase 1.2 of EXECUTOR_CLI.md - Shell Tool Integration.
 """
@@ -17,6 +18,7 @@ Phase 1.2 of EXECUTOR_CLI.md - Shell Tool Integration.
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import re
 import sys
@@ -35,7 +37,9 @@ from ai_infra.llm.shell.types import (
 )
 
 if TYPE_CHECKING:
-    pass
+    from ai_infra.llm.shell.audit import ShellAuditLogger
+
+logger = logging.getLogger(__name__)
 
 __all__ = ["ShellSession", "SessionConfig"]
 
@@ -56,6 +60,8 @@ class SessionConfig:
         shell_config: Configuration for command execution.
         redaction_rules: Rules for sanitizing output.
         idle_timeout: Seconds before idle session is closed (0 = never).
+        enable_audit: Enable audit logging for commands (Phase 11.3).
+        check_suspicious: Check for suspicious patterns (Phase 11.3.4).
 
     Example:
         >>> config = SessionConfig(
@@ -70,6 +76,8 @@ class SessionConfig:
     shell_config: ShellConfig = field(default_factory=ShellConfig)
     redaction_rules: tuple[RedactionRule, ...] | None = DEFAULT_REDACTION_RULES
     idle_timeout: float = 0.0  # 0 = no timeout
+    enable_audit: bool = True  # Phase 11.3: Enable audit logging
+    check_suspicious: bool = True  # Phase 11.3.4: Check for suspicious patterns
 
 
 # =============================================================================
@@ -120,6 +128,10 @@ class ShellSession:
         self._last_activity = time.monotonic()
         # Phase 2.3.2: Track command history for executor state
         self._command_history: list[ShellResult] = []
+        # Phase 11.3: Session ID for audit correlation
+        self._session_id = uuid.uuid4().hex[:12]
+        # Phase 11.3: Audit logger (lazy initialized)
+        self._audit_logger: ShellAuditLogger | None = None
 
     @property
     def is_running(self) -> bool:
@@ -136,6 +148,24 @@ class ShellSession:
             List of ShellResult objects from commands executed in this session.
         """
         return list(self._command_history)
+
+    @property
+    def session_id(self) -> str:
+        """Get the unique session ID for audit correlation (Phase 11.3)."""
+        return self._session_id
+
+    def _get_audit_logger(self) -> ShellAuditLogger | None:
+        """Get audit logger if auditing is enabled (Phase 11.3).
+
+        Lazy initializes the logger on first access to avoid import overhead.
+        """
+        if not self._config.enable_audit:
+            return None
+        if self._audit_logger is None:
+            from ai_infra.llm.shell.audit import get_shell_audit_logger
+
+            self._audit_logger = get_shell_audit_logger()
+        return self._audit_logger
 
     def clear_history(self) -> None:
         """Clear the command history.
@@ -161,6 +191,17 @@ class ShellSession:
             await self._spawn_process()
             self._started = True
 
+            # Phase 11.3: Log session start
+            if audit := self._get_audit_logger():
+                audit.log_session_started(
+                    session_id=self._session_id,
+                    config={
+                        "workspace_root": str(self._config.workspace_root)
+                        if self._config.workspace_root
+                        else None,
+                        "startup_commands_count": len(self._config.startup_commands),
+                    },
+                )
             # Run startup commands
             for cmd in self._config.startup_commands:
                 await self._execute_internal(cmd)
@@ -184,7 +225,18 @@ class ShellSession:
 
         async with self._lock:
             self._last_activity = time.monotonic()
+
+            # Phase 11.3.4: Check for suspicious patterns before execution
+            if self._config.check_suspicious:
+                if audit := self._get_audit_logger():
+                    audit.check_and_log_suspicious(command, session_id=self._session_id)
+
             result = await self._execute_internal(command)
+
+            # Phase 11.3: Audit log command execution
+            if audit := self._get_audit_logger():
+                audit.log_result(result, session_id=self._session_id)
+
             # Phase 2.3.2: Track command in history for executor state
             self._command_history.append(result)
             return result
@@ -226,6 +278,13 @@ class ShellSession:
                         pass
 
                 await self._kill_process()
+
+            # Phase 11.3: Log session end
+            if audit := self._get_audit_logger():
+                audit.log_session_ended(
+                    session_id=self._session_id,
+                    command_count=len(self._command_history),
+                )
 
     async def __aenter__(self) -> ShellSession:
         """Enter async context manager."""

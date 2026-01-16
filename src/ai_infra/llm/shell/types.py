@@ -52,6 +52,8 @@ class ShellResult:
         command: The command that was executed.
         duration_ms: Execution time in milliseconds.
         timed_out: True if the command timed out.
+        resource_limit_exceeded: Type of resource limit exceeded (if any).
+            Values: None, "memory", "cpu", "file_size", "open_files", "processes".
 
     Example:
         >>> result = ShellResult(
@@ -73,10 +75,11 @@ class ShellResult:
     command: str
     duration_ms: float
     timed_out: bool = False
+    resource_limit_exceeded: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         """Convert to dictionary for tool return value."""
-        return {
+        result: dict[str, object] = {
             "success": self.success,
             "exit_code": self.exit_code,
             "stdout": self.stdout,
@@ -85,6 +88,9 @@ class ShellResult:
             "duration_ms": self.duration_ms,
             "timed_out": self.timed_out,
         }
+        if self.resource_limit_exceeded is not None:
+            result["resource_limit_exceeded"] = self.resource_limit_exceeded
+        return result
 
     @classmethod
     def from_timeout(cls, command: str, timeout: float) -> ShellResult:
@@ -110,6 +116,37 @@ class ShellResult:
             command=command,
             duration_ms=duration_ms,
             timed_out=False,
+        )
+
+    @classmethod
+    def from_resource_limit(
+        cls,
+        command: str,
+        limit_type: str,
+        message: str,
+        duration_ms: float = 0.0,
+    ) -> ShellResult:
+        """Create a result for a resource limit violation.
+
+        Args:
+            command: The command that was executed.
+            limit_type: Type of limit exceeded ("memory", "cpu", "file_size",
+                "open_files", "processes").
+            message: Human-readable error message.
+            duration_ms: Execution time in milliseconds.
+
+        Returns:
+            ShellResult with resource_limit_exceeded set.
+        """
+        return cls(
+            success=False,
+            exit_code=-1,
+            stdout="",
+            stderr=message,
+            command=command,
+            duration_ms=duration_ms,
+            timed_out=False,
+            resource_limit_exceeded=limit_type,
         )
 
 

@@ -38,8 +38,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from ai_infra.llm.agent import Agent
-from ai_infra.llm.shell.session import ShellSession
+from ai_infra.llm.shell.session import SessionConfig, ShellSession
 from ai_infra.llm.shell.tool import create_shell_tool, set_current_session
+from ai_infra.llm.shell.types import ShellResult
 from ai_infra.logging import get_logger
 
 if TYPE_CHECKING:
@@ -377,7 +378,8 @@ class VerificationAgent:
             )
 
         # Create shell session for verification
-        session = ShellSession(cwd=workspace)
+        session_config = SessionConfig(workspace_root=workspace)
+        session = ShellSession(session_config)
 
         try:
             await session.start()
@@ -458,19 +460,21 @@ class VerificationAgent:
         finally:
             # Clean up session
             set_current_session(None)
-            await session.stop()
+            await session.close()
 
     def _parse_agent_result(
         self,
         result: Any,
-        command_history: list[str],
+        command_history: list[str | ShellResult],
         duration_ms: float,
     ) -> VerificationResult:
         """Parse the agent's result into a VerificationResult.
 
+        Phase 16.5.2: Updated type hint to accept ShellResult objects.
+
         Args:
             result: The agent's response.
-            command_history: Commands executed via shell tool.
+            command_history: Commands executed via shell tool (strings or ShellResult).
             duration_ms: Total duration in milliseconds.
 
         Returns:

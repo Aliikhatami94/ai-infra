@@ -45,8 +45,11 @@ __all__ = [
     "DockerConfig",
     "DockerExecutionPolicy",
     "DockerSession",
-    "is_docker_available",
     "VolumeMount",
+    "create_docker_policy",
+    "create_docker_session",
+    "get_execution_policy",
+    "is_docker_available",
 ]
 
 
@@ -785,3 +788,94 @@ def create_docker_session(
     )
 
     return DockerSession(config=config)
+
+
+# =============================================================================
+# Execution Policy Selection
+# =============================================================================
+
+
+def get_execution_policy(
+    *,
+    docker_isolation: bool = False,
+    docker_image: str = "python:3.11-slim",
+    docker_allow_network: bool = False,
+    workspace: str | Path | None = None,
+    memory_limit_mb: int = 512,
+    cpu_limit_seconds: int = 60,
+) -> DockerExecutionPolicy | None:
+    """Get an execution policy based on configuration.
+
+    Returns a DockerExecutionPolicy if docker_isolation is True and Docker
+    is available, otherwise returns None (caller should fall back to host
+    execution or LimitedExecutionPolicy).
+
+    This function handles Docker availability gracefully - if Docker is
+    requested but not available, it logs a warning and returns None.
+
+    Args:
+        docker_isolation: Whether to use Docker isolation.
+        docker_image: Docker image to use for execution.
+        docker_allow_network: Whether to allow network access in container.
+        workspace: Host path to mount as /workspace (read-write).
+        memory_limit_mb: Memory limit in megabytes.
+        cpu_limit_seconds: CPU time limit (used for CPU fraction calculation).
+
+    Returns:
+        DockerExecutionPolicy if Docker isolation is requested and available,
+        None otherwise.
+
+    Example:
+        >>> policy = get_execution_policy(
+        ...     docker_isolation=True,
+        ...     docker_image="python:3.11-slim",
+        ...     docker_allow_network=False,
+        ...     workspace="/home/user/project",
+        ... )
+        >>> if policy is None:
+        ...     # Fall back to LimitedExecutionPolicy or HostExecutionPolicy
+        ...     policy = LimitedExecutionPolicy()
+    """
+    if not docker_isolation:
+        return None
+
+    # Check Docker availability
+    if not is_docker_available():
+        logger.warning(
+            "Docker isolation requested but Docker is not available. "
+            "Ensure Docker is installed and running. "
+            "Falling back to host execution."
+        )
+        return None
+
+    # Build mounts
+    mounts: list[VolumeMount] = []
+    if workspace:
+        mounts.append(VolumeMount(str(workspace), "/workspace", read_only=False))
+
+    # Convert memory limit to Docker format
+    memory_limit = f"{memory_limit_mb}m"
+
+    # Network mode: bridge allows network, none blocks it
+    network = "bridge" if docker_allow_network else "none"
+
+    # CPU limit as fraction of cores (rough estimate from seconds)
+    # Default to 1.0 core - the actual limit is enforced by timeout
+    cpu_limit = 1.0
+
+    config = DockerConfig(
+        image=docker_image,
+        memory_limit=memory_limit,
+        cpu_limit=cpu_limit,
+        network=network,
+        mounts=mounts,
+    )
+
+    logger.info(
+        "Using Docker execution policy: image=%s, memory=%s, network=%s",
+        docker_image,
+        memory_limit,
+        network,
+    )
+
+    return DockerExecutionPolicy(config=config)

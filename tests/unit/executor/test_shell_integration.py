@@ -141,6 +141,30 @@ class TestInitialState:
         assert "shell_results" in state
         assert state["shell_results"] == []
 
+    def test_initial_state_shell_snapshots_disabled(self, tmp_path: Path) -> None:
+        """Initial state should default shell snapshots to disabled."""
+        roadmap = tmp_path / "ROADMAP.md"
+        roadmap.write_text("# ROADMAP\n\n- [ ] Task 1")
+
+        executor = ExecutorGraph(roadmap_path=str(roadmap))
+        state = executor.get_initial_state()
+
+        assert "enable_shell_snapshots" in state
+        assert state["enable_shell_snapshots"] is False
+
+    def test_initial_state_shell_snapshots_enabled(self, tmp_path: Path) -> None:
+        """Initial state should reflect enable_shell_snapshots=True."""
+        roadmap = tmp_path / "ROADMAP.md"
+        roadmap.write_text("# ROADMAP\n\n- [ ] Task 1")
+
+        executor = ExecutorGraph(
+            roadmap_path=str(roadmap),
+            enable_shell_snapshots=True,
+        )
+        state = executor.get_initial_state()
+
+        assert state["enable_shell_snapshots"] is True
+
 
 class TestShellSessionLifecycle:
     """Tests for shell session lifecycle management."""

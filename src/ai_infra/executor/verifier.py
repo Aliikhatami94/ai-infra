@@ -357,6 +357,64 @@ class TaskVerifier:
                         return True
         return False
 
+    def _has_malformed_newlines(self, content: str) -> bool:
+        """Check if content has literal \\n instead of real newlines.
+
+        Phase 16.5.10.7: Detect malformed files for auto-repair.
+
+        Args:
+            content: File content to check.
+
+        Returns:
+            True if content appears to have malformed newlines.
+        """
+        literal_newline_count = content.count("\\n")
+        real_newline_count = content.count("\n")
+
+        if literal_newline_count > 0:
+            if literal_newline_count > real_newline_count:
+                return True
+            if len(content) > 100 and real_newline_count < 3 and literal_newline_count > 2:
+                return True
+
+        return False
+
+    def _repair_newlines(self, filepath: Path) -> bool:
+        """Attempt to repair literal \\n in file content.
+
+        Phase 16.5.10.7: Auto-repair files with malformed newlines.
+
+        Args:
+            filepath: Path to the file to repair.
+
+        Returns:
+            True if file was modified, False otherwise.
+        """
+        try:
+            content = filepath.read_text()
+
+            if not self._has_malformed_newlines(content):
+                return False
+
+            # Handle literal \r\n first (Windows newlines written incorrectly)
+            repaired = content.replace("\\r\\n", "\n")
+            # Handle standalone literal \r
+            repaired = repaired.replace("\\r", "\r")
+            # Replace literal \n with actual newlines
+            repaired = repaired.replace("\\n", "\n")
+            # Also handle literal \t (tabs)
+            repaired = repaired.replace("\\t", "\t")
+
+            if repaired != content:
+                filepath.write_text(repaired)
+                logger.info(f"Verifier auto-repaired malformed newlines in {filepath}")
+                return True
+
+        except (OSError, UnicodeDecodeError) as e:
+            logger.warning(f"Could not repair file {filepath}: {e}")
+
+        return False
+
     async def verify(
         self,
         task: Task,
@@ -452,7 +510,10 @@ class TaskVerifier:
         return checks
 
     async def _check_syntax(self) -> list[CheckResult]:
-        """Level 2: Check that all Python files parse without syntax errors."""
+        """Level 2: Check that all Python files parse without syntax errors.
+
+        Phase 16.5.10.7: Auto-repairs files with malformed newlines on syntax failure.
+        """
         checks: list[CheckResult] = []
 
         def _scan_and_parse() -> list[CheckResult]:
@@ -474,6 +535,26 @@ class TaskVerifier:
                         )
                     )
                 except SyntaxError as e:
+                    # Phase 16.5.10.7: Try to auto-repair malformed newlines
+                    if self._has_malformed_newlines(source):
+                        if self._repair_newlines(py_file):
+                            # Re-read and re-parse after repair
+                            try:
+                                repaired_source = py_file.read_text(encoding="utf-8")
+                                ast.parse(repaired_source, filename=str(py_file))
+                                results.append(
+                                    CheckResult(
+                                        name=f"syntax:{relative_path}",
+                                        level=CheckLevel.SYNTAX,
+                                        status=CheckStatus.PASSED,
+                                        message=f"Repaired and parses: {relative_path}",
+                                        metadata={"auto_repaired": True},
+                                    )
+                                )
+                                continue  # Successfully repaired
+                            except SyntaxError:
+                                pass  # Repair didn't fix it, fall through to failure
+
                     results.append(
                         CheckResult(
                             name=f"syntax:{relative_path}",

@@ -354,9 +354,10 @@ class TestLimitedExecutionPolicy:
         """Should annotate OOM-style exit codes."""
         policy = LimitedExecutionPolicy()
 
-        stderr = policy._annotate_limit_errors("", 137)
+        stderr, limit_type = policy._annotate_limit_errors("", 137)
         assert "[RESOURCE LIMIT]" in stderr
         assert "memory" in stderr.lower() or "killed" in stderr.lower()
+        assert limit_type == "memory"
 
     @pytest.mark.asyncio
     @pytest.mark.skipif(sys.platform.startswith("win"), reason="Unix only")
@@ -365,9 +366,10 @@ class TestLimitedExecutionPolicy:
         limits = ResourceLimits(cpu_seconds=30)
         policy = LimitedExecutionPolicy(limits=limits)
 
-        stderr = policy._annotate_limit_errors("", 152)
+        stderr, limit_type = policy._annotate_limit_errors("", 152)
         assert "[RESOURCE LIMIT]" in stderr
         assert "CPU" in stderr or "cpu" in stderr
+        assert limit_type == "cpu"
 
     @pytest.mark.asyncio
     @pytest.mark.skipif(sys.platform.startswith("win"), reason="Unix only")
@@ -376,9 +378,10 @@ class TestLimitedExecutionPolicy:
         limits = ResourceLimits(max_file_size_mb=10)
         policy = LimitedExecutionPolicy(limits=limits)
 
-        stderr = policy._annotate_limit_errors("", 153)
+        stderr, limit_type = policy._annotate_limit_errors("", 153)
         assert "[RESOURCE LIMIT]" in stderr
         assert "File size" in stderr or "file size" in stderr
+        assert limit_type == "file_size"
 
     @pytest.mark.asyncio
     async def test_annotate_too_many_files(self) -> None:
@@ -386,9 +389,10 @@ class TestLimitedExecutionPolicy:
         limits = ResourceLimits(max_open_files=64)
         policy = LimitedExecutionPolicy(limits=limits)
 
-        stderr = policy._annotate_limit_errors("bash: too many open files", 1)
+        stderr, limit_type = policy._annotate_limit_errors("bash: too many open files", 1)
         assert "[RESOURCE LIMIT]" in stderr
         assert "64" in stderr
+        assert limit_type == "open_files"
 
     @pytest.mark.asyncio
     async def test_annotate_cannot_fork(self) -> None:
@@ -396,9 +400,10 @@ class TestLimitedExecutionPolicy:
         limits = ResourceLimits(max_processes=8)
         policy = LimitedExecutionPolicy(limits=limits)
 
-        stderr = policy._annotate_limit_errors("bash: cannot fork", 1)
+        stderr, limit_type = policy._annotate_limit_errors("bash: cannot fork", 1)
         assert "[RESOURCE LIMIT]" in stderr
         assert "8" in stderr
+        assert limit_type == "processes"
 
 
 class TestCreateLimitedPolicy:

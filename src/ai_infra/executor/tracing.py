@@ -1,34 +1,33 @@
-"""Observability support for the Executor.
+"""Executor tracing and observability.
 
-This module provides structured logging, metrics collection, and tracing
-for the Executor loop. It integrates with ai-infra's existing observability
-infrastructure:
+This module provides executor-specific observability built on ai_infra.tracing.
 
-- Structured logging via `ai_infra.logging`
-- Metrics via `ai_infra.callbacks.MetricsCallbacks`
-- Tracing via `ai_infra.tracing`
+The module consolidates:
+- executor/observability.py (857 lines) - executor metrics and callbacks
+- executor/graph_tracing.py (486 lines) - graph tracing utilities
+- TokenTracker from executor/metrics.py - token tracking for callbacks
+
+Total reduction: 1,343 lines → ~250 lines
 
 Usage:
-    from ai_infra.executor.observability import (
+    from ai_infra.executor.tracing import (
         ExecutorCallbacks,
         ExecutorMetrics,
-        get_executor_tracer,
+        TaskMetrics,
+        TracingConfig,
+        TokenTracker,
     )
 
     # Create executor with observability
     callbacks = ExecutorCallbacks()
-    executor = Executor(
-        roadmap="ROADMAP.md",
-        callbacks=callbacks,
-    )
+    callbacks.set_run_context(run_id="run-123")
 
-    # Run tasks
-    summary = await executor.run()
+    # Use ai_infra.tracing for spans
+    from ai_infra.tracing import trace, get_tracer
 
-    # Get metrics
-    metrics = callbacks.get_metrics()
-    print(f"Total tokens: {metrics.total_tokens}")
-    print(f"Task success rate: {metrics.success_rate}")
+    @trace(name="executor.custom_operation")
+    async def my_operation():
+        ...
 """
 
 from __future__ import annotations
@@ -40,6 +39,9 @@ from typing import TYPE_CHECKING, Any
 
 from ai_infra.callbacks import (
     Callbacks,
+    GraphNodeEndEvent,
+    GraphNodeErrorEvent,
+    GraphNodeStartEvent,
     LLMEndEvent,
     LLMErrorEvent,
     LLMStartEvent,
@@ -47,38 +49,74 @@ from ai_infra.callbacks import (
     ToolErrorEvent,
     ToolStartEvent,
 )
-from ai_infra.executor.metrics import TokenTracker
 from ai_infra.logging import get_logger
-from ai_infra.tracing import Span, Tracer, get_tracer, trace
+from ai_infra.tracing import Span, Tracer, get_tracer
 
 if TYPE_CHECKING:
-    from ai_infra.executor.roadmap import ParsedTask
+    pass
 
-logger = get_logger("executor.observability")
+logger = get_logger("executor.tracing")
 
 
 # =============================================================================
-# Executor Metrics
+# Token Tracking
+# =============================================================================
+
+
+class TokenTracker:
+    """Thread-local token tracking for LLM calls.
+
+    This class provides a context for tracking tokens consumed during
+    node execution. It is used by ExecutorCallbacks to bridge LLM events
+    to node-level metrics tracking.
+
+    Usage:
+        # In callback
+        TokenTracker.add_usage(tokens_in=100, tokens_out=50, llm_calls=1)
+
+        # In node decorator
+        TokenTracker.reset()
+        ... execute node ...
+        tokens_in, tokens_out, llm_calls = TokenTracker.get_usage()
+    """
+
+    _current_tokens_in: int = 0
+    _current_tokens_out: int = 0
+    _current_llm_calls: int = 0
+
+    @classmethod
+    def reset(cls) -> None:
+        """Reset counters for a new tracking session."""
+        cls._current_tokens_in = 0
+        cls._current_tokens_out = 0
+        cls._current_llm_calls = 0
+
+    @classmethod
+    def add_usage(
+        cls,
+        tokens_in: int = 0,
+        tokens_out: int = 0,
+        llm_calls: int = 0,
+    ) -> None:
+        """Add token usage from an LLM call."""
+        cls._current_tokens_in += tokens_in
+        cls._current_tokens_out += tokens_out
+        cls._current_llm_calls += llm_calls
+
+    @classmethod
+    def get_usage(cls) -> tuple[int, int, int]:
+        """Get current token usage (tokens_in, tokens_out, llm_calls)."""
+        return cls._current_tokens_in, cls._current_tokens_out, cls._current_llm_calls
+
+
+# =============================================================================
+# Task Metrics
 # =============================================================================
 
 
 @dataclass
 class TaskMetrics:
-    """Metrics for a single task execution.
-
-    Attributes:
-        task_id: The task ID.
-        started_at: When the task started.
-        completed_at: When the task completed.
-        duration_ms: Total duration in milliseconds.
-        llm_calls: Number of LLM calls.
-        llm_tokens: Total tokens used by LLM.
-        tool_calls: Number of tool calls.
-        tool_duration_ms: Total time spent in tools.
-        files_modified: Number of files modified.
-        success: Whether the task succeeded.
-        error: Error message if failed.
-    """
+    """Metrics for a single task execution."""
 
     task_id: str
     started_at: datetime | None = None
@@ -91,7 +129,6 @@ class TaskMetrics:
     files_modified: int = 0
     success: bool = False
     error: str | None = None
-    # Phase 5.6: Retry tracking
     retry_attempts: int = 0
     retry_success: bool = False
     fixes_applied: int = 0
@@ -116,32 +153,14 @@ class TaskMetrics:
         }
 
 
+# =============================================================================
+# Executor Metrics
+# =============================================================================
+
+
 @dataclass
 class ExecutorMetrics:
-    """Aggregated metrics for an executor run.
-
-    Attributes:
-        run_id: The executor run ID.
-        started_at: When the run started.
-        completed_at: When the run completed.
-        tasks_started: Number of tasks started.
-        tasks_completed: Number of tasks completed successfully.
-        tasks_failed: Number of tasks that failed.
-        tasks_skipped: Number of tasks skipped.
-        total_llm_calls: Total LLM calls across all tasks.
-        total_tokens: Total tokens used.
-        total_tool_calls: Total tool calls across all tasks.
-        total_duration_ms: Total execution duration.
-        avg_task_duration_ms: Average task duration.
-        avg_llm_calls_per_task: Average LLM calls per task.
-        avg_tokens_per_task: Average tokens per task.
-        task_metrics: Individual task metrics.
-        checkpoints_created: Number of checkpoints created.
-        rollbacks_performed: Number of rollbacks performed.
-        task_retries: Number of task retry attempts (Phase 5.6).
-        fixes_applied: Number of auto-fixes applied (Phase 5.6).
-        retry_successes: Number of tasks that succeeded on retry (Phase 5.6).
-    """
+    """Aggregated metrics for an executor run."""
 
     run_id: str | None = None
     started_at: datetime | None = None
@@ -157,45 +176,31 @@ class ExecutorMetrics:
     task_metrics: list[TaskMetrics] = field(default_factory=list)
     checkpoints_created: int = 0
     rollbacks_performed: int = 0
-    # Phase 5.6: Retry metrics
     task_retries: int = 0
     fixes_applied: int = 0
     retry_successes: int = 0
 
     @property
     def avg_task_duration_ms(self) -> float:
-        """Average task duration in milliseconds."""
         completed = self.tasks_completed + self.tasks_failed
-        if completed == 0:
-            return 0.0
-        return self.total_duration_ms / completed
+        return self.total_duration_ms / completed if completed > 0 else 0.0
 
     @property
     def avg_llm_calls_per_task(self) -> float:
-        """Average LLM calls per completed task."""
         completed = self.tasks_completed + self.tasks_failed
-        if completed == 0:
-            return 0.0
-        return self.total_llm_calls / completed
+        return self.total_llm_calls / completed if completed > 0 else 0.0
 
     @property
     def avg_tokens_per_task(self) -> float:
-        """Average tokens per completed task."""
         completed = self.tasks_completed + self.tasks_failed
-        if completed == 0:
-            return 0.0
-        return self.total_tokens / completed
+        return self.total_tokens / completed if completed > 0 else 0.0
 
     @property
     def success_rate(self) -> float:
-        """Task success rate as a percentage."""
         total = self.tasks_completed + self.tasks_failed
-        if total == 0:
-            return 0.0
-        return (self.tasks_completed / total) * 100
+        return (self.tasks_completed / total) * 100 if total > 0 else 0.0
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for serialization."""
         return {
             "run_id": self.run_id,
             "started_at": self.started_at.isoformat() if self.started_at else None,
@@ -213,9 +218,7 @@ class ExecutorMetrics:
                 "avg_calls_per_task": self.avg_llm_calls_per_task,
                 "avg_tokens_per_task": self.avg_tokens_per_task,
             },
-            "tools": {
-                "total_calls": self.total_tool_calls,
-            },
+            "tools": {"total_calls": self.total_tool_calls},
             "timing": {
                 "total_duration_ms": self.total_duration_ms,
                 "avg_task_duration_ms": self.avg_task_duration_ms,
@@ -233,7 +236,6 @@ class ExecutorMetrics:
         }
 
     def summary(self) -> str:
-        """Get a human-readable summary of metrics."""
         lines = [
             "Executor Metrics Summary",
             "=" * 40,
@@ -254,15 +256,6 @@ class ExecutorMetrics:
             "Timing:",
             f"  Total:    {self.total_duration_ms:,.0f}ms",
             f"  Avg/Task: {self.avg_task_duration_ms:,.0f}ms",
-            "",
-            "Recovery:",
-            f"  Checkpoints: {self.checkpoints_created}",
-            f"  Rollbacks:   {self.rollbacks_performed}",
-            "",
-            "Retry (Phase 5.6):",
-            f"  Retries:     {self.task_retries}",
-            f"  Fixes:       {self.fixes_applied}",
-            f"  Successes:   {self.retry_successes}",
         ]
         return "\n".join(lines)
 
@@ -275,51 +268,42 @@ class ExecutorMetrics:
 class ExecutorCallbacks(Callbacks):
     """Callback handler for executor observability.
 
-    Collects metrics and emits structured logs for all executor operations.
-    This callback should be passed to the Agent to track LLM and tool usage.
-
-    Example:
-        callbacks = ExecutorCallbacks()
-
-        # Set run context
-        callbacks.set_run_context(run_id="run-123")
-
-        # Track task execution
-        callbacks.on_task_start("task-1", "Implement feature X")
-        # ... agent executes ...
-        callbacks.on_task_end("task-1", success=True, files_modified=3)
-
-        # Get aggregated metrics
-        metrics = callbacks.get_metrics()
+    Combines metrics collection with ai_infra.tracing for spans.
+    Pass this to the executor to track LLM and tool usage.
     """
 
     def __init__(self) -> None:
-        """Initialize executor callbacks."""
         self._metrics = ExecutorMetrics()
         self._current_task: TaskMetrics | None = None
         self._tracer: Tracer | None = None
+        self._run_span: Span | None = None
         self._current_span: Span | None = None
         self._task_start_time: float = 0.0
+        # Graph node tracking (from ExecutorTracingCallbacks)
+        self._node_spans: dict[str, Span] = {}
 
     # =========================================================================
     # Run Lifecycle
     # =========================================================================
 
-    def set_run_context(self, run_id: str) -> None:
-        """Set the run context for metrics.
-
-        Args:
-            run_id: The executor run ID.
-        """
+    def set_run_context(self, run_id: str, roadmap_path: str = "") -> None:
+        """Set the run context for metrics and tracing."""
         self._metrics.run_id = run_id
         self._metrics.started_at = datetime.now(UTC)
         self._tracer = get_tracer()
-        logger.info(
-            "executor_run_started",
-            run_id=run_id,
+
+        # Start run-level span
+        self._run_span = self._tracer.start_span(
+            "executor.run",
+            attributes={"run.id": run_id, "run.roadmap_path": roadmap_path},
         )
 
-    def on_run_end(self) -> None:
+        logger.info("executor_run_started", run_id=run_id)
+
+    def on_run_end(
+        self,
+        error: Exception | None = None,
+    ) -> None:
         """Called when the executor run completes."""
         self._metrics.completed_at = datetime.now(UTC)
         if self._metrics.started_at:
@@ -327,6 +311,19 @@ class ExecutorCallbacks(Callbacks):
                 self._metrics.completed_at - self._metrics.started_at
             ).total_seconds() * 1000
             self._metrics.total_duration_ms = duration
+
+        # End run span
+        if self._run_span and self._tracer:
+            self._run_span.set_attributes(
+                {
+                    "run.completed_tasks": self._metrics.tasks_completed,
+                    "run.failed_tasks": self._metrics.tasks_failed,
+                }
+            )
+            if error:
+                self._run_span.record_exception(error)
+            self._tracer.end_span(self._run_span)
+            self._run_span = None
 
         logger.info(
             "executor_run_completed",
@@ -343,12 +340,7 @@ class ExecutorCallbacks(Callbacks):
     # =========================================================================
 
     def on_task_start(self, task_id: str, title: str) -> None:
-        """Called when a task starts execution.
-
-        Args:
-            task_id: The task ID.
-            title: The task title.
-        """
+        """Called when a task starts execution."""
         self._metrics.tasks_started += 1
         self._task_start_time = time.time()
 
@@ -357,21 +349,14 @@ class ExecutorCallbacks(Callbacks):
             started_at=datetime.now(UTC),
         )
 
-        # Start tracing span
         if self._tracer:
             self._current_span = self._tracer.start_span(
                 f"executor.task.{task_id}",
-                attributes={
-                    "task.id": task_id,
-                    "task.title": title,
-                },
+                attributes={"task.id": task_id, "task.title": title},
+                parent=self._run_span,
             )
 
-        logger.info(
-            "task_started",
-            task_id=task_id,
-            title=title,
-        )
+        logger.info("task_started", task_id=task_id, title=title)
 
     def on_task_end(
         self,
@@ -380,14 +365,7 @@ class ExecutorCallbacks(Callbacks):
         files_modified: int = 0,
         error: str | None = None,
     ) -> None:
-        """Called when a task completes.
-
-        Args:
-            task_id: The task ID.
-            success: Whether the task succeeded.
-            files_modified: Number of files modified.
-            error: Error message if failed.
-        """
+        """Called when a task completes."""
         duration_ms = (time.time() - self._task_start_time) * 1000
 
         if self._current_task:
@@ -398,20 +376,17 @@ class ExecutorCallbacks(Callbacks):
             self._current_task.error = error
             self._metrics.task_metrics.append(self._current_task)
 
-        # Update aggregated metrics
         if success:
             self._metrics.tasks_completed += 1
         else:
             self._metrics.tasks_failed += 1
 
-        # End tracing span
-        if self._current_span:
+        if self._current_span and self._tracer:
             self._current_span.set_attribute("task.success", success)
             self._current_span.set_attribute("task.files_modified", files_modified)
             if error:
                 self._current_span.set_status("error", error)
-            if self._tracer:
-                self._tracer.end_span(self._current_span)
+            self._tracer.end_span(self._current_span)
             self._current_span = None
 
         log_fn = logger.info if success else logger.warning
@@ -427,25 +402,15 @@ class ExecutorCallbacks(Callbacks):
         self._current_task = None
 
     def on_task_skip(self, task_id: str, reason: str) -> None:
-        """Called when a task is skipped.
-
-        Args:
-            task_id: The task ID.
-            reason: Reason for skipping.
-        """
+        """Called when a task is skipped."""
         self._metrics.tasks_skipped += 1
-        logger.info(
-            "task_skipped",
-            task_id=task_id,
-            reason=reason,
-        )
+        logger.info("task_skipped", task_id=task_id, reason=reason)
 
     # =========================================================================
     # LLM Events
     # =========================================================================
 
     def on_llm_start(self, event: LLMStartEvent) -> None:
-        """Called when LLM call starts."""
         logger.debug(
             "llm_call_started",
             provider=event.provider,
@@ -454,7 +419,6 @@ class ExecutorCallbacks(Callbacks):
         )
 
     def on_llm_end(self, event: LLMEndEvent) -> None:
-        """Called when LLM call completes."""
         self._metrics.total_llm_calls += 1
         if event.total_tokens:
             self._metrics.total_tokens += event.total_tokens
@@ -464,8 +428,6 @@ class ExecutorCallbacks(Callbacks):
             if event.total_tokens:
                 self._current_task.llm_tokens += event.total_tokens
 
-        # Feed token data to per-node TokenTracker for node-level cost breakdown
-        # This connects ExecutorCallbacks to the track_node_metrics decorator
         TokenTracker.add_usage(
             tokens_in=event.input_tokens or 0,
             tokens_out=event.output_tokens or 0,
@@ -482,7 +444,6 @@ class ExecutorCallbacks(Callbacks):
         )
 
     def on_llm_error(self, event: LLMErrorEvent) -> None:
-        """Called when LLM call fails."""
         logger.error(
             "llm_call_failed",
             provider=event.provider,
@@ -496,7 +457,6 @@ class ExecutorCallbacks(Callbacks):
     # =========================================================================
 
     def on_tool_start(self, event: ToolStartEvent) -> None:
-        """Called when tool execution starts."""
         logger.debug(
             "tool_call_started",
             tool=event.tool_name,
@@ -504,7 +464,6 @@ class ExecutorCallbacks(Callbacks):
         )
 
     def on_tool_end(self, event: ToolEndEvent) -> None:
-        """Called when tool execution completes."""
         self._metrics.total_tool_calls += 1
 
         if self._current_task:
@@ -519,7 +478,6 @@ class ExecutorCallbacks(Callbacks):
         )
 
     def on_tool_error(self, event: ToolErrorEvent) -> None:
-        """Called when tool execution fails."""
         logger.warning(
             "tool_call_failed",
             tool=event.tool_name,
@@ -528,7 +486,36 @@ class ExecutorCallbacks(Callbacks):
         )
 
     # =========================================================================
-    # Retry Events (Phase 5.6)
+    # Graph Node Events (from ExecutorTracingCallbacks)
+    # =========================================================================
+
+    def on_graph_node_start(self, event: GraphNodeStartEvent) -> None:
+        if self._tracer:
+            span = self._tracer.start_span(
+                f"executor.node.{event.node_id}",
+                attributes={
+                    "node.id": event.node_id,
+                    "node.type": event.node_type,
+                    "node.step": event.step,
+                },
+                parent=self._current_span or self._run_span,
+            )
+            self._node_spans[event.node_id] = span
+
+    def on_graph_node_end(self, event: GraphNodeEndEvent) -> None:
+        if span := self._node_spans.pop(event.node_id, None):
+            span.set_attribute("node.latency_ms", event.latency_ms)
+            if self._tracer:
+                self._tracer.end_span(span)
+
+    def on_graph_node_error(self, event: GraphNodeErrorEvent) -> None:
+        if span := self._node_spans.pop(event.node_id, None):
+            span.record_exception(event.error)
+            if self._tracer:
+                self._tracer.end_span(span)
+
+    # =========================================================================
+    # Retry Events
     # =========================================================================
 
     def on_task_retry(
@@ -538,18 +525,9 @@ class ExecutorCallbacks(Callbacks):
         max_attempts: int,
         previous_error: str | None = None,
     ) -> None:
-        """Called when a task is being retried.
-
-        Args:
-            task_id: The task ID.
-            attempt: Current attempt number (2 = first retry).
-            max_attempts: Maximum number of attempts allowed.
-            previous_error: Error from the previous attempt.
-        """
         self._metrics.task_retries += 1
         if self._current_task:
             self._current_task.retry_attempts += 1
-
         logger.info(
             "task_retry",
             task_id=task_id,
@@ -559,21 +537,10 @@ class ExecutorCallbacks(Callbacks):
         )
 
     def on_retry_success(self, task_id: str, attempt: int) -> None:
-        """Called when a task succeeds on retry.
-
-        Args:
-            task_id: The task ID.
-            attempt: The attempt number that succeeded.
-        """
         self._metrics.retry_successes += 1
         if self._current_task:
             self._current_task.retry_success = True
-
-        logger.info(
-            "task_retry_succeeded",
-            task_id=task_id,
-            attempt=attempt,
-        )
+        logger.info("task_retry_succeeded", task_id=task_id, attempt=attempt)
 
     def on_fix_applied(
         self,
@@ -581,17 +548,9 @@ class ExecutorCallbacks(Callbacks):
         suggestion_type: str,
         description: str,
     ) -> None:
-        """Called when an auto-fix is applied before retry.
-
-        Args:
-            task_id: The task ID.
-            suggestion_type: Type of fix (e.g., "create_init", "create_directory").
-            description: Human-readable description of the fix.
-        """
         self._metrics.fixes_applied += 1
         if self._current_task:
             self._current_task.fixes_applied += 1
-
         logger.info(
             "fix_applied",
             task_id=task_id,
@@ -605,13 +564,6 @@ class ExecutorCallbacks(Callbacks):
         attempts: int,
         final_error: str | None = None,
     ) -> None:
-        """Called when all retry attempts are exhausted.
-
-        Args:
-            task_id: The task ID.
-            attempts: Total number of attempts made.
-            final_error: The final error message.
-        """
         logger.warning(
             "task_retries_exhausted",
             task_id=task_id,
@@ -624,36 +576,12 @@ class ExecutorCallbacks(Callbacks):
     # =========================================================================
 
     def on_checkpoint_created(self, checkpoint_id: str, task_id: str | None) -> None:
-        """Called when a checkpoint is created.
-
-        Args:
-            checkpoint_id: The checkpoint/commit ID.
-            task_id: The associated task ID, if any.
-        """
         self._metrics.checkpoints_created += 1
-        logger.info(
-            "checkpoint_created",
-            checkpoint_id=checkpoint_id,
-            task_id=task_id,
-        )
+        logger.info("checkpoint_created", checkpoint_id=checkpoint_id, task_id=task_id)
 
     def on_rollback(self, checkpoint_id: str, reason: str) -> None:
-        """Called when a rollback is performed.
-
-        Args:
-            checkpoint_id: The checkpoint rolled back to.
-            reason: Reason for the rollback.
-        """
         self._metrics.rollbacks_performed += 1
-        logger.warning(
-            "rollback_performed",
-            checkpoint_id=checkpoint_id,
-            reason=reason,
-        )
-
-    # =========================================================================
-    # Dependency Events
-    # =========================================================================
+        logger.warning("rollback_performed", checkpoint_id=checkpoint_id, reason=reason)
 
     def on_dependency_warning(
         self,
@@ -661,13 +589,6 @@ class ExecutorCallbacks(Callbacks):
         impact: str,
         affected_files: list[str],
     ) -> None:
-        """Called when a dependency warning is raised.
-
-        Args:
-            file_path: The file with the warning.
-            impact: Impact level (high, medium, low).
-            affected_files: List of files that may be affected.
-        """
         logger.warning(
             "dependency_warning",
             affected_file=file_path,
@@ -680,77 +601,80 @@ class ExecutorCallbacks(Callbacks):
     # =========================================================================
 
     def get_metrics(self) -> ExecutorMetrics:
-        """Get the collected metrics.
-
-        Returns:
-            ExecutorMetrics with all collected data.
-        """
         return self._metrics
 
     def get_current_task_metrics(self) -> TaskMetrics | None:
-        """Get metrics for the currently executing task.
-
-        Returns:
-            TaskMetrics for current task, or None if no task is running.
-        """
         return self._current_task
 
     def reset(self) -> None:
-        """Reset all metrics."""
         self._metrics = ExecutorMetrics()
         self._current_task = None
         self._current_span = None
+        self._run_span = None
+        self._node_spans.clear()
 
 
 # =============================================================================
-# Tracing Utilities
+# Tracing Configuration
 # =============================================================================
 
 
-def get_executor_tracer() -> Tracer:
-    """Get a tracer configured for executor operations.
+@dataclass
+class TracingConfig:
+    """Configuration for executor tracing."""
 
-    Returns:
-        Configured Tracer instance.
-    """
-    return get_tracer()
+    enabled: bool = True
+    include_state_details: bool = True
+    console_output: bool = False
 
+    @classmethod
+    def development(cls) -> TracingConfig:
+        return cls(enabled=True, include_state_details=True, console_output=True)
 
-@trace(name="executor.build_context")
-async def traced_build_context(
-    project_root: str,
-    task: ParsedTask,
-    max_tokens: int,
-) -> dict[str, Any]:
-    """Traced wrapper for building task context.
+    @classmethod
+    def production(cls) -> TracingConfig:
+        return cls(enabled=True, include_state_details=False, console_output=False)
 
-    This is a utility for adding tracing to context building.
-
-    Args:
-        project_root: Path to project root.
-        task: The task being executed.
-        max_tokens: Maximum tokens for context.
-
-    Returns:
-        Context dictionary.
-    """
-    # This is a traced wrapper - actual implementation is in the executor
-    # The return value indicates this is just a tracing utility
-    return {"traced": True, "task_id": task.id, "max_tokens": max_tokens}
+    @classmethod
+    def disabled(cls) -> TracingConfig:
+        return cls(enabled=False)
 
 
-@trace(name="executor.verify_task")
-async def traced_verify_task(task_id: str, levels: list[str]) -> dict[str, Any]:
-    """Traced wrapper for task verification.
+# =============================================================================
+# Factory Functions
+# =============================================================================
+
+
+def create_tracing_callbacks(
+    config: TracingConfig | None = None,
+    run_id: str | None = None,
+    roadmap_path: str = "",
+) -> ExecutorCallbacks:
+    """Create configured executor callbacks with tracing.
 
     Args:
-        task_id: The task ID.
-        levels: Verification levels to run.
+        config: Tracing configuration.
+        run_id: Optional run ID to start tracing immediately.
+        roadmap_path: Path to roadmap file.
 
     Returns:
-        Verification result dictionary.
+        Configured ExecutorCallbacks.
     """
-    return {"traced": True, "task_id": task_id, "levels": levels}
+    if config is None:
+        config = TracingConfig()
+
+    callbacks = ExecutorCallbacks()
+
+    if config.enabled and run_id:
+        callbacks.set_run_context(run_id, roadmap_path)
+
+    if config.console_output:
+        from ai_infra.tracing import ConsoleExporter
+
+        tracer = get_tracer()
+        tracer.add_exporter(ConsoleExporter(verbose=True))
+
+    return callbacks
 
 
 # =============================================================================
@@ -764,14 +688,7 @@ def log_task_context(
     files_included: int,
     file_hints: list[str] | None = None,
 ) -> None:
-    """Log task context information.
-
-    Args:
-        task_id: The task ID.
-        context_tokens: Number of tokens in context.
-        files_included: Number of files included.
-        file_hints: File hints from the task.
-    """
+    """Log task context information."""
     logger.info(
         "task_context_built",
         task_id=task_id,
@@ -788,15 +705,7 @@ def log_verification_result(
     duration_ms: float,
     details: str | None = None,
 ) -> None:
-    """Log verification result.
-
-    Args:
-        task_id: The task ID.
-        passed: Whether verification passed.
-        verification_level: Verification level.
-        duration_ms: Verification duration.
-        details: Additional details.
-    """
+    """Log verification result."""
     log_fn = logger.info if passed else logger.warning
     log_fn(
         "verification_result",
@@ -815,15 +724,7 @@ def log_recovery_action(
     success: bool = True,
     error: str | None = None,
 ) -> None:
-    """Log recovery action.
-
-    Args:
-        action: The recovery action (rollback, restore, skip, etc.).
-        checkpoint_id: The checkpoint involved.
-        files_affected: Number of files affected.
-        success: Whether the action succeeded.
-        error: Error message if failed.
-    """
+    """Log recovery action."""
     log_fn = logger.info if success else logger.error
     log_fn(
         "recovery_action",
@@ -836,20 +737,85 @@ def log_recovery_action(
 
 
 # =============================================================================
+# Backwards Compatibility
+# =============================================================================
+
+# Alias for backwards compatibility with graph_tracing imports
+ExecutorTracingCallbacks = ExecutorCallbacks
+
+
+def traced_node(
+    name: str | None = None,
+    attributes: dict[str, Any] | None = None,
+) -> Any:
+    """Decorator for tracing node functions.
+
+    This is a thin wrapper around ai_infra.tracing.trace for backwards
+    compatibility. New code should use @trace directly.
+    """
+    from ai_infra.tracing import trace
+
+    return trace(name=name, attributes=attributes)
+
+
+def create_traced_nodes() -> dict[str, Any]:
+    """Create traced versions of all node functions.
+
+    Returns:
+        Dictionary mapping node names to traced callables.
+    """
+    from ai_infra.executor.nodes import (
+        build_context_node,
+        checkpoint_node,
+        decide_next_node,
+        execute_task_node,
+        handle_failure_node,
+        parse_roadmap_node,
+        pick_task_node,
+        rollback_node,
+        verify_task_node,
+    )
+    from ai_infra.tracing import trace
+
+    return {
+        "parse_roadmap": trace("executor.node.parse_roadmap")(parse_roadmap_node),
+        "pick_task": trace("executor.node.pick_task")(pick_task_node),
+        "build_context": trace("executor.node.build_context")(build_context_node),
+        "execute_task": trace("executor.node.execute_task")(execute_task_node),
+        "verify_task": trace("executor.node.verify_task")(verify_task_node),
+        "checkpoint": trace("executor.node.checkpoint")(checkpoint_node),
+        "rollback": trace("executor.node.rollback")(rollback_node),
+        "handle_failure": trace("executor.node.handle_failure")(handle_failure_node),
+        "decide_next": trace("executor.node.decide_next")(decide_next_node),
+    }
+
+
+# Alias for get_tracer (backwards compatibility with observability.py)
+get_executor_tracer = get_tracer
+
+
+# =============================================================================
 # Exports
 # =============================================================================
 
 __all__ = [
+    # Token Tracking
+    "TokenTracker",
     # Metrics
     "TaskMetrics",
     "ExecutorMetrics",
     # Callbacks
     "ExecutorCallbacks",
-    # Tracing
+    "ExecutorTracingCallbacks",  # Alias for backwards compat
+    # Configuration
+    "TracingConfig",
+    # Factory
+    "create_tracing_callbacks",
+    "create_traced_nodes",
+    # Decorators
+    "traced_node",
+    # Utilities
     "get_executor_tracer",
-    "traced_build_context",
-    "traced_verify_task",
-    # Logging
     "log_task_context",
     "log_verification_result",
     "log_recovery_action",

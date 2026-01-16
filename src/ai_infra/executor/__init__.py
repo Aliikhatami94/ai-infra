@@ -39,11 +39,44 @@ from ai_infra.executor.checkpoint import (
     RollbackResult,
 )
 from ai_infra.executor.checkpointer import ExecutorCheckpointer
+from ai_infra.executor.collaboration import (
+    ActionType,
+    AgentAction,
+    CollaborationConfig,
+    CollaborationMode,
+    ModeAwareExecutor,
+    PauseReason,
+)
 from ai_infra.executor.context import (
     ContextBudget,
     ContextCache,
     ContextResult,
     ProjectContext,
+)
+from ai_infra.executor.context_carryover import (
+    ArchitectureTracker,
+    ContextStorage,
+    ProjectArchitecture,
+    SessionSummary,
+    load_session_context,
+    save_session_context,
+)
+from ai_infra.executor.context_prewarming import (
+    ContextPrewarmer,
+    ContextWatcher,
+    EmbeddingCache,
+    EmbeddingCacheStats,
+    PrewarmingStats,
+    create_prewarmer,
+)
+from ai_infra.executor.dashboard import (
+    STATUS_ICONS,
+    STATUS_LABELS,
+    Dashboard,
+    DashboardConfig,
+    DashboardRunResult,
+    run_with_dashboard,
+    run_with_simple_progress,
 )
 from ai_infra.executor.dependencies import (
     ChangeAnalysis,
@@ -71,13 +104,6 @@ from ai_infra.executor.graph import (
     create_executor_graph,
     create_executor_with_hitl,
 )
-from ai_infra.executor.graph_tracing import (
-    ExecutorTracingCallbacks,
-    TracingConfig,
-    create_traced_nodes,
-    create_tracing_callbacks,
-    traced_node,
-)
 from ai_infra.executor.hitl import (
     HITLDecision,
     HITLManager,
@@ -95,32 +121,65 @@ from ai_infra.executor.learning import (
     SuccessPattern,
     TaskType,
 )
-from ai_infra.executor.loop import (
-    ExecutionResult,
-    ExecutionStatus,
-    Executor,
-    ExecutorConfig,
-    ReviewInfo,
-    RunStatus,
-    RunSummary,
-    VerifyMode,
-)
+from ai_infra.executor.loop import Executor
 from ai_infra.executor.models import Task, TaskStatus
-from ai_infra.executor.observability import (
-    ExecutorCallbacks,
-    ExecutorMetrics,
-    TaskMetrics,
-    get_executor_tracer,
-    log_recovery_action,
-    log_task_context,
-    log_verification_result,
-)
 from ai_infra.executor.outcome_extractor import (
     ExtractionResult,
     extract_outcome,
     extract_outcome_sync,
 )
+from ai_infra.executor.parallel_verification import (
+    CheckConfig,
+    CheckType,
+    ParallelCheckResult,
+    ParallelVerificationResult,
+    ParallelVerifier,
+    aggregate_results,
+    create_parallel_verifier,
+    get_checks_to_run,
+    should_run_check,
+)
 from ai_infra.executor.parser import ParseError, ParserConfig, RoadmapParser
+from ai_infra.executor.patterns import (
+    AgentsUpdater,
+    ExecutionContext,
+    FailurePatternTracker,
+    FixAction,
+    FixPattern,
+    FixPatternTracker,
+    PatternsDatabase,
+    PatternSuggester,
+    TaskError,
+)
+from ai_infra.executor.phase1_metrics import (
+    PHASE1_TARGETS,
+    BenchmarkResult,
+    BenchmarkRunner,
+    MetricCollector,
+    MetricSample,
+    MetricStats,
+    MetricTarget,
+    MetricType,
+    Phase1ValidationReport,
+    Phase1Validator,
+    ValidationResult,
+    create_benchmark_runner,
+    create_collector,
+    create_validator,
+    validate_phase1_targets,
+)
+from ai_infra.executor.progress import (
+    CostEstimator,
+    ProgressSummary,
+    ProgressTracker,
+    TaskProgress,
+)
+from ai_infra.executor.project_analyzer import (
+    ProjectAnalyzer,
+)
+from ai_infra.executor.project_analyzer import (
+    ProjectInfo as AnalyzedProjectInfo,
+)
 from ai_infra.executor.project_memory import (
     FileInfo,
     ProjectMemory,
@@ -142,10 +201,39 @@ from ai_infra.executor.roadmap import (
     Section,
     Subtask,
 )
+from ai_infra.executor.roadmap_generator import (
+    GeneratedRoadmap,
+    GenerationStyle,
+    RoadmapGenerator,
+    ValidationIssue,
+)
+from ai_infra.executor.routing import (
+    MODEL_CONFIGS,
+    ModelConfig,
+    ModelRouter,
+    ModelTier,
+    RoutingConfig,
+    RoutingDecision,
+    RoutingMetrics,
+    TaskContext,
+    create_router,
+)
 from ai_infra.executor.run_memory import (
     FileAction,
     RunMemory,
     TaskOutcome,
+)
+from ai_infra.executor.skills import (
+    ApplierConfig,
+    ExtractionConfig,
+    Skill,
+    SkillApplier,
+    SkillContext,
+    SkillExtractor,
+    SkillInjectionResult,
+    SkillsDatabase,
+    SkillType,
+    TaskResult,
 )
 from ai_infra.executor.state import ExecutorState, StateSummary, TaskState
 from ai_infra.executor.state_migration import (
@@ -177,6 +265,17 @@ from ai_infra.executor.streaming import (
     get_formatter,
     stream_to_console,
 )
+from ai_infra.executor.task_decomposition import (
+    ComplexityEstimator,
+    ComplexityLevel,
+    DecomposedTask,
+    EstimatorConfig,
+    RecommendedAction,
+    TaskComplexity,
+    TaskDecomposer,
+    auto_decompose_if_needed,
+    should_decompose_task,
+)
 from ai_infra.executor.testing import (
     ChaosAgent,
     MockAgent,
@@ -188,6 +287,31 @@ from ai_infra.executor.todolist import (
     TodoItem,
     TodoListManager,
     TodoStatus,
+)
+from ai_infra.executor.tracing import (
+    ExecutorCallbacks,
+    ExecutorMetrics,
+    ExecutorTracingCallbacks,
+    TaskMetrics,
+    TracingConfig,
+    create_traced_nodes,
+    create_tracing_callbacks,
+    get_executor_tracer,
+    log_recovery_action,
+    log_task_context,
+    log_verification_result,
+    traced_node,
+)
+from ai_infra.executor.types import (
+    AgentProtocol,
+    ExecutionResult,
+    ExecutionStatus,
+    ExecutorConfig,
+    ReviewInfo,
+    RunStatus,
+    RunSummary,
+    TaskCompleteCallback,
+    VerifyMode,
 )
 from ai_infra.executor.verifier import (
     CheckLevel,
@@ -229,6 +353,46 @@ __all__ = [
     "ContextCache",
     "ContextResult",
     "ProjectContext",
+    # Context Carryover (Phase 5.3)
+    "ArchitectureTracker",
+    "ContextStorage",
+    "ProjectArchitecture",
+    "SessionSummary",
+    "load_session_context",
+    "save_session_context",
+    # Context Pre-warming (Phase 1.3)
+    "ContextPrewarmer",
+    "ContextWatcher",
+    "EmbeddingCache",
+    "EmbeddingCacheStats",
+    "PrewarmingStats",
+    "create_prewarmer",
+    # Parallel Verification (Phase 1.4)
+    "CheckConfig",
+    "CheckType",
+    "ParallelCheckResult",
+    "ParallelVerificationResult",
+    "ParallelVerifier",
+    "aggregate_results",
+    "create_parallel_verifier",
+    "get_checks_to_run",
+    "should_run_check",
+    # Phase 1 Metrics (Phase 1.5)
+    "BenchmarkResult",
+    "BenchmarkRunner",
+    "MetricCollector",
+    "MetricSample",
+    "MetricStats",
+    "MetricTarget",
+    "MetricType",
+    "PHASE1_TARGETS",
+    "Phase1ValidationReport",
+    "Phase1Validator",
+    "ValidationResult",
+    "create_benchmark_runner",
+    "create_collector",
+    "create_validator",
+    "validate_phase1_targets",
     # Dependencies
     "ChangeAnalysis",
     "ChangeDetector",
@@ -335,6 +499,27 @@ __all__ = [
     "PromptRefiner",
     "SuccessPattern",
     "TaskType",
+    # Pattern Recognition (Phase 5.2)
+    "AgentsUpdater",
+    "ExecutionContext",
+    "FailurePatternTracker",
+    "FixAction",
+    "FixPattern",
+    "FixPatternTracker",
+    "PatternsDatabase",
+    "PatternSuggester",
+    "TaskError",
+    # Skills System (Phase 5.1)
+    "ApplierConfig",
+    "ExtractionConfig",
+    "Skill",
+    "SkillApplier",
+    "SkillContext",
+    "SkillExtractor",
+    "SkillInjectionResult",
+    "SkillsDatabase",
+    "SkillType",
+    "TaskResult",
     # Run Memory (Phase 5.8.1)
     "FileAction",
     "RunMemory",
@@ -380,4 +565,50 @@ __all__ = [
     "MockAgent",
     "MockResponse",
     "TestProject",
+    # Model Routing (Phase 1.1)
+    "MODEL_CONFIGS",
+    "ModelConfig",
+    "ModelRouter",
+    "ModelTier",
+    "RoutingConfig",
+    "RoutingDecision",
+    "RoutingMetrics",
+    "TaskContext",
+    "create_router",
+    # Roadmap Generation (Phase 3.1)
+    "AnalyzedProjectInfo",
+    "GeneratedRoadmap",
+    "GenerationStyle",
+    "ProjectAnalyzer",
+    "RoadmapGenerator",
+    "ValidationIssue",
+    # Task Decomposition (Phase 3.2)
+    "ComplexityEstimator",
+    "ComplexityLevel",
+    "DecomposedTask",
+    "EstimatorConfig",
+    "RecommendedAction",
+    "TaskComplexity",
+    "TaskDecomposer",
+    "auto_decompose_if_needed",
+    "should_decompose_task",
+    # Collaboration Modes (Phase 4.2)
+    "ActionType",
+    "AgentAction",
+    "CollaborationConfig",
+    "CollaborationMode",
+    "ModeAwareExecutor",
+    "PauseReason",
+    # Progress Visibility (Phase 4.3)
+    "CostEstimator",
+    "Dashboard",
+    "DashboardConfig",
+    "DashboardRunResult",
+    "ProgressSummary",
+    "ProgressTracker",
+    "STATUS_ICONS",
+    "STATUS_LABELS",
+    "TaskProgress",
+    "run_with_dashboard",
+    "run_with_simple_progress",
 ]

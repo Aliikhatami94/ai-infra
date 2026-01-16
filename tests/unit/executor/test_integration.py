@@ -14,9 +14,9 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from ai_infra.executor.loop import Executor, ExecutorConfig
-from ai_infra.executor.observability import ExecutorCallbacks
 from ai_infra.executor.state import ExecutorState, TaskStatus
 from ai_infra.executor.testing import MockAgent, MockResponse, TestProject
+from ai_infra.executor.tracing import ExecutorCallbacks
 from ai_infra.executor.verifier import CheckLevel, CheckResult, CheckStatus, VerificationResult
 
 if TYPE_CHECKING:
@@ -645,7 +645,7 @@ class TestExecutorIntegration:
         mock_verifier: MagicMock,
     ) -> None:
         """Test callbacks are invoked during execution."""
-        from ai_infra.executor.observability import ExecutorCallbacks
+        from ai_infra.executor.tracing import ExecutorCallbacks
 
         test_project.create_roadmap(["Task 1"])
 

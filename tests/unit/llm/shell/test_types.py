@@ -142,6 +142,100 @@ class TestShellResult:
         with pytest.raises(AttributeError):
             result.success = False  # type: ignore[misc]
 
+    def test_resource_limit_exceeded_default(self):
+        """Test that resource_limit_exceeded defaults to None."""
+        result = ShellResult(
+            success=True,
+            exit_code=0,
+            stdout="",
+            stderr="",
+            command="test",
+            duration_ms=1.0,
+        )
+        assert result.resource_limit_exceeded is None
+
+    def test_resource_limit_exceeded_memory(self):
+        """Test creating result with memory limit exceeded."""
+        result = ShellResult(
+            success=False,
+            exit_code=137,
+            stdout="",
+            stderr="Killed",
+            command="memory_hog",
+            duration_ms=1000.0,
+            resource_limit_exceeded="memory",
+        )
+        assert result.resource_limit_exceeded == "memory"
+
+    def test_resource_limit_exceeded_cpu(self):
+        """Test creating result with CPU limit exceeded."""
+        result = ShellResult(
+            success=False,
+            exit_code=152,
+            stdout="",
+            stderr="CPU time limit exceeded",
+            command="infinite_loop",
+            duration_ms=60000.0,
+            resource_limit_exceeded="cpu",
+        )
+        assert result.resource_limit_exceeded == "cpu"
+
+    def test_to_dict_excludes_none_resource_limit(self):
+        """Test that to_dict excludes resource_limit_exceeded when None."""
+        result = ShellResult(
+            success=True,
+            exit_code=0,
+            stdout="",
+            stderr="",
+            command="test",
+            duration_ms=1.0,
+        )
+        d = result.to_dict()
+        assert "resource_limit_exceeded" not in d
+
+    def test_to_dict_includes_resource_limit_when_set(self):
+        """Test that to_dict includes resource_limit_exceeded when set."""
+        result = ShellResult(
+            success=False,
+            exit_code=137,
+            stdout="",
+            stderr="",
+            command="test",
+            duration_ms=1.0,
+            resource_limit_exceeded="memory",
+        )
+        d = result.to_dict()
+        assert d["resource_limit_exceeded"] == "memory"
+
+    def test_from_resource_limit(self):
+        """Test creating result from resource limit violation."""
+        result = ShellResult.from_resource_limit(
+            command="memory_hog",
+            limit_type="memory",
+            message="Process exceeded memory limit",
+            duration_ms=1234.5,
+        )
+
+        assert result.success is False
+        assert result.exit_code == -1
+        assert result.timed_out is False
+        assert result.resource_limit_exceeded == "memory"
+        assert "memory limit" in result.stderr
+        assert result.duration_ms == 1234.5
+
+    def test_from_resource_limit_cpu(self):
+        """Test creating result from CPU limit violation."""
+        result = ShellResult.from_resource_limit(
+            command="cpu_loop",
+            limit_type="cpu",
+            message="Process exceeded CPU time limit (60s)",
+            duration_ms=60000.0,
+        )
+
+        assert result.success is False
+        assert result.resource_limit_exceeded == "cpu"
+        assert "60s" in result.stderr
+
 
 # =============================================================================
 # ShellConfig Tests

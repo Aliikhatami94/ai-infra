@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -162,6 +163,61 @@ class TestExecutorShellEnabled:
         await executor._close_shell_session()
 
         assert get_current_session() is None
+
+
+# =============================================================================
+# 16.4 Shell Snapshots on Task Boundaries
+# =============================================================================
+
+
+class _DummyAgent:
+    """Minimal agent stub for execute_task_node integration tests."""
+
+    def __init__(self) -> None:
+        self.tool_calls: list[dict[str, object]] = []
+
+    async def arun(self, prompt: str) -> dict[str, list[str]]:
+        return {"files_modified": []}
+
+
+class TestShellSnapshots:
+    """Integration tests for shell snapshot capture (Phase 16.4)."""
+
+    @pytest.mark.asyncio
+    async def test_shell_snapshots_captured_on_task_boundaries(self, tmp_path: Path) -> None:
+        """Pre/post shell snapshots should be captured for a task."""
+        from ai_infra.executor.nodes.execute import execute_task_node
+
+        roadmap = tmp_path / "ROADMAP.md"
+        roadmap.write_text("# ROADMAP\n\n- [ ] Task 1")
+
+        task = SimpleNamespace(id="task-1", title="Snapshot task")
+        state = {
+            "roadmap_path": str(roadmap),
+            "current_task": task,
+            "prompt": "echo snapshot",
+            "dry_run": False,
+            "pause_destructive": False,
+            "enable_shell_snapshots": True,
+        }
+
+        agent = _DummyAgent()
+        result = await execute_task_node(
+            state,
+            agent=agent,
+            dry_run=False,
+            pause_destructive=False,
+        )
+
+        snapshot_dir = tmp_path / ".executor" / "shell-snapshots"
+        files = list(snapshot_dir.glob("*.json*"))
+
+        assert files
+        assert any("task-task-1-pre" in f.name for f in files)
+        assert any("task-task-1-post" in f.name for f in files)
+        assert result.get("shell_snapshot_pre_path")
+        assert result.get("shell_snapshot_post_path")
+        assert result.get("shell_snapshot_diff") is not None
 
 
 # =============================================================================

@@ -703,7 +703,7 @@ class TestAgentRecoveryIntegration:
         retry_events = []
         success_events = []
 
-        from ai_infra.executor.observability import ExecutorCallbacks
+        from ai_infra.executor.tracing import ExecutorCallbacks
 
         callbacks = ExecutorCallbacks()
         callbacks.on_task_retry = lambda **kwargs: retry_events.append(kwargs)

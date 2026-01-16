@@ -146,6 +146,158 @@ class TestExecutorConfig:
         assert "model" in data
         assert "stop_on_failure" in data
 
+    def test_shell_resource_limit_defaults(self) -> None:
+        """Test shell resource limit default values (Phase 2.2)."""
+        config = ExecutorConfig()
+
+        assert config.shell_memory_limit_mb == 512
+        assert config.shell_cpu_limit_seconds == 60
+        assert config.shell_file_limit_mb == 100
+
+    def test_shell_resource_limit_custom(self) -> None:
+        """Test custom shell resource limit values (Phase 2.2)."""
+        config = ExecutorConfig(
+            shell_memory_limit_mb=1024,
+            shell_cpu_limit_seconds=120,
+            shell_file_limit_mb=500,
+        )
+
+        assert config.shell_memory_limit_mb == 1024
+        assert config.shell_cpu_limit_seconds == 120
+        assert config.shell_file_limit_mb == 500
+
+    def test_shell_resource_limits_in_to_dict(self) -> None:
+        """Test that shell resource limits are included in to_dict (Phase 2.2)."""
+        config = ExecutorConfig(
+            shell_memory_limit_mb=256,
+            shell_cpu_limit_seconds=30,
+            shell_file_limit_mb=50,
+        )
+        data = config.to_dict()
+
+        assert data["shell_memory_limit_mb"] == 256
+        assert data["shell_cpu_limit_seconds"] == 30
+        assert data["shell_file_limit_mb"] == 50
+
+    def test_docker_isolation_defaults(self) -> None:
+        """Test Docker isolation default values (Phase 2.3)."""
+        config = ExecutorConfig()
+
+        assert config.docker_isolation is False
+        assert config.docker_image == "python:3.11-slim"
+        assert config.docker_allow_network is False
+
+    def test_docker_isolation_custom(self) -> None:
+        """Test custom Docker isolation values (Phase 2.3)."""
+        config = ExecutorConfig(
+            docker_isolation=True,
+            docker_image="node:18-slim",
+            docker_allow_network=True,
+        )
+
+        assert config.docker_isolation is True
+        assert config.docker_image == "node:18-slim"
+        assert config.docker_allow_network is True
+
+    def test_docker_isolation_in_to_dict(self) -> None:
+        """Test that Docker isolation fields are included in to_dict (Phase 2.3)."""
+        config = ExecutorConfig(
+            docker_isolation=True,
+            docker_image="node:18-slim",
+            docker_allow_network=True,
+        )
+        data = config.to_dict()
+
+        assert data["docker_isolation"] is True
+        assert data["docker_image"] == "node:18-slim"
+        assert data["docker_allow_network"] is True
+
+    def test_mcp_integration_defaults(self) -> None:
+        """Test MCP integration default values (Phase 15.1)."""
+        config = ExecutorConfig()
+
+        assert config.mcp_servers == []
+        assert config.mcp_discover_timeout == 30.0
+        assert config.mcp_tool_timeout == 60.0
+        assert config.mcp_auto_discover is True
+
+    def test_mcp_integration_custom(self) -> None:
+        """Test custom MCP integration values (Phase 15.1)."""
+        from ai_infra.mcp import McpServerConfig
+
+        server_config = McpServerConfig(
+            transport="stdio",
+            command="npx",
+            args=["-y", "@anthropic/mcp-server-filesystem", "/tmp"],
+        )
+        config = ExecutorConfig(
+            mcp_servers=[server_config],
+            mcp_discover_timeout=60.0,
+            mcp_tool_timeout=120.0,
+            mcp_auto_discover=False,
+        )
+
+        assert len(config.mcp_servers) == 1
+        assert config.mcp_servers[0].transport == "stdio"
+        assert config.mcp_servers[0].command == "npx"
+        assert config.mcp_discover_timeout == 60.0
+        assert config.mcp_tool_timeout == 120.0
+        assert config.mcp_auto_discover is False
+
+    def test_mcp_integration_in_to_dict(self) -> None:
+        """Test that MCP integration fields are included in to_dict (Phase 15.1)."""
+        from ai_infra.mcp import McpServerConfig
+
+        server_config = McpServerConfig(
+            transport="stdio",
+            command="npx",
+            args=["-y", "@anthropic/mcp-server-filesystem", "/tmp"],
+        )
+        config = ExecutorConfig(
+            mcp_servers=[server_config],
+            mcp_discover_timeout=45.0,
+            mcp_tool_timeout=90.0,
+            mcp_auto_discover=False,
+        )
+        data = config.to_dict()
+
+        assert len(data["mcp_servers"]) == 1
+        assert data["mcp_servers"][0]["transport"] == "stdio"
+        assert data["mcp_servers"][0]["command"] == "npx"
+        assert data["mcp_discover_timeout"] == 45.0
+        assert data["mcp_tool_timeout"] == 90.0
+        assert data["mcp_auto_discover"] is False
+
+    def test_mcp_multiple_servers(self) -> None:
+        """Test MCP config with multiple server configurations (Phase 15.1)."""
+        from ai_infra.mcp import McpServerConfig
+
+        stdio_server = McpServerConfig(
+            transport="stdio",
+            command="npx",
+            args=["-y", "@anthropic/mcp-server-filesystem", "/tmp"],
+        )
+        http_server = McpServerConfig(
+            transport="streamable_http",
+            url="http://localhost:8080/mcp",
+        )
+        config = ExecutorConfig(mcp_servers=[stdio_server, http_server])
+
+        assert len(config.mcp_servers) == 2
+        assert config.mcp_servers[0].transport == "stdio"
+        assert config.mcp_servers[1].transport == "streamable_http"
+        assert config.mcp_servers[1].url == "http://localhost:8080/mcp"
+
+    def test_mcp_empty_servers_to_dict(self) -> None:
+        """Test MCP to_dict with empty servers list (Phase 15.1)."""
+        config = ExecutorConfig()
+        data = config.to_dict()
+
+        assert data["mcp_servers"] == []
+        assert data["mcp_discover_timeout"] == 30.0
+        assert data["mcp_tool_timeout"] == 60.0
+        assert data["mcp_auto_discover"] is True
+
 
 # =============================================================================
 # ExecutionResult Tests
@@ -1315,3 +1467,232 @@ class TestRunByTodos:
         from ai_infra.executor.loop import RunStatus
 
         assert summary.status == RunStatus.FAILED
+
+
+# =============================================================================
+# Phase 15.3: MCP Integration Tests
+# =============================================================================
+
+
+class TestExecutorMCPIntegration:
+    """Test MCP integration in Executor (Phase 15.3)."""
+
+    @pytest.fixture
+    def mock_mcp_manager(self) -> MagicMock:
+        """Create a mock ExecutorMCPManager."""
+        manager = MagicMock()
+        manager.is_discovered = True
+        manager.discover = AsyncMock(return_value=MagicMock(success=True, tools=[]))
+        manager.get_tools = MagicMock(return_value=[])
+        manager.get_tool_names = MagicMock(return_value=[])
+        manager.close = AsyncMock()
+        return manager
+
+    @pytest.fixture
+    def mock_mcp_tool(self) -> MagicMock:
+        """Create a mock MCP tool."""
+        tool = MagicMock()
+        tool.name = "mcp_test_tool"
+        tool.description = "A test MCP tool"
+        return tool
+
+    def test_executor_mcp_manager_property_default(
+        self, temp_roadmap: Path, mock_agent: AsyncMock
+    ) -> None:
+        """Test that mcp_manager property is None by default."""
+        executor = Executor(
+            roadmap=temp_roadmap,
+            config=ExecutorConfig(),
+            agent=mock_agent,
+        )
+
+        assert executor.mcp_manager is None
+
+    def test_executor_mcp_manager_initialized_with_servers(
+        self, temp_roadmap: Path, mock_agent: AsyncMock
+    ) -> None:
+        """Test that _mcp_manager field exists but is None before run."""
+        from ai_infra.mcp import McpServerConfig
+
+        config = ExecutorConfig(
+            mcp_servers=[
+                McpServerConfig(
+                    transport="streamable_http",
+                    url="http://localhost:8000/mcp",
+                ),
+            ],
+        )
+
+        executor = Executor(
+            roadmap=temp_roadmap,
+            config=config,
+            agent=mock_agent,
+        )
+
+        # Before run, manager should be None
+        assert executor.mcp_manager is None
+        # But config should have servers
+        assert len(executor._config.mcp_servers) == 1
+
+    @pytest.mark.asyncio
+    async def test_init_mcp_creates_manager(
+        self, temp_roadmap: Path, mock_agent: AsyncMock
+    ) -> None:
+        """Test that _init_mcp creates ExecutorMCPManager when servers configured."""
+        from ai_infra.mcp import McpServerConfig
+
+        config = ExecutorConfig(
+            mcp_servers=[
+                McpServerConfig(
+                    transport="streamable_http",
+                    url="http://localhost:8000/mcp",
+                ),
+            ],
+            mcp_auto_discover=False,  # Don't auto discover
+        )
+
+        executor = Executor(
+            roadmap=temp_roadmap,
+            config=config,
+            agent=mock_agent,
+        )
+
+        # Manually call _init_mcp
+        await executor._init_mcp()
+
+        # Manager should now exist
+        assert executor.mcp_manager is not None
+        assert executor._mcp_initialized is True
+
+    @pytest.mark.asyncio
+    async def test_init_mcp_skips_when_no_servers(
+        self, temp_roadmap: Path, mock_agent: AsyncMock
+    ) -> None:
+        """Test that _init_mcp does nothing when no MCP servers configured."""
+        executor = Executor(
+            roadmap=temp_roadmap,
+            config=ExecutorConfig(),  # No MCP servers
+            agent=mock_agent,
+        )
+
+        await executor._init_mcp()
+
+        # Manager should remain None when no servers
+        assert executor.mcp_manager is None
+        # But _mcp_initialized should be True (to prevent re-running)
+        assert executor._mcp_initialized is True
+
+    @pytest.mark.asyncio
+    async def test_init_mcp_only_runs_once(self, temp_roadmap: Path, mock_agent: AsyncMock) -> None:
+        """Test that _init_mcp only initializes once."""
+        from ai_infra.mcp import McpServerConfig
+
+        config = ExecutorConfig(
+            mcp_servers=[
+                McpServerConfig(
+                    transport="streamable_http",
+                    url="http://localhost:8000/mcp",
+                ),
+            ],
+            mcp_auto_discover=False,
+        )
+
+        executor = Executor(
+            roadmap=temp_roadmap,
+            config=config,
+            agent=mock_agent,
+        )
+
+        # First init
+        await executor._init_mcp()
+        first_manager = executor.mcp_manager
+
+        # Second init should not create a new manager
+        await executor._init_mcp()
+        second_manager = executor.mcp_manager
+
+        assert first_manager is second_manager
+
+    @pytest.mark.asyncio
+    async def test_get_mcp_tools_returns_empty_when_not_discovered(
+        self, temp_roadmap: Path, mock_agent: AsyncMock
+    ) -> None:
+        """Test that _get_mcp_tools returns empty list when not discovered."""
+        executor = Executor(
+            roadmap=temp_roadmap,
+            config=ExecutorConfig(),
+            agent=mock_agent,
+        )
+
+        tools = executor._get_mcp_tools()
+
+        assert tools == []
+
+    @pytest.mark.asyncio
+    async def test_get_mcp_tools_returns_tools_after_discovery(
+        self, temp_roadmap: Path, mock_agent: AsyncMock, mock_mcp_tool: MagicMock
+    ) -> None:
+        """Test that _get_mcp_tools returns tools after discovery."""
+        from ai_infra.mcp import McpServerConfig
+
+        config = ExecutorConfig(
+            mcp_servers=[
+                McpServerConfig(
+                    transport="streamable_http",
+                    url="http://localhost:8000/mcp",
+                ),
+            ],
+            mcp_auto_discover=False,
+        )
+
+        executor = Executor(
+            roadmap=temp_roadmap,
+            config=config,
+            agent=mock_agent,
+        )
+
+        # Mock the MCP manager
+        with patch.object(executor, "_mcp_manager") as mock_manager:
+            mock_manager.is_discovered = True
+            mock_manager.get_tools.return_value = [mock_mcp_tool]
+
+            tools = executor._get_mcp_tools()
+
+            assert len(tools) == 1
+            assert tools[0].name == "mcp_test_tool"
+
+    @pytest.mark.asyncio
+    async def test_close_mcp_cleans_up_manager(
+        self, temp_roadmap: Path, mock_agent: AsyncMock, mock_mcp_manager: MagicMock
+    ) -> None:
+        """Test that close_mcp properly cleans up the MCP manager."""
+        executor = Executor(
+            roadmap=temp_roadmap,
+            config=ExecutorConfig(),
+            agent=mock_agent,
+        )
+
+        # Set a mock manager
+        executor._mcp_manager = mock_mcp_manager
+
+        await executor.close_mcp()
+
+        mock_mcp_manager.close.assert_called_once()
+        assert executor._mcp_manager is None
+        assert executor._mcp_initialized is False
+
+    @pytest.mark.asyncio
+    async def test_close_mcp_handles_none_manager(
+        self, temp_roadmap: Path, mock_agent: AsyncMock
+    ) -> None:
+        """Test that close_mcp handles None manager gracefully."""
+        executor = Executor(
+            roadmap=temp_roadmap,
+            config=ExecutorConfig(),
+            agent=mock_agent,
+        )
+
+        # Should not raise
+        await executor.close_mcp()
+
+        assert executor._mcp_manager is None

@@ -451,3 +451,172 @@ class TestGraphCLIOptions:
             ],
         )
         assert result.exit_code == 0
+
+
+# =============================================================================
+# Phase 15.4: MCP CLI Flag Tests
+# =============================================================================
+
+
+class TestParseMcpArg:
+    """Tests for parse_mcp_arg helper function."""
+
+    def test_parse_http_url(self) -> None:
+        """Test parsing HTTP URL format."""
+        from ai_infra.cli.cmds.executor_cmds import parse_mcp_arg
+
+        config = parse_mcp_arg("http://localhost:8000/mcp")
+
+        assert config.transport == "streamable_http"
+        assert config.url == "http://localhost:8000/mcp"
+
+    def test_parse_https_url(self) -> None:
+        """Test parsing HTTPS URL format."""
+        from ai_infra.cli.cmds.executor_cmds import parse_mcp_arg
+
+        config = parse_mcp_arg("https://api.example.com/mcp")
+
+        assert config.transport == "streamable_http"
+        assert config.url == "https://api.example.com/mcp"
+
+    def test_parse_stdio_format(self) -> None:
+        """Test parsing stdio format."""
+        from ai_infra.cli.cmds.executor_cmds import parse_mcp_arg
+
+        config = parse_mcp_arg("stdio:npx -y @anthropic/mcp-server-filesystem /tmp")
+
+        assert config.transport == "stdio"
+        assert config.command == "npx"
+        assert config.args == ["-y", "@anthropic/mcp-server-filesystem", "/tmp"]
+
+    def test_parse_stdio_simple_command(self) -> None:
+        """Test parsing stdio format with simple command (no args)."""
+        from ai_infra.cli.cmds.executor_cmds import parse_mcp_arg
+
+        config = parse_mcp_arg("stdio:my-mcp-server")
+
+        assert config.transport == "stdio"
+        assert config.command == "my-mcp-server"
+        assert config.args == []
+
+    def test_parse_stdio_with_spaces(self) -> None:
+        """Test parsing stdio format strips whitespace."""
+        from ai_infra.cli.cmds.executor_cmds import parse_mcp_arg
+
+        config = parse_mcp_arg("  stdio:npx server  ")
+
+        assert config.transport == "stdio"
+        assert config.command == "npx"
+        assert config.args == ["server"]
+
+    def test_parse_invalid_format_raises(self) -> None:
+        """Test that invalid format raises ValueError."""
+        from ai_infra.cli.cmds.executor_cmds import parse_mcp_arg
+
+        with pytest.raises(ValueError) as exc_info:
+            parse_mcp_arg("invalid-format")
+
+        assert "Invalid MCP server format" in str(exc_info.value)
+
+    def test_parse_empty_stdio_command_raises(self) -> None:
+        """Test that empty stdio command raises ValueError."""
+        from ai_infra.cli.cmds.executor_cmds import parse_mcp_arg
+
+        with pytest.raises(ValueError) as exc_info:
+            parse_mcp_arg("stdio:")
+
+        assert "requires a command" in str(exc_info.value)
+
+
+class TestMCPCLIFlags:
+    """Tests for MCP CLI flags (Phase 15.4)."""
+
+    def test_mcp_option_accepted(self, temp_roadmap: Path) -> None:
+        """Test that --mcp option is accepted."""
+        result = runner.invoke(
+            app,
+            [
+                "run",
+                "--roadmap",
+                str(temp_roadmap),
+                "--dry-run",
+                "--max-tasks",
+                "1",
+                "--mcp",
+                "http://localhost:8000/mcp",
+            ],
+        )
+        assert result.exit_code == 0
+        # Should show MCP servers in output
+        assert "MCP servers" in result.output or "Dry run" in result.output
+
+    def test_multiple_mcp_servers(self, temp_roadmap: Path) -> None:
+        """Test that multiple --mcp options can be specified."""
+        result = runner.invoke(
+            app,
+            [
+                "run",
+                "--roadmap",
+                str(temp_roadmap),
+                "--dry-run",
+                "--max-tasks",
+                "1",
+                "--mcp",
+                "http://localhost:8000/mcp",
+                "--mcp",
+                "http://localhost:9000/mcp",
+            ],
+        )
+        assert result.exit_code == 0
+
+    def test_mcp_stdio_format(self, temp_roadmap: Path) -> None:
+        """Test that stdio format is accepted."""
+        result = runner.invoke(
+            app,
+            [
+                "run",
+                "--roadmap",
+                str(temp_roadmap),
+                "--dry-run",
+                "--max-tasks",
+                "1",
+                "--mcp",
+                "stdio:npx -y my-server",
+            ],
+        )
+        assert result.exit_code == 0
+
+    def test_mcp_timeout_option(self, temp_roadmap: Path) -> None:
+        """Test that --mcp-timeout option is accepted."""
+        result = runner.invoke(
+            app,
+            [
+                "run",
+                "--roadmap",
+                str(temp_roadmap),
+                "--dry-run",
+                "--max-tasks",
+                "1",
+                "--mcp",
+                "http://localhost:8000/mcp",
+                "--mcp-timeout",
+                "60.0",
+            ],
+        )
+        assert result.exit_code == 0
+
+    def test_invalid_mcp_format_error(self, temp_roadmap: Path) -> None:
+        """Test that invalid MCP format shows error."""
+        result = runner.invoke(
+            app,
+            [
+                "run",
+                "--roadmap",
+                str(temp_roadmap),
+                "--dry-run",
+                "--mcp",
+                "invalid-format",
+            ],
+        )
+        assert result.exit_code == 1
+        assert "Invalid MCP server" in result.output

@@ -29,6 +29,9 @@ from ai_infra.llm.shell.types import HostExecutionPolicy, ShellConfig, ShellResu
 
 __all__ = [
     "cli_help",
+    "cli_cmd_help",
+    "cli_subcmd_help",
+    "check_command_exists",
     "run_command",
     "run_command_sync",
 ]
@@ -37,6 +40,84 @@ __all__ = [
 # =============================================================================
 # CLI Help Functions
 # =============================================================================
+
+
+async def cli_cmd_help(program: str) -> dict[str, str | bool]:
+    """Get help text for a CLI program.
+
+    This is a compatibility wrapper that matches the old cli.py interface.
+    Use cli_help() for new code.
+
+    Args:
+        program: CLI program name (e.g., "poetry", "npm", "git")
+
+    Returns:
+        Dictionary with:
+        - ok: Whether the command succeeded
+        - help: The help text from stdout
+        - error: Error message if failed (empty string on success)
+
+    Example:
+        >>> result = await cli_cmd_help("poetry")
+        >>> if result["ok"]:
+        ...     print(result["help"])
+    """
+    result = await run_shell.ainvoke({"command": f"{program} --help"})
+    return {
+        "ok": result["success"],
+        "help": result["stdout"],
+        "error": result["stderr"] if not result["success"] else "",
+    }
+
+
+async def cli_subcmd_help(program: str, subcommand: str) -> dict[str, str | bool]:
+    """Get help text for a CLI program subcommand.
+
+    This is a compatibility wrapper that matches the old cli.py interface.
+    Use cli_help() for new code.
+
+    Args:
+        program: CLI program name (e.g., "poetry", "npm", "git")
+        subcommand: Subcommand to get help for (e.g., "add", "install")
+
+    Returns:
+        Dictionary with:
+        - ok: Whether the command succeeded
+        - help: The help text from stdout
+        - error: Error message if failed (empty string on success)
+
+    Example:
+        >>> result = await cli_subcmd_help("poetry", "add")
+        >>> if result["ok"]:
+        ...     print(result["help"])
+    """
+    # Handle enum values (e.g., from Subcommand enum in ai_infra_mcp.py)
+    if hasattr(subcommand, "value"):
+        subcommand = subcommand.value
+
+    result = await run_shell.ainvoke({"command": f"{program} {subcommand} --help"})
+    return {
+        "ok": result["success"],
+        "help": result["stdout"],
+        "error": result["stderr"] if not result["success"] else "",
+    }
+
+
+async def check_command_exists(command: str) -> bool:
+    """Check if a command is available on the system.
+
+    Args:
+        command: Command name to check (e.g., "poetry", "npm")
+
+    Returns:
+        True if the command exists and is executable, False otherwise.
+
+    Example:
+        >>> if await check_command_exists("poetry"):
+        ...     print("Poetry is available")
+    """
+    result = await run_shell.ainvoke({"command": f"which {command}"})
+    return result["success"]
 
 
 async def cli_help(

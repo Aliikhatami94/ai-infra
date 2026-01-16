@@ -23,8 +23,8 @@ from ai_infra.executor.loop import (
     Executor,
     ExecutorConfig,
 )
-from ai_infra.executor.observability import ExecutorCallbacks
 from ai_infra.executor.testing import MockAgent, TestProject
+from ai_infra.executor.tracing import ExecutorCallbacks
 from ai_infra.executor.verifier import (
     CheckLevel,
     CheckResult,

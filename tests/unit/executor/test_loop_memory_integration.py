@@ -623,7 +623,7 @@ class TestMemoryWithCallbacks:
     @pytest.mark.asyncio
     async def test_callbacks_work_with_memory(self, temp_project, mock_agent, mock_verifier):
         """Test that executor callbacks work alongside memory."""
-        from ai_infra.executor.observability import ExecutorCallbacks
+        from ai_infra.executor.tracing import ExecutorCallbacks
 
         project_path, roadmap_path = temp_project
         callbacks = ExecutorCallbacks()

@@ -375,7 +375,7 @@ class LimitedExecutionPolicy:
             exit_code = proc.returncode or 0
 
             # Check for resource limit violations in stderr
-            stderr = self._annotate_limit_errors(stderr, exit_code)
+            stderr, limit_type = self._annotate_limit_errors(stderr, exit_code)
 
             return ShellResult(
                 success=exit_code == 0,
@@ -385,6 +385,7 @@ class LimitedExecutionPolicy:
                 command=command,
                 duration_ms=duration_ms,
                 timed_out=False,
+                resource_limit_exceeded=limit_type,
             )
 
         except Exception as e:
@@ -461,7 +462,7 @@ class LimitedExecutionPolicy:
 
         return set_limits
 
-    def _annotate_limit_errors(self, stderr: str, exit_code: int) -> str:
+    def _annotate_limit_errors(self, stderr: str, exit_code: int) -> tuple[str, str | None]:
         """Annotate stderr with human-readable limit violation messages.
 
         Args:
@@ -469,10 +470,12 @@ class LimitedExecutionPolicy:
             exit_code: Command exit code.
 
         Returns:
-            Annotated stderr with limit information if applicable.
+            Tuple of (annotated stderr, limit_type) where limit_type is one of:
+            "memory", "cpu", "file_size", "open_files", "processes", or None.
         """
         # Common signals for resource limit violations
         annotations: list[str] = []
+        limit_type: str | None = None
 
         # Exit code 137 = killed by signal 9 (SIGKILL) - often OOM killer
         if exit_code == 137:
@@ -480,34 +483,41 @@ class LimitedExecutionPolicy:
                 "[RESOURCE LIMIT] Process killed (exit 137). "
                 "Likely exceeded memory limit or was killed by OOM."
             )
+            limit_type = "memory"
 
         # Exit code 152 = signal 24 (SIGXCPU) - CPU time exceeded
         if exit_code == 152:
             annotations.append(
                 f"[RESOURCE LIMIT] CPU time limit exceeded ({self._limits.cpu_seconds}s)."
             )
+            limit_type = "cpu"
 
         # Exit code 153 = signal 25 (SIGXFSZ) - File size exceeded
         if exit_code == 153:
             annotations.append(
                 f"[RESOURCE LIMIT] File size limit exceeded ({self._limits.max_file_size_mb}MB)."
             )
+            limit_type = "file_size"
 
         # Check for common error messages
         if "cannot fork" in stderr.lower() or "resource temporarily unavailable" in stderr.lower():
             annotations.append(
                 f"[RESOURCE LIMIT] Process limit may have been exceeded ({self._limits.max_processes})."
             )
+            if limit_type is None:
+                limit_type = "processes"
 
         if "too many open files" in stderr.lower():
             annotations.append(
                 f"[RESOURCE LIMIT] Open file limit exceeded ({self._limits.max_open_files})."
             )
+            if limit_type is None:
+                limit_type = "open_files"
 
         if annotations:
-            return "\n".join(annotations) + "\n\n" + stderr
+            return "\n".join(annotations) + "\n\n" + stderr, limit_type
 
-        return stderr
+        return stderr, None
 
 
 # =============================================================================

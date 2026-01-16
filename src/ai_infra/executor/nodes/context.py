@@ -30,6 +30,9 @@ async def build_context_node(
     project_memory: ProjectMemory | None = None,
     max_context_tokens: int = 50000,
     workspace_root: Path | str | None = None,
+    # Phase 8.2: Skills injection (EXECUTOR_3.md)
+    skills_db: Any | None = None,  # SkillsDatabase | None
+    max_skills: int = 3,
 ) -> ExecutorGraphState:
     """Build execution context and prompt for current task.
 
@@ -38,7 +41,8 @@ async def build_context_node(
     2. Builds project context (file structure, relevant code)
     3. Includes run memory (previous task outcomes)
     4. Includes project memory (cross-run insights) - Phase 2.1.2
-    5. Creates the final prompt for agent execution
+    5. Injects matching skills from SkillsDatabase - Phase 8.2
+    6. Creates the final prompt for agent execution
 
     Args:
         state: Current graph state with current_task.
@@ -47,9 +51,11 @@ async def build_context_node(
         project_memory: Optional ProjectMemory for cross-run insights (Phase 2.1.2).
         max_context_tokens: Maximum tokens for context.
         workspace_root: Root directory for workspace boundary constraints.
+        skills_db: Optional SkillsDatabase for injecting learned patterns (Phase 8.2).
+        max_skills: Maximum number of skills to inject (Phase 8.2, default: 3).
 
     Returns:
-        Updated state with context and prompt.
+        Updated state with context, prompt, and skills_context.
     """
     current_task = state.get("current_task")
 
@@ -128,19 +134,63 @@ async def build_context_node(
 
         # 4. Run memory (previous task outcomes)
         # Phase 2.1.1: Use RunMemory object's get_context() method
+        # Phase 9.2: Use ContextSummarizer for smart relevance filtering
         if run_memory is not None:
             try:
-                # Use RunMemory.get_context() for properly formatted context
-                memory_context = run_memory.get_context(
-                    current_task_id=str(current_task.id),
-                    max_tokens=max_context_tokens // 4,  # Reserve ~25% for memory
-                )
-                if memory_context:
-                    context_parts.append(memory_context)
-                    logger.debug(
-                        f"Added run memory context for task [{current_task.id}]: "
-                        f"{len(memory_context)} chars, {len(run_memory.outcomes)} outcomes"
+                from ai_infra.executor.context_carryover import ContextSummarizer
+
+                memory_budget = max_context_tokens // 4  # Reserve ~25% for memory
+
+                # Phase 9.2: Use ContextSummarizer if there are outcomes
+                if run_memory.outcomes:
+                    # Convert outcomes to task dicts for summarizer
+                    previous_tasks = [
+                        {
+                            "title": o.title,
+                            "files": [str(p) for p in o.files.keys()],
+                            "summary": o.summary or f"Completed: {o.title}",
+                            "key_decisions": o.key_decisions,
+                        }
+                        for o in run_memory.outcomes
+                    ]
+
+                    summarizer = ContextSummarizer(
+                        max_tokens=memory_budget,
+                        max_tasks=5,  # Allow more tasks than default
+                        relevance_threshold=0.05,  # Lower threshold for within-run context
                     )
+
+                    summarized_context = summarizer.summarize_for_task(
+                        previous_tasks,
+                        current_task,
+                        max_tokens=memory_budget,
+                    )
+
+                    if summarized_context:
+                        context_parts.append(summarized_context)
+                        logger.debug(
+                            f"Added smart run memory context for task [{current_task.id}]: "
+                            f"{len(summarized_context)} chars, {len(run_memory.outcomes)} outcomes"
+                        )
+                    else:
+                        # Fallback to standard context if summarizer returns nothing
+                        memory_context = run_memory.get_context(
+                            current_task_id=str(current_task.id),
+                            max_tokens=memory_budget,
+                        )
+                        if memory_context:
+                            context_parts.append(memory_context)
+                            logger.debug(
+                                f"Added run memory context (fallback) for task [{current_task.id}]"
+                            )
+                else:
+                    # No outcomes yet, get_context handles empty case
+                    memory_context = run_memory.get_context(
+                        current_task_id=str(current_task.id),
+                        max_tokens=memory_budget,
+                    )
+                    if memory_context:
+                        context_parts.append(memory_context)
             except Exception as e:
                 logger.warning(f"Failed to get run memory context: {e}")
         else:
@@ -170,15 +220,65 @@ async def build_context_node(
             except Exception as e:
                 logger.warning(f"Failed to get project memory context: {e}")
 
+        # 6. Skills context (learned patterns)
+        # Phase 8.2: Inject matching skills from SkillsDatabase
+        skills_context: list[dict[str, Any]] = []
+        if skills_db is not None:
+            try:
+                from ai_infra.executor.skills.models import SkillContext
+
+                # Build skill context from task information
+                task_title = getattr(current_task, "title", "")
+                task_description = getattr(current_task, "description", "") or ""
+                file_hints = list(getattr(current_task, "file_hints", []) or [])
+
+                # Extract keywords from title and description
+                task_keywords = _extract_keywords(task_title, task_description)
+
+                # Infer language from file hints
+                language = _infer_language(file_hints)
+
+                skill_ctx = SkillContext(
+                    language=language,
+                    framework=state.get("project_framework"),
+                    task_keywords=task_keywords,
+                    task_title=task_title,
+                    task_description=task_description,
+                    file_hints=file_hints,
+                )
+
+                # Find matching skills
+                matching_skills = skills_db.find_matching(skill_ctx, limit=max_skills)
+
+                if matching_skills:
+                    skills_context = [
+                        {
+                            "title": s.title,
+                            "pattern": s.pattern,
+                            "rationale": s.rationale,
+                            "confidence": getattr(s, "confidence", 0.5),
+                            "type": s.type.value if hasattr(s.type, "value") else str(s.type),
+                        }
+                        for s in matching_skills
+                    ]
+                    logger.info(
+                        f"Injecting {len(matching_skills)} skills into context for task [{current_task.id}]",
+                        extra={"skills": [s.title for s in matching_skills]},
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to inject skills context: {e}")
+
         # Combine context
         full_context = "\n\n---\n\n".join(context_parts)
 
-        # Build prompt with workspace boundary constraints
-        prompt = _build_prompt(current_task, full_context, workspace_root)
+        # Build prompt with workspace boundary constraints and skills context
+        # Phase 8.2: Pass skills_context to _build_prompt
+        prompt = _build_prompt(current_task, full_context, workspace_root, skills_context)
 
         logger.info(
             f"Built context for task [{current_task.id}]: "
             f"{len(full_context)} chars, {len(prompt)} chars prompt"
+            + (f", {len(skills_context)} skills" if skills_context else "")
         )
 
         # Debug: Log the task description being used
@@ -190,6 +290,7 @@ async def build_context_node(
             **state,
             "context": full_context,
             "prompt": prompt,
+            "skills_context": skills_context,  # Phase 8.2: Include in state
             "error": None,
         }
 
@@ -338,6 +439,254 @@ def _build_memory_section(run_memory: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _extract_keywords(title: str, description: str) -> list[str]:
+    """Extract keywords from task title and description.
+
+    Phase 8.2: Used for skill matching.
+
+    Args:
+        title: Task title.
+        description: Task description.
+
+    Returns:
+        List of extracted keywords.
+    """
+    import re
+
+    # Combine title and description
+    text = f"{title} {description}".lower()
+
+    # Remove punctuation and split into words
+    words = re.findall(r"\b[a-z][a-z0-9_]*\b", text)
+
+    # Filter out common stop words
+    stop_words = {
+        "the",
+        "a",
+        "an",
+        "and",
+        "or",
+        "but",
+        "in",
+        "on",
+        "at",
+        "to",
+        "for",
+        "of",
+        "with",
+        "by",
+        "from",
+        "as",
+        "is",
+        "was",
+        "are",
+        "were",
+        "be",
+        "been",
+        "being",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "could",
+        "should",
+        "may",
+        "might",
+        "must",
+        "shall",
+        "can",
+        "this",
+        "that",
+        "these",
+        "those",
+        "it",
+        "its",
+        "they",
+        "them",
+        "their",
+        "we",
+        "us",
+        "our",
+        "you",
+        "your",
+        "i",
+        "me",
+        "my",
+        "he",
+        "she",
+        "his",
+        "her",
+        "if",
+        "then",
+        "else",
+        "when",
+        "where",
+        "which",
+        "who",
+        "what",
+        "how",
+        "why",
+        "all",
+        "each",
+        "every",
+        "both",
+        "few",
+        "more",
+        "most",
+        "other",
+        "some",
+        "such",
+        "no",
+        "not",
+        "only",
+        "same",
+        "so",
+        "than",
+        "too",
+        "very",
+        "just",
+        "also",
+        "now",
+        "here",
+        "there",
+        "into",
+        "over",
+        "after",
+        "before",
+        "above",
+        "below",
+        "between",
+        "through",
+        "during",
+        "add",
+        "create",
+        "implement",
+        "update",
+        "fix",
+        "make",
+        "new",
+        "use",
+    }
+
+    # Extract meaningful keywords (min length 2, not stop words)
+    keywords = [w for w in words if len(w) >= 2 and w not in stop_words]
+
+    # Return unique keywords, preserving order
+    seen = set()
+    unique_keywords = []
+    for kw in keywords:
+        if kw not in seen:
+            seen.add(kw)
+            unique_keywords.append(kw)
+
+    return unique_keywords[:20]  # Limit to 20 keywords
+
+
+def _infer_language(file_hints: list[str]) -> str:
+    """Infer programming language from file hints.
+
+    Phase 8.2: Used for skill matching.
+
+    Args:
+        file_hints: List of file paths.
+
+    Returns:
+        Inferred language (default: "python").
+    """
+    if not file_hints:
+        return "python"
+
+    extension_map = {
+        ".py": "python",
+        ".js": "javascript",
+        ".ts": "typescript",
+        ".tsx": "typescript",
+        ".jsx": "javascript",
+        ".rb": "ruby",
+        ".go": "go",
+        ".rs": "rust",
+        ".java": "java",
+        ".kt": "kotlin",
+        ".swift": "swift",
+        ".cpp": "cpp",
+        ".c": "c",
+        ".cs": "csharp",
+        ".php": "php",
+        ".sql": "sql",
+        ".sh": "bash",
+        ".yaml": "yaml",
+        ".yml": "yaml",
+        ".json": "json",
+        ".md": "markdown",
+    }
+
+    for hint in file_hints:
+        for ext, lang in extension_map.items():
+            if hint.endswith(ext):
+                return lang
+
+    return "python"
+
+
+def _build_skills_section(skills_context: list[dict[str, Any]]) -> str:
+    """Build the skills section for the prompt.
+
+    Phase 8.2: Formats learned skills/patterns for injection into prompt.
+
+    Args:
+        skills_context: List of skill dicts with title, pattern, rationale, confidence.
+
+    Returns:
+        Formatted skills section string.
+    """
+    if not skills_context:
+        return ""
+
+    lines = [
+        "",
+        "---",
+        "",
+        "## Relevant Patterns from Past Experience",
+        "",
+        "The following patterns have been learned from successful past tasks. "
+        "Consider them when implementing the current task.",
+        "",
+    ]
+
+    for skill in skills_context:
+        title = skill.get("title", "Unnamed Pattern")
+        confidence = skill.get("confidence", 0.5)
+        pattern = skill.get("pattern", "")
+        rationale = skill.get("rationale", "")
+        skill_type = skill.get("type", "pattern")
+
+        lines.append(f"### {title} (confidence: {confidence:.0%})")
+        lines.append("")
+
+        if pattern:
+            lines.append("**Pattern:**")
+            lines.append("```")
+            lines.append(pattern.strip())
+            lines.append("```")
+            lines.append("")
+
+        if rationale:
+            lines.append(f"**Why this works:** {rationale}")
+            lines.append("")
+
+        if skill_type == "anti_pattern":
+            lines.append("**Note:** This is an anti-pattern - avoid this approach.")
+            lines.append("")
+
+    lines.append("")
+
+    return "\n".join(lines)
+
+
 def _build_workspace_boundary_section(workspace_root: Path | str | None) -> str:
     """Build the workspace boundary constraints section.
 
@@ -372,19 +721,26 @@ You CANNOT access files outside this directory.
 3. If a required file doesn't exist, create it first"""
 
 
-def _build_prompt(task: Any, context: str, workspace_root: Path | str | None = None) -> str:
+def _build_prompt(
+    task: Any,
+    context: str,
+    workspace_root: Path | str | None = None,
+    skills_context: list[dict[str, Any]] | None = None,
+) -> str:
     """Build the final prompt for agent execution.
 
     Phase 1.5: Uses few-shot templates based on task type for improved
     LLM output quality, especially with weaker models.
+    Phase 8.2: Includes learned skills/patterns from SkillsDatabase.
 
     Args:
         task: The current task to execute.
         context: Built context including project structure and relevant code.
         workspace_root: Root directory for workspace boundary constraints.
+        skills_context: Optional list of matching skills to inject (Phase 8.2).
 
     Returns:
-        Complete prompt for the agent with few-shot examples.
+        Complete prompt for the agent with few-shot examples and skills.
     """
     workspace_section = _build_workspace_boundary_section(workspace_root)
 
@@ -400,6 +756,9 @@ def _build_prompt(task: Any, context: str, workspace_root: Path | str | None = N
     )
     logger.debug(f"Using template type '{template_type.value}' for task [{task.id}]")
 
+    # Phase 8.2: Build skills section if available
+    skills_section = _build_skills_section(skills_context) if skills_context else ""
+
     return f"""You are an autonomous development agent executing a task from a ROADMAP.
 
 {context}
@@ -407,7 +766,7 @@ def _build_prompt(task: Any, context: str, workspace_root: Path | str | None = N
 ---
 
 {workspace_section}
-
+{skills_section}
 ---
 
 ## Few-Shot Example

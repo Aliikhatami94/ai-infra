@@ -1,6 +1,7 @@
 """Tests for ShellMiddleware.
 
 Phase 1.4 of EXECUTOR_CLI.md - Shell Middleware.
+Phase 11.1 of EXECUTOR_4.md - Resource Limits Integration.
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from ai_infra.llm.shell.limits import ResourceLimits
 from ai_infra.llm.shell.middleware import ShellMiddleware, ShellMiddlewareConfig
 from ai_infra.llm.shell.session import ShellSession
 from ai_infra.llm.shell.tool import get_current_session, set_current_session
@@ -33,6 +35,7 @@ class TestShellMiddlewareConfig:
         assert config.dangerous_pattern_check is True
         assert config.custom_dangerous_patterns is None
         assert config.env is None
+        assert config.resource_limits is None  # Phase 11.1
 
     def test_custom_values(self, tmp_path: Path):
         """Test custom configuration values."""
@@ -60,6 +63,24 @@ class TestShellMiddlewareConfig:
         assert config.dangerous_pattern_check is False
         assert config.custom_dangerous_patterns == custom_patterns
         assert config.env == {"MY_VAR": "value"}
+
+    def test_resource_limits_config(self):
+        """Phase 11.1: Test resource limits configuration."""
+        limits = ResourceLimits(memory_mb=256, cpu_seconds=30)
+        config = ShellMiddlewareConfig(resource_limits=limits)
+
+        assert config.resource_limits is not None
+        assert config.resource_limits.memory_mb == 256
+        assert config.resource_limits.cpu_seconds == 30
+
+    def test_strict_resource_limits(self):
+        """Phase 11.1: Test strict limits preset in config."""
+        limits = ResourceLimits.strict()
+        config = ShellMiddlewareConfig(resource_limits=limits)
+
+        assert config.resource_limits.memory_mb == 256
+        assert config.resource_limits.cpu_seconds == 30
+        assert config.resource_limits.max_file_size_mb == 10
 
 
 class TestShellMiddlewareInit:
@@ -97,6 +118,22 @@ class TestShellMiddlewareInit:
         assert middleware._config == config
         assert middleware._config.workspace_root == tmp_path
         assert middleware._config.timeout == 180.0
+
+    def test_init_with_resource_limits(self):
+        """Phase 11.1: Test initialization with resource limits."""
+        limits = ResourceLimits(memory_mb=512, cpu_seconds=60)
+        middleware = ShellMiddleware(resource_limits=limits)
+
+        assert middleware._config.resource_limits is not None
+        assert middleware._config.resource_limits.memory_mb == 512
+
+    def test_init_with_strict_limits(self):
+        """Phase 11.1: Test initialization with strict limits preset."""
+        limits = ResourceLimits.strict()
+        middleware = ShellMiddleware(resource_limits=limits)
+
+        assert middleware._config.resource_limits.memory_mb == 256
+        assert middleware._config.resource_limits.cpu_seconds == 30
 
 
 class TestShellMiddlewareLifecycle:
