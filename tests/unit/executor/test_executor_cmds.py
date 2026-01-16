@@ -362,41 +362,6 @@ class TestGraphCLIOptions:
         # Should contain graph node names
         assert "parse_roadmap" in result.output or "pick_task" in result.output
 
-    def test_legacy_mode_option(self, temp_roadmap: Path) -> None:
-        """Test --legacy-mode option."""
-        result = runner.invoke(
-            app,
-            [
-                "run",
-                "--roadmap",
-                str(temp_roadmap),
-                "--legacy-mode",
-                "--dry-run",
-                "--max-tasks",
-                "1",
-            ],
-        )
-        assert result.exit_code == 0
-        # Should show legacy mode in output
-        assert "legacy" in result.output.lower() or "Dry run" in result.output
-
-    def test_graph_mode_is_default(self, temp_roadmap: Path) -> None:
-        """Test that graph mode is the default."""
-        result = runner.invoke(
-            app,
-            [
-                "run",
-                "--roadmap",
-                str(temp_roadmap),
-                "--dry-run",
-                "--max-tasks",
-                "1",
-            ],
-        )
-        assert result.exit_code == 0
-        # Should show graph mode in output (or just work with graph executor)
-        assert "Mode: graph" in result.output or "Dry run" in result.output
-
     def test_interrupt_before_option(self, temp_roadmap: Path) -> None:
         """Test --interrupt-before option is accepted."""
         result = runner.invoke(

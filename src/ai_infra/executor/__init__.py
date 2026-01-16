@@ -10,13 +10,20 @@ The Executor module provides infrastructure for:
 - Git checkpointing for task completion
 
 Example:
-    >>> from ai_infra.executor import Executor, ExecutorConfig
+    >>> from ai_infra.executor import ExecutorGraph, ExecutorConfig
+    >>> from ai_infra.agent import Agent
     >>>
-    >>> executor = Executor(
-    ...     roadmap="./ROADMAP.md",
-    ...     config=ExecutorConfig(max_tasks=5),
+    >>> agent = Agent(deep=True)
+    >>> executor = ExecutorGraph(
+    ...     agent=agent,
+    ...     roadmap_path="./ROADMAP.md",
+    ...     max_tasks=5,
     ... )
-    >>> await executor.run()
+    >>> await executor.arun()
+
+    # Or using the Executor alias (same as ExecutorGraph):
+    >>> from ai_infra.executor import Executor
+    >>> executor = Executor(agent=agent, roadmap_path="./ROADMAP.md")
 """
 
 from ai_infra.executor.adaptive import (
@@ -121,7 +128,7 @@ from ai_infra.executor.learning import (
     SuccessPattern,
     TaskType,
 )
-from ai_infra.executor.loop import Executor
+from ai_infra.executor.manager import ExecutorManager
 from ai_infra.executor.models import Task, TaskStatus
 from ai_infra.executor.outcome_extractor import (
     ExtractionResult,
@@ -330,6 +337,12 @@ from ai_infra.executor.workspace import (
     WorkspaceRollbackResult,
 )
 
+# ExecutorGraph is now the primary executor (legacy loop removed)
+# For task execution, use ExecutorGraph directly
+# For CLI utilities (status, reset, review, etc.), use ExecutorManager
+# Alias for backwards compatibility with CLI that just needs state management
+Executor = ExecutorManager
+
 __all__ = [
     # Adaptive Planning (Phase 5.5)
     "AdaptiveMode",
@@ -476,12 +489,15 @@ __all__ = [
     "CheckLevel",
     "CheckResult",
     "CheckStatus",
-    # Loop
+    # Executor (graph-based is primary, manager for CLI utilities)
+    "AgentProtocol",
     "ExecutionResult",
     "ExecutionStatus",
-    "Executor",
+    "Executor",  # Alias for ExecutorManager (CLI utilities)
     "ExecutorConfig",
+    "ExecutorManager",  # For CLI utility commands (status, reset, review, etc.)
     "ReviewInfo",
+    "TaskCompleteCallback",
     "VerifyMode",
     # State
     "ExecutorState",

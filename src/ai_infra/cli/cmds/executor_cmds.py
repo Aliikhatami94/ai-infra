@@ -768,13 +768,6 @@ def run_cmd(
             help="Clear project memory before run (fresh start)",
         ),
     ] = False,
-    execution_mode: Annotated[
-        str,
-        typer.Option(
-            "--execution-mode",
-            help="Execution mode: by-tasks (default) or by-todos (grouped execution)",
-        ),
-    ] = "by-tasks",
     normalize_with_llm: Annotated[
         bool,
         typer.Option(
@@ -790,14 +783,6 @@ def run_cmd(
             help="Output as JSON",
         ),
     ] = False,
-    # Phase 1.8.1: Graph-specific CLI options
-    graph_mode: Annotated[
-        bool,
-        typer.Option(
-            "--graph-mode/--legacy-mode",
-            help="Use graph-based executor (default) or legacy imperative loop",
-        ),
-    ] = True,
     visualize: Annotated[
         bool,
         typer.Option(
@@ -1139,7 +1124,8 @@ def run_cmd(
                 console.print(f"[red]Invalid MCP server: {e}[/red]")
                 raise typer.Exit(1)
 
-    config = ExecutorConfig(
+    # Store config for future use (currently passed as individual params to ExecutorGraph)
+    _config = ExecutorConfig(
         model=model,
         max_tasks=max_tasks,
         dry_run=dry_run,
@@ -1201,15 +1187,11 @@ def run_cmd(
             console.print(
                 "  [yellow]Strict resource limits: enabled (256MB, 30s CPU, 10MB files)[/yellow]"
             )
-        # Phase 1.8.1: Show graph mode
-        if graph_mode:
-            console.print("  [cyan]Mode: graph[/cyan]")
-            if interrupt_before:
-                console.print(f"    Interrupt before: {', '.join(interrupt_before)}")
-            if interrupt_after:
-                console.print(f"    Interrupt after: {', '.join(interrupt_after)}")
-        else:
-            console.print("  [dim]Mode: legacy[/dim]")
+        # Show interrupt points
+        if interrupt_before:
+            console.print(f"  [cyan]Interrupt before: {', '.join(interrupt_before)}[/cyan]")
+        if interrupt_after:
+            console.print(f"  [cyan]Interrupt after: {', '.join(interrupt_after)}[/cyan]")
         # Phase 4.2: Show collaboration mode
         collab_mode_colors = {
             "autonomous": "green",
@@ -1323,158 +1305,90 @@ def run_cmd(
             console.print(f"[red]Error creating agent: {e}[/red]")
             raise typer.Exit(1)
 
-    # Create executor
-    try:
-        from typing import Any, cast
-
-        executor = Executor(
-            roadmap=roadmap, config=config, agent=cast(Any, agent), callbacks=callbacks
-        )
-    except Exception as e:
-        console.print(f"[red]Error creating executor: {e}[/red]")
-        raise typer.Exit(1)
-
-    # Validate execution mode
-    use_by_todos = execution_mode.lower() == "by-todos"
-    if execution_mode.lower() not in ("by-tasks", "by-todos"):
-        console.print(f"[red]Invalid execution mode: {execution_mode}[/red]")
-        console.print("Valid options: by-tasks, by-todos")
-        raise typer.Exit(1)
-
-    # Phase 1.8.2: Run using graph or legacy executor
+    # Run using ExecutorGraph (graph-based executor is now the only mode)
     async def _run():
-        if graph_mode:
-            # Use graph-based executor (default)
-            from ai_infra.executor.graph import ExecutorGraph
+        from ai_infra.executor.graph import ExecutorGraph
 
-            try:
-                # Ensure todo_manager is initialized for ROADMAP sync
-                await executor.ensure_todo_manager()
+        graph_executor = ExecutorGraph(
+            agent=agent,
+            roadmap_path=str(roadmap),
+            # Components will be auto-created by ExecutorGraph if not provided
+            callbacks=callbacks,  # Phase 2.2.1: Pass callbacks for token tracking
+            use_llm_normalization=normalize_with_llm,
+            sync_roadmap=sync_roadmap,
+            max_tasks=max_tasks if max_tasks > 0 else None,
+            max_retries=retry_failed,  # Phase 2.2.2: Configurable retry count
+            dry_run=dry_run,  # Phase 2.3.2: Dry run mode
+            pause_destructive=pause_destructive,  # Phase 2.3.3: Pause destructive
+            enable_planning=enable_planning,  # Phase 2.4.2: Pre-execution planning
+            adaptive_mode=parsed_mode,  # Phase 2.3.1: Adaptive replanning mode
+            recursion_limit=max_iterations,  # Phase 1.6: Max graph transitions
+            interrupt_before=interrupt_before,
+            interrupt_after=interrupt_after,
+            # Phase 2.4: Shell tool options
+            enable_shell=enable_shell,
+            shell_timeout=shell_timeout,
+            shell_allowed_commands=(
+                tuple(cmd.strip() for cmd in shell_allowed_commands.split(","))
+                if shell_allowed_commands
+                else None
+            ),
+            # Phase 16.4: Shell snapshots
+            enable_shell_snapshots=shell_snapshots,
+            # Phase 3.3: Autonomous verification options
+            enable_autonomous_verify=enable_autonomous_verify,
+            verify_timeout=verify_timeout,
+            # Phase 7.1: Subagent routing (EXECUTOR_3.md)
+            use_subagents=use_subagents,
+            # Phase 7.4: Subagent model configuration (EXECUTOR_3.md)
+            subagent_config=subagent_config,
+            # Orchestrator routing
+            orchestrator_model=orchestrator_model,
+            orchestrator_confidence_threshold=orchestrator_threshold,
+            # Phase 8.1: Skills learning (EXECUTOR_3.md)
+            enable_learning=enable_learning,
+            # Phase 15.4: MCP server integration (EXECUTOR_5.md)
+            mcp_servers=mcp_servers,
+            mcp_discover_timeout=mcp_timeout,
+        )
+        result = await graph_executor.arun()
 
-                graph_executor = ExecutorGraph(
-                    agent=agent,
-                    roadmap_path=str(roadmap),
-                    checkpointer=executor.checkpointer,
-                    verifier=executor.verifier if hasattr(executor, "verifier") else None,
-                    todo_manager=executor.todo_manager
-                    if hasattr(executor, "todo_manager")
-                    else None,
-                    callbacks=callbacks,  # Phase 2.2.1: Pass callbacks for token tracking
-                    use_llm_normalization=normalize_with_llm,
-                    sync_roadmap=sync_roadmap,
-                    max_tasks=max_tasks if max_tasks > 0 else None,
-                    max_retries=retry_failed,  # Phase 2.2.2: Configurable retry count
-                    dry_run=dry_run,  # Phase 2.3.2: Dry run mode
-                    pause_destructive=pause_destructive,  # Phase 2.3.3: Pause destructive
-                    enable_planning=enable_planning,  # Phase 2.4.2: Pre-execution planning
-                    adaptive_mode=parsed_mode,  # Phase 2.3.1: Adaptive replanning mode
-                    recursion_limit=max_iterations,  # Phase 1.6: Max graph transitions
-                    interrupt_before=interrupt_before,
-                    interrupt_after=interrupt_after,
-                    # Phase 2.4: Shell tool options
-                    enable_shell=enable_shell,
-                    shell_timeout=shell_timeout,
-                    shell_allowed_commands=(
-                        tuple(cmd.strip() for cmd in shell_allowed_commands.split(","))
-                        if shell_allowed_commands
-                        else None
-                    ),
-                    # Phase 16.4: Shell snapshots
-                    enable_shell_snapshots=shell_snapshots,
-                    # Phase 3.3: Autonomous verification options
-                    enable_autonomous_verify=enable_autonomous_verify,
-                    verify_timeout=verify_timeout,
-                    # Phase 7.1: Subagent routing (EXECUTOR_3.md)
-                    use_subagents=use_subagents,
-                    # Phase 7.4: Subagent model configuration (EXECUTOR_3.md)
-                    subagent_config=subagent_config,
-                    # Orchestrator routing
-                    orchestrator_model=orchestrator_model,
-                    orchestrator_confidence_threshold=orchestrator_threshold,
-                    # Phase 8.1: Skills learning (EXECUTOR_3.md)
-                    enable_learning=enable_learning,
-                    # Phase 15.4: MCP server integration (EXECUTOR_5.md)
-                    mcp_servers=mcp_servers,
-                    mcp_discover_timeout=mcp_timeout,
-                )
-                result = await graph_executor.arun()
+        # Convert graph result to RunSummary for consistent output
+        completed = result.get("tasks_completed_count", 0)
+        failed = len(result.get("failed_todos", []))
+        total = len(result.get("todos", []))
 
-                # Convert graph result to RunSummary for consistent output
-                completed = result.get("tasks_completed_count", 0)
-                failed = len(result.get("failed_todos", []))
-                total = len(result.get("todos", []))
+        # Phase 2.4.3: Capture node metrics for display
+        node_metrics_data = result.get("node_metrics")
 
-                # Phase 2.4.3: Capture node metrics for display
-                node_metrics_data = result.get("node_metrics")
+        # Phase 16.5.11.3: Capture routing history for display
+        routing_history_data = result.get("orchestrator_routing_history", [])
+        orchestrator_tokens_data = result.get("orchestrator_tokens_total", 0)
 
-                # Phase 16.5.11.3: Capture routing history for display
-                routing_history_data = result.get("orchestrator_routing_history", [])
-                orchestrator_tokens_data = result.get("orchestrator_tokens_total", 0)
-
-                summary = RunSummary(
-                    status=(
-                        RunStatus.COMPLETED
-                        if failed == 0 and not result.get("interrupt_requested")
-                        else RunStatus.PAUSED
-                        if result.get("interrupt_requested")
-                        else RunStatus.FAILED
-                    ),
-                    total_tasks=total,
-                    tasks_completed=completed,
-                    tasks_failed=failed,
-                    tasks_remaining=total - completed - failed,
-                    tasks_skipped=0,
-                    duration_ms=float(result.get("duration_ms") or 0),  # type: ignore[arg-type]
-                    total_tokens=int(result.get("tokens_used") or 0),  # type: ignore[call-overload]
-                    results=[],
-                    paused=result.get("interrupt_requested", False),
-                    pause_reason="HITL interrupt" if result.get("interrupt_requested") else "",
-                )
-                # Return tuple with summary, node_metrics, and routing data for graph mode
-                return (summary, node_metrics_data, routing_history_data, orchestrator_tokens_data)
-            except ImportError as e:
-                if not output_json:
-                    console.print(
-                        f"[yellow]Graph executor unavailable ({e}), falling back to legacy mode[/yellow]"
-                    )
-                # Fall through to legacy mode
-            except Exception as e:
-                if not output_json:
-                    console.print(
-                        f"[yellow]Graph executor failed ({e}), falling back to legacy mode[/yellow]"
-                    )
-                # Fall through to legacy mode
-
-        # Legacy mode (fallback)
-        if use_by_todos:
-            await executor.ensure_todo_manager()
-            if not output_json:
-                todo_manager = executor.todo_manager
-                console.print("[cyan]Execution mode: by-todos[/cyan]")
-                if normalize_with_llm:
-                    console.print(f"  LLM-normalized todos: {todo_manager.total_count}")
-                    console.print(f"  JSON-only mode: {todo_manager.uses_json_only}")
-                else:
-                    console.print(f"  Raw tasks: {executor.roadmap.total_tasks}")
-                    console.print(f"  Grouped todos: {todo_manager.total_count}")
-                console.print()
-            return (await executor.run_by_todos(), None, [], 0)
-        return (await executor.run(), None, [], 0)
+        summary = RunSummary(
+            status=(
+                RunStatus.COMPLETED
+                if failed == 0 and not result.get("interrupt_requested")
+                else RunStatus.PAUSED
+                if result.get("interrupt_requested")
+                else RunStatus.FAILED
+            ),
+            total_tasks=total,
+            tasks_completed=completed,
+            tasks_failed=failed,
+            tasks_remaining=total - completed - failed,
+            tasks_skipped=0,
+            duration_ms=float(result.get("duration_ms") or 0),  # type: ignore[arg-type]
+            total_tokens=int(result.get("tokens_used") or 0),  # type: ignore[call-overload]
+            results=[],
+            paused=result.get("interrupt_requested", False),
+            pause_reason="HITL interrupt" if result.get("interrupt_requested") else "",
+        )
+        return (summary, node_metrics_data, routing_history_data, orchestrator_tokens_data)
 
     try:
         run_result = asyncio.run(_run())
-        # Handle both graph mode (4-tuple) and legacy mode (just summary)
-        if isinstance(run_result, tuple) and len(run_result) == 4:
-            summary, node_metrics, routing_history, orchestrator_tokens = run_result
-        elif isinstance(run_result, tuple) and len(run_result) == 2:
-            summary, node_metrics = run_result
-            routing_history = []
-            orchestrator_tokens = 0
-        else:
-            summary = run_result
-            node_metrics = None
-            routing_history = []
-            orchestrator_tokens = 0
+        summary, node_metrics, routing_history, orchestrator_tokens = run_result
     except KeyboardInterrupt:
         console.print("\n[yellow]Execution interrupted by user[/yellow]")
         raise typer.Exit(130)
@@ -2649,16 +2563,16 @@ def audit_cmd(
         "session_ended": AuditEventType.SESSION_ENDED,
     }
 
-    # Handle --suspicious flag
-    filter_type = None
+    # Handle --suspicious flag (filter_type reserved for future use)
+    _filter_type = None
     if show_suspicious:
-        filter_type = AuditEventType.SUSPICIOUS_PATTERN
+        _filter_type = AuditEventType.SUSPICIOUS_PATTERN
     elif event_type:
         if event_type.lower() not in type_map:
             console.print(f"[red]Unknown event type: {event_type}[/red]")
             console.print(f"[dim]Valid types: {', '.join(type_map.keys())}[/dim]")
             raise typer.Exit(1)
-        filter_type = type_map[event_type.lower()]
+        _filter_type = type_map[event_type.lower()]
 
     # Get audit logger and explain that logs are in Python logging
     console.print("[dim]Audit logs are captured via Python logging.[/dim]")
@@ -2808,7 +2722,7 @@ def mcp_status_cmd(
 
     summary = result.get("summary", {})
     discovery = result.get("discovery", {})
-    health = result.get("health", {})
+    _health = result.get("health", {})  # Reserved for future health details display
 
     # Overall status
     overall = summary.get("overall_status", "unknown")
