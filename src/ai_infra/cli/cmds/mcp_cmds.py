@@ -804,4 +804,5 @@ def info_cmd(
 
 def register(parent: typer.Typer):
     """Register MCP commands with the parent CLI app."""
-    parent.add_typer(app, name="mcp", help="MCP server debugging and testing")
+    # Hidden from main help - advanced debugging tools
+    parent.add_typer(app, name="mcp", help="MCP server debugging and testing", hidden=True)

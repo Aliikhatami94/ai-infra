@@ -269,11 +269,10 @@ def audio_models_cmd(
 
 def register(parent: typer.Typer):
     """Register multimodal commands with the parent CLI app."""
-    parent.add_typer(app, name="multimodal", help="Multimodal discovery (TTS, STT, Audio)")
-    # Also add as top-level commands for convenience
-    parent.command("tts-providers")(tts_providers_cmd)
-    parent.command("tts-voices")(tts_voices_cmd)
-    parent.command("tts-models")(tts_models_cmd)
-    parent.command("stt-providers")(stt_providers_cmd)
-    parent.command("stt-models")(stt_models_cmd)
-    parent.command("audio-models")(audio_models_cmd)
+    # Register as top-level commands only (no sub-app to avoid duplication)
+    parent.command("tts-providers", rich_help_panel="Speech (TTS/STT)")(tts_providers_cmd)
+    parent.command("tts-voices", rich_help_panel="Speech (TTS/STT)")(tts_voices_cmd)
+    parent.command("tts-models", rich_help_panel="Speech (TTS/STT)")(tts_models_cmd)
+    parent.command("stt-providers", rich_help_panel="Speech (TTS/STT)")(stt_providers_cmd)
+    parent.command("stt-models", rich_help_panel="Speech (TTS/STT)")(stt_models_cmd)
+    parent.command("audio-models", rich_help_panel="Speech (TTS/STT)")(audio_models_cmd)

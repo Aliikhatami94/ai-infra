@@ -119,7 +119,8 @@ def chmod_all_cmd(
 
 
 def register(app: typer.Typer) -> None:
-    app.command("add-publisher")(add_cmd)
-    app.command("remove-publisher")(remove_cmd)
-    app.command("chmod")(chmod_cmd)
-    app.command("chmod-all")(chmod_all_cmd)
+    # Hidden from main help - advanced MCP publishing tools
+    app.command("add-publisher", hidden=True)(add_cmd)
+    app.command("remove-publisher", hidden=True)(remove_cmd)
+    app.command("chmod", hidden=True)(chmod_cmd)
+    app.command("chmod-all", hidden=True)(chmod_all_cmd)

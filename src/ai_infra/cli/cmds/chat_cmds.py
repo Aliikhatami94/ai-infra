@@ -19,11 +19,22 @@ Sessions & Persistence:
     /load <name>                     # Load a saved session
     /new                             # Start new session (clears memory)
     /delete <name>                   # Delete a saved session
+
+MCP Tools (connect to external tools):
+    ai-infra chat --mcp http://localhost:8000/mcp    # Single MCP server
+    ai-infra chat --mcp server1.json --mcp s2.json   # Multiple servers
+
+    Within chat REPL with MCP:
+    /tools                           # List available tools from MCP servers
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
+import sys
+import threading
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -35,6 +46,155 @@ app = typer.Typer(
     help="Interactive chat with LLMs",
     invoke_without_command=True,  # Allow `ai-infra chat` to run the default command
 )
+
+
+# =============================================================================
+# Thinking Spinner
+# =============================================================================
+
+_SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+
+
+class ThinkingSpinner:
+    """Animated spinner to show while waiting for LLM response."""
+
+    def __init__(self, message: str = "thinking"):
+        self._running = False
+        self._thread: threading.Thread | None = None
+        self._message = message
+
+    def start(self):
+        """Start the spinner animation."""
+        if self._running:
+            return
+        self._running = True
+        self._thread = threading.Thread(target=self._animate, daemon=True)
+        self._thread.start()
+
+    def stop(self):
+        """Stop the spinner and clear the line."""
+        self._running = False
+        if self._thread:
+            self._thread.join(timeout=0.5)
+            self._thread = None
+        # Clear the spinner text
+        sys.stdout.write("\r" + " " * 30 + "\r")
+        sys.stdout.flush()
+
+    def _animate(self):
+        """Run the spinner animation."""
+        frame_idx = 0
+
+        while self._running:
+            spinner = _SPINNER_FRAMES[frame_idx % len(_SPINNER_FRAMES)]
+            sys.stdout.write(f"\r\033[90m{spinner} {self._message}\033[0m")
+            sys.stdout.flush()
+
+            frame_idx += 1
+            time.sleep(0.08)
+
+    def __enter__(self):
+        self.start()
+        return self
+
+    def __exit__(self, *args):
+        self.stop()
+
+
+# =============================================================================
+# MCP Integration for Chat
+# =============================================================================
+
+
+class ChatMCPManager:
+    """Manages MCP connections for chat sessions.
+
+    Handles:
+    - Discovery of MCP servers
+    - Tool listing
+    - Tool execution
+    - Cleanup on exit
+    """
+
+    def __init__(self):
+        self._client: Any = None
+        self._tools: list[Any] = []
+        self._discovered = False
+
+    async def connect(self, mcp_configs: list[str]) -> bool:
+        """Connect to MCP servers.
+
+        Args:
+            mcp_configs: List of MCP server URLs or JSON config file paths
+
+        Returns:
+            True if at least one server connected successfully
+        """
+        from ai_infra.mcp import MCPClient, McpServerConfig
+
+        configs: list[McpServerConfig] = []
+
+        for cfg in mcp_configs:
+            if cfg.endswith(".json"):
+                # Load from JSON file
+                try:
+                    path = Path(cfg).expanduser()
+                    with open(path) as f:
+                        data = json.load(f)
+                        if isinstance(data, list):
+                            for item in data:
+                                configs.append(McpServerConfig.model_validate(item))
+                        else:
+                            configs.append(McpServerConfig.model_validate(data))
+                except Exception as e:
+                    typer.secho(f"[!] Failed to load MCP config {cfg}: {e}", fg=typer.colors.YELLOW)
+            elif cfg.startswith("http://") or cfg.startswith("https://"):
+                # HTTP URL
+                configs.append(McpServerConfig(transport="streamable_http", url=cfg))
+            else:
+                typer.secho(
+                    f"[!] Unknown MCP config format: {cfg} (expected URL or .json file)",
+                    fg=typer.colors.YELLOW,
+                )
+
+        if not configs:
+            return False
+
+        try:
+            self._client = MCPClient(configs, discover_timeout=30.0, tool_timeout=60.0)
+            await self._client.discover()
+            self._tools = await self._client.list_tools()
+            self._discovered = True
+            return True
+        except Exception as e:
+            typer.secho(f"[!] MCP discovery failed: {e}", fg=typer.colors.YELLOW)
+            return False
+
+    def get_tools(self) -> list[Any]:
+        """Get discovered MCP tools."""
+        return self._tools
+
+    def get_tool_names(self) -> list[str]:
+        """Get names of discovered tools."""
+        return [getattr(t, "name", str(t)) for t in self._tools]
+
+    async def close(self):
+        """Close MCP connections."""
+        if self._client:
+            try:
+                await self._client.close()
+            except Exception:
+                pass
+            self._client = None
+
+
+# Global MCP manager for the chat session
+_mcp_manager: ChatMCPManager | None = None
+
+
+def get_mcp_manager() -> ChatMCPManager | None:
+    """Get the global MCP manager if initialized."""
+    return _mcp_manager
 
 
 # =============================================================================
@@ -292,7 +452,13 @@ def _format_time_ago(iso_str: str | None) -> str:
         return "unknown"
 
 
-def _print_welcome(provider: str, model: str, session_id: str, message_count: int = 0):
+def _print_welcome(
+    provider: str,
+    model: str,
+    session_id: str,
+    message_count: int = 0,
+    tool_count: int = 0,
+):
     """Print welcome message."""
     typer.echo()
     typer.secho("╭─────────────────────────────────────────╮", fg=typer.colors.CYAN)
@@ -304,10 +470,14 @@ def _print_welcome(provider: str, model: str, session_id: str, message_count: in
     typer.echo(f"  Session:  {session_id}")
     if message_count > 0:
         typer.secho(f"  Memory:   {message_count} messages restored", fg=typer.colors.GREEN)
+    if tool_count > 0:
+        typer.secho(f"  Tools:    {tool_count} MCP tools available", fg=typer.colors.MAGENTA)
     typer.echo()
     typer.secho("  Commands:", fg=typer.colors.BRIGHT_BLACK)
     typer.secho("    /help     Show all commands", fg=typer.colors.BRIGHT_BLACK)
     typer.secho("    /sessions List saved sessions", fg=typer.colors.BRIGHT_BLACK)
+    if tool_count > 0:
+        typer.secho("    /tools    List available MCP tools", fg=typer.colors.BRIGHT_BLACK)
     typer.secho("    /clear    Clear conversation", fg=typer.colors.BRIGHT_BLACK)
     typer.secho("    /quit     Save and exit", fg=typer.colors.BRIGHT_BLACK)
     typer.echo()
@@ -335,6 +505,10 @@ def _print_help():
     typer.echo("  /provider <name>   Change provider")
     typer.echo("  /temp <value>      Set temperature (0.0-2.0)")
     typer.echo()
+    typer.secho("MCP Tools:", bold=True)
+    typer.echo("  /tools             List available MCP tools")
+    typer.echo("  (Tools are called automatically when the LLM needs them)")
+    typer.echo()
     typer.secho("Exit Commands:", bold=True)
     typer.echo("  /quit, /exit       Save session and exit")
     typer.echo()
@@ -355,9 +529,9 @@ def _run_repl(
     stream: bool = True,
     session_id: str | None = None,
     no_persist: bool = False,
+    tools: list[Any] | None = None,
 ):
-    """Run interactive REPL with session persistence."""
-    import asyncio
+    """Run interactive REPL with session persistence and optional MCP tools."""
 
     storage = get_storage()
 
@@ -368,6 +542,7 @@ def _run_repl(
     current_temp = temperature
     current_provider = provider
     current_model = model
+    current_tools = tools or []
 
     # Try to load existing session
     restored_count = 0
@@ -388,8 +563,9 @@ def _run_repl(
     # Display provider/model for welcome (resolve auto to actual)
     display_provider = current_provider or _get_default_provider()
     display_model = current_model or "default"
+    tool_count = len(current_tools)
 
-    _print_welcome(display_provider, display_model, current_session_id, restored_count)
+    _print_welcome(display_provider, display_model, current_session_id, restored_count, tool_count)
 
     def _save_session():
         """Save current session to storage."""
@@ -621,6 +797,25 @@ def _run_repl(
                         typer.echo(f"Current temperature: {current_temp}")
                     continue
 
+                elif cmd == "tools":
+                    if not current_tools:
+                        typer.secho(
+                            "No MCP tools connected. Use --mcp to add tools.",
+                            fg=typer.colors.YELLOW,
+                        )
+                    else:
+                        typer.echo()
+                        typer.secho(f"Available MCP Tools ({len(current_tools)}):", bold=True)
+                        for tool in current_tools:
+                            name = getattr(tool, "name", str(tool))
+                            desc = getattr(tool, "description", "")[:60]
+                            if desc:
+                                typer.echo(f"  • {name}: {desc}")
+                            else:
+                                typer.echo(f"  • {name}")
+                        typer.echo()
+                    continue
+
                 else:
                     typer.secho(
                         f"Unknown command: /{cmd}. Type /help for commands.",
@@ -631,8 +826,8 @@ def _run_repl(
             # Add user message to conversation
             conversation.append({"role": "user", "content": user_input})
 
-            # Generate response
-            typer.secho("AI: ", fg=typer.colors.BLUE, nl=False)
+            # Show thinking indicator (will be replaced by response)
+            spinner = ThinkingSpinner()
 
             try:
                 # Build messages with full conversation history
@@ -654,25 +849,142 @@ def _run_repl(
                     temperature=current_temp,
                 )
 
-                if stream:
-                    # Streaming response
-                    response_text = ""
+                # Bind tools if available
+                if current_tools:
+                    chat_model = chat_model.bind_tools(current_tools)
 
-                    async def stream_response():
-                        nonlocal response_text
-                        async for event in chat_model.astream(messages):
-                            text = getattr(event, "content", None)
-                            if text:
-                                print(text, end="", flush=True)
-                                response_text += text
+                # Tool call loop - may need multiple iterations
+                response_text = ""
+                max_tool_iterations = 10  # Safety limit
 
-                    asyncio.run(stream_response())
-                    typer.echo()  # Newline after streaming
-                else:
-                    # Non-streaming response
-                    response = chat_model.invoke(messages)
-                    response_text = _extract_content(response)
-                    typer.echo(response_text)
+                async def run_with_tools():
+                    nonlocal response_text, messages
+                    from langchain_core.messages import ToolMessage
+
+                    current_messages = list(messages)
+                    has_tools = bool(current_tools)
+
+                    for iteration in range(max_tool_iterations):
+                        # Start spinner for LLM thinking
+                        spinner.start()
+
+                        try:
+                            # When tools are bound, use non-streaming to get complete tool_calls
+                            # Streaming tool calls are fragmented and unreliable
+                            if has_tools:
+                                response = await chat_model.ainvoke(current_messages)
+                                tool_calls = getattr(response, "tool_calls", None) or []
+
+                                # Stop spinner before output
+                                spinner.stop()
+
+                                if not tool_calls:
+                                    # No tool calls - this is the final response
+                                    # Show "AI:" label before the response
+                                    typer.secho("AI: ", fg=typer.colors.BLUE, nl=False)
+                                    content = _extract_content(response)
+                                    if stream:
+                                        for char in content:
+                                            print(char, end="", flush=True)
+                                            await asyncio.sleep(0.002)
+                                    else:
+                                        print(content, end="", flush=True)
+                                    response_text = content
+                                    return
+                            else:
+                                # No tools - can use true streaming
+                                spinner.stop()
+                                typer.secho("AI: ", fg=typer.colors.BLUE, nl=False)
+
+                                if stream:
+                                    text_parts = []
+                                    async for event in chat_model.astream(current_messages):
+                                        text = getattr(event, "content", None)
+                                        if text:
+                                            print(text, end="", flush=True)
+                                            text_parts.append(text)
+                                    response_text = "".join(text_parts)
+                                    return
+                                else:
+                                    response = await chat_model.ainvoke(current_messages)
+                                    response_text = _extract_content(response)
+                                    print(response_text, end="", flush=True)
+                                    return
+                        finally:
+                            # Ensure spinner is stopped even on error
+                            spinner.stop()
+
+                        # Process tool calls
+                        current_messages.append(response)
+
+                        for tool_call in tool_calls:
+                            # Handle both dict and object formats
+                            if isinstance(tool_call, dict):
+                                tool_name = tool_call.get("name", "")
+                                tool_args = tool_call.get("args", {})
+                                tool_id = tool_call.get("id", "") or f"call_{iteration}"
+                            else:
+                                tool_name = getattr(tool_call, "name", "")
+                                tool_args = getattr(tool_call, "args", {})
+                                tool_id = getattr(tool_call, "id", "") or f"call_{iteration}"
+
+                            # Skip empty tool calls
+                            if not tool_name:
+                                continue
+
+                            # Show tool call with running indicator
+                            print()
+                            sys.stdout.write(
+                                f"\033[35m  🔧 {tool_name}\033[0m \033[90mrunning...\033[0m"
+                            )
+                            sys.stdout.flush()
+
+                            # Find and execute tool
+                            tool_result = None
+                            for tool in current_tools:
+                                if getattr(tool, "name", "") == tool_name:
+                                    try:
+                                        # MCP tools support ainvoke
+                                        if hasattr(tool, "ainvoke"):
+                                            tool_result = await tool.ainvoke(tool_args)
+                                        elif hasattr(tool, "invoke"):
+                                            tool_result = tool.invoke(tool_args)
+                                        else:
+                                            tool_result = str(tool(tool_args))
+                                    except Exception as e:
+                                        tool_result = f"Error: {e}"
+                                    break
+
+                            if tool_result is None:
+                                tool_result = f"Tool '{tool_name}' not found"
+
+                            # Format result
+                            result_str = (
+                                tool_result
+                                if isinstance(tool_result, str)
+                                else json.dumps(tool_result, default=str)
+                            )
+
+                            # Clear "running..." and show result
+                            sys.stdout.write("\r" + " " * 60 + "\r")
+
+                            # Show result preview
+                            preview = (
+                                result_str[:80] + "..." if len(result_str) > 80 else result_str
+                            )
+                            typer.secho(f"  ✓ {tool_name}", fg=typer.colors.GREEN, nl=False)
+                            typer.secho(f" → {preview}", fg=typer.colors.BRIGHT_BLACK)
+
+                            # Add tool result to messages
+                            current_messages.append(
+                                ToolMessage(content=result_str, tool_call_id=tool_id)
+                            )
+
+                        # Continue loop to get final response - show thinking again
+                        print()
+
+                asyncio.run(run_with_tools())
+                typer.echo()  # Newline after response
 
                 # Add assistant response to conversation
                 conversation.append({"role": "assistant", "content": response_text})
@@ -763,6 +1075,11 @@ def chat_cmd(
         "--no-persist",
         help="Disable session persistence",
     ),
+    mcp: list[str] | None = typer.Option(
+        None,
+        "--mcp",
+        help="MCP server URL or JSON config file (can be repeated)",
+    ),
 ):
     """
     Interactive chat with LLMs with session persistence.
@@ -795,6 +1112,17 @@ def chat_cmd(
         # JSON output for scripting
         ai-infra chat -m "Hello" --json
 
+    MCP Tools (connect to external tools):
+
+        # Single MCP server (HTTP)
+        ai-infra chat --mcp http://localhost:8000/mcp
+
+        # Multiple MCP servers
+        ai-infra chat --mcp http://server1/mcp --mcp http://server2/mcp
+
+        # MCP config from JSON file
+        ai-infra chat --mcp ~/my-mcp-config.json
+
     Session management:
         ai-infra chat sessions              # List saved sessions
         ai-infra chat session-delete <name> # Delete a session
@@ -804,6 +1132,7 @@ def chat_cmd(
         /save       - Save current session
         /load       - Load a saved session
         /new        - Start a new session
+        /tools      - List available MCP tools
     """
     # If a subcommand is being invoked, don't run the default chat
     if ctx.invoked_subcommand is not None:
@@ -815,6 +1144,36 @@ def chat_cmd(
     except Exception as e:
         typer.secho(f"Error initializing LLM: {e}", fg=typer.colors.RED, err=True)
         raise typer.Exit(1)
+
+    # Initialize MCP if requested
+    global _mcp_manager
+    tools: list[Any] = []
+
+    if mcp:
+        import asyncio
+
+        _mcp_manager = ChatMCPManager()
+        typer.secho("Connecting to MCP servers...", fg=typer.colors.BRIGHT_BLACK)
+
+        async def connect_mcp():
+            return await _mcp_manager.connect(mcp)
+
+        try:
+            success = asyncio.run(connect_mcp())
+            if success:
+                tools = _mcp_manager.get_tools()
+                typer.secho(
+                    f"[OK] Connected: {len(tools)} tools available",
+                    fg=typer.colors.GREEN,
+                )
+            else:
+                typer.secho(
+                    "[!] MCP connection failed, continuing without tools",
+                    fg=typer.colors.YELLOW,
+                )
+        except Exception as e:
+            typer.secho(f"[!] MCP error: {e}", fg=typer.colors.YELLOW)
+            _mcp_manager = None
 
     # For display purposes only
     display_provider = provider or _get_default_provider()
@@ -859,16 +1218,27 @@ def chat_cmd(
         storage = get_storage()
         session_id = storage.get_auto_resume_session_id()
 
-    _run_repl(
-        llm=llm,
-        provider=provider,  # None means auto-detect
-        model=model,  # None means use default
-        system=system,
-        temperature=temperature,
-        stream=not no_stream,
-        session_id=session_id,
-        no_persist=no_persist,
-    )
+    try:
+        _run_repl(
+            llm=llm,
+            provider=provider,  # None means auto-detect
+            model=model,  # None means use default
+            system=system,
+            temperature=temperature,
+            stream=not no_stream,
+            session_id=session_id,
+            no_persist=no_persist,
+            tools=tools,
+        )
+    finally:
+        # Cleanup MCP connections
+        if _mcp_manager:
+            import asyncio
+
+            try:
+                asyncio.run(_mcp_manager.close())
+            except Exception:
+                pass
 
 
 @app.command("sessions")
@@ -890,25 +1260,12 @@ def sessions_cmd(
     storage = get_storage()
     sessions = storage.list_sessions()
 
-    if not sessions:
-        typer.echo("No saved sessions.")
-        return
-
     if output_json:
         typer.echo(json.dumps(sessions, indent=2))
     else:
-        typer.echo()
-        typer.secho("Saved Chat Sessions:", bold=True)
-        typer.echo()
-        for s in sessions:
-            provider_info = s.get("provider") or "auto"
-            time_ago = _format_time_ago(s.get("updated_at"))
-            typer.echo(
-                f"  • {s['session_id']} - {s['message_count']} msgs, {provider_info}, {time_ago}"
-            )
-        typer.echo()
-        typer.echo(f"Storage: {storage._base_dir}")
-        typer.echo()
+        from ai_infra.cli.output import print_sessions
+
+        print_sessions(sessions)
 
 
 @app.command("session-delete")
@@ -977,4 +1334,4 @@ def register(main_app: typer.Typer):
     """Register chat command group to main app."""
     # Add the chat app as a subcommand group
     # This enables: ai-infra chat, ai-infra chat sessions, ai-infra chat session-delete
-    main_app.add_typer(app, name="chat")
+    main_app.add_typer(app, name="chat", rich_help_panel="Chat")

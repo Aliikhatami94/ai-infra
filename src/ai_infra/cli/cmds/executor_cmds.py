@@ -2782,4 +2782,9 @@ def mcp_status_cmd(
 
 def register(parent: typer.Typer):
     """Register executor commands with the parent CLI app."""
-    parent.add_typer(app, name="executor", help="Autonomous task execution from ROADMAP.md")
+    parent.add_typer(
+        app,
+        name="executor",
+        help="Autonomous task execution from ROADMAP.md",
+        rich_help_panel="Automation",
+    )
