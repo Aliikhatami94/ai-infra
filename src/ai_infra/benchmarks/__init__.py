@@ -24,13 +24,55 @@ Example:
 
 from __future__ import annotations
 
-import asyncio
 import statistics
 import time
 from collections.abc import Callable, Coroutine
 from dataclasses import asdict, dataclass, field
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
+
+from ai_infra.benchmarks.task_completion import (
+    COMPLEX_TASK,
+    MEDIUM_TASK,
+    SIMPLE_TASK,
+    STANDARD_TASKS,
+    StandardTask,
+    TaskCompletionBenchmark,
+    TaskCompletionResult,
+    TaskCompletionTarget,
+    TaskComplexity,
+    compare_task_results,
+    get_target_for_complexity,
+    summarize_all_results,
+)
+from ai_infra.benchmarks.throughput import (
+    STANDARD_WORKLOADS,
+    THROUGHPUT_TARGET_BASELINE,
+    THROUGHPUT_TARGET_BATCH,
+    THROUGHPUT_TARGET_FAST,
+    WORKLOAD_LARGE,
+    WORKLOAD_MEDIUM,
+    WORKLOAD_SMALL,
+    ThroughputBenchmark,
+    ThroughputResult,
+    ThroughputTarget,
+    WorkloadConfig,
+    compare_throughput_results,
+    generate_multi_task_roadmap,
+    generate_varied_task_roadmap,
+    summarize_throughput_results,
+)
+from ai_infra.benchmarks.ttft import (
+    TTFT_TARGET_DEFAULT,
+    TTFT_TARGET_FAST,
+    TTFT_TARGET_STREAMING,
+    TTFTBenchmark,
+    TTFTMeasurement,
+    TTFTProfile,
+    TTFTProfileResult,
+    TTFTTarget,
+    measure_ttft,
+)
 
 if TYPE_CHECKING:
     pass
@@ -461,58 +503,3 @@ def compare_results(
         "is_regression": max(mean_change, p95_change) > threshold_pct,
         "is_improvement": min(mean_change, p95_change) < -threshold_pct,
     }
-
-
-# =============================================================================
-# TTFT Module Imports
-# =============================================================================
-
-# =============================================================================
-# Task Completion Module Imports
-# =============================================================================
-from ai_infra.benchmarks.task_completion import (
-    COMPLEX_TASK,
-    MEDIUM_TASK,
-    SIMPLE_TASK,
-    STANDARD_TASKS,
-    StandardTask,
-    TaskCompletionBenchmark,
-    TaskCompletionResult,
-    TaskCompletionTarget,
-    TaskComplexity,
-    compare_task_results,
-    get_target_for_complexity,
-    summarize_all_results,
-)
-
-# =============================================================================
-# Throughput Module Imports
-# =============================================================================
-from ai_infra.benchmarks.throughput import (
-    STANDARD_WORKLOADS,
-    THROUGHPUT_TARGET_BASELINE,
-    THROUGHPUT_TARGET_BATCH,
-    THROUGHPUT_TARGET_FAST,
-    WORKLOAD_LARGE,
-    WORKLOAD_MEDIUM,
-    WORKLOAD_SMALL,
-    ThroughputBenchmark,
-    ThroughputResult,
-    ThroughputTarget,
-    WorkloadConfig,
-    compare_throughput_results,
-    generate_multi_task_roadmap,
-    generate_varied_task_roadmap,
-    summarize_throughput_results,
-)
-from ai_infra.benchmarks.ttft import (
-    TTFT_TARGET_DEFAULT,
-    TTFT_TARGET_FAST,
-    TTFT_TARGET_STREAMING,
-    TTFTBenchmark,
-    TTFTMeasurement,
-    TTFTProfile,
-    TTFTProfileResult,
-    TTFTTarget,
-    measure_ttft,
-)

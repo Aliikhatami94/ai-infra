@@ -368,7 +368,7 @@ class TestContextCarryoverMultipleTasks:
             "roadmap_path": str(roadmap_path),
         }
 
-        result = await build_context_node(state, run_memory=run_memory)
+        await build_context_node(state, run_memory=run_memory)
 
         # Context should reference multiple previous tasks
         context = run_memory.get_context(current_task_id="4")

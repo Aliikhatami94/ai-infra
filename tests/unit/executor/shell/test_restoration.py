@@ -243,9 +243,6 @@ class TestRestoreWorkingDir:
         try:
             with tempfile.TemporaryDirectory() as tmpdir:
                 new_dir = Path(tmpdir) / "new" / "nested" / "dir"
-                new_dir_resolved = (
-                    os.path.realpath(str(new_dir.parent.parent.parent)) + "/new/nested/dir"
-                )
                 snapshot = ShellSnapshot(working_dir=str(new_dir))
 
                 result = restore_working_dir(snapshot, create_if_missing=True)
@@ -490,7 +487,7 @@ class TestRestoreShellState:
             shell_type=ShellType.BASH,
         )
 
-        result = restore_shell_state(snapshot, dry_run=True)
+        restore_shell_state(snapshot, dry_run=True)
 
         assert "DRY_RUN_FULL" not in os.environ
         assert os.getcwd() == original_cwd

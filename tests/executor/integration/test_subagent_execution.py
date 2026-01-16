@@ -96,7 +96,7 @@ class TestSubagentRouting:
             return_value=mock_subagent_result,
         ) as mock_spawn:
             # Create graph with subagents enabled but dry_run to avoid full execution
-            graph = ExecutorGraph(
+            _graph = ExecutorGraph(
                 roadmap_path=str(test_roadmap),
                 use_subagents=True,
                 max_tasks=1,
@@ -118,7 +118,7 @@ class TestSubagentRouting:
             # Import execute_task_node directly to test routing
             from ai_infra.executor.nodes.execute import execute_task_node
 
-            result = await execute_task_node(
+            await execute_task_node(
                 initial_state,
                 agent=None,  # No agent needed, using subagents
                 use_subagents=True,

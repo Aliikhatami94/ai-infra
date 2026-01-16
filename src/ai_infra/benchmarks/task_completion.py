@@ -427,9 +427,7 @@ class TaskCompletionBenchmark:
         if sim_time is None:
             sim_time = task.target.target_seconds * 0.8
 
-        start = time.perf_counter()
         await asyncio.sleep(min(sim_time, 0.1))  # Cap actual sleep for tests
-        elapsed = time.perf_counter() - start
 
         # Use simulated time for result, not actual elapsed
         result = TaskCompletionResult(

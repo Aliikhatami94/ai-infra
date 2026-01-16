@@ -321,7 +321,7 @@ low
         mock_agent.ainvoke = AsyncMock(return_value=mock_response)
 
         output_path = Path("ROADMAP.md")
-        result = await generator.generate_and_save(
+        await generator.generate_and_save(
             prompt="Add a feature",
             workspace=python_project,
             output=output_path,

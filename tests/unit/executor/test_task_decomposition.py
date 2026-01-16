@@ -235,7 +235,7 @@ class TestComplexityEstimator:
         estimator = ComplexityEstimator(config)
 
         task = {"title": "Add caching to user service"}
-        complexity = estimator.estimate(task)
+        estimator.estimate(task)
 
         # With lower threshold, should recommend decompose more often
         assert config.decompose_threshold == 3

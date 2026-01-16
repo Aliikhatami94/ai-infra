@@ -152,8 +152,6 @@ class TestExtractSkillFromTask:
         """Extractor should be created if not provided."""
         state: dict[str, Any] = {"verified": True}
 
-        initial_count = len(skills_db)
-
         await _extract_skill_from_task(
             current_task=mock_task,
             files_modified=["src/api.py"],

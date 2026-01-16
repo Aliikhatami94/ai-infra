@@ -522,8 +522,6 @@ class ProjectAnalyzer:
         # Check for common patterns
         has_src = (workspace / "src").is_dir()
         has_tests = (workspace / "tests").is_dir() or (workspace / "test").is_dir()
-        has_docs = (workspace / "docs").is_dir()
-        has_examples = (workspace / "examples").is_dir()
 
         # Check for monorepo patterns
         has_packages = (workspace / "packages").is_dir()

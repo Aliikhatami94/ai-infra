@@ -123,9 +123,6 @@ class TestCoderFileCreation:
 
         result = await coder_agent.execute(task, context)
 
-        # Check expected files
-        calc_dir = workspace / "calc"
-
         # At least one Python file should exist
         py_files = list(workspace.rglob("*.py"))
         assert len(py_files) >= 1, f"No Python files created. Result: {result}"
@@ -214,7 +211,7 @@ class TestVerifierAutoRepair:
         bad_file.write_text("x = 1\\ny = 2\\nz = 3")
 
         verifier = TaskVerifier(workspace=workspace)
-        result = await verifier.verify()
+        await verifier.verify()
 
         # After verification (which includes repair), check the file
         content = bad_file.read_text()

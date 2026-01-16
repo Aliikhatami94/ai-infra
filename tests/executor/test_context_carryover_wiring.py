@@ -214,7 +214,6 @@ class TestPreviousContextInBuildContext:
 
         # Context should include previous task info
         prompt = result.get("prompt", "")
-        context = result.get("context", "")
 
         # The previous task should be mentioned somewhere in the prompt
         assert (
@@ -258,9 +257,9 @@ class TestPreviousContextInBuildContext:
 
         # Empty run_memory returns empty string from get_context()
         # So "Previously Completed" header should not appear
-        prompt = result.get("prompt", "")
         # This is optional - depends on implementation
         # The key is that it doesn't crash
+        assert result is not None
 
 
 # =============================================================================
@@ -340,7 +339,7 @@ class TestContextCarryoverFlow:
             "roadmap_path": str(roadmap_path),
         }
 
-        result = await build_context_node(state, run_memory=run_memory)
+        await build_context_node(state, run_memory=run_memory)
 
         # Both previous tasks should be in context
         context = run_memory.get_context(current_task_id="1.3")

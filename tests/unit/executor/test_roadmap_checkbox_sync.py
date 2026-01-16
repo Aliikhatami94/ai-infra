@@ -102,7 +102,7 @@ class TestCheckboxSyncBasics:
         )
 
         todo = manager.next_pending()
-        updated = manager.mark_completed(todo.id, sync_roadmap=True)
+        manager.mark_completed(todo.id, sync_roadmap=True)
 
         content = roadmap_file.read_text()
         assert "[x] **Bold task title**" in content
@@ -128,7 +128,7 @@ class TestCheckboxSyncBasics:
         )
 
         todo = manager.next_pending()
-        updated = manager.mark_completed(todo.id, sync_roadmap=True)
+        manager.mark_completed(todo.id, sync_roadmap=True)
 
         content = roadmap_file.read_text()
         # Should have marked the checkbox
@@ -225,9 +225,9 @@ class TestRetryLogic:
 
         try:
             # Should not raise but return 0
-            updated = manager.mark_completed(todo.id, sync_roadmap=True)
+            manager.mark_completed(todo.id, sync_roadmap=True)
             # Either returns 0 or raises - both acceptable for write failure
-            assert updated == 0 or True
+            assert True
         except PermissionError:
             # Also acceptable - permission denied on write
             pass

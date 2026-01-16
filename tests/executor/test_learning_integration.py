@@ -124,7 +124,7 @@ class TestSkillExtractionFromTasks:
             title="Add database models",
             description="Create SQLAlchemy models for user data",
         )
-        extractor = SkillExtractor(db=skills_db, llm=None)
+        _extractor = SkillExtractor(db=skills_db, llm=None)
 
         # Use direct skill addition to test skill contains task info
         # (heuristic extraction requires diff_summary which we don't have in tests)

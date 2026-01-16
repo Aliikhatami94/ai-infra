@@ -189,7 +189,6 @@ def _build_task_summaries(run_memory: dict[str, Any]) -> list[str]:
         if isinstance(memory, dict):
             summary = memory.get("summary", "")
             files = memory.get("files_created", [])
-            status = memory.get("status", "")
 
             if summary or files:
                 parts = [f"Task {task_id}"]

@@ -762,7 +762,7 @@ class TestPhase4Integration:
             HITLActionType.EXPLAIN,
             HITLActionType.ROLLBACK,
         ]:
-            action = HITLAction(
+            _action = HITLAction(
                 type=action_type,
                 target="test",
                 content=f"Test {action_type.value}",

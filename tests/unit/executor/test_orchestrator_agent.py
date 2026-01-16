@@ -464,8 +464,8 @@ class TestOrchestratorRoute:
         task = TodoItem(id=1, title="Create tests for user.py", description="")
         context = RoutingContext(workspace=Path("/project"), project_type="python")
 
-        # Mock the LLM call
-        mock_response = RoutingResponse(
+        # Mock the LLM call (used to set up expected behavior pattern)
+        _mock_response = RoutingResponse(
             agent="testwriter",
             confidence=0.95,
             reasoning="Task is about creating tests",
