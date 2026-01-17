@@ -41,7 +41,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
-from rich.console import Console, ConsoleOptions, Group, RenderResult
+from rich.console import Console, ConsoleOptions, Group, RenderableType, RenderResult
 from rich.live import Live
 from rich.panel import Panel
 from rich.syntax import Syntax
@@ -779,7 +779,7 @@ class ToolCallManager:
         Returns:
             Group of ToolCallPanel renderables.
         """
-        panels = []
+        panels: list[RenderableType] = []
         for i, tc in enumerate(self.tool_calls):
             panel = ToolCallPanel(
                 tool_call=tc,
@@ -995,7 +995,10 @@ class FileTreeDisplay:
             # Add files
             for change in sorted(dirs[dir_path], key=lambda c: c.path):
                 filename = change.path.rsplit("/", 1)[-1]
-                icon, style = self._get_change_icon(change.change_type)
+                change_type = change.change_type
+                if isinstance(change_type, str):
+                    change_type = FileChangeType(change_type)
+                icon, style = self._get_change_icon(change_type)
 
                 # Format label
                 label = Text()
@@ -1003,10 +1006,6 @@ class FileTreeDisplay:
                 label.append(filename, style=style)
 
                 # Add change info
-                change_type = change.change_type
-                if isinstance(change_type, str):
-                    change_type = FileChangeType(change_type)
-
                 info_parts = []
                 if change_type == FileChangeType.NEW:
                     info_parts.append("(new)")

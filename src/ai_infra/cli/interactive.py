@@ -716,9 +716,9 @@ class InteractiveSession:
         """
         # Try to use prompt_toolkit for better key handling
         try:
-            from prompt_toolkit import prompt
-            from prompt_toolkit.key_binding import KeyBindings
-            from prompt_toolkit.keys import Keys
+            from prompt_toolkit import prompt  # type: ignore[import-not-found]
+            from prompt_toolkit.key_binding import KeyBindings  # type: ignore[import-not-found]
+            from prompt_toolkit.keys import Keys  # type: ignore[import-not-found]
 
             bindings = KeyBindings()
             result: list[str] = []

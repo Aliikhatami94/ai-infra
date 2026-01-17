@@ -36,7 +36,7 @@ from ai_infra.cli.console import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Mapping, Sequence
 
 
 # =============================================================================
@@ -174,7 +174,7 @@ def print_models(
 
 
 def print_all_models(
-    provider_models: dict[str, Sequence[str]],
+    provider_models: Mapping[str, Sequence[str]],
     *,
     max_per_provider: int = 10,
 ) -> None:

@@ -34,7 +34,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING
 
-from rich.console import Console, ConsoleOptions, RenderResult
+from rich.console import Console, ConsoleOptions, RenderableType, RenderResult
 from rich.live import Live
 from rich.panel import Panel
 from rich.spinner import Spinner
@@ -360,7 +360,7 @@ class TaskProgressPanel:
             )
 
         # Build content with optional footer
-        content_parts = [table]
+        content_parts: list[RenderableType] = [table]
 
         if self.show_progress_bar:
             # Progress footer
@@ -630,7 +630,11 @@ class TaskSpinner:
 
         text = Text()
         text.append("  ")
-        text.append_text(self.spinner.render(time.time()))
+        spinner_text = self.spinner.render(time.time())
+        if isinstance(spinner_text, Text):
+            text.append_text(spinner_text)
+        else:
+            text.append(str(spinner_text))
         text.append(" ", style="")
         text.append(self.task_id, style="task.id")
         text.append("  ", style="")

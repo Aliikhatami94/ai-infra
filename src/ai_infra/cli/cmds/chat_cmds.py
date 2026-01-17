@@ -1519,11 +1519,13 @@ def chat_cmd(
         typer.secho("Connecting to MCP servers...", fg=typer.colors.BRIGHT_BLACK)
 
         async def connect_mcp():
+            assert _mcp_manager is not None
             return await _mcp_manager.connect(mcp)
 
         try:
             success = asyncio.run(connect_mcp())
             if success:
+                assert _mcp_manager is not None
                 tools = _mcp_manager.get_tools()
                 typer.secho(
                     f"[OK] Connected: {len(tools)} tools available",
