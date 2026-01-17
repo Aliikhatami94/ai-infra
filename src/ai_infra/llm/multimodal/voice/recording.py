@@ -89,7 +89,7 @@ class Microphone:
             True if sounddevice is installed and a mic is accessible.
         """
         try:
-            import sounddevice as sd
+            import sounddevice as sd  # type: ignore[import-not-found]
         except ImportError:
             return False
 
@@ -107,7 +107,7 @@ class Microphone:
             List of device info dictionaries with 'index', 'name', 'channels'.
         """
         try:
-            import sounddevice as sd
+            import sounddevice as sd  # type: ignore[import-not-found]
 
             devices = sd.query_devices()
             input_devices = []
@@ -155,7 +155,7 @@ class Microphone:
             RuntimeError: If recording fails.
         """
         try:
-            import sounddevice as sd
+            import sounddevice as sd  # type: ignore[import-not-found]
         except ImportError as e:
             raise ImportError(
                 "sounddevice is required for microphone recording. "
@@ -196,7 +196,7 @@ class Microphone:
             RuntimeError: If recording fails.
         """
         try:
-            import sounddevice as sd
+            import sounddevice as sd  # type: ignore[import-not-found]
         except ImportError as e:
             raise ImportError(
                 "sounddevice is required for microphone recording. "
@@ -247,7 +247,7 @@ class Microphone:
             Raw PCM audio chunks (int16).
         """
         try:
-            import sounddevice as sd
+            import sounddevice as sd  # type: ignore[import-not-found]
         except ImportError as e:
             raise ImportError(
                 "sounddevice is required for microphone recording. "
@@ -282,7 +282,7 @@ class Microphone:
     def _encode_audio(self, audio: Any, format: AudioFormat) -> bytes:
         """Encode numpy audio array to bytes."""
         try:
-            import soundfile as sf
+            import soundfile as sf  # type: ignore[import-not-found]
         except ImportError:
             return self._encode_wav_manual(audio)
 

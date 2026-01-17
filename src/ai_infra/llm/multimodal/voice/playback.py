@@ -73,7 +73,7 @@ class AudioPlayer:
             True if any playback method is available.
         """
         try:
-            import sounddevice as sd
+            import sounddevice as sd  # type: ignore[import-not-found]
 
             sd.query_devices(kind="output")
             return True
@@ -95,7 +95,7 @@ class AudioPlayer:
     def list_devices() -> list[dict[str, Any]]:
         """List available audio output devices."""
         try:
-            import sounddevice as sd
+            import sounddevice as sd  # type: ignore[import-not-found]
 
             devices = sd.query_devices()
             output_devices = []
@@ -183,8 +183,8 @@ class AudioPlayer:
     ) -> bool:
         """Try to play using sounddevice. Returns True if successful."""
         try:
-            import sounddevice as sd
-            import soundfile as sf
+            import sounddevice as sd  # type: ignore[import-not-found]
+            import soundfile as sf  # type: ignore[import-not-found]
         except ImportError:
             return False
 
