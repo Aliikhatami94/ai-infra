@@ -26,10 +26,15 @@ Example:
 
 from __future__ import annotations
 
+import re
+from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass
 
 from ai_infra.llm.multimodal.voice.playback import AudioPlayer
 from ai_infra.llm.multimodal.voice.recording import Microphone
+
+# Sentence boundary pattern - matches ., !, ? followed by space or end
+_SENTENCE_END = re.compile(r"[.!?](?:\s|$)")
 
 
 @dataclass
@@ -206,3 +211,109 @@ class VoiceChat:
                 self._player.play(chunk, blocking=True)
         except NotImplementedError:
             self.speak(text)
+
+    def speak_chunks(
+        self,
+        chunks: Iterator[str],
+        min_chars: int = 50,
+    ) -> str:
+        """Speak text chunks as they arrive, buffering by sentence.
+
+        Optimizes voice latency by speaking complete sentences as soon
+        as they're available, rather than waiting for the full response.
+
+        Args:
+            chunks: Iterator of text chunks (e.g., from LLM streaming).
+            min_chars: Minimum characters before speaking (avoids tiny chunks).
+
+        Returns:
+            The complete accumulated text.
+
+        Example:
+            ```python
+            # Stream LLM response with real-time TTS
+            def llm_stream():
+                for chunk in llm.stream("Tell me a story"):
+                    yield chunk.content
+
+            full_text = voice.speak_chunks(llm_stream())
+            ```
+        """
+        buffer = ""
+        full_text = ""
+
+        for chunk in chunks:
+            buffer += chunk
+            full_text += chunk
+
+            # Check for sentence boundaries
+            if len(buffer) >= min_chars and _SENTENCE_END.search(buffer):
+                # Find the last sentence boundary
+                match = None
+                for m in _SENTENCE_END.finditer(buffer):
+                    match = m
+
+                if match:
+                    # Speak up to and including the sentence end
+                    speak_text = buffer[: match.end()].strip()
+                    buffer = buffer[match.end() :]
+
+                    if speak_text:
+                        audio = self._tts.speak(speak_text)
+                        self._player.play(audio, blocking=True)
+
+        # Speak any remaining text
+        if buffer.strip():
+            audio = self._tts.speak(buffer.strip())
+            self._player.play(audio, blocking=True)
+
+        return full_text
+
+    async def aspeak_chunks(
+        self,
+        chunks: AsyncIterator[str],
+        min_chars: int = 50,
+    ) -> str:
+        """Async version of speak_chunks for async LLM streaming.
+
+        Args:
+            chunks: Async iterator of text chunks.
+            min_chars: Minimum characters before speaking.
+
+        Returns:
+            The complete accumulated text.
+
+        Example:
+            ```python
+            async def llm_stream():
+                async for chunk in llm.astream("Tell me a story"):
+                    yield chunk.content
+
+            full_text = await voice.aspeak_chunks(llm_stream())
+            ```
+        """
+        buffer = ""
+        full_text = ""
+
+        async for chunk in chunks:
+            buffer += chunk
+            full_text += chunk
+
+            if len(buffer) >= min_chars and _SENTENCE_END.search(buffer):
+                match = None
+                for m in _SENTENCE_END.finditer(buffer):
+                    match = m
+
+                if match:
+                    speak_text = buffer[: match.end()].strip()
+                    buffer = buffer[match.end() :]
+
+                    if speak_text:
+                        audio = await self._tts.aspeak(speak_text)
+                        self._player.play(audio, blocking=True)
+
+        if buffer.strip():
+            audio = await self._tts.aspeak(buffer.strip())
+            self._player.play(audio, blocking=True)
+
+        return full_text

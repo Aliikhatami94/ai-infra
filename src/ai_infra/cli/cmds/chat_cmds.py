@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -164,7 +165,6 @@ async def _stream_with_markdown(content: str, model: str | None = None) -> None:
         content: The complete content to stream
         model: Optional model name to show at end
     """
-    import re
 
     # Split by words while preserving whitespace
     tokens = re.findall(r"\S+|\s+", content)
@@ -1063,10 +1063,20 @@ def _run_repl(
 
                 # Tool call loop - may need multiple iterations
                 response_text = ""
+                tts_thread = None
+                tts_audio = None
+                tts_error = None
+                tts_spoken_len = 0  # Track how much text was sent to TTS
                 max_tool_iterations = 10  # Safety limit
 
                 async def run_with_tools():
-                    nonlocal response_text, messages
+                    nonlocal \
+                        response_text, \
+                        messages, \
+                        tts_thread, \
+                        tts_audio, \
+                        tts_error, \
+                        tts_spoken_len
                     from langchain_core.messages import ToolMessage
 
                     current_messages = list(messages)
@@ -1109,6 +1119,12 @@ def _run_repl(
                                 if stream:
                                     # Use Rich Live for streaming with markdown
                                     text_parts = []
+
+                                    # For voice: start TTS early on first chunk
+                                    first_tts_started = False
+                                    first_tts_text = ""
+                                    FIRST_CHUNK_SIZE = 150  # Start TTS after this many chars
+
                                     with Live(
                                         _create_streaming_display("", resolved_model),
                                         console=_console,
@@ -1125,7 +1141,71 @@ def _run_repl(
                                                         full_text, resolved_model
                                                     )
                                                 )
+
+                                                # Voice mode: start TTS on first chunk
+                                                if (
+                                                    voice_mode
+                                                    and voice_chat
+                                                    and not first_tts_started
+                                                ):
+                                                    first_tts_text += text
+                                                    # Start after sentence boundary past min size
+                                                    if len(first_tts_text) >= FIRST_CHUNK_SIZE:
+                                                        # Find sentence end
+                                                        for end in [". ", "! ", "? ", ".\n"]:
+                                                            idx = first_tts_text.find(end)
+                                                            if idx > 50:
+                                                                import threading
+
+                                                                chunk = first_tts_text[
+                                                                    : idx + 1
+                                                                ].strip()
+
+                                                                def generate_first_tts(txt):
+                                                                    nonlocal tts_audio, tts_error
+                                                                    try:
+                                                                        tts_audio = (
+                                                                            voice_chat.tts.speak(
+                                                                                txt
+                                                                            )
+                                                                        )
+                                                                    except Exception as e:
+                                                                        tts_error = e
+
+                                                                tts_thread = threading.Thread(
+                                                                    target=generate_first_tts,
+                                                                    args=(chunk,),
+                                                                    daemon=True,
+                                                                )
+                                                                tts_thread.start()
+                                                                tts_spoken_len = (
+                                                                    idx + 1
+                                                                )  # Track spoken length
+                                                                first_tts_started = True
+                                                                break
+
                                     response_text = "".join(text_parts)
+
+                                    # If TTS didn't start during streaming (short response), start now
+                                    if (
+                                        voice_mode
+                                        and voice_chat
+                                        and response_text
+                                        and not first_tts_started
+                                    ):
+                                        import threading
+
+                                        def generate_tts():
+                                            nonlocal tts_audio, tts_error
+                                            try:
+                                                tts_audio = voice_chat.tts.speak(response_text)
+                                            except Exception as e:
+                                                tts_error = e
+
+                                        tts_thread = threading.Thread(
+                                            target=generate_tts, daemon=True
+                                        )
+                                        tts_thread.start()
                                 else:
                                     response = await chat_model.ainvoke(current_messages)
                                     response_text = _extract_content(response)
@@ -1204,8 +1284,46 @@ def _run_repl(
                 # Voice mode: speak the response
                 if voice_mode and voice_chat and response_text:
                     try:
-                        _console.print("[dim]🔊 Speaking...[/dim]")
-                        voice_chat.speak(response_text)
+                        # If TTS was started during streaming, wait for it and play
+                        if tts_thread is not None:
+                            tts_thread.join(timeout=30)
+                            if tts_error:
+                                _console.print(f"[yellow]TTS error:[/yellow] {tts_error}")
+                            elif tts_audio is not None:
+                                _console.print("[dim]🔊 Speaking...[/dim]")
+
+                                # Start generating remainder TTS in background BEFORE playing first chunk
+                                remainder = response_text[tts_spoken_len:].strip()
+                                remainder_audio = None
+                                remainder_thread = None
+
+                                if remainder:
+                                    import threading
+
+                                    def generate_remainder():
+                                        nonlocal remainder_audio
+                                        try:
+                                            remainder_audio = voice_chat.tts.speak(remainder)
+                                        except Exception:
+                                            pass
+
+                                    remainder_thread = threading.Thread(
+                                        target=generate_remainder, daemon=True
+                                    )
+                                    remainder_thread.start()
+
+                                # Play first chunk (remainder generating in parallel)
+                                voice_chat.player.play(tts_audio, blocking=True)
+
+                                # Play remainder (should be ready or nearly ready)
+                                if remainder_thread:
+                                    remainder_thread.join(timeout=30)
+                                    if remainder_audio is not None:
+                                        voice_chat.player.play(remainder_audio, blocking=True)
+                        else:
+                            # Non-streaming path: generate and play
+                            _console.print("[dim]🔊 Speaking...[/dim]")
+                            voice_chat.speak(response_text)
                     except Exception as e:
                         _console.print(f"[yellow]TTS error:[/yellow] {e}")
 
