@@ -32,7 +32,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
-from ai_infra.benchmarks import BenchmarkResult, benchmark
+from ai_infra.benchmarks.harness import BenchmarkResult, benchmark
 
 if TYPE_CHECKING:
     pass
