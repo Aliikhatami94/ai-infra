@@ -38,12 +38,12 @@ _LOGO_LINES = [
     "    ▀   ▀ ▀       ▀ ▀  ▀  ▀    ▀  ▀  ▀   ▀",
 ]
 
-# Gradient colors for the logo (indigo spectrum)
-_LOGO_GRADIENT = ["#a5b4fc", "#818cf8", "#6366f1", "#4f46e5"]
+# Gradient colors for the logo (nfrax blue spectrum)
+_LOGO_GRADIENT = ["#7ba7d4", "#5b8bd4", "#3b82f6", "#1e3a5f"]
 
 # Animation frames for loading dots
 _SPINNER_FRAMES = ["◇", "◈", "◆", "◈"]
-_GRADIENT_COLORS = ["#818cf8", "#6366f1", "#4f46e5", "#6366f1"]
+_GRADIENT_COLORS = ["#5b8bd4", "#3b82f6", "#1e3a5f", "#3b82f6"]
 
 
 def _animate_banner():
@@ -139,7 +139,7 @@ def _show_provider_status() -> bool:
         if provider == default_provider:
             console.print(
                 f"  [green]✓[/green] [bold]{provider}[/bold] [dim]({model})[/dim] "
-                f"[#a78bfa]← default[/#a78bfa]"
+                f"[#3b82f6]← default[/#3b82f6]"
             )
         else:
             console.print(f"  [green]✓[/green] [white]{provider}[/white] [dim]({model})[/dim]")
@@ -157,7 +157,7 @@ def _show_help():
     has_providers = _show_provider_status()
 
     # Quick start section
-    console.print(Text("  Quick Start", style="bold #a78bfa"))
+    console.print(Text("  Quick Start", style="bold #3b82f6"))
     console.print()
 
     if has_providers:
@@ -180,11 +180,12 @@ def _show_help():
     console.print()
 
     # Commands section
-    console.print(Text("  Commands", style="bold #a78bfa"))
+    console.print(Text("  Commands", style="bold #3b82f6"))
     console.print()
 
     commands = [
         ("chat", "Interactive chat with LLMs (supports --mcp for tools)"),
+        ("chat --voice", "Voice chat mode (speak to chat)"),
         ("executor", "Autonomous task execution (roadmaps, coding)"),
         ("mcp", "MCP server debugging and testing"),
         ("providers", "List available AI providers"),
@@ -192,10 +193,11 @@ def _show_help():
         ("image-*", "Image generation (providers, models)"),
         ("tts-*", "Text-to-speech (providers, voices, models)"),
         ("stt-*", "Speech-to-text (providers, models)"),
+        ("voice-*", "Voice chat (status, devices)"),
     ]
 
     for cmd, desc in commands:
-        console.print(f"    [bold #6366f1]{cmd:16}[/bold #6366f1] [dim]{desc}[/dim]")
+        console.print(f"    [bold #1e3a5f]{cmd:16}[/bold #1e3a5f] [dim]{desc}[/dim]")
 
     console.print()
     console.print("    [dim]Run[/dim] [white]ai-infra --help[/white] [dim]for all commands[/dim]")

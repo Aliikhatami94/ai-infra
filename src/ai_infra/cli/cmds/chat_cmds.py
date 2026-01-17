@@ -33,13 +33,49 @@ from __future__ import annotations
 import asyncio
 import json
 import sys
-import threading
-import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import typer
+from rich import box
+from rich.console import Console, Group
+from rich.live import Live
+from rich.markdown import Heading, Markdown
+from rich.panel import Panel
+from rich.spinner import Spinner as RichSpinner
+from rich.text import Text
+
+# Rich console for formatted output
+_console = Console()
+
+# nfrax brand colors (dark blue theme)
+_BRAND_PRIMARY = "#1e3a5f"  # Dark navy
+_BRAND_ACCENT = "#3b82f6"  # Accent blue
+_BRAND_MUTED = "#64748b"  # Slate
+
+
+# Custom Heading class that left-aligns instead of centering
+class LeftAlignedHeading(Heading):
+    """Heading that renders left-aligned instead of centered."""
+
+    def __rich_console__(self, console, options):
+        text = self.text
+        text.justify = "left"  # Override the default "center"
+        if self.tag == "h1":
+            yield Panel(
+                text,
+                box=box.HEAVY,
+                style="markdown.h1.border",
+            )
+        else:
+            if self.tag == "h2":
+                yield Text("")
+            yield text
+
+
+# Patch Markdown to use our left-aligned heading
+Markdown.elements["heading_open"] = LeftAlignedHeading
 
 # Use Typer group for subcommands: ai-infra chat, ai-infra chat sessions, etc.
 app = typer.Typer(
@@ -52,46 +88,27 @@ app = typer.Typer(
 # Thinking Spinner
 # =============================================================================
 
-_SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
-
 
 class ThinkingSpinner:
-    """Animated spinner to show while waiting for LLM response."""
+    """Animated spinner to show while waiting for LLM response using Rich."""
 
     def __init__(self, message: str = "thinking"):
-        self._running = False
-        self._thread: threading.Thread | None = None
         self._message = message
+        self._live: Live | None = None
 
     def start(self):
         """Start the spinner animation."""
-        if self._running:
+        if self._live is not None:
             return
-        self._running = True
-        self._thread = threading.Thread(target=self._animate, daemon=True)
-        self._thread.start()
+        spinner = RichSpinner("dots", text=f"[dim]{self._message}[/dim]", style="dim")
+        self._live = Live(spinner, console=_console, refresh_per_second=10, transient=True)
+        self._live.start()
 
     def stop(self):
         """Stop the spinner and clear the line."""
-        self._running = False
-        if self._thread:
-            self._thread.join(timeout=0.5)
-            self._thread = None
-        # Clear the spinner text
-        sys.stdout.write("\r" + " " * 30 + "\r")
-        sys.stdout.flush()
-
-    def _animate(self):
-        """Run the spinner animation."""
-        frame_idx = 0
-
-        while self._running:
-            spinner = _SPINNER_FRAMES[frame_idx % len(_SPINNER_FRAMES)]
-            sys.stdout.write(f"\r\033[90m{spinner} {self._message}\033[0m")
-            sys.stdout.flush()
-
-            frame_idx += 1
-            time.sleep(0.08)
+        if self._live is not None:
+            self._live.stop()
+            self._live = None
 
     def __enter__(self):
         self.start()
@@ -99,6 +116,89 @@ class ThinkingSpinner:
 
     def __exit__(self, *args):
         self.stop()
+
+
+# =============================================================================
+# Response Rendering
+# =============================================================================
+
+
+def _render_response(content: str, model: str | None = None) -> None:
+    """Render AI response with markdown formatting and syntax highlighting.
+
+    Args:
+        content: The response text (may contain markdown)
+        model: Optional model name to show at the end
+    """
+    # Always render with Rich markdown for consistent formatting
+    # (handles code blocks, bold, headers, lists, etc.)
+    _console.print()
+    md = Markdown(content, justify="left")
+    _console.print(md)
+
+    # Show model indicator at end with spacing
+    if model:
+        _console.print()
+        _console.print(f"  [dim]↳ {model}[/dim]")
+
+
+def _create_streaming_display(content: str, model: str | None = None):
+    """Create a Rich renderable for streaming display.
+
+    Returns a Group containing the markdown and optional model indicator.
+    """
+    md = Markdown(content, justify="left")
+    if model and content:
+        # Add empty line before model indicator for spacing
+        return Group(md, Text(""), Text(f"  ↳ {model}", style="dim"))
+    return md
+
+
+async def _stream_with_markdown(content: str, model: str | None = None) -> None:
+    """Stream content with live markdown rendering (simulated for pre-fetched content).
+
+    Used for MCP responses where content is already fetched but we want streaming UX.
+    Streams word-by-word with live markdown re-rendering.
+
+    Args:
+        content: The complete content to stream
+        model: Optional model name to show at end
+    """
+    import re
+
+    # Split by words while preserving whitespace
+    tokens = re.findall(r"\S+|\s+", content)
+
+    accumulated = ""
+    with Live(
+        _create_streaming_display("", model),
+        console=_console,
+        refresh_per_second=15,
+        transient=False,
+    ) as live:
+        for token in tokens:
+            accumulated += token
+            live.update(_create_streaming_display(accumulated, model))
+            # Small delay for words only (not whitespace)
+            if token.strip():
+                await asyncio.sleep(0.015)
+
+
+def _render_tool_call(tool_name: str, result: str) -> None:
+    """Render a tool call result with nice formatting.
+
+    Args:
+        tool_name: Name of the tool that was called
+        result: The result from the tool
+    """
+    # Truncate long results for preview
+    preview = result[:100] + "..." if len(result) > 100 else result
+    # Remove newlines for single-line preview
+    preview = preview.replace("\\n", " ").replace("\n", " ")
+
+    _console.print(
+        f"  [green]✓[/green] [{_BRAND_ACCENT}]{tool_name}[/{_BRAND_ACCENT}] [dim]→ {preview}[/dim]"
+    )
 
 
 # =============================================================================
@@ -461,9 +561,10 @@ def _print_welcome(
 ):
     """Print welcome message."""
     typer.echo()
-    typer.secho("╭─────────────────────────────────────────╮", fg=typer.colors.CYAN)
-    typer.secho("│         ai-infra Interactive Chat       │", fg=typer.colors.CYAN)
-    typer.secho("╰─────────────────────────────────────────╯", fg=typer.colors.CYAN)
+    # Use dark blue brand color for box
+    _console.print("╭─────────────────────────────────────────╮", style=_BRAND_ACCENT)
+    _console.print("│         ai-infra Interactive Chat       │", style=_BRAND_ACCENT)
+    _console.print("╰─────────────────────────────────────────╯", style=_BRAND_ACCENT)
     typer.echo()
     typer.echo(f"  Provider: {provider}")
     typer.echo(f"  Model:    {model}")
@@ -471,19 +572,19 @@ def _print_welcome(
     if message_count > 0:
         typer.secho(f"  Memory:   {message_count} messages restored", fg=typer.colors.GREEN)
     if tool_count > 0:
-        typer.secho(f"  Tools:    {tool_count} MCP tools available", fg=typer.colors.MAGENTA)
+        _console.print(f"  Tools:    {tool_count} MCP tools available", style=_BRAND_ACCENT)
     typer.echo()
-    typer.secho("  Commands:", fg=typer.colors.BRIGHT_BLACK)
-    typer.secho("    /help     Show all commands", fg=typer.colors.BRIGHT_BLACK)
-    typer.secho("    /sessions List saved sessions", fg=typer.colors.BRIGHT_BLACK)
+    _console.print("  Commands:", style="dim")
+    _console.print("    /help     Show all commands", style="dim")
+    _console.print("    /sessions List saved sessions", style="dim")
     if tool_count > 0:
-        typer.secho("    /tools    List available MCP tools", fg=typer.colors.BRIGHT_BLACK)
-    typer.secho("    /clear    Clear conversation", fg=typer.colors.BRIGHT_BLACK)
-    typer.secho("    /quit     Save and exit", fg=typer.colors.BRIGHT_BLACK)
+        _console.print("    /tools    List available MCP tools", style="dim")
+    _console.print("    /clear    Clear conversation", style="dim")
+    _console.print("    /quit     Save and exit", style="dim")
     typer.echo()
 
 
-def _print_help():
+def _print_help(voice_enabled: bool = False):
     """Print help message."""
     typer.echo()
     typer.secho("Conversation Commands:", bold=True)
@@ -505,12 +606,19 @@ def _print_help():
     typer.echo("  /provider <name>   Change provider")
     typer.echo("  /temp <value>      Set temperature (0.0-2.0)")
     typer.echo()
+    if voice_enabled:
+        typer.secho("Voice Commands:", bold=True)
+        typer.echo("  /text              Switch to text input mode")
+        typer.echo("  /voice             Switch to voice input mode")
+        typer.echo("  (In voice mode: Enter=record, type text=send as text, Ctrl+C=cancel)")
+        typer.echo()
     typer.secho("MCP Tools:", bold=True)
     typer.echo("  /tools             List available MCP tools")
     typer.echo("  (Tools are called automatically when the LLM needs them)")
     typer.echo()
     typer.secho("Exit Commands:", bold=True)
     typer.echo("  /quit, /exit       Save session and exit")
+    typer.echo("  quit, exit, q      Quick exit (no slash needed)")
     typer.echo()
     typer.secho("Tips:", bold=True)
     typer.echo("  • Sessions auto-save on exit and auto-resume on start")
@@ -530,6 +638,7 @@ def _run_repl(
     session_id: str | None = None,
     no_persist: bool = False,
     tools: list[Any] | None = None,
+    voice_mode: bool = False,
 ):
     """Run interactive REPL with session persistence and optional MCP tools."""
 
@@ -567,6 +676,38 @@ def _run_repl(
 
     _print_welcome(display_provider, display_model, current_session_id, restored_count, tool_count)
 
+    # Voice mode initialization
+    voice_chat = None
+    if voice_mode:
+        try:
+            from ai_infra.llm.multimodal.voice import VoiceChat
+
+            available, missing = VoiceChat.is_available()
+            if not available:
+                _console.print()
+                _console.print("  [red]✗[/red] [bold]Voice chat not available[/bold]")
+                for item in missing:
+                    _console.print(f"    [dim]• {item}[/dim]")
+                _console.print()
+                _console.print("  [dim]Install voice extras:[/dim] pip install ai-infra[voice]")
+                _console.print()
+                raise typer.Exit(1)
+
+            voice_chat = VoiceChat()
+            _console.print()
+            _console.print("  [green]🎤[/green] [bold]Voice mode enabled[/bold]")
+            _console.print("  [dim]• Enter        → Start recording[/dim]")
+            _console.print("  [dim]• Type text    → Send as text message[/dim]")
+            _console.print("  [dim]• /text        → Switch to text-only mode[/dim]")
+            _console.print("  [dim]• /quit or q   → Exit[/dim]")
+            _console.print()
+        except ImportError:
+            _console.print()
+            _console.print("  [red]✗[/red] [bold]Voice dependencies not installed[/bold]")
+            _console.print("  [dim]Install with:[/dim] pip install ai-infra[voice]")
+            _console.print()
+            raise typer.Exit(1)
+
     def _save_session():
         """Save current session to storage."""
         if no_persist:
@@ -582,21 +723,68 @@ def _run_repl(
 
     while True:
         try:
-            # Prompt
-            typer.secho("You: ", fg=typer.colors.GREEN, nl=False)
-            user_input = input()
+            # Voice mode input
+            if voice_mode and voice_chat:
+                _console.print()
+                _console.print(
+                    "[green]🎤 You:[/green] [dim]Enter=record, or type /quit, /text[/dim] ", end=""
+                )
+                pre_input = input().strip()
 
-            # Handle empty input
-            if not user_input.strip():
-                continue
+                # Check for commands before recording
+                if pre_input.startswith("/"):
+                    user_input = pre_input
+                    # Fall through to command handling below
+                elif pre_input.lower() in ("quit", "exit", "q"):
+                    # Quick quit without slash
+                    _save_session()
+                    typer.secho("[OK] Session saved", fg=typer.colors.GREEN)
+                    typer.echo("\nGoodbye! ")
+                    break
+                elif pre_input:
+                    # User typed something - treat as text input
+                    user_input = pre_input
+                    _console.print(f"[green]You:[/green] {user_input}")
+                else:
+                    # Empty = start recording
+                    _console.print(
+                        "[red]● Recording...[/red] [dim]Press Enter to stop (Ctrl+C to cancel)[/dim]"
+                    )
 
-            # Handle multi-line input
-            while user_input.endswith("\\"):
-                user_input = user_input[:-1] + "\n"
-                continuation = input("... ")
-                user_input += continuation
+                    try:
+                        audio = voice_chat.mic.record_until_enter()
+                        _console.print("[dim]Transcribing...[/dim]")
+                        result = voice_chat.stt.transcribe(audio)
+                        user_input = result.text.strip()
 
-            user_input = user_input.strip()
+                        if not user_input:
+                            _console.print("[yellow]No speech detected. Try again.[/yellow]")
+                            continue
+
+                        # Show what was transcribed
+                        _console.print(f"[green]You:[/green] {user_input}")
+                    except KeyboardInterrupt:
+                        _console.print("\n[yellow]Recording cancelled[/yellow]")
+                        continue
+                    except Exception as e:
+                        _console.print(f"[red]Recording/transcription error:[/red] {e}")
+                        continue
+            else:
+                # Text mode input
+                typer.secho("You: ", fg=typer.colors.GREEN, nl=False)
+                user_input = input()
+
+                # Handle empty input
+                if not user_input.strip():
+                    continue
+
+                # Handle multi-line input
+                while user_input.endswith("\\"):
+                    user_input = user_input[:-1] + "\n"
+                    continuation = input("... ")
+                    user_input += continuation
+
+                user_input = user_input.strip()
 
             # Handle commands
             if user_input.startswith("/"):
@@ -610,8 +798,28 @@ def _run_repl(
                     typer.echo("\nGoodbye! ")
                     break
 
+                elif cmd == "text":
+                    # Switch to text mode
+                    if voice_mode:
+                        voice_mode = False
+                        _console.print(
+                            "[green]Switched to text mode[/green] [dim](use /voice to switch back)[/dim]"
+                        )
+                    continue
+
+                elif cmd == "voice":
+                    # Switch to voice mode
+                    if voice_chat and not voice_mode:
+                        voice_mode = True
+                        _console.print("[green]🎤 Switched to voice mode[/green]")
+                    elif not voice_chat:
+                        _console.print(
+                            "[yellow]Voice not available. Start with --voice flag.[/yellow]"
+                        )
+                    continue
+
                 elif cmd == "help":
-                    _print_help()
+                    _print_help(voice_enabled=voice_chat is not None)
                     continue
 
                 elif cmd == "clear":
@@ -880,36 +1088,49 @@ def _run_repl(
 
                                 if not tool_calls:
                                     # No tool calls - this is the final response
-                                    # Show "AI:" label before the response
-                                    typer.secho("AI: ", fg=typer.colors.BLUE, nl=False)
                                     content = _extract_content(response)
-                                    if stream:
-                                        for char in content:
-                                            print(char, end="", flush=True)
-                                            await asyncio.sleep(0.002)
+
+                                    if stream and content:
+                                        # Stream with live markdown rendering
+                                        _console.print(f"[{_BRAND_ACCENT}]AI:[/{_BRAND_ACCENT}]")
+                                        await _stream_with_markdown(content, resolved_model)
                                     else:
-                                        print(content, end="", flush=True)
+                                        _console.print(
+                                            f"[{_BRAND_ACCENT}]AI:[/{_BRAND_ACCENT}] ", end=""
+                                        )
+                                        _render_response(content, resolved_model)
                                     response_text = content
                                     return
                             else:
-                                # No tools - can use true streaming
+                                # No tools - stream with live markdown rendering
                                 spinner.stop()
-                                typer.secho("AI: ", fg=typer.colors.BLUE, nl=False)
+                                _console.print(f"[{_BRAND_ACCENT}]AI:[/{_BRAND_ACCENT}]")
 
                                 if stream:
+                                    # Use Rich Live for streaming with markdown
                                     text_parts = []
-                                    async for event in chat_model.astream(current_messages):
-                                        text = getattr(event, "content", None)
-                                        if text:
-                                            print(text, end="", flush=True)
-                                            text_parts.append(text)
+                                    with Live(
+                                        _create_streaming_display("", resolved_model),
+                                        console=_console,
+                                        refresh_per_second=15,
+                                        transient=False,
+                                    ) as live:
+                                        async for event in chat_model.astream(current_messages):
+                                            text = getattr(event, "content", None)
+                                            if text:
+                                                text_parts.append(text)
+                                                full_text = "".join(text_parts)
+                                                live.update(
+                                                    _create_streaming_display(
+                                                        full_text, resolved_model
+                                                    )
+                                                )
                                     response_text = "".join(text_parts)
-                                    return
                                 else:
                                     response = await chat_model.ainvoke(current_messages)
                                     response_text = _extract_content(response)
-                                    print(response_text, end="", flush=True)
-                                    return
+                                    _render_response(response_text, resolved_model)
+                                return
                         finally:
                             # Ensure spinner is stopped even on error
                             spinner.stop()
@@ -932,12 +1153,12 @@ def _run_repl(
                             if not tool_name:
                                 continue
 
-                            # Show tool call with running indicator
+                            # Show tool call with running indicator (brand color)
                             print()
-                            sys.stdout.write(
-                                f"\033[35m  🔧 {tool_name}\033[0m \033[90mrunning...\033[0m"
+                            _console.print(
+                                f"  [dim]⧗[/dim] [{_BRAND_ACCENT}]{tool_name}[/{_BRAND_ACCENT}] [dim]running...[/dim]",
+                                end="",
                             )
-                            sys.stdout.flush()
 
                             # Find and execute tool
                             tool_result = None
@@ -965,15 +1186,9 @@ def _run_repl(
                                 else json.dumps(tool_result, default=str)
                             )
 
-                            # Clear "running..." and show result
-                            sys.stdout.write("\r" + " " * 60 + "\r")
-
-                            # Show result preview
-                            preview = (
-                                result_str[:80] + "..." if len(result_str) > 80 else result_str
-                            )
-                            typer.secho(f"  ✓ {tool_name}", fg=typer.colors.GREEN, nl=False)
-                            typer.secho(f" → {preview}", fg=typer.colors.BRIGHT_BLACK)
+                            # Clear "running..." and show result with new helper
+                            sys.stdout.write("\r\033[K")  # Clear line
+                            _render_tool_call(tool_name, result_str)
 
                             # Add tool result to messages
                             current_messages.append(
@@ -985,6 +1200,14 @@ def _run_repl(
 
                 asyncio.run(run_with_tools())
                 typer.echo()  # Newline after response
+
+                # Voice mode: speak the response
+                if voice_mode and voice_chat and response_text:
+                    try:
+                        _console.print("[dim]🔊 Speaking...[/dim]")
+                        voice_chat.speak(response_text)
+                    except Exception as e:
+                        _console.print(f"[yellow]TTS error:[/yellow] {e}")
 
                 # Add assistant response to conversation
                 conversation.append({"role": "assistant", "content": response_text})
@@ -999,7 +1222,23 @@ def _run_repl(
                 continue
 
             except Exception as e:
-                typer.secho(f"\n[X] Error: {e}", fg=typer.colors.RED)
+                error_str = str(e)
+                # Check for common API key errors and provide helpful messages
+                if "api_key" in error_str.lower() and "valid string" in error_str.lower():
+                    _console.print()
+                    _console.print("  [red]✗[/red] [bold]API key not configured[/bold]")
+                    _console.print()
+                    _console.print("  [dim]Set your API key in the terminal:[/dim]")
+                    _console.print("    [white]export OPENAI_API_KEY=sk-...[/white]")
+                    _console.print("    [white]export ANTHROPIC_API_KEY=sk-ant-...[/white]")
+                    _console.print()
+                elif "authentication" in error_str.lower() or "invalid" in error_str.lower():
+                    _console.print()
+                    _console.print("  [red]✗[/red] [bold]Authentication failed[/bold]")
+                    _console.print(f"  [dim]{error_str}[/dim]")
+                    _console.print()
+                else:
+                    _console.print(f"\n  [red]✗[/red] Error: {e}")
                 conversation.pop()
                 continue
 
@@ -1051,7 +1290,7 @@ def chat_cmd(
     no_stream: bool = typer.Option(
         False,
         "--no-stream",
-        help="Disable streaming output",
+        help="Disable streaming (render complete response at once)",
     ),
     output_json: bool = typer.Option(
         False,
@@ -1079,6 +1318,12 @@ def chat_cmd(
         None,
         "--mcp",
         help="MCP server URL or JSON config file (can be repeated)",
+    ),
+    voice: bool = typer.Option(
+        False,
+        "--voice",
+        "-v",
+        help="Enable voice chat mode (speak to chat, hear responses)",
     ),
 ):
     """
@@ -1229,6 +1474,7 @@ def chat_cmd(
             session_id=session_id,
             no_persist=no_persist,
             tools=tools,
+            voice_mode=voice,
         )
     finally:
         # Cleanup MCP connections

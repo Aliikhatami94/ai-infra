@@ -267,6 +267,137 @@ def audio_models_cmd(
             typer.echo(f"    • {model}")
 
 
+# =============================================================================
+# Voice Commands (Microphone / Playback)
+# =============================================================================
+
+
+@app.command("voice-status")
+def voice_status_cmd(
+    output_json: bool = typer.Option(
+        False,
+        "--json",
+        "-j",
+        help="Output as JSON",
+    ),
+):
+    """Check voice chat availability (microphone, speakers, providers)."""
+    from ai_infra.llm.multimodal.voice import AudioPlayer, Microphone, VoiceChat
+
+    # Check components
+    mic_available = Microphone.is_available()
+    player_available = AudioPlayer.is_available()
+    voice_available, missing = VoiceChat.is_available()
+
+    # Get devices
+    input_devices = Microphone.list_devices() if mic_available else []
+    output_devices = AudioPlayer.list_devices() if player_available else []
+
+    if output_json:
+        typer.echo(
+            json.dumps(
+                {
+                    "voice_chat_available": voice_available,
+                    "microphone_available": mic_available,
+                    "playback_available": player_available,
+                    "missing_components": missing,
+                    "input_devices": input_devices,
+                    "output_devices": output_devices,
+                },
+                indent=2,
+            )
+        )
+    else:
+        typer.echo("\nVoice Chat Status:")
+
+        # Overall status
+        status = "[OK]" if voice_available else "[X]"
+        typer.echo(f"  {status} Voice Chat Ready")
+
+        # Components
+        typer.echo("\n  Components:")
+        mic_status = "[OK]" if mic_available else "[X]"
+        player_status = "[OK]" if player_available else "[X]"
+        typer.echo(f"    {mic_status} Microphone Recording")
+        typer.echo(f"    {player_status} Audio Playback")
+
+        # Check STT/TTS
+        try:
+            from ai_infra.llm.multimodal.discovery import (
+                get_default_stt_provider,
+                get_default_tts_provider,
+            )
+
+            stt = get_default_stt_provider()
+            tts = get_default_tts_provider()
+            stt_status = "[OK]" if stt else "[X]"
+            tts_status = "[OK]" if tts else "[X]"
+            typer.echo(f"    {stt_status} STT Provider ({stt or 'not configured'})")
+            typer.echo(f"    {tts_status} TTS Provider ({tts or 'not configured'})")
+        except Exception:
+            typer.echo("    [X] STT/TTS Providers")
+
+        if missing:
+            typer.echo("\n  Missing:")
+            for item in missing:
+                typer.echo(f"    • {item}")
+
+        # Devices
+        if input_devices:
+            typer.echo("\n  Input Devices:")
+            for d in input_devices[:3]:  # Show top 3
+                typer.echo(f"    • {d['name']}")
+
+        if output_devices:
+            typer.echo("\n  Output Devices:")
+            for d in output_devices[:3]:
+                typer.echo(f"    • {d['name']}")
+
+        if not mic_available:
+            typer.echo("\n  Tip: Install voice extras with: pip install ai-infra[voice]")
+
+
+@app.command("voice-devices")
+def voice_devices_cmd(
+    output_json: bool = typer.Option(
+        False,
+        "--json",
+        "-j",
+        help="Output as JSON",
+    ),
+):
+    """List available microphone and speaker devices."""
+    from ai_infra.llm.multimodal.voice import AudioPlayer, Microphone
+
+    input_devices = Microphone.list_devices()
+    output_devices = AudioPlayer.list_devices()
+
+    if output_json:
+        typer.echo(
+            json.dumps(
+                {
+                    "input_devices": input_devices,
+                    "output_devices": output_devices,
+                },
+                indent=2,
+            )
+        )
+    else:
+        typer.echo("\nInput Devices (Microphones):")
+        if input_devices:
+            for d in input_devices:
+                typer.echo(f"  [{d['index']}] {d['name']} ({d['channels']}ch)")
+        else:
+            typer.echo("  No input devices found (install sounddevice)")
+
+        typer.echo("\nOutput Devices (Speakers):")
+        if output_devices:
+            for d in output_devices:
+                typer.echo(f"  [{d['index']}] {d['name']} ({d['channels']}ch)")
+        else:
+            typer.echo("  No output devices found")
+
+
 def register(parent: typer.Typer):
     """Register multimodal commands with the parent CLI app."""
     # Register as top-level commands only (no sub-app to avoid duplication)
@@ -276,3 +407,5 @@ def register(parent: typer.Typer):
     parent.command("stt-providers", rich_help_panel="Speech (TTS/STT)")(stt_providers_cmd)
     parent.command("stt-models", rich_help_panel="Speech (TTS/STT)")(stt_models_cmd)
     parent.command("audio-models", rich_help_panel="Speech (TTS/STT)")(audio_models_cmd)
+    parent.command("voice-status", rich_help_panel="Voice Chat")(voice_status_cmd)
+    parent.command("voice-devices", rich_help_panel="Voice Chat")(voice_devices_cmd)
