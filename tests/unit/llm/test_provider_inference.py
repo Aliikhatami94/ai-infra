@@ -203,9 +203,13 @@ class TestProviderModelFormat:
         llm = LLM()
         # Leading slash with empty provider should be handled gracefully
         # This is an edge case - we don't parse it as provider/model
-        provider, model = llm._resolve_provider_and_model(None, "/gpt-4o")
+        # Mock default provider since CI has no API keys configured
+        with patch("ai_infra.llm.base.get_default_provider", return_value="openai"):
+            provider, model = llm._resolve_provider_and_model(None, "/gpt-4o")
         # Empty provider part fails the check, so it's treated as a regular model name
-        assert model == "/gpt-4o" or model == "gpt-4o"
+        # Falls back to default provider since "/gpt-4o" doesn't match inference patterns
+        assert provider == "openai"
+        assert model == "/gpt-4o"
 
     def test_trailing_slash_not_parsed(self) -> None:
         """Test: 'model/' format is not parsed as provider/model."""
