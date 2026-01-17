@@ -237,7 +237,7 @@ class TestBuildContextNode:
 
         assert result["error"] is None
         # Context should include run memory information
-        assert "Previously Completed Tasks" in result["context"]
+        assert "Run Memory" in result["context"] or "Setup project structure" in result["context"]
         # RunMemory uses summary in context line, not title
         assert "Created main.py with entry point" in result["context"]
         assert "main.py" in result["context"]

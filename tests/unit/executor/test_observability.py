@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 import pytest
 
 from ai_infra.callbacks import LLMEndEvent, LLMErrorEvent, ToolEndEvent, ToolErrorEvent
-from ai_infra.executor.observability import (
+from ai_infra.executor.tracing import (
     ExecutorCallbacks,
     ExecutorMetrics,
     TaskMetrics,

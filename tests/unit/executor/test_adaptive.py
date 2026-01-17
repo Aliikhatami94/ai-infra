@@ -23,8 +23,8 @@ from ai_infra.executor.adaptive import (
     analyze_failure_for_plan_fix,
 )
 from ai_infra.executor.failure import FailureCategory, FailureRecord, FailureSeverity
-from ai_infra.executor.loop import ExecutionResult, ExecutionStatus
 from ai_infra.executor.roadmap import ParsedTask, Phase, Roadmap, Section
+from ai_infra.executor.types import ExecutionResult, ExecutionStatus
 
 # =============================================================================
 # Fixtures
@@ -633,7 +633,7 @@ class TestAdaptivePlanningIntegration:
 
     def test_executor_config_has_adaptive_mode(self):
         """Test that ExecutorConfig has adaptive_mode field."""
-        from ai_infra.executor.loop import ExecutorConfig
+        from ai_infra.executor.types import ExecutorConfig
 
         config = ExecutorConfig()
         assert hasattr(config, "adaptive_mode")
@@ -641,7 +641,7 @@ class TestAdaptivePlanningIntegration:
 
     def test_executor_config_adaptive_mode_in_dict(self):
         """Test that adaptive_mode is included in to_dict."""
-        from ai_infra.executor.loop import ExecutorConfig
+        from ai_infra.executor.types import ExecutorConfig
 
         config = ExecutorConfig(adaptive_mode="auto_fix")
         data = config.to_dict()

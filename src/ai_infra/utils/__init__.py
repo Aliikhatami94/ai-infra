@@ -22,11 +22,18 @@ import warnings
 from collections.abc import Callable
 from typing import Any, TypeVar
 
-__all__ = [
-    "deprecated",
-    "deprecated_parameter",
-    "DeprecatedWarning",
-]
+from ai_infra.utils.formatters import (
+    COLORS,
+    ANSIColors,
+    JsonFormatter,
+    MinimalFormatter,
+    OutputFormat,
+    PlainFormatter,
+    StreamFormatter,
+    colorize,
+    get_formatter,
+    stream_to_console,
+)
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -159,3 +166,22 @@ def deprecated_parameter(
     message += f" {reason}"
 
     warnings.warn(message, DeprecatedWarning, stacklevel=stacklevel + 1)
+
+
+__all__ = [
+    # Deprecation
+    "deprecated",
+    "deprecated_parameter",
+    "DeprecatedWarning",
+    # Formatters
+    "OutputFormat",
+    "ANSIColors",
+    "COLORS",
+    "colorize",
+    "StreamFormatter",
+    "PlainFormatter",
+    "MinimalFormatter",
+    "JsonFormatter",
+    "get_formatter",
+    "stream_to_console",
+]

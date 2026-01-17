@@ -1,6 +1,7 @@
 """Streaming support for the Executor Graph.
 
 Phase 1.6.2: Provides streaming output for real-time progress display.
+Phase 0.1 Consolidation: Formatters now imported from ai_infra.utils.formatters.
 
 This module enables:
 - Streaming state updates during graph execution
@@ -34,9 +35,16 @@ import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Protocol, TextIO
+from typing import TYPE_CHECKING, Any, Literal, TextIO
 
 from ai_infra.logging import get_logger
+from ai_infra.utils.formatters import (
+    JsonFormatter,
+    MinimalFormatter,
+    OutputFormat,
+    PlainFormatter,
+    StreamFormatter,
+)
 
 if TYPE_CHECKING:
     from ai_infra.executor.state import ExecutorGraphState
@@ -77,6 +85,15 @@ class StreamEventType(str, Enum):
     # HITL events
     INTERRUPT = "interrupt"
     RESUME = "resume"
+
+    # Phase 1.2: LLM token streaming events
+    # These forward events from ai_infra.llm.streaming.StreamEvent
+    LLM_THINKING = "llm_thinking"  # Agent started processing
+    LLM_TOKEN = "llm_token"  # Text token from LLM
+    LLM_TOOL_START = "llm_tool_start"  # Tool execution started
+    LLM_TOOL_END = "llm_tool_end"  # Tool execution completed
+    LLM_DONE = "llm_done"  # LLM response complete
+    LLM_ERROR = "llm_error"  # Error in LLM streaming
 
 
 @dataclass
@@ -122,15 +139,6 @@ class ExecutorStreamEvent:
 # =============================================================================
 
 
-class OutputFormat(str, Enum):
-    """Output format for streaming."""
-
-    PLAIN = "plain"
-    RICH = "rich"
-    JSON = "json"
-    MINIMAL = "minimal"
-
-
 @dataclass
 class StreamingConfig:
     """Configuration for streaming output.
@@ -145,6 +153,14 @@ class StreamingConfig:
         output_stream: Where to write output (default: stdout).
         colors_enabled: Use ANSI colors in output.
         progress_interval_ms: Minimum interval between progress updates.
+        stream_tokens: Forward LLM tokens (Phase 1.2).
+        show_llm_thinking: Show LLM thinking events (Phase 1.2).
+        show_llm_tools: Show LLM tool start/end events (Phase 1.2).
+        token_visibility: Visibility level for token events (Phase 1.2).
+            - "minimal": Only tokens
+            - "standard": + tool names and timing (default)
+            - "detailed": + tool arguments
+            - "debug": + tool result previews
     """
 
     enabled: bool = True
@@ -156,6 +172,11 @@ class StreamingConfig:
     output_stream: TextIO | None = None
     colors_enabled: bool = True
     progress_interval_ms: float = 500.0
+    # Phase 1.2: Token streaming options
+    stream_tokens: bool = False  # Off by default for backward compatibility
+    show_llm_thinking: bool = True
+    show_llm_tools: bool = True
+    token_visibility: Literal["minimal", "standard", "detailed", "debug"] = "standard"
 
     @classmethod
     def verbose(cls) -> StreamingConfig:
@@ -168,6 +189,10 @@ class StreamingConfig:
             show_task_progress=True,
             show_timing=True,
             colors_enabled=True,
+            stream_tokens=True,
+            show_llm_thinking=True,
+            show_llm_tools=True,
+            token_visibility="detailed",
         )
 
     @classmethod
@@ -181,6 +206,7 @@ class StreamingConfig:
             show_task_progress=True,
             show_timing=False,
             colors_enabled=True,
+            stream_tokens=False,
         )
 
     @classmethod
@@ -194,6 +220,8 @@ class StreamingConfig:
             show_task_progress=True,
             show_timing=True,
             colors_enabled=False,
+            stream_tokens=True,
+            token_visibility="detailed",
         )
 
     @classmethod
@@ -201,159 +229,29 @@ class StreamingConfig:
         """Disabled streaming."""
         return cls(enabled=False)
 
-
-# =============================================================================
-# Stream Formatter Protocol
-# =============================================================================
-
-
-class StreamFormatter(Protocol):
-    """Protocol for stream event formatters."""
-
-    def format(self, event: ExecutorStreamEvent) -> str:
-        """Format an event for output."""
-        ...
-
-
-# =============================================================================
-# Formatters
-# =============================================================================
-
-
-class PlainFormatter:
-    """Plain text formatter with optional colors."""
-
-    # ANSI color codes
-    COLORS = {
-        "reset": "\033[0m",
-        "bold": "\033[1m",
-        "dim": "\033[2m",
-        "green": "\033[32m",
-        "yellow": "\033[33m",
-        "red": "\033[31m",
-        "blue": "\033[34m",
-        "cyan": "\033[36m",
-        "magenta": "\033[35m",
-    }
-
-    SYMBOLS = {
-        StreamEventType.RUN_START: ">>>",
-        StreamEventType.RUN_END: "<<<",
-        StreamEventType.NODE_START: "-->",
-        StreamEventType.NODE_END: "<--",
-        StreamEventType.NODE_ERROR: "[!]",
-        StreamEventType.TASK_START: "[*]",
-        StreamEventType.TASK_COMPLETE: "[+]",
-        StreamEventType.TASK_FAILED: "[x]",
-        StreamEventType.TASK_SKIPPED: "[-]",
-        StreamEventType.PROGRESS: "...",
-        StreamEventType.INTERRUPT: "[?]",
-        StreamEventType.RESUME: "[>]",
-        StreamEventType.STATE_UPDATE: "[~]",
-    }
-
-    def __init__(self, colors_enabled: bool = True, show_timing: bool = True):
-        self.colors_enabled = colors_enabled
-        self.show_timing = show_timing
-
-    def _color(self, text: str, color: str) -> str:
-        """Apply color to text if enabled."""
-        if not self.colors_enabled:
-            return text
-        return f"{self.COLORS.get(color, '')}{text}{self.COLORS['reset']}"
-
-    def format(self, event: ExecutorStreamEvent) -> str:
-        """Format an event as plain text."""
-        symbol = self.SYMBOLS.get(event.event_type, "[?]")
-        color = self._get_color_for_event(event)
-
-        parts = [self._color(symbol, color)]
-
-        # Add node name for node events
-        if event.node_name and event.event_type in (
-            StreamEventType.NODE_START,
-            StreamEventType.NODE_END,
-            StreamEventType.NODE_ERROR,
-        ):
-            parts.append(self._color(event.node_name, "bold"))
-
-        # Add message
-        if event.message:
-            parts.append(event.message)
-
-        # Add timing
-        if self.show_timing and event.duration_ms is not None:
-            timing = f"({event.duration_ms:.0f}ms)"
-            parts.append(self._color(timing, "dim"))
-
-        return " ".join(parts)
-
-    def _get_color_for_event(self, event: ExecutorStreamEvent) -> str:
-        """Get color for event type."""
-        color_map = {
-            StreamEventType.RUN_START: "cyan",
-            StreamEventType.RUN_END: "cyan",
-            StreamEventType.NODE_START: "blue",
-            StreamEventType.NODE_END: "blue",
-            StreamEventType.NODE_ERROR: "red",
-            StreamEventType.TASK_START: "yellow",
-            StreamEventType.TASK_COMPLETE: "green",
-            StreamEventType.TASK_FAILED: "red",
-            StreamEventType.TASK_SKIPPED: "yellow",
-            StreamEventType.INTERRUPT: "magenta",
-            StreamEventType.RESUME: "magenta",
-        }
-        return color_map.get(event.event_type, "reset")
-
-
-class MinimalFormatter:
-    """Minimal formatter showing only essential information."""
-
-    def __init__(self, colors_enabled: bool = True):
-        self.colors_enabled = colors_enabled
-
-    def _color(self, text: str, color: str) -> str:
-        """Apply color to text if enabled."""
-        if not self.colors_enabled:
-            return text
-        codes = {
-            "green": "\033[32m",
-            "red": "\033[31m",
-            "yellow": "\033[33m",
-            "reset": "\033[0m",
-        }
-        return f"{codes.get(color, '')}{text}{codes['reset']}"
-
-    def format(self, event: ExecutorStreamEvent) -> str:
-        """Format an event minimally."""
-        if event.event_type == StreamEventType.TASK_START:
-            task = event.task or {}
-            return f"Starting: {task.get('title', 'Task')}"
-        elif event.event_type == StreamEventType.TASK_COMPLETE:
-            task = event.task or {}
-            return self._color(f"Completed: {task.get('title', 'Task')}", "green")
-        elif event.event_type == StreamEventType.TASK_FAILED:
-            task = event.task or {}
-            return self._color(f"Failed: {task.get('title', 'Task')}", "red")
-        elif event.event_type == StreamEventType.RUN_END:
-            data = event.data
-            return f"Done: {data.get('completed', 0)} completed, {data.get('failed', 0)} failed"
-        return ""
-
-
-class JsonFormatter:
-    """JSON formatter for programmatic consumption."""
-
-    def format(self, event: ExecutorStreamEvent) -> str:
-        """Format an event as JSON."""
-        import json
-
-        return json.dumps(event.to_dict())
+    @classmethod
+    def tokens_only(cls) -> StreamingConfig:
+        """Token streaming only - for real-time output display (Phase 1.2)."""
+        return cls(
+            enabled=True,
+            include_state_snapshot=False,
+            output_format=OutputFormat.PLAIN,
+            show_node_transitions=False,
+            show_task_progress=True,
+            show_timing=False,
+            colors_enabled=True,
+            stream_tokens=True,
+            show_llm_thinking=False,
+            show_llm_tools=False,
+            token_visibility="minimal",
+        )
 
 
 # =============================================================================
 # Stream Output Helpers
 # =============================================================================
+# Note: PlainFormatter, MinimalFormatter, JsonFormatter, StreamFormatter, and
+# OutputFormat are imported from ai_infra.utils.formatters for shared use.
 
 
 def get_formatter(config: StreamingConfig) -> StreamFormatter:
@@ -681,6 +579,190 @@ def create_resume_event(
         message=f"Resuming execution with decision: {decision}",
         data={
             "decision": decision,
+        },
+    )
+
+
+# =============================================================================
+# Phase 1.2: LLM Token Event Builders
+# =============================================================================
+
+
+def create_llm_thinking_event(
+    model: str | None = None,
+    node_name: str = "execute_task",
+) -> ExecutorStreamEvent:
+    """Create an LLM thinking event.
+
+    Phase 1.2: Indicates the LLM has started processing.
+
+    Args:
+        model: The model name being used.
+        node_name: The node executing the LLM call.
+
+    Returns:
+        ExecutorStreamEvent for LLM thinking.
+    """
+    return ExecutorStreamEvent(
+        event_type=StreamEventType.LLM_THINKING,
+        node_name=node_name,
+        message="Agent is thinking...",
+        data={
+            "model": model,
+        },
+    )
+
+
+def create_llm_token_event(
+    content: str,
+    node_name: str = "execute_task",
+) -> ExecutorStreamEvent:
+    """Create an LLM token event.
+
+    Phase 1.2: Represents a single text token from the LLM response.
+
+    Args:
+        content: The token content.
+        node_name: The node executing the LLM call.
+
+    Returns:
+        ExecutorStreamEvent for LLM token.
+    """
+    return ExecutorStreamEvent(
+        event_type=StreamEventType.LLM_TOKEN,
+        node_name=node_name,
+        message=content,  # Token content in message for easy access
+        data={
+            "content": content,
+        },
+    )
+
+
+def create_llm_tool_start_event(
+    tool: str,
+    tool_id: str | None = None,
+    arguments: dict[str, Any] | None = None,
+    node_name: str = "execute_task",
+) -> ExecutorStreamEvent:
+    """Create an LLM tool start event.
+
+    Phase 1.2: Indicates a tool is being called by the LLM.
+
+    Args:
+        tool: The tool name.
+        tool_id: The tool call ID for correlation.
+        arguments: Tool arguments (visibility dependent).
+        node_name: The node executing the LLM call.
+
+    Returns:
+        ExecutorStreamEvent for LLM tool start.
+    """
+    data: dict[str, Any] = {"tool": tool}
+    if tool_id:
+        data["tool_id"] = tool_id
+    if arguments:
+        data["arguments"] = arguments
+
+    return ExecutorStreamEvent(
+        event_type=StreamEventType.LLM_TOOL_START,
+        node_name=node_name,
+        message=f"Calling tool: {tool}",
+        data=data,
+    )
+
+
+def create_llm_tool_end_event(
+    tool: str,
+    tool_id: str | None = None,
+    latency_ms: float | None = None,
+    result: Any | None = None,
+    preview: str | None = None,
+    node_name: str = "execute_task",
+) -> ExecutorStreamEvent:
+    """Create an LLM tool end event.
+
+    Phase 1.2: Indicates a tool call has completed.
+
+    Args:
+        tool: The tool name.
+        tool_id: The tool call ID for correlation.
+        latency_ms: Tool execution time in milliseconds.
+        result: Tool result (visibility dependent).
+        preview: Truncated preview of result (debug visibility).
+        node_name: The node executing the LLM call.
+
+    Returns:
+        ExecutorStreamEvent for LLM tool end.
+    """
+    data: dict[str, Any] = {"tool": tool}
+    if tool_id:
+        data["tool_id"] = tool_id
+    if latency_ms is not None:
+        data["latency_ms"] = latency_ms
+    if result is not None:
+        data["result"] = result
+    if preview is not None:
+        data["preview"] = preview
+
+    message = f"Tool {tool} completed"
+    if latency_ms is not None:
+        message += f" ({latency_ms:.1f}ms)"
+
+    return ExecutorStreamEvent(
+        event_type=StreamEventType.LLM_TOOL_END,
+        node_name=node_name,
+        message=message,
+        duration_ms=latency_ms,
+        data=data,
+    )
+
+
+def create_llm_done_event(
+    tools_called: int = 0,
+    node_name: str = "execute_task",
+) -> ExecutorStreamEvent:
+    """Create an LLM done event.
+
+    Phase 1.2: Indicates the LLM response is complete.
+
+    Args:
+        tools_called: Total number of tools called.
+        node_name: The node executing the LLM call.
+
+    Returns:
+        ExecutorStreamEvent for LLM done.
+    """
+    return ExecutorStreamEvent(
+        event_type=StreamEventType.LLM_DONE,
+        node_name=node_name,
+        message="Agent response complete",
+        data={
+            "tools_called": tools_called,
+        },
+    )
+
+
+def create_llm_error_event(
+    error: str,
+    node_name: str = "execute_task",
+) -> ExecutorStreamEvent:
+    """Create an LLM error event.
+
+    Phase 1.2: Indicates an error occurred during LLM streaming.
+
+    Args:
+        error: The error message.
+        node_name: The node executing the LLM call.
+
+    Returns:
+        ExecutorStreamEvent for LLM error.
+    """
+    return ExecutorStreamEvent(
+        event_type=StreamEventType.LLM_ERROR,
+        node_name=node_name,
+        message=f"LLM error: {error}",
+        data={
+            "error": error,
         },
     )
 

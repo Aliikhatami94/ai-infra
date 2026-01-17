@@ -33,8 +33,8 @@ from pathlib import Path
 from typing import Any
 
 from ai_infra.executor.failure import FailureCategory, FailureRecord
-from ai_infra.executor.loop import ExecutionResult
 from ai_infra.executor.roadmap import ParsedTask, Roadmap
+from ai_infra.executor.types import ExecutionResult
 from ai_infra.logging import get_logger
 
 logger = get_logger("executor.adaptive")

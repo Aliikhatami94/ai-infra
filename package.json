@@ -1,8 +1,0 @@
-{
-  "name": "ai-infra",
-  "version": "0.0.0",
-  "private": true,
-  "bin": {
-    "ai-infra-cli-mcp": "mcp-shim/bin/ai-infra-cli-mcp.js"
-  }
-}

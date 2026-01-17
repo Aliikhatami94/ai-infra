@@ -19,22 +19,282 @@ Sessions & Persistence:
     /load <name>                     # Load a saved session
     /new                             # Start new session (clears memory)
     /delete <name>                   # Delete a saved session
+
+MCP Tools (connect to external tools):
+    ai-infra chat --mcp http://localhost:8000/mcp    # Single MCP server
+    ai-infra chat --mcp server1.json --mcp s2.json   # Multiple servers
+
+    Within chat REPL with MCP:
+    /tools                           # List available tools from MCP servers
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
+import re
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import typer
+from rich import box
+from rich.console import Console, Group
+from rich.live import Live
+from rich.markdown import Heading, Markdown
+from rich.panel import Panel
+from rich.spinner import Spinner as RichSpinner
+from rich.text import Text
+
+# Rich console for formatted output
+_console = Console()
+
+# nfrax brand colors (dark blue theme)
+_BRAND_PRIMARY = "#1e3a5f"  # Dark navy
+_BRAND_ACCENT = "#3b82f6"  # Accent blue
+_BRAND_MUTED = "#64748b"  # Slate
+
+
+# Custom Heading class that left-aligns instead of centering
+class LeftAlignedHeading(Heading):
+    """Heading that renders left-aligned instead of centered."""
+
+    def __rich_console__(self, console, options):
+        text = self.text
+        text.justify = "left"  # Override the default "center"
+        if self.tag == "h1":
+            yield Panel(
+                text,
+                box=box.HEAVY,
+                style="markdown.h1.border",
+            )
+        else:
+            if self.tag == "h2":
+                yield Text("")
+            yield text
+
+
+# Patch Markdown to use our left-aligned heading
+Markdown.elements["heading_open"] = LeftAlignedHeading
 
 # Use Typer group for subcommands: ai-infra chat, ai-infra chat sessions, etc.
 app = typer.Typer(
     help="Interactive chat with LLMs",
     invoke_without_command=True,  # Allow `ai-infra chat` to run the default command
 )
+
+
+# =============================================================================
+# Thinking Spinner
+# =============================================================================
+
+
+class ThinkingSpinner:
+    """Animated spinner to show while waiting for LLM response using Rich."""
+
+    def __init__(self, message: str = "thinking"):
+        self._message = message
+        self._live: Live | None = None
+
+    def start(self):
+        """Start the spinner animation."""
+        if self._live is not None:
+            return
+        spinner = RichSpinner("dots", text=f"[dim]{self._message}[/dim]", style="dim")
+        self._live = Live(spinner, console=_console, refresh_per_second=10, transient=True)
+        self._live.start()
+
+    def stop(self):
+        """Stop the spinner and clear the line."""
+        if self._live is not None:
+            self._live.stop()
+            self._live = None
+
+    def __enter__(self):
+        self.start()
+        return self
+
+    def __exit__(self, *args):
+        self.stop()
+
+
+# =============================================================================
+# Response Rendering
+# =============================================================================
+
+
+def _render_response(content: str, model: str | None = None) -> None:
+    """Render AI response with markdown formatting and syntax highlighting.
+
+    Args:
+        content: The response text (may contain markdown)
+        model: Optional model name to show at the end
+    """
+    # Always render with Rich markdown for consistent formatting
+    # (handles code blocks, bold, headers, lists, etc.)
+    _console.print()
+    md = Markdown(content, justify="left")
+    _console.print(md)
+
+    # Show model indicator at end with spacing
+    if model:
+        _console.print()
+        _console.print(f"  [dim]↳ {model}[/dim]")
+
+
+def _create_streaming_display(content: str, model: str | None = None):
+    """Create a Rich renderable for streaming display.
+
+    Returns a Group containing the markdown and optional model indicator.
+    """
+    md = Markdown(content, justify="left")
+    if model and content:
+        # Add empty line before model indicator for spacing
+        return Group(md, Text(""), Text(f"  ↳ {model}", style="dim"))
+    return md
+
+
+async def _stream_with_markdown(content: str, model: str | None = None) -> None:
+    """Stream content with live markdown rendering (simulated for pre-fetched content).
+
+    Used for MCP responses where content is already fetched but we want streaming UX.
+    Streams word-by-word with live markdown re-rendering.
+
+    Args:
+        content: The complete content to stream
+        model: Optional model name to show at end
+    """
+
+    # Split by words while preserving whitespace
+    tokens = re.findall(r"\S+|\s+", content)
+
+    accumulated = ""
+    with Live(
+        _create_streaming_display("", model),
+        console=_console,
+        refresh_per_second=15,
+        transient=False,
+    ) as live:
+        for token in tokens:
+            accumulated += token
+            live.update(_create_streaming_display(accumulated, model))
+            # Small delay for words only (not whitespace)
+            if token.strip():
+                await asyncio.sleep(0.015)
+
+
+def _render_tool_call(tool_name: str, result: str) -> None:
+    """Render a tool call result with nice formatting.
+
+    Args:
+        tool_name: Name of the tool that was called
+        result: The result from the tool
+    """
+    # Truncate long results for preview
+    preview = result[:100] + "..." if len(result) > 100 else result
+    # Remove newlines for single-line preview
+    preview = preview.replace("\\n", " ").replace("\n", " ")
+
+    _console.print(
+        f"  [green]✓[/green] [{_BRAND_ACCENT}]{tool_name}[/{_BRAND_ACCENT}] [dim]→ {preview}[/dim]"
+    )
+
+
+# =============================================================================
+# MCP Integration for Chat
+# =============================================================================
+
+
+class ChatMCPManager:
+    """Manages MCP connections for chat sessions.
+
+    Handles:
+    - Discovery of MCP servers
+    - Tool listing
+    - Tool execution
+    - Cleanup on exit
+    """
+
+    def __init__(self):
+        self._client: Any = None
+        self._tools: list[Any] = []
+        self._discovered = False
+
+    async def connect(self, mcp_configs: list[str]) -> bool:
+        """Connect to MCP servers.
+
+        Args:
+            mcp_configs: List of MCP server URLs or JSON config file paths
+
+        Returns:
+            True if at least one server connected successfully
+        """
+        from ai_infra.mcp import MCPClient, McpServerConfig
+
+        configs: list[McpServerConfig] = []
+
+        for cfg in mcp_configs:
+            if cfg.endswith(".json"):
+                # Load from JSON file
+                try:
+                    path = Path(cfg).expanduser()
+                    with open(path) as f:
+                        data = json.load(f)
+                        if isinstance(data, list):
+                            for item in data:
+                                configs.append(McpServerConfig.model_validate(item))
+                        else:
+                            configs.append(McpServerConfig.model_validate(data))
+                except Exception as e:
+                    typer.secho(f"[!] Failed to load MCP config {cfg}: {e}", fg=typer.colors.YELLOW)
+            elif cfg.startswith("http://") or cfg.startswith("https://"):
+                # HTTP URL
+                configs.append(McpServerConfig(transport="streamable_http", url=cfg))
+            else:
+                typer.secho(
+                    f"[!] Unknown MCP config format: {cfg} (expected URL or .json file)",
+                    fg=typer.colors.YELLOW,
+                )
+
+        if not configs:
+            return False
+
+        try:
+            self._client = MCPClient(configs, discover_timeout=30.0, tool_timeout=60.0)
+            await self._client.discover()
+            self._tools = await self._client.list_tools()
+            self._discovered = True
+            return True
+        except Exception as e:
+            typer.secho(f"[!] MCP discovery failed: {e}", fg=typer.colors.YELLOW)
+            return False
+
+    def get_tools(self) -> list[Any]:
+        """Get discovered MCP tools."""
+        return self._tools
+
+    def get_tool_names(self) -> list[str]:
+        """Get names of discovered tools."""
+        return [getattr(t, "name", str(t)) for t in self._tools]
+
+    async def close(self):
+        """Close MCP connections."""
+        if self._client:
+            try:
+                await self._client.close()
+            except Exception:
+                pass
+            self._client = None
+
+
+# Global MCP manager for the chat session
+_mcp_manager: ChatMCPManager | None = None
+
+
+def get_mcp_manager() -> ChatMCPManager | None:
+    """Get the global MCP manager if initialized."""
+    return _mcp_manager
 
 
 # =============================================================================
@@ -292,28 +552,39 @@ def _format_time_ago(iso_str: str | None) -> str:
         return "unknown"
 
 
-def _print_welcome(provider: str, model: str, session_id: str, message_count: int = 0):
+def _print_welcome(
+    provider: str,
+    model: str,
+    session_id: str,
+    message_count: int = 0,
+    tool_count: int = 0,
+):
     """Print welcome message."""
     typer.echo()
-    typer.secho("╭─────────────────────────────────────────╮", fg=typer.colors.CYAN)
-    typer.secho("│         ai-infra Interactive Chat       │", fg=typer.colors.CYAN)
-    typer.secho("╰─────────────────────────────────────────╯", fg=typer.colors.CYAN)
+    # Use dark blue brand color for box
+    _console.print("╭─────────────────────────────────────────╮", style=_BRAND_ACCENT)
+    _console.print("│         ai-infra Interactive Chat       │", style=_BRAND_ACCENT)
+    _console.print("╰─────────────────────────────────────────╯", style=_BRAND_ACCENT)
     typer.echo()
     typer.echo(f"  Provider: {provider}")
     typer.echo(f"  Model:    {model}")
     typer.echo(f"  Session:  {session_id}")
     if message_count > 0:
         typer.secho(f"  Memory:   {message_count} messages restored", fg=typer.colors.GREEN)
+    if tool_count > 0:
+        _console.print(f"  Tools:    {tool_count} MCP tools available", style=_BRAND_ACCENT)
     typer.echo()
-    typer.secho("  Commands:", fg=typer.colors.BRIGHT_BLACK)
-    typer.secho("    /help     Show all commands", fg=typer.colors.BRIGHT_BLACK)
-    typer.secho("    /sessions List saved sessions", fg=typer.colors.BRIGHT_BLACK)
-    typer.secho("    /clear    Clear conversation", fg=typer.colors.BRIGHT_BLACK)
-    typer.secho("    /quit     Save and exit", fg=typer.colors.BRIGHT_BLACK)
+    _console.print("  Commands:", style="dim")
+    _console.print("    /help     Show all commands", style="dim")
+    _console.print("    /sessions List saved sessions", style="dim")
+    if tool_count > 0:
+        _console.print("    /tools    List available MCP tools", style="dim")
+    _console.print("    /clear    Clear conversation", style="dim")
+    _console.print("    /quit     Save and exit", style="dim")
     typer.echo()
 
 
-def _print_help():
+def _print_help(voice_enabled: bool = False):
     """Print help message."""
     typer.echo()
     typer.secho("Conversation Commands:", bold=True)
@@ -335,8 +606,19 @@ def _print_help():
     typer.echo("  /provider <name>   Change provider")
     typer.echo("  /temp <value>      Set temperature (0.0-2.0)")
     typer.echo()
+    if voice_enabled:
+        typer.secho("Voice Commands:", bold=True)
+        typer.echo("  /text              Switch to text input mode")
+        typer.echo("  /voice             Switch to voice input mode")
+        typer.echo("  (In voice mode: Enter=record, type text=send as text, Ctrl+C=cancel)")
+        typer.echo()
+    typer.secho("MCP Tools:", bold=True)
+    typer.echo("  /tools             List available MCP tools")
+    typer.echo("  (Tools are called automatically when the LLM needs them)")
+    typer.echo()
     typer.secho("Exit Commands:", bold=True)
     typer.echo("  /quit, /exit       Save session and exit")
+    typer.echo("  quit, exit, q      Quick exit (no slash needed)")
     typer.echo()
     typer.secho("Tips:", bold=True)
     typer.echo("  • Sessions auto-save on exit and auto-resume on start")
@@ -355,9 +637,10 @@ def _run_repl(
     stream: bool = True,
     session_id: str | None = None,
     no_persist: bool = False,
+    tools: list[Any] | None = None,
+    voice_mode: bool = False,
 ):
-    """Run interactive REPL with session persistence."""
-    import asyncio
+    """Run interactive REPL with session persistence and optional MCP tools."""
 
     storage = get_storage()
 
@@ -368,6 +651,7 @@ def _run_repl(
     current_temp = temperature
     current_provider = provider
     current_model = model
+    current_tools = tools or []
 
     # Try to load existing session
     restored_count = 0
@@ -388,8 +672,41 @@ def _run_repl(
     # Display provider/model for welcome (resolve auto to actual)
     display_provider = current_provider or _get_default_provider()
     display_model = current_model or "default"
+    tool_count = len(current_tools)
 
-    _print_welcome(display_provider, display_model, current_session_id, restored_count)
+    _print_welcome(display_provider, display_model, current_session_id, restored_count, tool_count)
+
+    # Voice mode initialization
+    voice_chat = None
+    if voice_mode:
+        try:
+            from ai_infra.llm.multimodal.voice import VoiceChat
+
+            available, missing = VoiceChat.is_available()
+            if not available:
+                _console.print()
+                _console.print("  [red]✗[/red] [bold]Voice chat not available[/bold]")
+                for item in missing:
+                    _console.print(f"    [dim]• {item}[/dim]")
+                _console.print()
+                _console.print("  [dim]Install voice extras:[/dim] pip install ai-infra[voice]")
+                _console.print()
+                raise typer.Exit(1)
+
+            voice_chat = VoiceChat()
+            _console.print()
+            _console.print("  [green]🎤[/green] [bold]Voice mode enabled[/bold]")
+            _console.print("  [dim]• Enter        → Start recording[/dim]")
+            _console.print("  [dim]• Type text    → Send as text message[/dim]")
+            _console.print("  [dim]• /text        → Switch to text-only mode[/dim]")
+            _console.print("  [dim]• /quit or q   → Exit[/dim]")
+            _console.print()
+        except ImportError:
+            _console.print()
+            _console.print("  [red]✗[/red] [bold]Voice dependencies not installed[/bold]")
+            _console.print("  [dim]Install with:[/dim] pip install ai-infra[voice]")
+            _console.print()
+            raise typer.Exit(1)
 
     def _save_session():
         """Save current session to storage."""
@@ -406,21 +723,68 @@ def _run_repl(
 
     while True:
         try:
-            # Prompt
-            typer.secho("You: ", fg=typer.colors.GREEN, nl=False)
-            user_input = input()
+            # Voice mode input
+            if voice_mode and voice_chat:
+                _console.print()
+                _console.print(
+                    "[green]🎤 You:[/green] [dim]Enter=record, or type /quit, /text[/dim] ", end=""
+                )
+                pre_input = input().strip()
 
-            # Handle empty input
-            if not user_input.strip():
-                continue
+                # Check for commands before recording
+                if pre_input.startswith("/"):
+                    user_input = pre_input
+                    # Fall through to command handling below
+                elif pre_input.lower() in ("quit", "exit", "q"):
+                    # Quick quit without slash
+                    _save_session()
+                    typer.secho("[OK] Session saved", fg=typer.colors.GREEN)
+                    typer.echo("\nGoodbye! ")
+                    break
+                elif pre_input:
+                    # User typed something - treat as text input
+                    user_input = pre_input
+                    _console.print(f"[green]You:[/green] {user_input}")
+                else:
+                    # Empty = start recording
+                    _console.print(
+                        "[red]● Recording...[/red] [dim]Press Enter to stop (Ctrl+C to cancel)[/dim]"
+                    )
 
-            # Handle multi-line input
-            while user_input.endswith("\\"):
-                user_input = user_input[:-1] + "\n"
-                continuation = input("... ")
-                user_input += continuation
+                    try:
+                        audio = voice_chat.mic.record_until_enter()
+                        _console.print("[dim]Transcribing...[/dim]")
+                        result = voice_chat.stt.transcribe(audio)
+                        user_input = result.text.strip()
 
-            user_input = user_input.strip()
+                        if not user_input:
+                            _console.print("[yellow]No speech detected. Try again.[/yellow]")
+                            continue
+
+                        # Show what was transcribed
+                        _console.print(f"[green]You:[/green] {user_input}")
+                    except KeyboardInterrupt:
+                        _console.print("\n[yellow]Recording cancelled[/yellow]")
+                        continue
+                    except Exception as e:
+                        _console.print(f"[red]Recording/transcription error:[/red] {e}")
+                        continue
+            else:
+                # Text mode input
+                typer.secho("You: ", fg=typer.colors.GREEN, nl=False)
+                user_input = input()
+
+                # Handle empty input
+                if not user_input.strip():
+                    continue
+
+                # Handle multi-line input
+                while user_input.endswith("\\"):
+                    user_input = user_input[:-1] + "\n"
+                    continuation = input("... ")
+                    user_input += continuation
+
+                user_input = user_input.strip()
 
             # Handle commands
             if user_input.startswith("/"):
@@ -434,8 +798,28 @@ def _run_repl(
                     typer.echo("\nGoodbye! ")
                     break
 
+                elif cmd == "text":
+                    # Switch to text mode
+                    if voice_mode:
+                        voice_mode = False
+                        _console.print(
+                            "[green]Switched to text mode[/green] [dim](use /voice to switch back)[/dim]"
+                        )
+                    continue
+
+                elif cmd == "voice":
+                    # Switch to voice mode
+                    if voice_chat and not voice_mode:
+                        voice_mode = True
+                        _console.print("[green]🎤 Switched to voice mode[/green]")
+                    elif not voice_chat:
+                        _console.print(
+                            "[yellow]Voice not available. Start with --voice flag.[/yellow]"
+                        )
+                    continue
+
                 elif cmd == "help":
-                    _print_help()
+                    _print_help(voice_enabled=voice_chat is not None)
                     continue
 
                 elif cmd == "clear":
@@ -621,6 +1005,25 @@ def _run_repl(
                         typer.echo(f"Current temperature: {current_temp}")
                     continue
 
+                elif cmd == "tools":
+                    if not current_tools:
+                        typer.secho(
+                            "No MCP tools connected. Use --mcp to add tools.",
+                            fg=typer.colors.YELLOW,
+                        )
+                    else:
+                        typer.echo()
+                        typer.secho(f"Available MCP Tools ({len(current_tools)}):", bold=True)
+                        for tool in current_tools:
+                            name = getattr(tool, "name", str(tool))
+                            desc = getattr(tool, "description", "")[:60]
+                            if desc:
+                                typer.echo(f"  • {name}: {desc}")
+                            else:
+                                typer.echo(f"  • {name}")
+                        typer.echo()
+                    continue
+
                 else:
                     typer.secho(
                         f"Unknown command: /{cmd}. Type /help for commands.",
@@ -631,8 +1034,8 @@ def _run_repl(
             # Add user message to conversation
             conversation.append({"role": "user", "content": user_input})
 
-            # Generate response
-            typer.secho("AI: ", fg=typer.colors.BLUE, nl=False)
+            # Show thinking indicator (will be replaced by response)
+            spinner = ThinkingSpinner()
 
             try:
                 # Build messages with full conversation history
@@ -654,25 +1057,275 @@ def _run_repl(
                     temperature=current_temp,
                 )
 
-                if stream:
-                    # Streaming response
-                    response_text = ""
+                # Bind tools if available
+                if current_tools:
+                    chat_model = chat_model.bind_tools(current_tools)
 
-                    async def stream_response():
-                        nonlocal response_text
-                        async for event in chat_model.astream(messages):
-                            text = getattr(event, "content", None)
-                            if text:
-                                print(text, end="", flush=True)
-                                response_text += text
+                # Tool call loop - may need multiple iterations
+                response_text = ""
+                tts_thread = None
+                tts_audio = None
+                tts_error = None
+                tts_spoken_len = 0  # Track how much text was sent to TTS
+                max_tool_iterations = 10  # Safety limit
 
-                    asyncio.run(stream_response())
-                    typer.echo()  # Newline after streaming
-                else:
-                    # Non-streaming response
-                    response = chat_model.invoke(messages)
-                    response_text = _extract_content(response)
-                    typer.echo(response_text)
+                async def run_with_tools():
+                    nonlocal \
+                        response_text, \
+                        messages, \
+                        tts_thread, \
+                        tts_audio, \
+                        tts_error, \
+                        tts_spoken_len
+                    from langchain_core.messages import ToolMessage
+
+                    current_messages = list(messages)
+                    has_tools = bool(current_tools)
+
+                    for iteration in range(max_tool_iterations):
+                        # Start spinner for LLM thinking
+                        spinner.start()
+
+                        try:
+                            # When tools are bound, use non-streaming to get complete tool_calls
+                            # Streaming tool calls are fragmented and unreliable
+                            if has_tools:
+                                response = await chat_model.ainvoke(current_messages)
+                                tool_calls = getattr(response, "tool_calls", None) or []
+
+                                # Stop spinner before output
+                                spinner.stop()
+
+                                if not tool_calls:
+                                    # No tool calls - this is the final response
+                                    content = _extract_content(response)
+
+                                    if stream and content:
+                                        # Stream with live markdown rendering
+                                        _console.print(f"[{_BRAND_ACCENT}]AI:[/{_BRAND_ACCENT}]")
+                                        await _stream_with_markdown(content, resolved_model)
+                                    else:
+                                        _console.print(
+                                            f"[{_BRAND_ACCENT}]AI:[/{_BRAND_ACCENT}] ", end=""
+                                        )
+                                        _render_response(content, resolved_model)
+                                    response_text = content
+                                    return
+                            else:
+                                # No tools - stream with live markdown rendering
+                                spinner.stop()
+                                _console.print(f"[{_BRAND_ACCENT}]AI:[/{_BRAND_ACCENT}]")
+
+                                if stream:
+                                    # Use Rich Live for streaming with markdown
+                                    text_parts = []
+
+                                    # For voice: start TTS early on first chunk
+                                    first_tts_started = False
+                                    first_tts_text = ""
+                                    FIRST_CHUNK_SIZE = 150  # Start TTS after this many chars
+
+                                    with Live(
+                                        _create_streaming_display("", resolved_model),
+                                        console=_console,
+                                        refresh_per_second=15,
+                                        transient=False,
+                                    ) as live:
+                                        async for event in chat_model.astream(current_messages):
+                                            text = getattr(event, "content", None)
+                                            if text:
+                                                text_parts.append(text)
+                                                full_text = "".join(text_parts)
+                                                live.update(
+                                                    _create_streaming_display(
+                                                        full_text, resolved_model
+                                                    )
+                                                )
+
+                                                # Voice mode: start TTS on first chunk
+                                                if (
+                                                    voice_mode
+                                                    and voice_chat
+                                                    and not first_tts_started
+                                                ):
+                                                    first_tts_text += text
+                                                    # Start after sentence boundary past min size
+                                                    if len(first_tts_text) >= FIRST_CHUNK_SIZE:
+                                                        # Find sentence end
+                                                        for end in [". ", "! ", "? ", ".\n"]:
+                                                            idx = first_tts_text.find(end)
+                                                            if idx > 50:
+                                                                import threading
+
+                                                                chunk = first_tts_text[
+                                                                    : idx + 1
+                                                                ].strip()
+
+                                                                def generate_first_tts(txt):
+                                                                    nonlocal tts_audio, tts_error
+                                                                    try:
+                                                                        tts_audio = (
+                                                                            voice_chat.tts.speak(
+                                                                                txt
+                                                                            )
+                                                                        )
+                                                                    except Exception as e:
+                                                                        tts_error = e
+
+                                                                tts_thread = threading.Thread(
+                                                                    target=generate_first_tts,
+                                                                    args=(chunk,),
+                                                                    daemon=True,
+                                                                )
+                                                                tts_thread.start()
+                                                                tts_spoken_len = (
+                                                                    idx + 1
+                                                                )  # Track spoken length
+                                                                first_tts_started = True
+                                                                break
+
+                                    response_text = "".join(text_parts)
+
+                                    # If TTS didn't start during streaming (short response), start now
+                                    if (
+                                        voice_mode
+                                        and voice_chat
+                                        and response_text
+                                        and not first_tts_started
+                                    ):
+                                        import threading
+
+                                        def generate_tts():
+                                            nonlocal tts_audio, tts_error
+                                            try:
+                                                tts_audio = voice_chat.tts.speak(response_text)
+                                            except Exception as e:
+                                                tts_error = e
+
+                                        tts_thread = threading.Thread(
+                                            target=generate_tts, daemon=True
+                                        )
+                                        tts_thread.start()
+                                else:
+                                    response = await chat_model.ainvoke(current_messages)
+                                    response_text = _extract_content(response)
+                                    _render_response(response_text, resolved_model)
+                                return
+                        finally:
+                            # Ensure spinner is stopped even on error
+                            spinner.stop()
+
+                        # Process tool calls
+                        current_messages.append(response)
+
+                        for tool_call in tool_calls:
+                            # Handle both dict and object formats
+                            if isinstance(tool_call, dict):
+                                tool_name = tool_call.get("name", "")
+                                tool_args = tool_call.get("args", {})
+                                tool_id = tool_call.get("id", "") or f"call_{iteration}"
+                            else:
+                                tool_name = getattr(tool_call, "name", "")
+                                tool_args = getattr(tool_call, "args", {})
+                                tool_id = getattr(tool_call, "id", "") or f"call_{iteration}"
+
+                            # Skip empty tool calls
+                            if not tool_name:
+                                continue
+
+                            # Show tool call with running indicator (brand color)
+                            print()
+                            _console.print(
+                                f"  [dim]⧗[/dim] [{_BRAND_ACCENT}]{tool_name}[/{_BRAND_ACCENT}] [dim]running...[/dim]",
+                                end="",
+                            )
+
+                            # Find and execute tool
+                            tool_result = None
+                            for tool in current_tools:
+                                if getattr(tool, "name", "") == tool_name:
+                                    try:
+                                        # MCP tools support ainvoke
+                                        if hasattr(tool, "ainvoke"):
+                                            tool_result = await tool.ainvoke(tool_args)
+                                        elif hasattr(tool, "invoke"):
+                                            tool_result = tool.invoke(tool_args)
+                                        else:
+                                            tool_result = str(tool(tool_args))
+                                    except Exception as e:
+                                        tool_result = f"Error: {e}"
+                                    break
+
+                            if tool_result is None:
+                                tool_result = f"Tool '{tool_name}' not found"
+
+                            # Format result
+                            result_str = (
+                                tool_result
+                                if isinstance(tool_result, str)
+                                else json.dumps(tool_result, default=str)
+                            )
+
+                            # Clear "running..." and show result with new helper
+                            sys.stdout.write("\r\033[K")  # Clear line
+                            _render_tool_call(tool_name, result_str)
+
+                            # Add tool result to messages
+                            current_messages.append(
+                                ToolMessage(content=result_str, tool_call_id=tool_id)
+                            )
+
+                        # Continue loop to get final response - show thinking again
+                        print()
+
+                asyncio.run(run_with_tools())
+                typer.echo()  # Newline after response
+
+                # Voice mode: speak the response
+                if voice_mode and voice_chat and response_text:
+                    try:
+                        # If TTS was started during streaming, wait for it and play
+                        if tts_thread is not None:
+                            tts_thread.join(timeout=30)
+                            if tts_error:
+                                _console.print(f"[yellow]TTS error:[/yellow] {tts_error}")
+                            elif tts_audio is not None:
+                                _console.print("[dim]🔊 Speaking...[/dim]")
+
+                                # Start generating remainder TTS in background BEFORE playing first chunk
+                                remainder = response_text[tts_spoken_len:].strip()
+                                remainder_audio = None
+                                remainder_thread = None
+
+                                if remainder:
+                                    import threading
+
+                                    def generate_remainder():
+                                        nonlocal remainder_audio
+                                        try:
+                                            remainder_audio = voice_chat.tts.speak(remainder)
+                                        except Exception:
+                                            pass
+
+                                    remainder_thread = threading.Thread(
+                                        target=generate_remainder, daemon=True
+                                    )
+                                    remainder_thread.start()
+
+                                # Play first chunk (remainder generating in parallel)
+                                voice_chat.player.play(tts_audio, blocking=True)
+
+                                # Play remainder (should be ready or nearly ready)
+                                if remainder_thread:
+                                    remainder_thread.join(timeout=30)
+                                    if remainder_audio is not None:
+                                        voice_chat.player.play(remainder_audio, blocking=True)
+                        else:
+                            # Non-streaming path: generate and play
+                            _console.print("[dim]🔊 Speaking...[/dim]")
+                            voice_chat.speak(response_text)
+                    except Exception as e:
+                        _console.print(f"[yellow]TTS error:[/yellow] {e}")
 
                 # Add assistant response to conversation
                 conversation.append({"role": "assistant", "content": response_text})
@@ -687,7 +1340,23 @@ def _run_repl(
                 continue
 
             except Exception as e:
-                typer.secho(f"\n[X] Error: {e}", fg=typer.colors.RED)
+                error_str = str(e)
+                # Check for common API key errors and provide helpful messages
+                if "api_key" in error_str.lower() and "valid string" in error_str.lower():
+                    _console.print()
+                    _console.print("  [red]✗[/red] [bold]API key not configured[/bold]")
+                    _console.print()
+                    _console.print("  [dim]Set your API key in the terminal:[/dim]")
+                    _console.print("    [white]export OPENAI_API_KEY=sk-...[/white]")
+                    _console.print("    [white]export ANTHROPIC_API_KEY=sk-ant-...[/white]")
+                    _console.print()
+                elif "authentication" in error_str.lower() or "invalid" in error_str.lower():
+                    _console.print()
+                    _console.print("  [red]✗[/red] [bold]Authentication failed[/bold]")
+                    _console.print(f"  [dim]{error_str}[/dim]")
+                    _console.print()
+                else:
+                    _console.print(f"\n  [red]✗[/red] Error: {e}")
                 conversation.pop()
                 continue
 
@@ -739,7 +1408,7 @@ def chat_cmd(
     no_stream: bool = typer.Option(
         False,
         "--no-stream",
-        help="Disable streaming output",
+        help="Disable streaming (render complete response at once)",
     ),
     output_json: bool = typer.Option(
         False,
@@ -762,6 +1431,17 @@ def chat_cmd(
         False,
         "--no-persist",
         help="Disable session persistence",
+    ),
+    mcp: list[str] | None = typer.Option(
+        None,
+        "--mcp",
+        help="MCP server URL or JSON config file (can be repeated)",
+    ),
+    voice: bool = typer.Option(
+        False,
+        "--voice",
+        "-v",
+        help="Enable voice chat mode (speak to chat, hear responses)",
     ),
 ):
     """
@@ -795,6 +1475,17 @@ def chat_cmd(
         # JSON output for scripting
         ai-infra chat -m "Hello" --json
 
+    MCP Tools (connect to external tools):
+
+        # Single MCP server (HTTP)
+        ai-infra chat --mcp http://localhost:8000/mcp
+
+        # Multiple MCP servers
+        ai-infra chat --mcp http://server1/mcp --mcp http://server2/mcp
+
+        # MCP config from JSON file
+        ai-infra chat --mcp ~/my-mcp-config.json
+
     Session management:
         ai-infra chat sessions              # List saved sessions
         ai-infra chat session-delete <name> # Delete a session
@@ -804,6 +1495,7 @@ def chat_cmd(
         /save       - Save current session
         /load       - Load a saved session
         /new        - Start a new session
+        /tools      - List available MCP tools
     """
     # If a subcommand is being invoked, don't run the default chat
     if ctx.invoked_subcommand is not None:
@@ -815,6 +1507,38 @@ def chat_cmd(
     except Exception as e:
         typer.secho(f"Error initializing LLM: {e}", fg=typer.colors.RED, err=True)
         raise typer.Exit(1)
+
+    # Initialize MCP if requested
+    global _mcp_manager
+    tools: list[Any] = []
+
+    if mcp:
+        import asyncio
+
+        _mcp_manager = ChatMCPManager()
+        typer.secho("Connecting to MCP servers...", fg=typer.colors.BRIGHT_BLACK)
+
+        async def connect_mcp():
+            assert _mcp_manager is not None
+            return await _mcp_manager.connect(mcp)
+
+        try:
+            success = asyncio.run(connect_mcp())
+            if success:
+                assert _mcp_manager is not None
+                tools = _mcp_manager.get_tools()
+                typer.secho(
+                    f"[OK] Connected: {len(tools)} tools available",
+                    fg=typer.colors.GREEN,
+                )
+            else:
+                typer.secho(
+                    "[!] MCP connection failed, continuing without tools",
+                    fg=typer.colors.YELLOW,
+                )
+        except Exception as e:
+            typer.secho(f"[!] MCP error: {e}", fg=typer.colors.YELLOW)
+            _mcp_manager = None
 
     # For display purposes only
     display_provider = provider or _get_default_provider()
@@ -859,16 +1583,28 @@ def chat_cmd(
         storage = get_storage()
         session_id = storage.get_auto_resume_session_id()
 
-    _run_repl(
-        llm=llm,
-        provider=provider,  # None means auto-detect
-        model=model,  # None means use default
-        system=system,
-        temperature=temperature,
-        stream=not no_stream,
-        session_id=session_id,
-        no_persist=no_persist,
-    )
+    try:
+        _run_repl(
+            llm=llm,
+            provider=provider,  # None means auto-detect
+            model=model,  # None means use default
+            system=system,
+            temperature=temperature,
+            stream=not no_stream,
+            session_id=session_id,
+            no_persist=no_persist,
+            tools=tools,
+            voice_mode=voice,
+        )
+    finally:
+        # Cleanup MCP connections
+        if _mcp_manager:
+            import asyncio
+
+            try:
+                asyncio.run(_mcp_manager.close())
+            except Exception:
+                pass
 
 
 @app.command("sessions")
@@ -890,25 +1626,12 @@ def sessions_cmd(
     storage = get_storage()
     sessions = storage.list_sessions()
 
-    if not sessions:
-        typer.echo("No saved sessions.")
-        return
-
     if output_json:
         typer.echo(json.dumps(sessions, indent=2))
     else:
-        typer.echo()
-        typer.secho("Saved Chat Sessions:", bold=True)
-        typer.echo()
-        for s in sessions:
-            provider_info = s.get("provider") or "auto"
-            time_ago = _format_time_ago(s.get("updated_at"))
-            typer.echo(
-                f"  • {s['session_id']} - {s['message_count']} msgs, {provider_info}, {time_ago}"
-            )
-        typer.echo()
-        typer.echo(f"Storage: {storage._base_dir}")
-        typer.echo()
+        from ai_infra.cli.output import print_sessions
+
+        print_sessions(sessions)
 
 
 @app.command("session-delete")
@@ -977,4 +1700,4 @@ def register(main_app: typer.Typer):
     """Register chat command group to main app."""
     # Add the chat app as a subcommand group
     # This enables: ai-infra chat, ai-infra chat sessions, ai-infra chat session-delete
-    main_app.add_typer(app, name="chat")
+    main_app.add_typer(app, name="chat", rich_help_panel="Chat")

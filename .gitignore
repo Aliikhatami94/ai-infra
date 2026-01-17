@@ -31,6 +31,7 @@ dist/
 .pytest_cache/
 .ruff_cache/
 .benchmarks/
+.coverage
 
 # IDE
 .idea/
@@ -39,10 +40,6 @@ aiinfa.iml
 *.iml
 *.env
 
-# Documentation
-.github/AGENTS.md
-.github/copilot-instructions.md
-.github/PLAN.md
-.github/RESEARCH.md
-EXECUTOR-COMPLETED.md
+# Executor temp files
 .executor/
+EXECUTOR_*.md

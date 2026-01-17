@@ -14,6 +14,12 @@ import json
 
 import typer
 
+from ai_infra.cli.output import (
+    print_all_models,
+    print_cli_error,
+    print_models,
+    print_providers,
+)
 from ai_infra.llm.providers.discovery import (
     SUPPORTED_PROVIDERS,
     is_provider_configured,
@@ -49,12 +55,14 @@ def providers_cmd(
         typer.echo(json.dumps(result, indent=2))
     else:
         if not result:
-            typer.echo("No providers configured. Set API key environment variables.")
+            print_cli_error(
+                "No providers configured",
+                hint="Set API key environment variables (e.g., OPENAI_API_KEY)",
+            )
             raise typer.Exit(1)
 
-        for provider in result:
-            status = "[OK]" if is_provider_configured(provider) else "[X]"
-            typer.echo(f"  {status} {provider}")
+        configured_list = [p for p in result if is_provider_configured(p)]
+        print_providers(result, configured=configured_list)
 
 
 @app.command("models")
@@ -86,56 +94,59 @@ def models_cmd(
 ):
     """List available models from AI providers."""
     if not provider and not all_providers:
-        typer.echo("Error: Specify --provider <name> or --all")
+        print_cli_error(
+            "No provider specified",
+            hint="Use --provider <name> or --all to list models",
+        )
         raise typer.Exit(1)
 
     if all_providers:
         try:
             result = list_all_models(refresh=refresh)
         except Exception as e:
-            typer.echo(f"Error: {e}", err=True)
+            print_cli_error(f"Failed to fetch models: {e}")
             raise typer.Exit(1)
 
         if output_json:
             typer.echo(json.dumps(result, indent=2))
         else:
             if not result:
-                typer.echo("No configured providers found.")
+                print_cli_error(
+                    "No configured providers found",
+                    hint="Set API key environment variables",
+                )
                 raise typer.Exit(1)
 
-            for prov, models in result.items():
-                typer.echo(f"\n{prov} ({len(models)} models):")
-                for model in models[:10]:  # Show first 10
-                    typer.echo(f"  • {model}")
-                if len(models) > 10:
-                    typer.echo(f"  ... and {len(models) - 10} more")
+            print_all_models(result)
     else:
         if provider not in SUPPORTED_PROVIDERS:
-            typer.echo(f"Error: Unknown provider '{provider}'")
-            typer.echo(f"Supported: {', '.join(SUPPORTED_PROVIDERS)}")
+            print_cli_error(
+                f"Unknown provider: {provider}",
+                hint=f"Supported: {', '.join(SUPPORTED_PROVIDERS)}",
+            )
             raise typer.Exit(1)
 
         if not is_provider_configured(provider):
-            typer.echo(f"Error: Provider '{provider}' is not configured (no API key)")
+            print_cli_error(
+                f"Provider '{provider}' is not configured",
+                hint=f"Set the {provider.upper()}_API_KEY environment variable",
+            )
             raise typer.Exit(1)
 
         try:
             models = list_models(provider, refresh=refresh)
         except Exception as e:
-            typer.echo(f"Error: {e}", err=True)
+            print_cli_error(f"Failed to fetch models: {e}")
             raise typer.Exit(1)
 
         if output_json:
             typer.echo(json.dumps(models, indent=2))
         else:
-            typer.echo(f"\n{provider} ({len(models)} models):")
-            for model in models:
-                typer.echo(f"  • {model}")
+            print_models(provider, models)
 
 
 def register(parent: typer.Typer):
     """Register discovery commands with the parent CLI app."""
-    parent.add_typer(app, name="discover", help="Provider and model discovery")
-    # Also add as top-level commands for convenience
-    parent.command("providers")(providers_cmd)
-    parent.command("models")(models_cmd)
+    # Register as top-level commands only (no sub-app to avoid duplication)
+    parent.command("providers", rich_help_panel="Discovery")(providers_cmd)
+    parent.command("models", rich_help_panel="Discovery")(models_cmd)

@@ -538,8 +538,7 @@ Rewrite it to be specific and actionable.
 ## Rewritten Task
 """
 
-DECOMPOSE_TASK_PROMPT = """The following task failed because it was too complex.
-Break it into 2-5 smaller, independent tasks.
+DECOMPOSE_TASK_PROMPT = """You are a senior software architect breaking down a complex task.
 
 ## Original Task
 {original_task}
@@ -550,11 +549,21 @@ Break it into 2-5 smaller, independent tasks.
 ## Project Context
 {project_context}
 
+## Complexity Analysis
+{complexity_analysis}
+
 ## Instructions
-1. Each sub-task should be achievable in a single file
-2. Order tasks by dependency (what must be done first)
-3. Each task should have clear, testable output
-4. Return ONLY a numbered list of tasks, one per line
+1. Break this task into 2-5 smaller, independent tasks
+2. Each sub-task should be achievable in a single focused work session
+3. Order tasks by dependency (what must be done first)
+4. Each task should have clear, testable output
+5. Keep the original intent - don't add or remove scope
+
+## Output Format
+Return a numbered list in this exact format:
+1. [Title]: [Description of what to do and expected output]
+2. [Title]: [Description of what to do and expected output]
+...
 
 ## Sub-Tasks
 """
@@ -792,10 +801,22 @@ async def propose_recovery_node(
 
     elif strategy == RecoveryStrategy.DECOMPOSE:
         if agent is not None:
+            # Get complexity analysis if available
+            complexity_info = state.get("complexity_info", {})
+            complexity_analysis = ""
+            if complexity_info:
+                complexity_analysis = (
+                    f"- Score: {complexity_info.get('score', 'N/A')}/20\n"
+                    f"- Recommended: {complexity_info.get('recommended_action', 'decompose')}"
+                )
+            else:
+                complexity_analysis = "No complexity analysis available."
+
             prompt = DECOMPOSE_TASK_PROMPT.format(
                 original_task=original_task,
                 failure_details=_format_failure_details(state),
                 project_context=_get_project_summary(state),
+                complexity_analysis=complexity_analysis,
             )
             try:
                 decomposed = await agent.arun(prompt)

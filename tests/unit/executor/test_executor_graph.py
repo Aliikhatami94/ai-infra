@@ -128,6 +128,24 @@ class TestExecutorGraphBindings:
         executor.max_retries = 3  # Phase 1.4
         executor.enable_planning = False  # Phase 1.4
         executor.adaptive_mode = None  # Phase 1.4
+        executor._model_router = None  # Phase 1.1
+        executor._routing_metrics = None  # Phase 1.1
+        # Phase 7.2: Subagent routing
+        executor.use_subagents = False
+        executor.subagent_config = None  # Phase 7.4
+        # Phase 8.1: Skills system
+        executor.skills_db = None
+        executor.enable_learning = False
+        # Phase 15.3: MCP integration
+        executor.mcp_servers = []
+        executor.mcp_discover_timeout = 30.0
+        executor.mcp_tool_timeout = 60.0
+        executor.mcp_auto_discover = True
+        executor._mcp_manager = None
+        # Phase 16.5.11.3: Orchestrator routing
+        executor.use_orchestrator = True
+        executor.orchestrator_model = "gpt-4o-mini"
+        executor.orchestrator_confidence_threshold = 0.7
 
         bound_nodes = executor._create_bound_nodes()
 

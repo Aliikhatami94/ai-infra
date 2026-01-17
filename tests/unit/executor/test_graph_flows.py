@@ -700,7 +700,7 @@ class TestTracingIntegration:
 
     def test_tracing_config_is_importable(self) -> None:
         """Test TracingConfig can be imported."""
-        from ai_infra.executor.graph_tracing import TracingConfig
+        from ai_infra.executor.tracing import TracingConfig
 
         # Should have factory methods
         assert hasattr(TracingConfig, "disabled")
@@ -713,7 +713,7 @@ class TestTracingIntegration:
 
     def test_tracing_callbacks_is_importable(self) -> None:
         """Test ExecutorTracingCallbacks can be imported."""
-        from ai_infra.executor.graph_tracing import ExecutorTracingCallbacks
+        from ai_infra.executor.tracing import ExecutorTracingCallbacks
 
         assert ExecutorTracingCallbacks is not None
 
@@ -820,7 +820,7 @@ class TestTokenAndDurationTracking:
         from unittest.mock import AsyncMock
 
         from ai_infra.executor.graph import ExecutorGraph
-        from ai_infra.executor.observability import ExecutorCallbacks
+        from ai_infra.executor.tracing import ExecutorCallbacks
 
         # Create minimal roadmap
         roadmap = tmp_path / "ROADMAP.md"

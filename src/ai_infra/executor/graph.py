@@ -4,6 +4,7 @@ Phase 1.2.1: ExecutorGraph class using ai_infra.graph.Graph.
 Phase 1.6: Increased recursion limit to 100 (from LangGraph default of 25).
 Phase 1.6.1: Tracing integration via ai_infra.tracing.
 Phase 1.6.2: Streaming output via astream_events.
+Phase 2.1: Shell tool integration for autonomous command execution.
 
 This module implements the graph-based executor that replaces the imperative
 loop with a structured, observable state machine.
@@ -15,6 +16,7 @@ import time
 import uuid
 from collections.abc import AsyncIterator
 from functools import partial
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from langgraph.constants import END, START
@@ -47,24 +49,32 @@ from ai_infra.executor.nodes import (
     verify_task_node,
     write_files_node,
 )
+from ai_infra.executor.routing import (
+    ModelRouter,
+    ModelTier,
+    RoutingConfig,
+    RoutingMetrics,
+    TaskContext,
+)
 from ai_infra.executor.state import ExecutorGraphState
 from ai_infra.graph import Graph
+
+# Phase 2.1: Shell tool imports
+from ai_infra.llm.shell.tool import create_shell_tool, set_current_session
 from ai_infra.logging import get_logger
 
 if TYPE_CHECKING:
     from ai_infra.agent import Agent
     from ai_infra.executor.checkpoint import Checkpointer
     from ai_infra.executor.context import ProjectContext
-    from ai_infra.executor.graph_tracing import (
-        TracingConfig,
-    )
     from ai_infra.executor.hitl import HITLManager, InterruptConfig
-    from ai_infra.executor.observability import ExecutorCallbacks
     from ai_infra.executor.project_memory import ProjectMemory
     from ai_infra.executor.run_memory import RunMemory
     from ai_infra.executor.streaming import ExecutorStreamEvent, StreamingConfig
     from ai_infra.executor.todolist import TodoListManager
+    from ai_infra.executor.tracing import ExecutorCallbacks, TracingConfig
     from ai_infra.executor.verifier import CheckLevel, TaskVerifier
+    from ai_infra.llm.shell.session import ShellSession
 
 logger = get_logger("executor.graph")
 
@@ -120,6 +130,7 @@ class ExecutorGraph:
         checkpointer: Git checkpointer for code changes.
         verifier: Task verification component.
         project_context: Project context builder.
+        shell_session: Shell session for command execution (Phase 2.1).
     """
 
     def __init__(
@@ -147,11 +158,45 @@ class ExecutorGraph:
         graph_checkpointer: Any = None,
         interrupt_before: list[str] | None = None,
         interrupt_after: list[str] | None = None,
+        # Phase 2.1: Shell tool configuration
+        enable_shell: bool = True,
+        shell_timeout: float = 120.0,
+        shell_workspace: Path | str | None = None,
+        shell_allowed_commands: tuple[str, ...] | None = None,
+        # Phase 16.4: Shell snapshot configuration
+        enable_shell_snapshots: bool = False,
+        # Phase 3.3: Autonomous verification configuration
+        enable_autonomous_verify: bool = False,
+        verify_timeout: float = 300.0,
+        # Phase 1.1: Model routing configuration
+        enable_model_routing: bool = False,
+        force_model_tier: str | ModelTier | None = None,
+        force_model: str | None = None,
+        # Phase 1.3: Context pre-warming configuration
+        enable_context_prewarming: bool = True,
+        context_prewarm_timeout: float = 5.0,
+        enable_context_watcher: bool = False,
+        # Phase 7.1: Subagent routing configuration (EXECUTOR_3.md)
+        use_subagents: bool = False,
+        # Phase 7.4: Subagent model configuration (EXECUTOR_3.md)
+        subagent_config: Any = None,  # SubAgentConfig | None
+        # Orchestrator configuration
+        orchestrator_model: str = "gpt-4o-mini",
+        orchestrator_confidence_threshold: float = 0.7,
+        # Phase 8.1: Skills system integration (EXECUTOR_3.md)
+        skills_db: Any = None,  # SkillsDatabase | None
+        enable_learning: bool = True,
+        # Phase 15.3: MCP integration configuration
+        mcp_servers: list[Any] | None = None,  # list[McpServerConfig] | None
+        mcp_discover_timeout: float = 30.0,
+        mcp_tool_timeout: float = 60.0,
+        mcp_auto_discover: bool = True,
     ):
         """Initialize the ExecutorGraph.
 
         Phase 1.4: Integration with Existing Components.
         Phase 1.6: Configurable recursion limit (default: 100).
+        Phase 2.1: Shell tool integration for autonomous command execution.
         Phase 2.1.2: ProjectMemory integration for cross-run insights.
         Phase 2.2.1: Token and duration tracking via callbacks.
         Phase 2.2.2: Configurable retry count.
@@ -184,6 +229,29 @@ class ExecutorGraph:
             graph_checkpointer: LangGraph checkpointer for state persistence.
             interrupt_before: Nodes to pause before.
             interrupt_after: Nodes to pause after.
+            enable_shell: Enable shell tool for command execution (Phase 2.1, default: True).
+            shell_timeout: Default timeout for shell commands (Phase 2.1, default: 120s).
+            shell_workspace: Working directory for shell commands (Phase 2.1, default: roadmap directory).
+            shell_allowed_commands: Optional allowlist of permitted commands (Phase 2.4, default: None = all).
+            enable_shell_snapshots: Capture pre/post shell snapshots per task (Phase 16.4).
+            enable_autonomous_verify: Enable autonomous verification agent (Phase 3.3, default: False).
+            verify_timeout: Timeout for autonomous verification (Phase 3.3, default: 300s).
+            enable_model_routing: Enable smart model routing based on task complexity (Phase 1.1).
+            force_model_tier: Force a specific tier ("fast", "balanced", "powerful").
+            force_model: Force a specific model name (overrides routing).
+            enable_context_prewarming: Pre-build context index on initialization (Phase 1.3).
+            context_prewarm_timeout: Timeout for waiting on pre-warmed context (Phase 1.3).
+            enable_context_watcher: Watch files for incremental context updates (Phase 1.3).
+            use_subagents: Route tasks to specialized subagents (Phase 7.1, default: False).
+            subagent_config: Model configuration for subagents (Phase 7.4, default: None).
+            orchestrator_model: Model to use for orchestrator routing (default: gpt-4o-mini).
+            orchestrator_confidence_threshold: Confidence threshold for routing (default: 0.7).
+            skills_db: Skills database for learning patterns (Phase 8.1, default: None).
+            enable_learning: Enable skills learning from task execution (Phase 8.1, default: True).
+            mcp_servers: MCP server configurations for external tools (Phase 15.3, default: None).
+            mcp_discover_timeout: Timeout for MCP discovery in seconds (Phase 15.3, default: 30.0).
+            mcp_tool_timeout: Timeout for MCP tool calls in seconds (Phase 15.3, default: 60.0).
+            mcp_auto_discover: Auto-discover MCP tools on initialization (Phase 15.3, default: True).
         """
         self.agent = agent
         self.roadmap_path = roadmap_path
@@ -202,6 +270,97 @@ class ExecutorGraph:
         self.pause_destructive = pause_destructive  # Phase 2.3.3
         self.enable_planning = enable_planning  # Phase 2.4.2
         self.recursion_limit = recursion_limit  # Phase 1.6
+
+        # Phase 2.1: Shell tool configuration
+        self.enable_shell = enable_shell
+        self.shell_timeout = shell_timeout
+        self.shell_workspace = (
+            Path(shell_workspace) if shell_workspace else Path(roadmap_path).parent
+        )
+        self.shell_allowed_commands = shell_allowed_commands  # Phase 2.4: Optional allowlist
+        self._shell_session: ShellSession | None = None  # Initialized in arun/astream
+        # Phase 16.4: Shell snapshot configuration
+        self.enable_shell_snapshots = enable_shell_snapshots
+
+        # Phase 3.3: Autonomous verification configuration
+        self.enable_autonomous_verify = enable_autonomous_verify
+        self.verify_timeout = verify_timeout
+
+        # Phase 1.1: Model routing configuration
+        self.enable_model_routing = enable_model_routing
+        self.force_model_tier = force_model_tier
+        self.force_model = force_model
+        self._model_router: ModelRouter | None = None
+        self._routing_metrics: RoutingMetrics | None = None
+
+        if self.enable_model_routing:
+            # Parse force_model_tier if string
+            tier = None
+            if force_model_tier:
+                if isinstance(force_model_tier, str):
+                    tier = ModelTier(force_model_tier.lower())
+                else:
+                    tier = force_model_tier
+
+            routing_config = RoutingConfig(
+                enabled=True,
+                force_tier=tier,
+                force_model=force_model,
+            )
+            self._model_router = ModelRouter(config=routing_config)
+            self._routing_metrics = RoutingMetrics()
+            logger.info(f"Model routing enabled: force_tier={tier}, force_model={force_model}")
+
+        # Phase 1.3: Context pre-warming configuration
+        self.enable_context_prewarming = enable_context_prewarming
+        self.context_prewarm_timeout = context_prewarm_timeout
+        self.enable_context_watcher = enable_context_watcher
+        self._context_prewarmer: Any | None = None  # ContextPrewarmer
+
+        if self.enable_context_prewarming and self.project_context is not None:
+            from ai_infra.executor.context_prewarming import create_prewarmer
+
+            workspace = Path(roadmap_path).parent
+            self._context_prewarmer = create_prewarmer(
+                workspace=workspace,
+                project_context=self.project_context,
+                enable_watcher=enable_context_watcher,
+            )
+            logger.info(
+                f"Context pre-warming enabled: "
+                f"watcher={enable_context_watcher}, timeout={context_prewarm_timeout}s"
+            )
+
+        # Phase 7.1: Subagent routing configuration (EXECUTOR_3.md)
+        self.use_subagents = use_subagents
+        # Phase 7.4: Subagent model configuration (EXECUTOR_3.md)
+        self.subagent_config = subagent_config
+        if self.use_subagents:
+            config_info = " with custom config" if subagent_config else ""
+            logger.info(f"Subagent routing enabled{config_info}: tasks will route to specialists")
+
+        # Orchestrator configuration
+        self.orchestrator_model = orchestrator_model
+        self.orchestrator_confidence_threshold = orchestrator_confidence_threshold
+        if self.use_subagents:
+            logger.info(
+                f"Orchestrator routing enabled: model={orchestrator_model}, "
+                f"threshold={orchestrator_confidence_threshold}"
+            )
+
+        # Phase 8.1: Skills system integration (EXECUTOR_3.md)
+        self.skills_db = skills_db
+        self.enable_learning = enable_learning
+        if self.enable_learning:
+            db_info = "custom database" if skills_db else "default database"
+            logger.info(f"Skills learning enabled: {db_info}")
+
+        # Phase 15.3: MCP integration
+        self.mcp_servers = mcp_servers or []
+        self.mcp_discover_timeout = mcp_discover_timeout
+        self.mcp_tool_timeout = mcp_tool_timeout
+        self.mcp_auto_discover = mcp_auto_discover
+        self._mcp_manager: Any | None = None  # ExecutorMCPManager
 
         # Phase 2.3.1: Normalize adaptive_mode to AdaptiveMode enum
         # Phase 2.4: Deprecated in favor of targeted repair nodes
@@ -224,8 +383,6 @@ class ExecutorGraph:
             )
 
         # Ensure .executor directory exists for todos.json
-        from pathlib import Path
-
         executor_dir = Path(roadmap_path).parent / ".executor"
         executor_dir.mkdir(parents=True, exist_ok=True)
 
@@ -254,6 +411,67 @@ class ExecutorGraph:
         )
 
         logger.info("ExecutorGraph initialized")
+
+    def get_agent_for_task(
+        self,
+        task: Any | None = None,
+        context: TaskContext | None = None,
+    ) -> Agent:
+        """Get the appropriate agent for a task.
+
+        Phase 1.1: Uses model routing if enabled to select optimal model.
+
+        Args:
+            task: The task to execute (TodoItem or dict).
+            context: Optional task context for routing decisions.
+
+        Returns:
+            Agent instance configured for the task.
+        """
+        from ai_infra import Agent
+
+        if not self.enable_model_routing or self._model_router is None:
+            # Routing disabled - use default agent
+            if self.agent is not None:
+                return self.agent
+            # No agent provided, create default
+            return Agent(model="claude-sonnet-4-20250514")
+
+        # Route based on task complexity
+        model_config = self._model_router.select_model(task, context)
+
+        # Record routing decision
+        if self._routing_metrics is not None and task is not None:
+            complexity_score = self._model_router._compute_complexity_score(task, context)
+            self._routing_metrics.record_decision(task, model_config, complexity_score)
+
+        # Create agent with routed model
+        # Preserve tools and other settings from default agent if available
+        if self.agent is not None:
+            # Clone agent with new model
+            return Agent(
+                model=model_config.model_name,
+                max_tokens=model_config.max_tokens,
+                tools=getattr(self.agent, "_tools", None),
+                system_prompt=getattr(self.agent, "_system_prompt", None),
+            )
+
+        return Agent(
+            model=model_config.model_name,
+            max_tokens=model_config.max_tokens,
+        )
+
+    def get_routing_summary(self) -> dict[str, Any]:
+        """Get a summary of model routing decisions and outcomes.
+
+        Phase 1.1: Returns routing metrics for analysis.
+
+        Returns:
+            Dictionary with routing statistics, or empty dict if routing disabled.
+        """
+        if self._routing_metrics is None:
+            return {}
+        return self._routing_metrics.get_summary()
 
     def _create_bound_nodes(self) -> dict[str, Any]:
         """Create node functions with dependencies bound.
@@ -291,6 +509,8 @@ class ExecutorGraph:
                     project_context=self.project_context,
                     run_memory=self.run_memory,
                     project_memory=self.project_memory,
+                    # Phase 8.2: Skills injection (EXECUTOR_3.md)
+                    skills_db=self.skills_db if self.enable_learning else None,
                 ),
                 uses_llm=True,  # Uses semantic search
             ),
@@ -301,6 +521,13 @@ class ExecutorGraph:
                     agent=self.agent,
                     dry_run=self.dry_run,  # Phase 2.3.2
                     pause_destructive=self.pause_destructive,  # Phase 2.3.3
+                    model_router=self._model_router,  # Phase 1.1
+                    routing_metrics=self._routing_metrics,  # Phase 1.1
+                    use_subagents=self.use_subagents,  # Phase 7.2
+                    subagent_config=self.subagent_config,  # Phase 7.4
+                    # Orchestrator configuration
+                    orchestrator_model=self.orchestrator_model,
+                    orchestrator_confidence_threshold=self.orchestrator_confidence_threshold,
                 ),
                 uses_llm=True,  # Primary LLM consumer
             ),
@@ -336,6 +563,9 @@ class ExecutorGraph:
                 run_memory=self.run_memory,
                 project_memory=self.project_memory,
                 sync_roadmap=self.sync_roadmap,
+                # Phase 8.3: Skills extraction (EXECUTOR_3.md)
+                skills_db=self.skills_db,
+                enable_learning=self.enable_learning,
             ),
             # Phase 2.1: Removed rollback node - no longer in active flow
             "handle_failure": partial(
@@ -459,12 +689,22 @@ class ExecutorGraph:
 
         # Phase 2.3.1: Add adaptive replanning edges
         if self.adaptive_mode != AdaptiveMode.NO_ADAPT:
-            # verify_task routes to analyze_failure or checkpoint
+            # Phase 16.5.7: verify_task routes to checkpoint, repair_test, or handle_failure
+            # The route_after_verify() function returns "repair_test" for test failures,
+            # so we must include it in targets even in adaptive mode.
             edges.append(
                 ConditionalEdge(
                     start="verify_task",
                     router_fn=route_after_verify,
-                    targets=["checkpoint", "analyze_failure"],
+                    targets=["checkpoint", "repair_test", "handle_failure"],
+                )
+            )
+            # Phase 16.5.7: repair_test loops back to verify_task (same as non-adaptive)
+            edges.append(
+                ConditionalEdge(
+                    start="repair_test",
+                    router_fn=route_after_repair_test,
+                    targets=["verify_task", "handle_failure"],
                 )
             )
             # analyze_failure routes based on classification
@@ -506,6 +746,7 @@ class ExecutorGraph:
     def get_initial_state(self) -> ExecutorGraphState:
         """Get the initial state for graph execution.
 
+        Phase 2.1: Adds shell tool state fields.
         Phase 2.3.1: Adds adaptive replanning state fields.
         Phase 2.3.2: Adds dry_run state field.
         Phase 2.3.3: Adds pause_destructive state fields.
@@ -539,6 +780,16 @@ class ExecutorGraph:
             should_continue=True,
             interrupt_requested=False,
             run_memory={},
+            # Phase 2.1 & 2.2: Shell tool fields
+            enable_shell=self.enable_shell,
+            shell_session_active=False,
+            shell_results=[],
+            shell_error=None,
+            # Phase 16.4: Shell snapshot fields
+            enable_shell_snapshots=self.enable_shell_snapshots,
+            shell_snapshot_pre_path=None,
+            shell_snapshot_post_path=None,
+            shell_snapshot_diff=None,
             # Phase 2.3.1: Adaptive replanning fields
             adaptive_mode=self.adaptive_mode.value if self.adaptive_mode else None,
             failure_classification=None,
@@ -552,6 +803,21 @@ class ExecutorGraph:
             # Phase 2.4.3: Per-node cost tracking
             node_metrics={},
             enable_node_metrics=True,
+            # Phase 3.3: Autonomous verification fields
+            enable_autonomous_verify=self.enable_autonomous_verify,
+            verify_timeout=self.verify_timeout,
+            autonomous_verify_result=None,
+            # Phase 7.1: Subagent routing fields
+            use_subagents=self.use_subagents,
+            subagent_used=None,
+            subagent_usage={},
+            # Phase 16.5.1: Subagent token tracking
+            subagent_tokens_total=0,
+            subagent_tokens_task=0,
+            # Orchestrator routing fields
+            orchestrator_routing_decision=None,
+            orchestrator_tokens_total=0,
+            orchestrator_routing_history=[],
         )
 
     async def arun(
@@ -562,6 +828,7 @@ class ExecutorGraph:
         """Run the executor graph to completion.
 
         Phase 1.6: Uses configurable recursion_limit (default: 100).
+        Phase 2.1: Manages shell session lifecycle.
         Phase 2.2.1: Tracks duration and tokens in result.
 
         Args:
@@ -583,27 +850,67 @@ class ExecutorGraph:
             f"recursion_limit: {config['recursion_limit']})"
         )
 
-        # Phase 2.2.1: Track execution duration
-        start_time = time.time()
+        # Phase 2.1: Initialize shell session if enabled
+        session_token = None
+        if self.enable_shell:
+            await self._start_shell_session()
+            session_token = set_current_session(self._shell_session)
+            logger.debug(f"Shell session started (workspace: {self.shell_workspace})")
 
-        result = await self.graph.arun(state, config=config)
+        # Phase 15.3: Initialize MCP integration if configured
+        await self._init_mcp()
 
-        # Phase 2.2.1: Calculate duration and get tokens from callbacks
-        duration_ms = int((time.time() - start_time) * 1000)
-        result["duration_ms"] = duration_ms
+        # Phase 1.3: Start context pre-warming and wait for it
+        if self._context_prewarmer is not None:
+            await self._context_prewarmer.start()
+            ready = await self._context_prewarmer.wait_ready(timeout=self.context_prewarm_timeout)
+            if ready:
+                stats = self._context_prewarmer.get_stats()
+                logger.info(
+                    f"Context pre-warmed: {stats.files_indexed} files in {stats.build_duration_ms:.0f}ms"
+                )
+            else:
+                logger.warning(
+                    f"Context pre-warming timed out after {self.context_prewarm_timeout}s"
+                )
 
-        # Get tokens from callbacks if available
-        tokens_used = 0
-        if self.callbacks is not None:
-            metrics = self.callbacks.get_metrics()
-            tokens_used = metrics.total_tokens
-        result["tokens_used"] = tokens_used
+        try:
+            # Phase 2.2.1: Track execution duration
+            start_time = time.time()
 
-        logger.info(
-            f"Executor graph completed. Tasks: {result.get('tasks_completed_count', 0)}, "
-            f"Duration: {duration_ms}ms, Tokens: {tokens_used}"
-        )
-        return result
+            result = await self.graph.arun(state, config=config)
+
+            # Phase 2.2.1: Calculate duration and get tokens from callbacks
+            duration_ms = int((time.time() - start_time) * 1000)
+            result["duration_ms"] = duration_ms
+
+            # Get tokens from callbacks if available
+            tokens_used = 0
+            if self.callbacks is not None:
+                metrics = self.callbacks.get_metrics()
+                tokens_used = metrics.total_tokens
+
+            # Phase 16.5.10: Also include subagent tokens (tracked separately)
+            subagent_tokens = result.get("subagent_tokens_total", 0)
+            tokens_used += subagent_tokens
+            result["tokens_used"] = tokens_used
+
+            logger.info(
+                f"Executor graph completed. Tasks: {result.get('tasks_completed_count', 0)}, "
+                f"Duration: {duration_ms}ms, Tokens: {tokens_used}"
+            )
+            return result
+
+        finally:
+            # Phase 15.3: Clean up MCP connections
+            await self._close_mcp()
+
+            # Phase 2.1: Clean up shell session
+            if self.enable_shell and self._shell_session is not None:
+                await self._close_shell_session()
+                if session_token is not None:
+                    set_current_session(None)
+                logger.debug("Shell session closed")
 
     def run(
         self,
@@ -646,6 +953,7 @@ class ExecutorGraph:
         """Stream node execution from the graph.
 
         Phase 1.6: Uses configurable recursion_limit (default: 100).
+        Phase 2.1: Manages shell session lifecycle.
 
         Yields:
             Tuples of (node_name, state) after each node execution.
@@ -666,9 +974,181 @@ class ExecutorGraph:
             f"recursion_limit: {config['recursion_limit']})"
         )
 
-        async for event in self.graph.astream(state, config=config):
-            for node_name, node_state in event.items():
-                yield node_name, node_state
+        # Phase 2.1: Initialize shell session if enabled
+        session_token = None
+        if self.enable_shell:
+            await self._start_shell_session()
+            session_token = set_current_session(self._shell_session)
+            logger.debug(f"Shell session started (workspace: {self.shell_workspace})")
+
+        # Phase 15.3: Initialize MCP integration if configured
+        await self._init_mcp()
+
+        # Phase 1.3: Start context pre-warming and wait for it
+        if self._context_prewarmer is not None:
+            await self._context_prewarmer.start()
+            ready = await self._context_prewarmer.wait_ready(timeout=self.context_prewarm_timeout)
+            if ready:
+                stats = self._context_prewarmer.get_stats()
+                logger.info(
+                    f"Context pre-warmed: {stats.files_indexed} files in {stats.build_duration_ms:.0f}ms"
+                )
+            else:
+                logger.warning(
+                    f"Context pre-warming timed out after {self.context_prewarm_timeout}s"
+                )
+
+        try:
+            async for event in self.graph.astream(state, config=config):
+                for node_name, node_state in event.items():
+                    yield node_name, node_state
+        finally:
+            # Phase 15.3: Clean up MCP connections
+            await self._close_mcp()
+
+            # Phase 2.1: Clean up shell session
+            if self.enable_shell and self._shell_session is not None:
+                await self._close_shell_session()
+                if session_token is not None:
+                    set_current_session(None)
+                logger.debug("Shell session closed")
+
+    # =========================================================================
+    # Phase 2.1: Shell Session Lifecycle
+    # =========================================================================
+
+    async def _start_shell_session(self) -> None:
+        """Start the shell session for command execution.
+
+        Phase 2.1: Initializes a ShellSession with executor configuration.
+        The session persists across all task executions in this run.
+        """
+        from ai_infra.llm.shell.session import SessionConfig, ShellSession
+        from ai_infra.llm.shell.types import ShellConfig
+
+        shell_config = ShellConfig(timeout=self.shell_timeout)
+        session_config = SessionConfig(
+            workspace_root=self.shell_workspace,
+            shell_config=shell_config,
+        )
+        self._shell_session = ShellSession(session_config)
+        await self._shell_session.start()
+
+        # Phase 2.1.1: Add shell tool to agent if agent exists
+        if self.agent is not None and self.enable_shell:
+            shell_tool = create_shell_tool(
+                default_timeout=self.shell_timeout,
+                allowed_commands=self.shell_allowed_commands,  # Phase 2.4
+            )
+            # Add shell tool to agent's tools if not already present
+            # Check for both "run_shell" (default) and "configured_run_shell" (factory)
+            tool_names = [getattr(t, "name", None) for t in self.agent.tools]
+            if "run_shell" not in tool_names and "configured_run_shell" not in tool_names:
+                self.agent.tools.append(shell_tool)
+                logger.debug("Added shell tool to executor agent")
+
+    async def _close_shell_session(self) -> None:
+        """Close the shell session and clean up resources.
+
+        Phase 2.1: Gracefully closes the shell session after execution.
+        """
+        if self._shell_session is not None:
+            await self._shell_session.close()
+            self._shell_session = None
+
+    async def _init_mcp(self) -> None:
+        """Initialize MCP manager and discover tools (Phase 15.3).
+
+        Creates ExecutorMCPManager with configured servers and runs
+        auto-discovery if enabled. Adds discovered tools to agent.
+        """
+        if not self.mcp_servers:
+            logger.debug("No MCP servers configured, skipping MCP initialization")
+            return
+
+        if self._mcp_manager is not None:
+            # Already initialized
+            return
+
+        from ai_infra.executor.mcp_integration import ExecutorMCPManager
+
+        logger.info(f"Initializing MCP manager with {len(self.mcp_servers)} server(s)")
+
+        self._mcp_manager = ExecutorMCPManager(
+            configs=self.mcp_servers,
+            discover_timeout=self.mcp_discover_timeout,
+            tool_timeout=self.mcp_tool_timeout,
+        )
+
+        if self.mcp_auto_discover:
+            try:
+                result = await self._mcp_manager.discover()
+                if result.success:
+                    logger.info(
+                        f"MCP discovery complete: {result.tool_count} tools from "
+                        f"{result.healthy_servers}/{result.total_servers} server(s)"
+                    )
+                    # Add MCP tools to agent
+                    self._add_mcp_tools_to_agent()
+                else:
+                    logger.warning(
+                        f"MCP discovery partially failed: {result.healthy_servers}/"
+                        f"{result.total_servers} servers healthy"
+                    )
+            except Exception as e:
+                logger.warning(f"MCP discovery failed, continuing without MCP tools: {e}")
+
+    def _add_mcp_tools_to_agent(self) -> None:
+        """Add discovered MCP tools to the agent (Phase 15.3).
+
+        Appends MCP tools to agent.tools if not already present.
+        """
+        if self._mcp_manager is None or not self._mcp_manager.is_discovered:
+            return
+
+        if self.agent is None:
+            logger.debug("No agent configured, cannot add MCP tools")
+            return
+
+        mcp_tools = self._mcp_manager.get_tools()
+        if not mcp_tools:
+            logger.debug("No MCP tools discovered to add")
+            return
+
+        # Get existing tool names
+        existing_names = {getattr(t, "name", None) for t in self.agent.tools}
+
+        # Add MCP tools that aren't already present
+        added_count = 0
+        for tool in mcp_tools:
+            tool_name = getattr(tool, "name", None)
+            if tool_name and tool_name not in existing_names:
+                self.agent.tools.append(tool)
+                existing_names.add(tool_name)
+                added_count += 1
+
+        if added_count > 0:
+            logger.info(f"Added {added_count} MCP tools to agent")
+            logger.debug(f"MCP tool names: {self._mcp_manager.get_tool_names()}")
+
+    async def _close_mcp(self) -> None:
+        """Close MCP server connections (Phase 15.3).
+
+        Gracefully closes MCP connections after execution.
+        """
+        if self._mcp_manager is not None:
+            logger.debug("Closing MCP server connections")
+            await self._mcp_manager.close()
+            self._mcp_manager = None
+
+    async def _stop_context_prewarmer(self) -> None:
+        """Stop the context prewarmer.
+
+        Phase 1.3: Gracefully stops file watcher if enabled.
+        """
+        if self._context_prewarmer is not None:
+            await self._context_prewarmer.stop()
+            logger.debug("Context prewarmer stopped")
 
     # =========================================================================
     # Phase 1.6.2: Streaming Output
@@ -683,9 +1163,12 @@ class ExecutorGraph:
         """Stream execution events from the graph.
 
         Phase 1.6.2: Implements streaming output for real-time progress.
+        Phase 1.2: Supports LLM token streaming when streaming_config.stream_tokens=True.
 
         Yields ExecutorStreamEvent instances for each significant
         event during execution (node transitions, task progress, etc.).
+        When token streaming is enabled, also yields LLM_TOKEN, LLM_TOOL_START,
+        LLM_TOOL_END, LLM_THINKING, and LLM_DONE events during execute_task.
 
         Args:
             initial_state: Optional initial state.
@@ -697,12 +1180,15 @@ class ExecutorGraph:
 
         Example:
             ```python
-            from ai_infra.executor.streaming import stream_to_console
+            from ai_infra.executor.streaming import stream_to_console, StreamingConfig
 
-            async for event in executor.astream_events():
+            # With token streaming
+            config = StreamingConfig.verbose()  # or tokens_only()
+            async for event in executor.astream_events(streaming_config=config):
                 stream_to_console(event)
             ```
         """
+        from ai_infra.executor.nodes.execute import execute_task_streaming
         from ai_infra.executor.streaming import (
             StreamingConfig,
             create_node_end_event,
@@ -719,6 +1205,20 @@ class ExecutorGraph:
 
         state = initial_state or self.get_initial_state()
         config = config or {}
+
+        # Phase 1.3: Start context pre-warming and wait for it
+        if self._context_prewarmer is not None:
+            await self._context_prewarmer.start()
+            ready = await self._context_prewarmer.wait_ready(timeout=self.context_prewarm_timeout)
+            if ready:
+                stats = self._context_prewarmer.get_stats()
+                logger.info(
+                    f"Context pre-warmed: {stats.files_indexed} files in {stats.build_duration_ms:.0f}ms"
+                )
+            else:
+                logger.warning(
+                    f"Context pre-warming timed out after {self.context_prewarm_timeout}s"
+                )
 
         # Emit run start
         total_tasks = len(state.get("todos", []))
@@ -756,6 +1256,19 @@ class ExecutorGraph:
                             task_number=node_state.get("tasks_completed_count", 0) + 1,
                             total_tasks=len(node_state.get("todos", [])),
                         )
+
+                # Phase 1.2: Stream tokens during execute_task
+                elif node_name == "execute_task":
+                    if streaming_config.stream_tokens and self.agent is not None:
+                        # Stream LLM tokens from the execute_task node
+                        async for token_event in execute_task_streaming(
+                            node_state,
+                            agent=self.agent,
+                            streaming_config=streaming_config,
+                            model_router=self._model_router,
+                            routing_metrics=self._routing_metrics,
+                        ):
+                            yield token_event
 
                 elif node_name == "checkpoint":
                     if current_task and streaming_config.show_task_progress:
@@ -830,14 +1343,14 @@ class ExecutorGraph:
 
         Example:
             ```python
-            from ai_infra.executor.graph_tracing import TracingConfig
+            from ai_infra.executor.tracing import TracingConfig
 
             result = await executor.arun_with_tracing(
                 tracing_config=TracingConfig.production(),
             )
             ```
         """
-        from ai_infra.executor.graph_tracing import (
+        from ai_infra.executor.tracing import (
             TracingConfig,
             create_tracing_callbacks,
         )
@@ -862,13 +1375,24 @@ class ExecutorGraph:
             f"Starting traced executor run {actual_run_id} (roadmap: {state['roadmap_path']})"
         )
 
+        # Phase 1.3: Start context pre-warming and wait for it
+        if self._context_prewarmer is not None:
+            await self._context_prewarmer.start()
+            ready = await self._context_prewarmer.wait_ready(timeout=self.context_prewarm_timeout)
+            if ready:
+                stats = self._context_prewarmer.get_stats()
+                logger.info(
+                    f"Context pre-warmed: {stats.files_indexed} files in {stats.build_duration_ms:.0f}ms"
+                )
+            else:
+                logger.warning(
+                    f"Context pre-warming timed out after {self.context_prewarm_timeout}s"
+                )
+
         try:
             result = await self.graph.arun(state, config=config)
 
-            callbacks.end_run(
-                completed=result.get("tasks_completed_count", 0),
-                failed=len(result.get("failed_todos", [])),
-            )
+            callbacks.on_run_end()
 
             logger.info(
                 f"Traced executor run {actual_run_id} completed. "
@@ -877,7 +1401,7 @@ class ExecutorGraph:
             return result
 
         except Exception as e:
-            callbacks.end_run(error=e)
+            callbacks.on_run_end(error=e)
             raise
 
     def get_mermaid(self) -> str:

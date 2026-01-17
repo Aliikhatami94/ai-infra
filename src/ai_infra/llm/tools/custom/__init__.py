@@ -1,4 +1,3 @@
-from .cli import run_cli
 from .memory import (
     ConversationChunk,
     ConversationMemory,
@@ -9,7 +8,6 @@ from .memory import (
 from .retriever import create_retriever_tool, create_retriever_tool_async
 
 __all__ = [
-    "run_cli",
     "create_retriever_tool",
     "create_retriever_tool_async",
     # Memory tools (Phase 6.4.3)

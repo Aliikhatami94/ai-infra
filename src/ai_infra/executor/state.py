@@ -772,6 +772,7 @@ class ExecutorErrorType:
     ROLLBACK = "rollback"
     PARSE = "parse"
     CONTEXT = "context"
+    SHELL = "shell"  # Phase 2.2: Shell command errors
 
 
 class ExecutorError(TypedDict, total=False):
@@ -779,9 +780,10 @@ class ExecutorError(TypedDict, total=False):
 
     Phase 1.1.2b: Structured error tracking for graph-based execution.
     Phase 1.2: Added validation error type.
+    Phase 2.2: Added shell error type.
 
     Attributes:
-        error_type: Category of error (execution, verification, validation, timeout, rollback).
+        error_type: Category of error (execution, verification, validation, timeout, rollback, shell).
         message: Human-readable error description.
         node: Which graph node produced the error.
         task_id: ID of the task that failed (if applicable).
@@ -790,13 +792,53 @@ class ExecutorError(TypedDict, total=False):
     """
 
     error_type: Literal[
-        "execution", "verification", "validation", "timeout", "rollback", "parse", "context"
+        "execution",
+        "verification",
+        "validation",
+        "timeout",
+        "rollback",
+        "parse",
+        "context",
+        "shell",
     ]
     message: str
     node: str
     task_id: str | None
     recoverable: bool
     stack_trace: str | None
+
+
+class ShellError(TypedDict, total=False):
+    """Shell-specific error details for executor graph state.
+
+    Phase 2.2.2: Detailed shell command error tracking.
+    Used when a shell command fails during task execution.
+
+    Attributes:
+        command: The shell command that failed.
+        exit_code: The command's exit code (non-zero indicates failure).
+        stderr: Standard error output from the command.
+        stdout: Standard output from the command (may contain error details).
+        cwd: Working directory where the command was executed.
+        timed_out: Whether the command timed out.
+
+    Example:
+        >>> error: ShellError = {
+        ...     "command": "npm install",
+        ...     "exit_code": 1,
+        ...     "stderr": "npm ERR! code ERESOLVE",
+        ...     "stdout": "",
+        ...     "cwd": "/project",
+        ...     "timed_out": False,
+        ... }
+    """
+
+    command: str
+    exit_code: int
+    stderr: str
+    stdout: str
+    cwd: str | None
+    timed_out: bool
 
 
 class ExecutorGraphState(TypedDict, total=False):
@@ -1048,6 +1090,158 @@ class ExecutorGraphState(TypedDict, total=False):
     Each value contains: status ('repaired' or 'failed'), test_name, line_number, error_type, traceback.
     Example: {"src/app.py": {"status": "repaired", "test_name": "test_main", "line_number": 42, "error_type": "AssertionError", "traceback": "..."}}
     """
+
+    # -------------------------------------------------------------------------
+    # Phase 2.1 & 2.2: Shell Tool Integration
+    # -------------------------------------------------------------------------
+    enable_shell: bool
+    """Whether shell tool is enabled for this run (Phase 2.1, default: True)."""
+
+    shell_session_active: bool
+    """Whether a shell session is currently active (Phase 2.2).
+    True when arun/astream has started a session that hasn't been closed yet.
+    The actual ShellSession object is managed by ExecutorGraph, not stored in state."""
+
+    shell_results: list[dict[str, Any]]
+    """History of shell commands executed during this run (Phase 2.1).
+    Each entry contains: command, exit_code, stdout, stderr, duration_ms, timed_out.
+    Useful for debugging and audit trails.
+    Example: [{"command": "npm install", "exit_code": 0, "stdout": "...", "stderr": "", "duration_ms": 1234}]
+    """
+
+    shell_error: ShellError | None
+    """Details of the most recent shell command failure (Phase 2.2).
+    Set when a shell command fails with non-zero exit code or times out.
+    Cleared when the next task starts or when the error is handled."""
+
+    # -------------------------------------------------------------------------
+    # Phase 16.4: Shell Snapshots
+    # -------------------------------------------------------------------------
+    enable_shell_snapshots: bool
+    """Whether shell snapshots are captured on task boundaries (Phase 16.4)."""
+
+    shell_snapshot_pre_path: str | None
+    """Path to the pre-task shell snapshot (Phase 16.4)."""
+
+    shell_snapshot_post_path: str | None
+    """Path to the post-task shell snapshot (Phase 16.4)."""
+
+    shell_snapshot_diff: dict[str, Any] | None
+    """Diff between pre/post snapshots (Phase 16.4)."""
+
+    # -------------------------------------------------------------------------
+    # Phase 3.2: Autonomous Verification
+    # -------------------------------------------------------------------------
+    enable_autonomous_verify: bool
+    """Whether autonomous verification is enabled (Phase 3.2, default: False).
+    When True, the VerificationAgent will run tests autonomously after each task.
+    When False, only fast syntax checks are performed."""
+
+    verify_timeout: float
+    """Timeout for autonomous verification in seconds (Phase 3.2, default: 300.0).
+    Maximum time allowed for the VerificationAgent to complete verification."""
+
+    autonomous_verify_result: dict[str, Any] | None
+    """Result from the last autonomous verification (Phase 3.2).
+    Contains: passed, checks_run, failures, suggestions, duration_ms.
+    Set by verify_task_node when enable_autonomous_verify is True."""
+
+    # -------------------------------------------------------------------------
+    # Phase 3.2: Task Decomposition
+    # -------------------------------------------------------------------------
+    auto_decompose_enabled: bool
+    """Whether automatic task decomposition is enabled (Phase 3.2, default: False).
+    When True, complex tasks will be automatically decomposed into subtasks."""
+
+    decompose_threshold: int
+    """Complexity score threshold for auto-decomposition (Phase 3.2, default: 8).
+    Tasks with complexity scores >= this value will be decomposed."""
+
+    complexity_info: dict[str, Any] | None
+    """Complexity analysis for the current task (Phase 3.2).
+    Contains: score, recommended_action, should_decompose.
+    Set by pick_task_node when selecting a task."""
+
+    decomposed_from: int | None
+    """ID of the parent task if current_task was created via decomposition.
+    Used to track task lineage for reporting and recovery."""
+
+    # -------------------------------------------------------------------------
+    # Phase 7.1: Subagent Routing (EXECUTOR_3.md)
+    # -------------------------------------------------------------------------
+    use_subagents: bool
+    """Whether to route tasks to specialized subagents (Phase 7.1, default: False).
+    When True, tasks are routed to CoderAgent, TesterAgent, DebuggerAgent, etc.
+    based on task keywords. When False, uses the default generic agent."""
+
+    subagent_used: str | None
+    """Name of the subagent that handled the current task (Phase 7.1).
+    Set by execute_task_node when use_subagents is True.
+    Example values: 'CoderAgent', 'TesterAgent', 'DebuggerAgent', 'ReviewerAgent'.
+    None when use_subagents is False or task not yet executed."""
+
+    subagent_usage: dict[str, int]
+    """Phase 7.3.3: Cumulative count of subagent usage by type.
+    Tracks how many tasks each subagent type has handled during the run.
+    Example: {"coder": 5, "tester": 2, "debugger": 1}
+    Used for metrics and summary reporting."""
+
+    subagent_tokens_total: int
+    """Phase 16.5.1: Cumulative token count from all subagent executions.
+    Tracked separately from the main graph's token callback to ensure
+    tokens from nested LLM calls in subagents are included in final totals."""
+
+    subagent_tokens_task: int
+    """Phase 16.5.1: Token count from the most recent subagent execution.
+    Reset per-task. Used for per-task token reporting in logs."""
+
+    # -------------------------------------------------------------------------
+    # Orchestrator Routing
+    # -------------------------------------------------------------------------
+    orchestrator_routing_decision: dict[str, Any] | None
+    """The most recent routing decision from OrchestratorAgent.
+    Contains: agent_type, confidence, reasoning, used_fallback.
+    None when task not yet routed."""
+
+    orchestrator_tokens_total: int
+    """Cumulative token count from orchestrator routing calls.
+    Tracked separately to monitor orchestrator overhead cost."""
+
+    orchestrator_routing_history: list[dict[str, Any]]
+    """History of all routing decisions in current run.
+    Each entry contains: task_id, task_title, agent_type, confidence, reasoning.
+    Used for summary reporting and debugging routing patterns."""
+
+    # -------------------------------------------------------------------------
+    # Routing Accuracy Metrics
+    # -------------------------------------------------------------------------
+    routing_accuracy_metrics: dict[str, Any] | None
+    """Metrics for orchestrator routing performance.
+    Contains:
+    - fallback_used: int - Tasks where CODER fallback was used
+    - confidence_histogram: dict[str, int] - Distribution of confidence scores
+    - agent_distribution: dict[str, int] - Count of tasks per agent type
+    Updated by execute_task_node for comparison analysis."""
+
+    routing_comparison_log: list[dict[str, Any]]
+    """Phase 16.5.11.4: Detailed log of routing comparisons for analysis.
+    Each entry contains: task_id, task_title, orchestrator_choice, keyword_choice,
+    matched (bool), confidence, reasoning.
+    Used to improve keyword patterns based on orchestrator decisions."""
+
+    # -------------------------------------------------------------------------
+    # Phase 8.1: Skills Learning (EXECUTOR_3.md)
+    # -------------------------------------------------------------------------
+    enable_learning: bool
+    """Whether skills learning is enabled (Phase 8.1, default: True).
+    When True, successful task patterns are extracted and stored for future runs.
+    When False, no skill extraction occurs."""
+
+    skills_context: list[dict[str, Any]]
+    """Phase 8.2: Skills context injected by build_context_node.
+    Contains matching skills from SkillsDatabase based on task context.
+    Each entry has: title, pattern, rationale, confidence, type.
+    Example: [{"title": "FastAPI error handling", "pattern": "...", ...}]"""
 
 
 # =============================================================================

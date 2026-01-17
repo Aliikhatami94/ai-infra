@@ -159,7 +159,6 @@ def models_cmd(
 
 def register(parent: typer.Typer):
     """Register imagegen commands with the parent CLI app."""
-    parent.add_typer(app, name="imagegen", help="Image generation discovery")
-    # Also add as top-level commands with 'image-' prefix
-    parent.command("image-providers")(providers_cmd)
-    parent.command("image-models")(models_cmd)
+    # Register as top-level commands only (no sub-app to avoid duplication)
+    parent.command("image-providers", rich_help_panel="Image Generation")(providers_cmd)
+    parent.command("image-models", rich_help_panel="Image Generation")(models_cmd)

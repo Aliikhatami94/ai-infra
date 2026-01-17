@@ -94,6 +94,13 @@ from ai_infra.llm.multimodal.vision import (  # Backwards compatibility (depreca
     encode_image_for_openai,
     make_vision_message,
 )
+from ai_infra.llm.multimodal.voice import (
+    AudioPlayer,
+    Microphone,
+    RecordingConfig,
+    VoiceChat,
+    VoiceChatConfig,
+)
 
 __all__ = [
     # Vision - New API (recommended)
@@ -127,6 +134,12 @@ __all__ = [
     "TTS",
     # STT
     "STT",
+    # Voice (Microphone, Playback, VoiceChat)
+    "Microphone",
+    "AudioPlayer",
+    "VoiceChat",
+    "RecordingConfig",
+    "VoiceChatConfig",
     # Models
     "AudioFormat",
     "AudioSegment",

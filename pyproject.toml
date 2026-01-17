@@ -70,7 +70,9 @@ svc-infra = ">=0.1.0"
 # Optional local embeddings (install via extras)
 langchain-huggingface = { version = ">=1.0.0", optional = true }
 sentence-transformers = { version = ">=5.0.0", optional = true }
-
+# Optional voice chat dependencies (microphone + playback)
+sounddevice = { version = ">=0.4.0", optional = true }
+soundfile = { version = ">=0.12.0", optional = true }
 [tool.poetry.extras]
 # LLM providers (optional - install based on which API key you have)
 anthropic = ["langchain-anthropic"]
@@ -78,6 +80,8 @@ google = ["langchain-google-genai", "google-genai"]
 xai = ["langchain-xai"]
 # All LLM providers
 llm-all = ["langchain-anthropic", "langchain-google-genai", "google-genai", "langchain-xai"]
+# Voice chat (microphone recording + audio playback)
+voice = ["sounddevice", "soundfile"]
 # Retriever storage backends
 postgres = ["pgvector", "psycopg2-binary"]
 sqlite = ["sqlite-vss"]
@@ -196,7 +200,7 @@ omit = ["*/tests/*", "*/__pycache__/*", "*/examples/*", "*/cli/*"]
 
 [tool.coverage.report]
 exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "raise NotImplementedError"]
-fail_under = 40
+fail_under = 70
 show_missing = true
 
 # Semantic Release configuration

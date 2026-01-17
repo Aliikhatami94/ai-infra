@@ -3,13 +3,14 @@
 Phase 1.2.2: Creates git checkpoints after successful task verification.
 Phase 1.4.1: Integrates git checkpointer with graph.
 Phase 1.4.2: Integrates TodoListManager for ROADMAP sync.
+Phase 8.3: Extracts skills from successful task completions.
 """
 
 from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from ai_infra.executor.state import ExecutorGraphState, NodeTimeouts
 from ai_infra.logging import get_logger
@@ -18,6 +19,8 @@ if TYPE_CHECKING:
     from ai_infra.executor.checkpoint import Checkpointer
     from ai_infra.executor.project_memory import ProjectMemory
     from ai_infra.executor.run_memory import RunMemory
+    from ai_infra.executor.skills.database import SkillsDatabase
+    from ai_infra.executor.skills.extractor import SkillExtractor
     from ai_infra.executor.todolist import TodoListManager
 
 logger = get_logger("executor.nodes.checkpoint")
@@ -31,6 +34,10 @@ async def checkpoint_node(
     run_memory: RunMemory | None = None,
     project_memory: ProjectMemory | None = None,
     sync_roadmap: bool = True,
+    # Phase 8.3: Skills extraction (EXECUTOR_3.md)
+    skills_db: SkillsDatabase | None = None,
+    skill_extractor: SkillExtractor | None = None,
+    enable_learning: bool = True,
 ) -> ExecutorGraphState:
     """Create a git checkpoint after successful task verification.
 
@@ -38,6 +45,7 @@ async def checkpoint_node(
     Phase 1.4.2: TodoListManager integration for ROADMAP sync.
     Phase 2.1.1: Records task outcome to RunMemory for context injection.
     Phase 2.1.2: Updates ProjectMemory with run outcomes for cross-run insights.
+    Phase 8.3: Extracts skills from successful task completions (EXECUTOR_3.md).
 
     This node:
     1. Gets current_task and files_modified from state
@@ -46,6 +54,7 @@ async def checkpoint_node(
     4. Marks todo as completed and syncs to ROADMAP
     5. Records task outcome to RunMemory for subsequent tasks
     6. Updates ProjectMemory after task completion (Phase 2.1.2)
+    7. Extracts skills from verified successful tasks (Phase 8.3)
 
     Note: Graph state persistence is handled by decide_next node (after todos updated).
 
@@ -56,6 +65,9 @@ async def checkpoint_node(
         run_memory: RunMemory instance for recording task outcomes.
         project_memory: ProjectMemory instance for cross-run insights (Phase 2.1.2).
         sync_roadmap: Whether to sync completion to ROADMAP.md.
+        skills_db: SkillsDatabase for storing extracted skills (Phase 8.3).
+        skill_extractor: SkillExtractor for extracting skills (Phase 8.3).
+        enable_learning: Whether to extract skills (Phase 8.3, default: True).
 
     Returns:
         Updated state with last_checkpoint_sha.
@@ -106,6 +118,22 @@ async def checkpoint_node(
                 run_memory=run_memory,
                 current_task=current_task,
             )
+
+    # Phase 8.3: Extract skills from verified successful tasks (EXECUTOR_3.md)
+    # Only extract when:
+    # 1. Learning is enabled
+    # 2. Task was verified successful
+    # 3. Files were modified (something meaningful happened)
+    verified = state.get("verified", False)
+    if enable_learning and verified and files_modified:
+        await _extract_skill_from_task(
+            current_task=current_task,
+            files_modified=files_modified,
+            agent_result=state.get("agent_result"),
+            skills_db=skills_db,
+            skill_extractor=skill_extractor,
+            state=state,
+        )
 
     # If no checkpointer, skip git checkpoint (development mode)
     if checkpointer is None:
@@ -343,3 +371,190 @@ def _update_project_memory(
     except Exception as e:
         # Log but don't fail - this is supplementary context
         logger.warning(f"Failed to update project memory: {e}")
+
+
+async def _extract_skill_from_task(
+    current_task: Any,
+    files_modified: list[str],
+    agent_result: dict[str, Any] | None,
+    skills_db: SkillsDatabase | None,
+    skill_extractor: SkillExtractor | None,
+    state: ExecutorGraphState,
+) -> None:
+    """Extract a skill from a successful task completion.
+
+    Phase 8.3: Extracts skills from verified successful tasks using heuristics.
+    Skills are stored in SkillsDatabase for future task context injection.
+
+    Args:
+        current_task: The completed task.
+        files_modified: List of modified file paths.
+        agent_result: The agent execution result.
+        skills_db: SkillsDatabase for storing extracted skills.
+        skill_extractor: SkillExtractor for skill extraction.
+        state: Current graph state for context.
+    """
+    # Need both skills_db and extractor to extract skills
+    if skills_db is None:
+        return
+
+    task_id = getattr(current_task, "id", "?")
+    task_title = getattr(current_task, "title", "Unknown")
+
+    try:
+        # Create skill extractor if not provided
+        extractor = skill_extractor
+        if extractor is None:
+            from ai_infra.executor.skills.extractor import SkillExtractor
+
+            extractor = SkillExtractor(db=skills_db, llm=None)
+
+        # Build context for skill matching
+        from ai_infra.executor.skills.models import SkillContext
+
+        # Infer language from files modified
+        language = _infer_language_from_files(files_modified)
+
+        context = SkillContext(
+            language=language,
+            framework=state.get("project_framework"),
+            task_title=task_title,
+            task_description=getattr(current_task, "description", "") or "",
+            file_hints=files_modified,
+        )
+
+        # Build task result from agent result
+        from ai_infra.executor.skills.extractor import TaskResult
+
+        task_result = TaskResult(
+            success=True,
+            files_modified=files_modified,
+            files_created=[f for f in files_modified if _is_likely_new_file(f, agent_result)],
+            actions_summary=_extract_actions_summary(agent_result),
+            diff_summary=_extract_diff_summary(agent_result, files_modified),
+        )
+
+        # Extract skill using heuristic-based extraction (no LLM)
+        skill = await extractor.extract_from_success(
+            task=current_task,
+            result=task_result,
+            context=context,
+        )
+
+        if skill:
+            logger.info(
+                f"Extracted skill from task [{task_id}]: {skill.title}",
+                extra={"skill_id": skill.id, "type": skill.type.value},
+            )
+
+    except Exception as e:
+        # Don't fail checkpoint on skill extraction error
+        logger.warning(f"Failed to extract skill from task [{task_id}]: {e}")
+
+
+def _infer_language_from_files(files_modified: list[str]) -> str:
+    """Infer programming language from modified files.
+
+    Args:
+        files_modified: List of modified file paths.
+
+    Returns:
+        Inferred language (default: "python").
+    """
+    if not files_modified:
+        return "python"
+
+    extension_map = {
+        ".py": "python",
+        ".js": "javascript",
+        ".ts": "typescript",
+        ".tsx": "typescript",
+        ".jsx": "javascript",
+        ".go": "go",
+        ".rs": "rust",
+        ".java": "java",
+        ".rb": "ruby",
+    }
+
+    for filepath in files_modified:
+        for ext, lang in extension_map.items():
+            if filepath.endswith(ext):
+                return lang
+
+    return "python"
+
+
+def _is_likely_new_file(filepath: str, agent_result: dict[str, Any] | None) -> bool:
+    """Check if file was likely created (vs modified).
+
+    Args:
+        filepath: Path to the file.
+        agent_result: Agent execution result.
+
+    Returns:
+        True if file was likely created.
+    """
+    # Heuristic: check if file was mentioned in creation context
+    if agent_result is None:
+        return False
+
+    # Check for create/write patterns in agent messages
+    messages = agent_result.get("messages", [])
+    for msg in messages:
+        content = str(msg.get("content", "")) if isinstance(msg, dict) else str(msg)
+        if filepath in content and any(
+            kw in content.lower() for kw in ["create", "creating", "new file"]
+        ):
+            return True
+
+    return False
+
+
+def _extract_actions_summary(agent_result: dict[str, Any] | None) -> str:
+    """Extract actions summary from agent result.
+
+    Args:
+        agent_result: Agent execution result.
+
+    Returns:
+        Summary of actions taken.
+    """
+    if agent_result is None:
+        return ""
+
+    # Try to extract from agent response
+    messages = agent_result.get("messages", [])
+    if messages:
+        # Get last assistant message as summary
+        for msg in reversed(messages):
+            if isinstance(msg, dict):
+                role = msg.get("role", "")
+                content = msg.get("content", "")
+                if role == "assistant" and content:
+                    # Truncate to reasonable length
+                    return content[:500]
+
+    return ""
+
+
+def _extract_diff_summary(agent_result: dict[str, Any] | None, files_modified: list[str]) -> str:
+    """Extract diff summary from agent result.
+
+    Args:
+        agent_result: Agent execution result.
+        files_modified: List of modified file paths.
+
+    Returns:
+        Summary of code changes.
+    """
+    if agent_result is None or not files_modified:
+        return ""
+
+    # Build simple summary from files list
+    summary_parts = [f"Modified {len(files_modified)} file(s):"]
+    for f in files_modified[:5]:
+        summary_parts.append(f"  - {f}")
+    if len(files_modified) > 5:
+        summary_parts.append(f"  ... and {len(files_modified) - 5} more")
+
+    return "\n".join(summary_parts)

@@ -4,6 +4,7 @@ Phase 1.1.3: Conditional edge routing for graph-based executor.
 Phase 2.3.1: Added adaptive replanning routing.
 Phase 2.4.2: Updated route_after_pick for planning support.
 Phase 1.2.3: Added route_after_validate and route_after_repair for pre-write validation.
+Phase 16.5.7: Added logging for route_after_verify decisions.
 
 These functions determine the next node to execute based on current state.
 All edge routing is done through these pure functions for testability.
@@ -11,12 +12,15 @@ All edge routing is done through these pure functions for testability.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 from langgraph.constants import END
 
 if TYPE_CHECKING:
     from ai_infra.executor.state import ExecutorGraphState
+
+logger = logging.getLogger(__name__)
 
 # Maximum repair attempts - must match nodes/repair.py
 MAX_REPAIRS = 2
@@ -70,6 +74,7 @@ def route_after_verify(state: ExecutorGraphState) -> str:
     """Route after verify_task node.
 
     Phase 2.6: Updated to route to repair_test for targeted test repair.
+    Phase 16.5.7: Added logging for routing decisions.
 
     Decision:
         - If verification passed -> checkpoint
@@ -83,6 +88,7 @@ def route_after_verify(state: ExecutorGraphState) -> str:
         Next node name.
     """
     if state.get("verified", False):
+        logger.debug("Verification passed, routing to checkpoint")
         return "checkpoint"
 
     # Phase 2.6: Route to repair_test for targeted test repair
@@ -90,8 +96,16 @@ def route_after_verify(state: ExecutorGraphState) -> str:
     max_test_repairs = 2
 
     if test_repair_count < max_test_repairs:
+        logger.debug(
+            f"Verification failed, routing to repair_test "
+            f"(attempt {test_repair_count + 1}/{max_test_repairs})"
+        )
         return "repair_test"
 
+    logger.debug(
+        f"Verification failed and max repairs ({max_test_repairs}) reached, "
+        "routing to handle_failure"
+    )
     return "handle_failure"
 
 

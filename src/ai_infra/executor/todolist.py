@@ -423,6 +423,9 @@ class TodoItem:
         error: Error message if the todo failed.
         started_at: When work started.
         completed_at: When work completed.
+        parent_id: ID of parent task if this is a decomposed subtask.
+        children_ids: IDs of child tasks if this was decomposed.
+        complexity_score: Task complexity score (0-20+).
     """
 
     id: int
@@ -436,6 +439,9 @@ class TodoItem:
     error: str | None = None
     started_at: datetime | None = None
     completed_at: datetime | None = None
+    parent_id: int | None = None
+    children_ids: list[int] = field(default_factory=list)
+    complexity_score: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -451,6 +457,9 @@ class TodoItem:
             "error": self.error,
             "started_at": self.started_at.isoformat() if self.started_at else None,
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "parent_id": self.parent_id,
+            "children_ids": self.children_ids,
+            "complexity_score": self.complexity_score,
         }
 
     @classmethod
@@ -483,7 +492,25 @@ class TodoItem:
             completed_at=datetime.fromisoformat(data["completed_at"])
             if data.get("completed_at")
             else None,
+            parent_id=data.get("parent_id"),
+            children_ids=data.get("children_ids", []),
+            complexity_score=data.get("complexity_score"),
         )
+
+    @property
+    def is_subtask(self) -> bool:
+        """Check if this is a subtask of another task."""
+        return self.parent_id is not None
+
+    @property
+    def has_subtasks(self) -> bool:
+        """Check if this task has been decomposed into subtasks."""
+        return len(self.children_ids) > 0
+
+    @property
+    def is_decomposed(self) -> bool:
+        """Alias for has_subtasks."""
+        return self.has_subtasks
 
 
 class TodoListManager:
@@ -1247,10 +1274,23 @@ class TodoListManager:
     # =========================================================================
 
     def next_pending(self) -> TodoItem | None:
-        """Get the next pending todo item."""
+        """Get next pending task, preferring non-decomposed tasks.
+
+        Phase 3.2: If a task has been decomposed, its children must be
+        completed first. This method returns tasks in dependency order.
+
+        Returns:
+            Next pending TodoItem or None.
+        """
         for todo in self._todos:
-            if todo.status == TodoStatus.NOT_STARTED:
-                return todo
+            if todo.status != TodoStatus.NOT_STARTED:
+                continue
+
+            # Skip parent tasks that have uncompleted children (Phase 3.2)
+            if todo.has_subtasks and not self.are_children_complete(todo.id):
+                continue
+
+            return todo
         return None
 
     def get_todo(self, todo_id: int) -> TodoItem | None:
@@ -1683,21 +1723,45 @@ class TodoListManager:
     # ROADMAP Synchronization
     # =========================================================================
 
-    def _sync_todo_to_roadmap(self, todo: TodoItem) -> int:
+    def _sync_todo_to_roadmap(
+        self,
+        todo: TodoItem,
+        *,
+        max_retries: int = 3,
+        verify: bool = True,
+    ) -> int:
         """Sync a completed todo's tasks to ROADMAP checkboxes.
+
+        Phase 16.5.4: Enhanced with logging, verification, and retry logic.
 
         Args:
             todo: The completed todo to sync.
+            max_retries: Maximum number of write retries on failure.
+            verify: Whether to verify checkbox was updated after write.
 
         Returns:
             Number of checkboxes updated.
         """
         if not self._roadmap_path or not self._roadmap_path.exists():
+            logger.debug(
+                "roadmap_sync_skipped",
+                reason="no_roadmap_path",
+                todo_id=todo.id,
+            )
             return 0
+
+        logger.debug(
+            "roadmap_sync_started",
+            todo_id=todo.id,
+            todo_title=todo.title,
+            source_titles_count=len(todo.source_titles),
+        )
 
         content = self._roadmap_path.read_text(encoding="utf-8")
         original_content = content
         updated_count = 0
+        titles_updated: list[str] = []
+        titles_not_found: list[str] = []
 
         # Update checkbox for each source title
         for title in todo.source_titles:
@@ -1720,6 +1784,7 @@ class TodoListManager:
                 rf"^(\s*[-*+]\s*)\[ \](\s+{escaped_title})",
             ]
 
+            matched = False
             for pattern in patterns:
                 match = re.search(pattern, content, re.MULTILINE | re.IGNORECASE)
                 if match:
@@ -1727,12 +1792,104 @@ class TodoListManager:
                     new = old.replace("[ ]", "[x]", 1)
                     content = content.replace(old, new, 1)
                     updated_count += 1
+                    titles_updated.append(title)
+                    matched = True
+                    logger.debug(
+                        "checkbox_matched",
+                        title=title[:50],
+                        pattern_index=patterns.index(pattern),
+                    )
                     break
 
-        # Write back if changed
+            if not matched:
+                titles_not_found.append(title)
+                logger.debug(
+                    "checkbox_not_matched",
+                    title=title[:50],
+                    reason="no_pattern_match",
+                )
+
+        # Write back if changed with retry logic
         if content != original_content:
-            self._roadmap_path.write_text(content, encoding="utf-8")
-            logger.info(f"Updated {updated_count} checkboxes in {self._roadmap_path.name}")
+            write_success = False
+            last_error: Exception | None = None
+
+            for attempt in range(max_retries):
+                try:
+                    self._roadmap_path.write_text(content, encoding="utf-8")
+
+                    # Verify write if enabled
+                    if verify:
+                        verified_content = self._roadmap_path.read_text(encoding="utf-8")
+                        # Check that all updated titles now have [x]
+                        verification_failed = False
+                        for title in titles_updated:
+                            escaped = re.escape(title)
+                            # Check if the title now has [x] instead of [ ]
+                            if re.search(
+                                rf"^\s*[-*+]\s*\[ \]\s+.*{escaped}",
+                                verified_content,
+                                re.MULTILINE | re.IGNORECASE,
+                            ):
+                                verification_failed = True
+                                logger.warning(
+                                    "checkbox_verification_failed",
+                                    title=title[:50],
+                                    attempt=attempt + 1,
+                                )
+                                break
+
+                        if verification_failed:
+                            # Re-read and retry
+                            content = self._roadmap_path.read_text(encoding="utf-8")
+                            continue
+
+                    write_success = True
+                    logger.info(
+                        "roadmap_checkboxes_updated",
+                        updated_count=updated_count,
+                        titles_updated=len(titles_updated),
+                        titles_not_found=len(titles_not_found),
+                        roadmap=self._roadmap_path.name,
+                        attempt=attempt + 1,
+                    )
+                    break
+
+                except OSError as e:
+                    last_error = e
+                    logger.warning(
+                        "roadmap_write_failed",
+                        error=str(e),
+                        attempt=attempt + 1,
+                        max_retries=max_retries,
+                    )
+                    if attempt < max_retries - 1:
+                        import time
+
+                        time.sleep(0.1 * (attempt + 1))  # Exponential backoff
+
+            if not write_success:
+                logger.error(
+                    "roadmap_sync_failed",
+                    todo_id=todo.id,
+                    error=str(last_error) if last_error else "verification_failed",
+                    titles_attempted=len(titles_updated),
+                )
+                return 0
+        else:
+            if titles_not_found:
+                logger.warning(
+                    "roadmap_sync_no_matches",
+                    todo_id=todo.id,
+                    titles_not_found=titles_not_found[:5],  # Limit log size
+                    total_not_found=len(titles_not_found),
+                )
+            else:
+                logger.debug(
+                    "roadmap_sync_no_changes",
+                    todo_id=todo.id,
+                    reason="content_unchanged",
+                )
 
         return updated_count
 
@@ -1786,6 +1943,104 @@ class TodoListManager:
             "completed": self.completed_count,
             "failed": sum(1 for t in self._todos if t.status == TodoStatus.FAILED),
         }
+
+    # =========================================================================
+    # Task Decomposition Support
+    # =========================================================================
+
+    def decompose_task(
+        self,
+        parent_id: int,
+        subtasks: list[dict[str, Any]],
+    ) -> list[TodoItem]:
+        """Decompose a task into subtasks.
+
+        Marks the parent task as decomposed and creates child tasks
+        that must be completed before the parent is considered complete.
+
+        Args:
+            parent_id: ID of the task to decompose.
+            subtasks: List of subtask definitions with title/description.
+
+        Returns:
+            List of created subtask TodoItems.
+
+        Raises:
+            ValueError: If parent task not found.
+        """
+        parent = self.get_todo(parent_id)
+        if parent is None:
+            raise ValueError(f"Task {parent_id} not found")
+
+        created_subtasks: list[TodoItem] = []
+        next_id = max(t.id for t in self._todos) + 1
+
+        for subtask_data in subtasks:
+            subtask = TodoItem(
+                id=next_id,
+                title=subtask_data.get("title", ""),
+                description=subtask_data.get("description", ""),
+                status=TodoStatus.NOT_STARTED,
+                parent_id=parent_id,
+                file_hints=subtask_data.get("files_hint", []),
+                complexity_score=subtask_data.get("complexity_score"),
+            )
+            self._todos.append(subtask)
+            parent.children_ids.append(next_id)
+            created_subtasks.append(subtask)
+            next_id += 1
+
+        logger.info(f"Decomposed task {parent_id} into {len(created_subtasks)} subtasks")
+
+        # Save to JSON
+        self._save_to_json()
+
+        return created_subtasks
+
+    def get_children(self, parent_id: int) -> list[TodoItem]:
+        """Get child tasks of a parent task.
+
+        Args:
+            parent_id: ID of the parent task.
+
+        Returns:
+            List of child TodoItems.
+        """
+        parent = self.get_todo(parent_id)
+        if parent is None or not parent.children_ids:
+            return []
+
+        return [t for t in self._todos if t.id in parent.children_ids]
+
+    def get_parent(self, child_id: int) -> TodoItem | None:
+        """Get parent task of a child task.
+
+        Args:
+            child_id: ID of the child task.
+
+        Returns:
+            Parent TodoItem or None.
+        """
+        child = self.get_todo(child_id)
+        if child is None or child.parent_id is None:
+            return None
+
+        return self.get_todo(child.parent_id)
+
+    def are_children_complete(self, parent_id: int) -> bool:
+        """Check if all children of a parent task are complete.
+
+        Args:
+            parent_id: ID of the parent task.
+
+        Returns:
+            True if all children are completed, False otherwise.
+        """
+        children = self.get_children(parent_id)
+        if not children:
+            return True
+
+        return all(c.status == TodoStatus.COMPLETED for c in children)
 
     def __repr__(self) -> str:
         """Get string representation."""
