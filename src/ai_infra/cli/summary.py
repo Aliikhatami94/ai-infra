@@ -475,7 +475,7 @@ def generate_next_steps(
             steps.append(
                 NextStep(
                     "Retry from failed task",
-                    f"executor run --resume --from {failed_task_id}",
+                    f"ai-infra chat --resume --from {failed_task_id}",
                 )
             )
         steps.append(
@@ -495,7 +495,7 @@ def generate_next_steps(
         steps.append(
             NextStep(
                 "Resume execution",
-                "executor run --resume",
+                "ai-infra chat --resume",
             )
         )
         steps.append(
@@ -508,13 +508,13 @@ def generate_next_steps(
         steps.append(
             NextStep(
                 "Resume from checkpoint",
-                "executor run --resume",
+                "ai-infra chat --resume",
             )
         )
         steps.append(
             NextStep(
                 "Start fresh",
-                "executor run",
+                "ai-infra chat",
             )
         )
 

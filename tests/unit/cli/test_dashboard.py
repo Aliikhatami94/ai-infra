@@ -335,7 +335,7 @@ class TestStatusBar:
     def test_creation(self) -> None:
         """StatusBar should be creatable."""
         bar = StatusBar()
-        assert bar.title == "ai-infra executor"
+        assert bar.title == "ai-infra"
 
     def test_creation_with_state(self) -> None:
         """StatusBar should accept initial state."""
@@ -361,7 +361,7 @@ class TestStatusBar:
         console.print(bar)
         output = console.file.getvalue()
 
-        assert "ai-infra executor" in output
+        assert "ai-infra" in output
         assert "claude-sonnet-4" in output
         assert "2/4" in output  # Phase
         assert "5/12" in output  # Tasks
@@ -415,7 +415,7 @@ class TestLiveStatusBar:
         """LiveStatusBar should be creatable."""
         bar = LiveStatusBar()
         assert bar.state is not None
-        assert bar.title == "ai-infra executor"
+        assert bar.title == "ai-infra"
 
     def test_update_state(self) -> None:
         """update() should modify state."""

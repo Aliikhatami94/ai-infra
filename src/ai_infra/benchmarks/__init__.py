@@ -1,8 +1,8 @@
-"""Benchmark harness for executor performance testing.
+"""Benchmark harness for LLM performance testing.
 
-Phase 12.1 of EXECUTOR_4.md - Benchmark Framework.
+Phase 12.1 - Benchmark Framework.
 
-This module provides a standardized benchmark harness for measuring executor
+This module provides a standardized benchmark harness for measuring LLM
 performance metrics including:
 - Time to first token (TTFT)
 - Task completion latency

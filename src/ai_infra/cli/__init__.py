@@ -166,10 +166,6 @@ def _show_help():
         console.print(
             '    [dim]$[/dim] [white]ai-infra chat -m "Hello"[/white]   [dim]One-shot message[/dim]'
         )
-        console.print(
-            "    [dim]$[/dim] [white]ai-infra executor run[/white]"
-            "       [dim]Run autonomous tasks[/dim]"
-        )
     else:
         console.print(
             "    [dim]$[/dim] [white]ai-infra providers[/white]"
@@ -185,7 +181,6 @@ def _show_help():
     commands = [
         ("chat", "Interactive chat with LLMs (supports --mcp for tools)"),
         ("chat --voice", "Voice chat mode (speak to chat)"),
-        ("executor", "Autonomous task execution (roadmaps, coding)"),
         ("mcp", "MCP server debugging and testing"),
         ("providers", "List available AI providers"),
         ("models", "List models for a provider"),

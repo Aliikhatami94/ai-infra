@@ -407,7 +407,7 @@ class TestFailureInfo:
             error_type="Test assertion failed",
             error_message="pytest tests/test_auth.py::test_oauth_callback",
             suggestion="Check the OAUTH_CALLBACK_URL environment variable.",
-            retry_command="executor run --resume --from 2.1.3",
+            retry_command="ai-infra chat --resume --from 2.1.3",
         )
         assert failure.task_id == "2.1.3"
         assert failure.suggestion is not None
@@ -424,7 +424,7 @@ class TestFailureSummary:
             error_type="Test assertion failed",
             error_message="Test failed",
             suggestion="Check config",
-            retry_command="executor run --resume --from 2.1.3",
+            retry_command="ai-infra chat --resume --from 2.1.3",
         )
         summary = FailureSummary(failure)
 

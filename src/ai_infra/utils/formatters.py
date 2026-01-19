@@ -2,11 +2,10 @@
 
 This module provides reusable formatters for:
 - Console output (plain text, colored, JSON)
-- Stream events (ExecutorStreamEvent, StreamEvent)
+- Stream events (StreamEvent)
 - Progress display
 
 These formatters are used by:
-- executor/streaming.py for task progress
 - CLI commands for output formatting
 - MCP servers for structured responses
 
@@ -91,7 +90,7 @@ def _get_event_type(event: Any) -> str | None:
 
     Handles:
     - Core StreamEvent with `type` attribute
-    - Executor ExecutorStreamEvent with `event_type` attribute (enum)
+    - StreamEvent with `event_type` attribute (enum)
     - Dict events with `type` or `event_type` keys
 
     Args:
@@ -100,7 +99,7 @@ def _get_event_type(event: Any) -> str | None:
     Returns:
         Event type as string, or None if not found.
     """
-    # Try event_type first (executor format - may be enum)
+    # Try event_type first (may be enum)
     if hasattr(event, "event_type"):
         et = event.event_type
         return et.value if hasattr(et, "value") else str(et)
@@ -153,7 +152,7 @@ class PlainFormatter:
     """Plain text formatter with optional colors.
 
     Provides clear, readable output with ANSI colors for terminals.
-    Supports both core StreamEvent and ExecutorStreamEvent.
+    Supports StreamEvent formats.
 
     Example:
         formatter = PlainFormatter(colors_enabled=True)
@@ -235,7 +234,7 @@ class PlainFormatter:
         Returns:
             Formatted string.
         """
-        # Get event type - handle both core (type) and executor (event_type)
+        # Get event type - handle both type and event_type attributes
         event_type = _get_event_type(event)
         if event_type is None:
             return str(event)
@@ -253,7 +252,7 @@ class PlainFormatter:
         color = self.COLOR_MAP.get(str(event_type), "reset")
         parts.append(colorize(symbol, color, self.colors_enabled))
 
-        # Node name (for executor events)
+        # Node name (for node events)
         node_name = getattr(event, "node_name", None)
         if node_name and event_type in ("node_start", "node_end", "node_error"):
             parts.append(colorize(node_name, "bold", self.colors_enabled))
@@ -311,7 +310,7 @@ class MinimalFormatter:
         Returns:
             Formatted string, or empty string for non-essential events.
         """
-        # Get event type - handle both core (type) and executor (event_type)
+        # Get event type - handle both type and event_type attributes
         event_type = _get_event_type(event)
         if event_type is None:
             return ""

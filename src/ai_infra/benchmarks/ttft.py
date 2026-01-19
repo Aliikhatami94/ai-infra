@@ -1,8 +1,8 @@
 """Time-to-First-Token (TTFT) benchmark module.
 
-Phase 12.2 of EXECUTOR_4.md - Time-to-First-Token Benchmark.
+Phase 12.2 - Time-to-First-Token Benchmark.
 
-This module provides comprehensive TTFT benchmarking for the executor:
+This module provides comprehensive TTFT benchmarking for LLM calls:
 - TTFTBenchmark class for measuring time to first token
 - TTFTProfile for breaking down TTFT into components
 - CLI integration for running TTFT benchmarks
@@ -339,7 +339,7 @@ class TTFTProfile:
     """Profile TTFT to identify bottlenecks.
 
     Breaks down TTFT into measurable components:
-    - initialization: Time to set up executor/graph
+    - initialization: Time to set up the LLM call
     - context_build: Time to build context/prompt
     - llm_request: Time for LLM API call to return first token
     - network: Estimated network latency
