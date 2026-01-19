@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """File size linter for enforcing code quality standards.
 
-Phase 13.1 of EXECUTOR_4.md - File Size Enforcement.
+Phase 13.1 - File Size Enforcement.
 
 This script checks Python files to ensure they don't exceed a configurable
 line limit. Large files are harder to maintain, test, and understand.
@@ -12,8 +12,8 @@ Usage:
     python scripts/lint_file_size.py [directory] [--max-lines N] [--json]
 
 Examples:
-    # Check executor directory
-    python scripts/lint_file_size.py src/ai_infra/executor
+    # Check src directory
+    python scripts/lint_file_size.py src/ai_infra
 
     # Check with custom limit
     python scripts/lint_file_size.py src/ --max-lines 400

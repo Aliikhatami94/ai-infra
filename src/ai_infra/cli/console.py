@@ -235,7 +235,7 @@ def get_console(
 ) -> Console:
     """Get the themed console instance.
 
-    Creates a singleton Console with the executor theme. The console
+    Creates a singleton Console with the ai-infra theme. The console
     is configured based on detected terminal capabilities.
 
     Args:

@@ -191,8 +191,8 @@ class TestGetConsole:
         console2 = get_console()
         assert console1 is console2
 
-    def test_has_executor_theme(self) -> None:
-        """Console should have executor theme applied."""
+    def test_has_ai_infra_theme(self) -> None:
+        """Console should have ai-infra theme applied."""
         # Call get_console to ensure singleton is initialized
         get_console()
         # Verify theme is applied by checking that themed styles render without error

@@ -1,6 +1,6 @@
 """Tests for throughput benchmark module.
 
-Tests Phase 12.4 of EXECUTOR_4.md - Throughput Benchmark.
+Tests Phase 12.4 - Throughput Benchmark.
 """
 
 from __future__ import annotations

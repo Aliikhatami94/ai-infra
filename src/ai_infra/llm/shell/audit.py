@@ -809,14 +809,14 @@ def set_shell_audit_logger(logger: ShellAuditLogger) -> None:
 
 @dataclass(frozen=True, slots=True)
 class AuditReport:
-    """Summary report for an executor run's shell activity.
+    """Summary report for an agent run's shell activity.
 
     Provides aggregate statistics for all shell commands executed
     during a run, including success/failure counts, security violations,
     and timing information.
 
     Attributes:
-        run_id: Unique identifier for the executor run.
+        run_id: Unique identifier for the agent run.
         total_commands: Total number of shell commands executed.
         successful_commands: Number of commands that succeeded.
         failed_commands: Number of commands that failed.
@@ -924,10 +924,10 @@ def generate_audit_report(
     """Generate an audit report from shell execution results.
 
     Aggregates statistics from a list of ShellResult objects to produce
-    a summary report for an executor run.
+    a summary report for an agent run.
 
     Args:
-        run_id: Unique identifier for the executor run.
+        run_id: Unique identifier for the agent run.
         results: List of ShellResult objects from command execution.
         blocked_commands: Number of commands blocked by security policy.
         secrets_redacted: Total number of secrets redacted from output.

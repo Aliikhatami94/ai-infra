@@ -418,7 +418,7 @@ class StatusBar:
         self,
         state: StatusBarState | None = None,
         *,
-        title: str = "ai-infra executor",
+        title: str = "ai-infra",
     ) -> None:
         """Initialize the status bar.
 
@@ -560,7 +560,7 @@ class LiveStatusBar:
         state: StatusBarState | None = None,
         console: Console | None = None,
         *,
-        title: str = "ai-infra executor",
+        title: str = "ai-infra",
         refresh_rate: float = 4.0,
     ) -> None:
         """Initialize the live status bar.

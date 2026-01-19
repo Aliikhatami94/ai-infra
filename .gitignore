@@ -39,7 +39,3 @@ dist/
 aiinfa.iml
 *.iml
 *.env
-
-# Executor temp files
-.executor/
-EXECUTOR_*.md

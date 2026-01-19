@@ -126,7 +126,7 @@ class ShellSession:
         self._closed = False
         self._lock = asyncio.Lock()
         self._last_activity = time.monotonic()
-        # Phase 2.3.2: Track command history for executor state
+        # Phase 2.3.2: Track command history for session tracking
         self._command_history: list[ShellResult] = []
         # Phase 11.3: Session ID for audit correlation
         self._session_id = uuid.uuid4().hex[:12]
@@ -142,7 +142,7 @@ class ShellSession:
     def command_history(self) -> list[ShellResult]:
         """Get the history of commands executed in this session.
 
-        Phase 2.3.2: Provides access to command history for executor state tracking.
+        Phase 2.3.2: Provides access to command history for session tracking.
 
         Returns:
             List of ShellResult objects from commands executed in this session.
@@ -237,7 +237,7 @@ class ShellSession:
             if audit := self._get_audit_logger():
                 audit.log_result(result, session_id=self._session_id)
 
-            # Phase 2.3.2: Track command in history for executor state
+            # Phase 2.3.2: Track command in history for session
             self._command_history.append(result)
             return result
 

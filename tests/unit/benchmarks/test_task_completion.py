@@ -1,6 +1,6 @@
 """Tests for task completion benchmark module.
 
-Tests Phase 12.3 of EXECUTOR_4.md - Task Completion Benchmark.
+Tests Phase 12.3 - Task Completion Benchmark.
 """
 
 from __future__ import annotations

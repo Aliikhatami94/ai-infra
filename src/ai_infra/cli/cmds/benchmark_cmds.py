@@ -1,15 +1,13 @@
 """CLI commands for running benchmarks.
 
-Phase 12.1 of EXECUTOR_4.md - Benchmark CLI.
+Phase 12.1 - Benchmark CLI.
 
-Provides CLI commands for running executor benchmarks:
+Provides CLI commands for running benchmarks:
 - `ai benchmark all`: Run all benchmarks
-- `ai benchmark executor`: Run executor-specific benchmarks
 - `ai benchmark shell`: Run shell execution benchmarks
 
 Example:
     $ ai benchmark all --iterations 20 --output results.json
-    $ ai benchmark executor --warmup 5
 """
 
 from __future__ import annotations
