@@ -1,7 +1,6 @@
 from .benchmark_cmds import app as benchmark_app
 from .chat_cmds import register as register_chat
 from .discovery_cmds import register as register_discovery
-from .executor_cmds import register as register_executor
 from .help import _HELP
 from .imagegen_cmds import register as register_imagegen
 from .mcp_cmds import register as register_mcp
@@ -13,7 +12,6 @@ __all__ = [
     "benchmark_app",
     "register_chat",
     "register_discovery",
-    "register_executor",
     "register_imagegen",
     "register_mcp",
     "register_multimodal",

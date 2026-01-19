@@ -548,4 +548,3 @@ If a security incident occurs:
 - [Shell Tool API](../tools/shell-tool.md) — Function reference
 - [ShellMiddleware](../tools/shell-middleware.md) — Session management
 - [Using Shell Tool in Agents](shell-tool-guide.md) — Integration guide
-- [Autonomous Verification](../executor/autonomous-verification.md) — Verification system

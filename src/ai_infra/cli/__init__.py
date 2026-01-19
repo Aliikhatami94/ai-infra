@@ -13,7 +13,6 @@ from ai_infra.cli.cmds import (
     benchmark_app,
     register_chat,
     register_discovery,
-    register_executor,
     register_imagegen,
     register_mcp,
     register_multimodal,
@@ -259,7 +258,6 @@ def main_callback(
 
 
 register_chat(app)
-register_executor(app)
 register_stdio_publisher(app)
 register_discovery(app)
 register_imagegen(app)

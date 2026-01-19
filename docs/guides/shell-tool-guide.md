@@ -503,5 +503,4 @@ result = await run_shell.ainvoke({"command": "echo $FOO"})
 
 - [Shell Tool API](../tools/shell-tool.md) — Function reference
 - [ShellMiddleware API](../tools/shell-middleware.md) — Middleware reference
-- [Autonomous Verification](../executor/autonomous-verification.md) — Verification system
 - [Security Best Practices](shell-security.md) — Security guidelines
