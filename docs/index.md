@@ -115,18 +115,6 @@ Step-by-step guides for common tasks.
 
 ---
 
-## Executor
-
-Autonomous roadmap execution and task verification.
-
-| Module | Description | Doc |
-|--------|-------------|-----|
-| **Graph Architecture** | Executor state machine design | [graph-architecture.md](executor/graph-architecture.md) |
-| **Autonomous Verification** | Task verification with shell testing | [autonomous-verification.md](executor/autonomous-verification.md) |
-| **Migration Guide** | Upgrade to latest executor | [migration-guide.md](executor/migration-guide.md) |
-
----
-
 ## Image Generation
 
 Generate images with multiple providers.

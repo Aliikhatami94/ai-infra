@@ -326,38 +326,26 @@ if not result["success"]:
 
 ---
 
-## Integration with Executor
+## Integration with Agent
 
-The shell tool is automatically available in the Executor:
+The shell tool can be added to any agent:
 
 ```python
-from ai_infra import Executor
+from ai_infra import Agent
+from ai_infra.llm.shell import create_shell_tool
 
-executor = Executor(
-    roadmap_path="/path/to/ROADMAP.md",
-    enable_shell=True,           # Default: True
-    shell_timeout=120.0,         # Default timeout
-    shell_workspace="/project",  # Working directory
+# Create shell tool with defaults
+shell_tool = create_shell_tool(
+    default_cwd="/project",
+    default_timeout=120.0,
 )
 
-await executor.arun()
-# Agent can use run_shell to build, test, and verify tasks
-```
+agent = Agent(
+    tools=[shell_tool],
+)
 
-### CLI Options
-
-```bash
-# Enable shell (default)
-ai-infra executor run --roadmap ROADMAP.md --enable-shell
-
-# Disable shell for safety
-ai-infra executor run --roadmap ROADMAP.md --no-shell
-
-# Custom timeout
-ai-infra executor run --roadmap ROADMAP.md --shell-timeout 300
-
-# Restrict to specific commands
-ai-infra executor run --roadmap ROADMAP.md --shell-allowed-commands "pytest,npm,make"
+await agent.arun("Run the tests")
+# Agent can use run_shell to build, test, and verify
 ```
 
 ---

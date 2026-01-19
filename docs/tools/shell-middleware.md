@@ -287,27 +287,20 @@ result = agent.run("""
 """)
 ```
 
-### With Executor
+### With Agent
 
 ```python
-from ai_infra import Executor
+from ai_infra import Agent
 from ai_infra.llm.shell import ShellMiddleware
 
-# Executor creates middleware automatically when enable_shell=True
-executor = Executor(
-    roadmap_path="ROADMAP.md",
-    enable_shell=True,
-    shell_workspace="/project",
-)
-
-# Or provide custom middleware
+# Provide custom middleware
 middleware = ShellMiddleware(
     workspace_root="/project",
     allowed_commands=("pytest", "make"),
 )
 
-executor = Executor(
-    roadmap_path="ROADMAP.md",
+agent = Agent(
+    deep=True,
     middleware=[middleware],
 )
 ```
@@ -403,5 +396,4 @@ middleware = ShellMiddleware(
 
 - [Shell Tool](shell-tool.md) — The `run_shell` tool
 - [Using Shell Tool in Agents](../guides/shell-tool-guide.md) — Usage guide
-- [Autonomous Verification](../executor/autonomous-verification.md) — Verification system
 - [Security Best Practices](../guides/shell-security.md) — Security guidelines
