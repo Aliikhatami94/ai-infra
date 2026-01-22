@@ -46,6 +46,18 @@ server.add_openapi("./specs/api.json")
 
 ### From Dict
 
+When you already have the OpenAPI spec in memory, pass it directly. This is **recommended** when the server needs to load its own OpenAPI spec (avoids HTTP self-request deadlock in single-worker mode):
+
+```python
+# Get spec from svc-infra version registry (no HTTP request)
+from svc_infra.api.fastapi import get_version_openapi
+
+spec = get_version_openapi("v0")  # Returns dict directly
+server.add_openapi(spec)
+```
+
+Or with a manual spec:
+
 ```python
 spec = {
     "openapi": "3.0.0",
@@ -62,6 +74,8 @@ spec = {
 
 server.add_openapi(spec)
 ```
+
+> **Note**: When running a server with a single worker (e.g., `uvicorn --reload`), the server cannot fetch its own OpenAPI via HTTP because it blocks waiting for a response from itself. Use the dict approach or `svc_infra.api.fastapi.get_version_openapi()` instead.
 
 ---
 
