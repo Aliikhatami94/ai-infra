@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
-from langchain_core.tools import BaseTool
+from langchain_core.tools import BaseTool, StructuredTool
 from langchain_core.tools import tool as lc_tool
 from langgraph.prebuilt import create_react_agent
 from langgraph.runtime import Runtime
@@ -205,5 +206,84 @@ def _normalize_tool(t):
             list(t.keys()),
         )
         return None
+
+    # Handle MCP tools (mcp.server.fastmcp.tools.base.Tool)
+    # Check by duck-typing to avoid hard dependency on mcp package
+    if _is_mcp_tool(t):
+        return _mcp_tool_to_langchain(t)
+
     _logger.warning("Unsupported tool type ignored: %r", type(t))
     return None
+
+
+def _is_mcp_tool(t: Any) -> bool:
+    """Check if object is an MCP Tool by duck-typing.
+
+    MCP tools have: fn, name, description, parameters, run() method.
+    We check by attributes rather than isinstance to avoid import dependency.
+    """
+    return (
+        hasattr(t, "fn")
+        and hasattr(t, "name")
+        and hasattr(t, "description")
+        and hasattr(t, "parameters")
+        and hasattr(t, "run")
+        and callable(getattr(t, "run", None))
+    )
+
+
+def _mcp_tool_to_langchain(mcp_tool: Any) -> BaseTool:
+    """Convert an MCP Tool to a LangChain StructuredTool.
+
+    MCP tools from FastMCP have:
+    - fn: The underlying callable
+    - name: Tool name
+    - description: Tool description
+    - parameters: JSON schema for input
+    - is_async: Whether the tool is async
+    - run(arguments, context=None): Execute the tool
+
+    We create a StructuredTool that wraps the MCP tool's run() method.
+    """
+    name = getattr(mcp_tool, "name", "unknown_tool")
+    description = getattr(mcp_tool, "description", "") or ""
+    parameters = getattr(mcp_tool, "parameters", {}) or {}
+    is_async = getattr(mcp_tool, "is_async", False)
+
+    # Create wrapper functions that call mcp_tool.run()
+    # MCP tool.run() takes a dict of arguments
+    def sync_wrapper(**kwargs: Any) -> Any:
+        """Sync wrapper for MCP tool."""
+        result = mcp_tool.run(kwargs)
+        # Handle async result if run() returns a coroutine
+        if asyncio.iscoroutine(result):
+            # Run in event loop - this handles the case where
+            # an async MCP tool is called from sync context
+            try:
+                loop = asyncio.get_running_loop()
+                # We're in an async context, need to use run_coroutine_threadsafe
+                future = asyncio.run_coroutine_threadsafe(result, loop)
+                return future.result(timeout=60)
+            except RuntimeError:
+                # No running loop, safe to use asyncio.run
+                return asyncio.run(result)
+        return result
+
+    async def async_wrapper(**kwargs: Any) -> Any:
+        """Async wrapper for MCP tool."""
+        result = mcp_tool.run(kwargs)
+        if asyncio.iscoroutine(result):
+            return await result
+        return result
+
+    # Build the StructuredTool
+    # Use args_schema as dict (JSON schema) - LangChain accepts this
+    tool = StructuredTool(
+        name=name,
+        description=description,
+        args_schema=parameters,  # JSON schema dict
+        func=sync_wrapper if not is_async else None,
+        coroutine=async_wrapper if is_async else async_wrapper,  # Always provide async
+    )
+
+    return tool

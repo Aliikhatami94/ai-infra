@@ -15,9 +15,12 @@ from ai_infra.mcp.server.openapi import (
     AuthConfig,
     OpenAPIOptions,
     _mcp_from_openapi,
+    _mcp_from_openapi_async,
     load_openapi,
+    load_openapi_async,
 )
 from ai_infra.mcp.server.openapi.builder import (
+    _apply_auth_config,
     _merge_allof_schemas,
     _py_type_from_schema,
     _resolve_ref,
@@ -245,6 +248,117 @@ class TestZeroConfig:
         result = load_openapi(yaml_str)
         assert result["openapi"] == "3.1.0"
         assert result["info"]["title"] == "Test"
+
+    @pytest.mark.asyncio
+    async def test_load_openapi_async_json_string(self):
+        """load_openapi_async parses JSON string."""
+        json_str = '{"openapi": "3.1.0", "info": {"title": "Test"}}'
+        result = await load_openapi_async(json_str)
+        assert result["openapi"] == "3.1.0"
+        assert result["info"]["title"] == "Test"
+
+    @pytest.mark.asyncio
+    async def test_load_openapi_async_url_json(self, monkeypatch):
+        """load_openapi_async fetches URL specs with async I/O."""
+        import json as _json
+
+        import httpx
+
+        class _FakeResp:
+            status_code = 200
+            reason_phrase = "OK"
+            headers = {"content-type": "application/json"}
+
+            def __init__(self, text: str):
+                self.text = text
+
+            def json(self):
+                return _json.loads(self.text)
+
+        class _FakeAsyncClient:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return None
+
+            async def get(self, url: str):
+                spec = {
+                    "openapi": "3.1.0",
+                    "info": {"title": "Async API", "version": "1.0.0"},
+                    "paths": {
+                        "/ping": {
+                            "get": {
+                                "operationId": "ping",
+                                "responses": {"200": {"description": "OK"}},
+                            }
+                        }
+                    },
+                }
+                return _FakeResp(_json.dumps(spec))
+
+        monkeypatch.setattr(httpx, "AsyncClient", _FakeAsyncClient)
+
+        spec = await load_openapi_async("https://example.com/openapi.json")
+        assert spec["info"]["title"] == "Async API"
+        assert "/ping" in spec.get("paths", {})
+
+    @pytest.mark.asyncio
+    async def test_mcp_from_openapi_async_url(self, monkeypatch):
+        """_mcp_from_openapi_async awaits URL fetch then builds tools."""
+        import json as _json
+
+        import httpx
+
+        class _FakeResp:
+            status_code = 200
+            reason_phrase = "OK"
+            headers = {"content-type": "application/json"}
+
+            def __init__(self, text: str):
+                self.text = text
+
+            def json(self):
+                return _json.loads(self.text)
+
+        class _FakeAsyncClient:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return None
+
+            async def get(self, url: str):
+                spec = {
+                    "openapi": "3.1.0",
+                    "info": {"title": "Async API", "version": "1.0.0"},
+                    "paths": {
+                        "/ping": {
+                            "get": {
+                                "operationId": "ping",
+                                "responses": {"200": {"description": "OK"}},
+                            }
+                        }
+                    },
+                }
+                return _FakeResp(_json.dumps(spec))
+
+        monkeypatch.setattr(httpx, "AsyncClient", _FakeAsyncClient)
+
+        mcp, cleanup, report = await _mcp_from_openapi_async(
+            "https://example.com/openapi.json",
+            base_url="https://example.com",
+        )
+
+        assert mcp is not None
+        assert report.title == "Async API"
+        assert report.total_ops == 1
 
     def test_all_endpoints_become_tools(self, simple_spec):
         """All endpoints become MCP tools by default."""
@@ -489,6 +603,30 @@ class TestAuthentication:
         assert admin_auth.headers == {"Authorization": "Bearer admin-token"}
 
         assert options.get_auth_for_path("/internal/health") is None
+
+    @pytest.mark.asyncio
+    async def test_apply_auth_config_overrides_authorization_header(self):
+        headers = {"Authorization": "Bearer WRONG"}
+        query: dict[str, Any] = {}
+
+        auth_config = AuthConfig(bearer="RIGHT")
+        await _apply_auth_config(auth_config, headers, query)
+
+        assert headers["Authorization"] == "Bearer RIGHT"
+
+    @pytest.mark.asyncio
+    async def test_apply_auth_config_bearer_fn_skips_when_missing(self):
+        headers = {"Authorization": "Bearer EXISTING"}
+        query: dict[str, Any] = {}
+
+        def bearer_fn() -> None:
+            return None
+
+        auth_config = AuthConfig(bearer_fn=bearer_fn)
+        await _apply_auth_config(auth_config, headers, query)
+
+        # Should not overwrite an existing header with "Bearer None"
+        assert headers["Authorization"] == "Bearer EXISTING"
 
 
 # =============================================================================
