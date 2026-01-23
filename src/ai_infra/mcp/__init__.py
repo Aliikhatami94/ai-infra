@@ -32,7 +32,12 @@ from ai_infra.mcp.client.resources import (
     load_mcp_resources,
 )
 from ai_infra.mcp.server import MCPSecuritySettings, MCPServer
-from ai_infra.mcp.server.openapi import load_openapi, load_spec
+from ai_infra.mcp.server.openapi import (
+    load_openapi,
+    load_openapi_async,
+    load_spec,
+    load_spec_async,
+)
 from ai_infra.mcp.server.tools import mcp_from_functions
 
 # Phase 6.8 - Tool loading helpers
@@ -80,7 +85,9 @@ __all__ = [
     "MCPConnectionError",
     # Utilities
     "load_openapi",
+    "load_openapi_async",
     "load_spec",
+    "load_spec_async",
     "mcp_from_functions",
     # Phase 6.8 - Tool loading helpers
     "load_mcp_tools_cached",

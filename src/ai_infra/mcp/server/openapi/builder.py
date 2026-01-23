@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import base64
 import logging
 import os
@@ -12,7 +13,7 @@ from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel, ConfigDict, Field, conlist, create_model
 
 from .constants import ALLOWED_METHODS
-from .io import load_openapi
+from .io import load_openapi, load_openapi_async
 from .models import (
     AuthConfig,
     BuildReport,
@@ -31,7 +32,13 @@ from .runtime import (
     split_params,
 )
 
-__all__ = ["AuthConfig", "OpenAPIError", "OpenAPIOptions", "_mcp_from_openapi"]
+__all__ = [
+    "AuthConfig",
+    "OpenAPIError",
+    "OpenAPIOptions",
+    "_mcp_from_openapi",
+    "_mcp_from_openapi_async",
+]
 log = logging.getLogger(__name__)
 
 
@@ -188,34 +195,38 @@ async def _apply_auth_config(
     if not auth_config:
         return
 
-    # Apply static headers
+    # AuthConfig is intended to override/supplement spec-derived auth.
+    # Use explicit assignment to avoid "sticky" empty/incorrect headers.
+
+    # Apply static headers (highest precedence)
     for k, v in auth_config.headers.items():
-        headers.setdefault(k, v)
+        headers[k] = v
 
     # Apply query params
     for k, v in auth_config.query.items():
-        query.setdefault(k, v)
+        query[k] = v
+
+    explicit_auth_header = "Authorization" in auth_config.headers
 
     # Apply basic auth
-    if auth_config.basic:
+    if auth_config.basic and not explicit_auth_header:
         u, p = auth_config.basic
         token = base64.b64encode(f"{u}:{p}".encode()).decode()
-        headers.setdefault("Authorization", f"Basic {token}")
+        headers["Authorization"] = f"Basic {token}"
 
     # Apply bearer token
-    if auth_config.bearer:
-        headers.setdefault("Authorization", f"Bearer {auth_config.bearer}")
+    if auth_config.bearer and not explicit_auth_header:
+        headers["Authorization"] = f"Bearer {auth_config.bearer}"
 
     # Apply dynamic bearer token
-    if auth_config.bearer_fn:
-        import asyncio
-
+    if auth_config.bearer_fn and not explicit_auth_header:
         fn = auth_config.bearer_fn
         if asyncio.iscoroutinefunction(fn):
             token = await fn()
         else:
             token = fn()
-        headers.setdefault("Authorization", f"Bearer {token}")
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
 
 
 # ---------------------- Context helpers ----------------------
@@ -511,11 +522,17 @@ def _pick_response_schema(op: dict, spec: OpenAPISpec) -> tuple[dict | None, str
 def _build_output_model(op_ctx: OperationContext, op: dict, spec: OpenAPISpec) -> type[BaseModel]:
     """
     Envelope: status, headers, url, method, and payload as either:
-      - alias 'json' (typed if we discovered a schema), OR
-      - 'text'
+            - alias 'json' (raw JSON), OR
+            - 'text'
     Uses aliases to avoid shadowing BaseModel.json().
     """
-    resp_schema, resp_ct = _pick_response_schema(op, spec)
+
+    # We intentionally return raw JSON rather than coercing into a generated
+    # Pydantic model. OpenAPI schemas frequently use casing/aliases that do not
+    # line up with the runtime JSON keys (e.g., camelCase vs snake_case), and the
+    # generated model can silently produce empty objects. Raw JSON is reliably
+    # consumable by both humans and LLMs.
+    _pick_response_schema(op, spec)
 
     fields: dict[str, Any] = {
         "status": (int, ...),
@@ -524,17 +541,8 @@ def _build_output_model(op_ctx: OperationContext, op: dict, spec: OpenAPISpec) -
         "method": (str, ...),
     }
 
-    # use internal names with alias="json"/"text"
-    if resp_schema and (resp_ct == "application/json"):
-        payload_type = _py_type_from_schema(resp_schema, spec)
-        fields["payload_json"] = (
-            payload_type | None,
-            Field(default=None, alias="json"),
-        )
-        fields["payload_text"] = (str | None, Field(default=None, alias="text"))
-    else:
-        fields["payload_json"] = (Any | None, Field(default=None, alias="json"))
-        fields["payload_text"] = (str | None, Field(default=None, alias="text"))
+    fields["payload_json"] = (Any | None, Field(default=None, alias="json"))
+    fields["payload_text"] = (str | None, Field(default=None, alias="text"))
 
     Model = create_model(
         "Output_" + op_ctx.name,
@@ -1197,3 +1205,65 @@ def _mcp_from_openapi(
     _maybe_log_report(report, report_log)
 
     return mcp, async_cleanup, report
+
+
+async def _mcp_from_openapi_async(
+    spec: dict | str | Path,
+    *,
+    client: httpx.AsyncClient | None = None,
+    client_factory: Callable[[], httpx.AsyncClient] | None = None,
+    base_url: str | None = None,
+    strict_names: bool = False,
+    report_log: bool | None = None,
+    # NEW: Options for filtering and customization
+    options: OpenAPIOptions | None = None,
+    # Convenience shortcuts (applied to options)
+    tool_prefix: str | None = None,
+    include_paths: list[str] | None = None,
+    exclude_paths: list[str] | None = None,
+    include_methods: list[str] | None = None,
+    exclude_methods: list[str] | None = None,
+    include_tags: list[str] | None = None,
+    exclude_tags: list[str] | None = None,
+    include_operations: list[str] | None = None,
+    exclude_operations: list[str] | None = None,
+    tool_name_fn: Callable[[str, str, dict], str] | None = None,
+    tool_description_fn: Callable[[dict], str] | None = None,
+    auth: Any = None,
+    endpoint_auth: dict[str, Any] | None = None,
+) -> tuple[FastMCP, Callable[[], Awaitable[None]] | None, BuildReport]:
+    """Async OpenAPI->MCP builder.
+
+    This is equivalent to `_mcp_from_openapi`, but uses async I/O when the
+    spec source is a URL. This prevents blocking the event loop when called
+    from async servers (e.g., FastAPI request handlers).
+    """
+
+    resolved_spec: dict
+    if isinstance(spec, dict):
+        resolved_spec = spec
+    else:
+        resolved_spec = await load_openapi_async(spec)
+
+    return _mcp_from_openapi(
+        resolved_spec,
+        client=client,
+        client_factory=client_factory,
+        base_url=base_url,
+        strict_names=strict_names,
+        report_log=report_log,
+        options=options,
+        tool_prefix=tool_prefix,
+        include_paths=include_paths,
+        exclude_paths=exclude_paths,
+        include_methods=include_methods,
+        exclude_methods=exclude_methods,
+        include_tags=include_tags,
+        exclude_tags=exclude_tags,
+        include_operations=include_operations,
+        exclude_operations=exclude_operations,
+        tool_name_fn=tool_name_fn,
+        tool_description_fn=tool_description_fn,
+        auth=auth,
+        endpoint_auth=endpoint_auth,
+    )

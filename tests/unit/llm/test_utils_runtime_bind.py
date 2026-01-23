@@ -265,6 +265,88 @@ class TestNormalizeTool:
 
         assert result is None
 
+    def test_mcp_tool_is_converted(self):
+        """Test MCP Tool (from FastMCP) is converted to LangChain tool.
+
+        MCP tools have: fn, name, description, parameters, run() method.
+        They should be detected by duck-typing and converted.
+        """
+
+        # Create a mock MCP-like tool (duck-typed, not actual mcp import)
+        class MockMCPTool:
+            def __init__(self):
+                self.fn = lambda x: x
+                self.name = "test_mcp_tool"
+                self.description = "A test MCP tool for unit testing"
+                self.parameters = {
+                    "type": "object",
+                    "properties": {"query": {"type": "string", "description": "Search query"}},
+                    "required": ["query"],
+                }
+                self.is_async = False
+
+            def run(self, arguments: dict) -> str:
+                return f"Result for: {arguments.get('query', '')}"
+
+        mcp_tool = MockMCPTool()
+        result = _normalize_tool(mcp_tool)
+
+        # Should be converted to a BaseTool
+        assert result is not None
+        assert isinstance(result, BaseTool)
+        assert result.name == "test_mcp_tool"
+        assert "test MCP tool" in result.description
+
+    def test_mcp_async_tool_is_converted(self):
+        """Test async MCP Tool is converted correctly."""
+
+        class MockAsyncMCPTool:
+            def __init__(self):
+                self.fn = lambda x: x
+                self.name = "async_mcp_tool"
+                self.description = "An async MCP tool"
+                self.parameters = {"type": "object", "properties": {}}
+                self.is_async = True
+
+            async def run(self, arguments: dict) -> str:
+                return "async result"
+
+        async_mcp_tool = MockAsyncMCPTool()
+        result = _normalize_tool(async_mcp_tool)
+
+        assert result is not None
+        assert isinstance(result, BaseTool)
+        assert result.name == "async_mcp_tool"
+
+    def test_mcp_tool_execution(self):
+        """Test converted MCP tool can be executed."""
+
+        class ExecutableMCPTool:
+            def __init__(self):
+                self.fn = lambda x: x
+                self.name = "executable_tool"
+                self.description = "Tool that can be executed"
+                self.parameters = {
+                    "type": "object",
+                    "properties": {"value": {"type": "string"}},
+                }
+                self.is_async = False
+                self.call_count = 0
+
+            def run(self, arguments: dict) -> str:
+                self.call_count += 1
+                return f"Executed with: {arguments.get('value', 'none')}"
+
+        mcp_tool = ExecutableMCPTool()
+        converted = _normalize_tool(mcp_tool)
+
+        # Execute the converted tool
+        result = converted.invoke({"value": "test_input"})
+
+        # Verify execution
+        assert "Executed with: test_input" in str(result)
+        assert mcp_tool.call_count == 1
+
 
 # =============================================================================
 # TEST: make_agent_with_context()

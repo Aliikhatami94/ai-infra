@@ -7,7 +7,12 @@ import yaml
 
 from .models import OpenAPISpec
 
-__all__ = ["load_openapi", "load_spec"]
+__all__ = [
+    "load_openapi",
+    "load_openapi_async",
+    "load_spec",
+    "load_spec_async",
+]
 
 
 def load_openapi(source: str | Path | dict) -> OpenAPISpec:
@@ -49,6 +54,27 @@ def load_openapi(source: str | Path | dict) -> OpenAPISpec:
         return _load_openapi_file(p)
 
     # Raw JSON/YAML string
+    return _parse_openapi_string(source_str)
+
+
+async def load_openapi_async(source: str | Path | dict) -> OpenAPISpec:
+    """Async variant of load_openapi.
+
+    Notes:
+        - URL sources are fetched with httpx.AsyncClient (non-blocking).
+        - Local file and raw-string parsing are done synchronously (fast).
+    """
+    if isinstance(source, dict):
+        return source
+
+    source_str = str(source)
+    if source_str.startswith(("http://", "https://")):
+        return await _fetch_openapi_url_async(source_str)
+
+    p = Path(source_str)
+    if p.exists() and p.is_file():
+        return _load_openapi_file(p)
+
     return _parse_openapi_string(source_str)
 
 
@@ -133,6 +159,76 @@ def _fetch_openapi_url(
     raise OpenAPINetworkError("Unknown error fetching URL", url=url)
 
 
+async def _fetch_openapi_url_async(
+    url: str,
+    *,
+    timeout: float = 30.0,
+    retries: int = 0,
+) -> OpenAPISpec:
+    """Async fetch OpenAPI spec from a URL.
+
+    This avoids blocking the event loop when used inside async servers.
+    """
+    import httpx
+
+    from .builder import OpenAPINetworkError, OpenAPIParseError
+
+    last_error: Exception | None = None
+    attempts = retries + 1
+
+    for attempt in range(attempts):
+        try:
+            async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+                resp = await client.get(url)
+
+            if resp.status_code >= 400:
+                raise OpenAPINetworkError(
+                    f"HTTP {resp.status_code}: {resp.reason_phrase}",
+                    url=url,
+                    status_code=resp.status_code,
+                )
+
+            content_type = resp.headers.get("content-type", "")
+
+            if "json" in content_type or url.endswith(".json"):
+                try:
+                    from typing import cast
+
+                    return cast("OpenAPISpec", resp.json())
+                except json.JSONDecodeError as e:
+                    raise OpenAPIParseError(f"Invalid JSON: {e}") from e
+
+            if "yaml" in content_type or url.endswith((".yaml", ".yml")):
+                try:
+                    from typing import cast
+
+                    return cast("OpenAPISpec", yaml.safe_load(resp.text))
+                except yaml.YAMLError as e:
+                    raise OpenAPIParseError(f"Invalid YAML: {e}") from e
+
+            return _parse_openapi_string(resp.text)
+
+        except httpx.TimeoutException as e:
+            last_error = OpenAPINetworkError(f"Request timeout: {e}", url=url)
+            if attempt < attempts - 1:
+                continue
+        except httpx.ConnectError as e:
+            last_error = OpenAPINetworkError(f"Connection error: {e}", url=url)
+            if attempt < attempts - 1:
+                continue
+        except httpx.HTTPError as e:
+            last_error = OpenAPINetworkError(f"HTTP error: {e}", url=url)
+            if attempt < attempts - 1:
+                continue
+        except (OpenAPINetworkError, OpenAPIParseError):
+            raise
+
+    if last_error:
+        raise last_error
+
+    raise OpenAPINetworkError("Unknown error fetching URL", url=url)
+
+
 def _load_openapi_file(path: Path) -> OpenAPISpec:
     """Load OpenAPI spec from a local file."""
     text = path.read_text(encoding="utf-8")
@@ -165,3 +261,8 @@ def _parse_openapi_string(text: str) -> OpenAPISpec:
 def load_spec(source: str | Path | dict) -> OpenAPISpec:
     """Alias for load_openapi."""
     return load_openapi(source)
+
+
+async def load_spec_async(source: str | Path | dict) -> OpenAPISpec:
+    """Async alias for load_openapi_async."""
+    return await load_openapi_async(source)
